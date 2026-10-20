@@ -10,16 +10,17 @@ class CartPage extends StatefulWidget {
 }
 
 class _CartPageState extends State<CartPage> {
-  bool _useCoins = true;
+  bool _isEditMode = false;
+  bool _useCoins = false;
   final CartService _cartService = CartService.instance;
 
   // Dynamic Real-time Calculations
   int get _checkedCount => _cartService.selectedCount;
+  int get _checkedItemsCount => _cartService.selectedItemsCount;
 
   bool get _isAllChecked => _cartService.isAllSelected;
 
   double get _subtotal => _cartService.subtotal;
-
   double get _originalSubtotal => _cartService.originalSubtotal;
 
   double get _voucherDiscount => _checkedCount > 0 ? 150.0 : 0.0;
@@ -45,7 +46,8 @@ class _CartPageState extends State<CartPage> {
   }
 
   bool _isStoreAllChecked(String storeName) {
-    final storeItems = _cartService.items.where((i) => i.storeName == storeName);
+    final storeItems =
+        _cartService.items.where((i) => i.storeName == storeName);
     return storeItems.isNotEmpty && storeItems.every((i) => i.isChecked);
   }
 
@@ -71,7 +73,50 @@ class _CartPageState extends State<CartPage> {
     );
   }
 
-  @override
+  void _deleteSelectedItems() {
+    if (_checkedItemsCount == 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please select items to delete.'),
+          duration: Duration(milliseconds: 1500),
+        ),
+      );
+      return;
+    }
+
+    final count = _checkedItemsCount;
+    _cartService.removeSelectedItems();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Successfully deleted $count item(s) from cart.'),
+        backgroundColor: const Color(0xFFDC2626),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  void _moveToMyLikes() {
+    if (_checkedItemsCount == 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please select items to move to My Likes.'),
+          duration: Duration(milliseconds: 1500),
+        ),
+      );
+      return;
+    }
+
+    final count = _checkedItemsCount;
+    _cartService.moveSelectedToLikes();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Moved $count item(s) to My Likes! ❤️'),
+        backgroundColor: const Color(0xFF0066FF),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
@@ -101,7 +146,7 @@ class _CartPageState extends State<CartPage> {
               'Shopping Cart',
               style: TextStyle(
                 color: Color(0xFF0F172A),
-                fontWeight: FontWeight.w900,
+                fontWeight: FontWeight.w800,
                 fontSize: 18,
               ),
             ),
@@ -109,16 +154,16 @@ class _CartPageState extends State<CartPage> {
             actions: [
               TextButton(
                 onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Cart Edit Mode Activated')),
-                  );
+                  setState(() {
+                    _isEditMode = !_isEditMode;
+                  });
                 },
-                child: const Text(
-                  'Edit',
-                  style: TextStyle(
+                child: Text(
+                  _isEditMode ? 'Done' : 'Edit',
+                  style: const TextStyle(
                     color: Color(0xFF0066FF),
                     fontWeight: FontWeight.w700,
-                    fontSize: 14,
+                    fontSize: 14.5,
                   ),
                 ),
               ),
@@ -150,16 +195,17 @@ class _CartPageState extends State<CartPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Top Free Shipping Promo Banner
+                    // Top Free Shipping Banner matching reference image
                     _buildFreeShippingPromoBanner(),
 
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 12),
                       child: Column(
                         children: [
                           if (_cartService.items.isEmpty)
                             Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 40),
+                              padding: const EdgeInsets.symmetric(vertical: 60),
                               child: Column(
                                 children: [
                                   const Icon(Icons.shopping_bag_outlined,
@@ -191,7 +237,8 @@ class _CartPageState extends State<CartPage> {
                                       backgroundColor: const Color(0xFF0066FF),
                                       foregroundColor: Colors.white,
                                       shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(20),
+                                        borderRadius:
+                                            BorderRadius.circular(20),
                                       ),
                                     ),
                                     child: const Text('Start Shopping'),
@@ -200,18 +247,21 @@ class _CartPageState extends State<CartPage> {
                               ),
                             )
                           else
-                            // Store Groups List
                             ...groupedItems.entries.map((entry) {
-                              return _buildStoreCardGroup(entry.key, entry.value);
+                              return _buildStoreGroupCard(
+                                  entry.key, entry.value);
                             }),
-                          const SizedBox(height: 14),
+
+                          const SizedBox(height: 10),
 
                           // Platform Voucher & Coins Card
                           _buildVoucherAndCoinsCard(),
+
                           const SizedBox(height: 24),
 
                           // You May Also Like Section
                           _buildYouMayAlsoLikeSection(),
+
                           const SizedBox(height: 120),
                         ],
                       ),
@@ -220,10 +270,10 @@ class _CartPageState extends State<CartPage> {
                 ),
               ),
 
-              // Bottom Fixed Action Dock with Real-time Checkout Routing
+              // Bottom Fixed Action Dock with Real-time Checkout & Edit Mode
               Align(
                 alignment: Alignment.bottomCenter,
-                child: _buildBottomCheckoutDock(),
+                child: _buildBottomDock(),
               ),
             ],
           ),
@@ -290,14 +340,13 @@ class _CartPageState extends State<CartPage> {
             ],
           ),
           const SizedBox(height: 8),
-          // Progress Bar
           ClipRRect(
             borderRadius: BorderRadius.circular(3),
-            child: LinearProgressIndicator(
+            child: const LinearProgressIndicator(
               value: 0.75,
               minHeight: 4,
-              backgroundColor: const Color(0xFFCBD5E1),
-              valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF00D2FF)),
+              backgroundColor: Color(0xFFCBD5E1),
+              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF00D2FF)),
             ),
           ),
         ],
@@ -305,9 +354,9 @@ class _CartPageState extends State<CartPage> {
     );
   }
 
-  Widget _buildStoreCardGroup(String storeName, List<CartItemModel> items) {
-    final firstItem = items.first;
+  Widget _buildStoreGroupCard(String storeName, List<CartItemModel> items) {
     final isStoreChecked = _isStoreAllChecked(storeName);
+    final firstItem = items.first;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
@@ -329,18 +378,11 @@ class _CartPageState extends State<CartPage> {
           // Store Header Row
           Row(
             children: [
-              SizedBox(
-                width: 24,
-                height: 24,
-                child: Checkbox(
-                  value: isStoreChecked,
-                  activeColor: const Color(0xFF0066FF),
-                  onChanged: (val) {
-                    _toggleStore(storeName, val ?? false);
-                  },
-                ),
+              _buildCircularCheckbox(
+                isChecked: isStoreChecked,
+                onTap: () => _toggleStore(storeName, !isStoreChecked),
               ),
-              const SizedBox(width: 6),
+              const SizedBox(width: 8),
               if (firstItem.storeBadge.isNotEmpty) ...[
                 Container(
                   padding:
@@ -364,32 +406,57 @@ class _CartPageState extends State<CartPage> {
                 ),
                 const SizedBox(width: 6),
               ],
-              Text(
-                storeName,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w800,
-                  fontSize: 13.5,
-                  color: Color(0xFF0F172A),
+              GestureDetector(
+                onTap: () {
+                  final lower = storeName.toLowerCase();
+                  final shopId = lower.contains('soundmax')
+                      ? 'soundmax_audio'
+                      : lower.contains('mikana')
+                          ? 'mikana_official'
+                          : lower.contains('logitech')
+                              ? 'logitech_hub'
+                              : lower.contains('aura')
+                                  ? 'aura_studios'
+                                  : 'nexora_official';
+                  Navigator.pushNamed(context, AppRoutes.shop, arguments: shopId);
+                },
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      storeName,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 13.5,
+                        color: Color(0xFF0F172A),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    const Icon(Icons.chevron_right, size: 16, color: Color(0xFF94A3B8)),
+                  ],
                 ),
               ),
-              const SizedBox(width: 4),
-              const Icon(Icons.chevron_right, size: 16, color: Color(0xFF94A3B8)),
               const Spacer(),
-              Container(
-                width: 26,
-                height: 26,
-                decoration: const BoxDecoration(
-                  color: Color(0xFFEEF2FF),
-                  shape: BoxShape.circle,
+              GestureDetector(
+                onTap: () {
+                  Navigator.pushNamed(context, AppRoutes.chat);
+                },
+                child: Container(
+                  width: 26,
+                  height: 26,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFEEF2FF),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.chat_bubble_outline,
+                      size: 13, color: Color(0xFF0066FF)),
                 ),
-                child: const Icon(Icons.chat_bubble_outline,
-                    size: 13, color: Color(0xFF0066FF)),
               ),
             ],
           ),
 
-          // Optional Store Banner
-          if (storeName == 'Nexora Official Flagship') ...[
+          // Optional Store Shipping Tag
+          if (firstItem.freeShippingBadge != null) ...[
             const SizedBox(height: 8),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -397,15 +464,15 @@ class _CartPageState extends State<CartPage> {
                 color: const Color(0xFFE0F7FA),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Row(
+              child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.local_shipping_outlined,
+                  const Icon(Icons.local_shipping_outlined,
                       size: 13, color: Color(0xFF00B4D8)),
-                  SizedBox(width: 4),
+                  const SizedBox(width: 4),
                   Text(
-                    'Free Shipping min. spend ₱0',
-                    style: TextStyle(
+                    firstItem.freeShippingBadge!,
+                    style: const TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
                       color: Color(0xFF00B4D8),
@@ -416,7 +483,8 @@ class _CartPageState extends State<CartPage> {
             ),
           ],
 
-          if (storeName == 'Urban Minimalist Studio') ...[
+          // Optional Store Promo Banner
+          if (firstItem.storePromoBanner != null) ...[
             const SizedBox(height: 8),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -424,10 +492,10 @@ class _CartPageState extends State<CartPage> {
                 color: const Color(0xFFEEF2FF),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Row(
+              child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
+                  const Text(
                     'PROMO ',
                     style: TextStyle(
                       fontSize: 9,
@@ -436,8 +504,8 @@ class _CartPageState extends State<CartPage> {
                     ),
                   ),
                   Text(
-                    'Buy 2 get 5% OFF on select garments',
-                    style: TextStyle(
+                    firstItem.storePromoBanner!,
+                    style: const TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
                       color: Color(0xFF334155),
@@ -447,15 +515,14 @@ class _CartPageState extends State<CartPage> {
               ),
             ),
           ],
+
           const SizedBox(height: 12),
 
           // Items in this store
-          ...items.map((item) {
-            return _buildCartItemTile(item);
-          }),
+          ...items.map((item) => _buildCartItemTile(item)),
 
           // Optional Store Voucher row
-          if (storeName == 'Nexora Official Flagship') ...[
+          if (items.any((i) => i.shopVoucherText != null)) ...[
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 8),
               child: Divider(height: 1, color: Color(0xFFF1F5F9)),
@@ -466,13 +533,14 @@ class _CartPageState extends State<CartPage> {
                     size: 15, color: Color(0xFF0066FF)),
                 const SizedBox(width: 6),
                 RichText(
-                  text: const TextSpan(
-                    style: TextStyle(fontSize: 11.5, color: Color(0xFF334155)),
+                  text: TextSpan(
+                    style: const TextStyle(
+                        fontSize: 11.5, color: Color(0xFF334155)),
                     children: [
-                      TextSpan(text: 'Shop Voucher: '),
+                      const TextSpan(text: 'Shop Voucher: '),
                       TextSpan(
-                        text: 'Claim ₱100 OFF coupon',
-                        style: TextStyle(
+                        text: items.firstWhere((i) => i.shopVoucherText != null).shopVoucherText!,
+                        style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           color: Color(0xFF0066FF),
                         ),
@@ -519,24 +587,21 @@ class _CartPageState extends State<CartPage> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Item Checkbox
-          SizedBox(
-            width: 24,
-            height: 24,
-            child: Checkbox(
-              value: item.isChecked,
-              activeColor: const Color(0xFF0066FF),
-              onChanged: (val) {
-                _cartService.toggleItemChecked(item.id, val ?? false);
-              },
+          // Circular Checkbox
+          Padding(
+            padding: const EdgeInsets.only(top: 24),
+            child: _buildCircularCheckbox(
+              isChecked: item.isChecked,
+              onTap: () =>
+                  _cartService.toggleItemChecked(item.id, !item.isChecked),
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 10),
 
           // Thumbnail Image
           Container(
-            width: 72,
-            height: 72,
+            width: 76,
+            height: 76,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
               color: const Color(0xFFF1F5F9),
@@ -554,7 +619,7 @@ class _CartPageState extends State<CartPage> {
                     ),
                   ),
                 ),
-                if (item.id == 'c1')
+                if (item.topPickBadge != null)
                   Positioned(
                     bottom: 0,
                     left: 0,
@@ -562,10 +627,10 @@ class _CartPageState extends State<CartPage> {
                     child: Container(
                       color: const Color(0xFF004080).withValues(alpha: 0.9),
                       padding: const EdgeInsets.symmetric(vertical: 2),
-                      child: const Text(
-                        'Top Pick',
+                      child: Text(
+                        item.topPickBadge!,
                         textAlign: TextAlign.center,
-                        style: TextStyle(
+                        style: const TextStyle(
                           color: Colors.white,
                           fontSize: 8,
                           fontWeight: FontWeight.w900,
@@ -623,7 +688,7 @@ class _CartPageState extends State<CartPage> {
                 ),
                 const SizedBox(height: 6),
 
-                // Price Row & Quantity Stepper (Calculates live!)
+                // Price Row & Quantity Stepper
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -674,8 +739,8 @@ class _CartPageState extends State<CartPage> {
                             icon: const Icon(Icons.remove, size: 14),
                             onPressed: () => _decrementQty(item),
                             padding: EdgeInsets.zero,
-                            constraints:
-                                const BoxConstraints(minWidth: 28, minHeight: 28),
+                            constraints: const BoxConstraints(
+                                minWidth: 28, minHeight: 28),
                           ),
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -692,8 +757,8 @@ class _CartPageState extends State<CartPage> {
                             icon: const Icon(Icons.add, size: 14),
                             onPressed: () => _incrementQty(item),
                             padding: EdgeInsets.zero,
-                            constraints:
-                                const BoxConstraints(minWidth: 28, minHeight: 28),
+                            constraints: const BoxConstraints(
+                                minWidth: 28, minHeight: 28),
                           ),
                         ],
                       ),
@@ -1005,7 +1070,7 @@ class _CartPageState extends State<CartPage> {
     );
   }
 
-  Widget _buildBottomCheckoutDock() {
+  Widget _buildBottomDock() {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -1020,37 +1085,38 @@ class _CartPageState extends State<CartPage> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Top Shipping Voucher Bar
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-            color: const Color(0xFFEEF2FF),
-            child: const Row(
-              children: [
-                Icon(Icons.card_giftcard_outlined,
-                    size: 14, color: Color(0xFF0066FF)),
-                SizedBox(width: 6),
-                Text(
-                  'Free Shipping Voucher applied',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Color(0xFF1E293B),
-                    fontWeight: FontWeight.w600,
+          // Normal Mode Shipping Voucher Bar (Hidden in Edit Mode)
+          if (!_isEditMode)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              color: const Color(0xFFEEF2FF),
+              child: const Row(
+                children: [
+                  Icon(Icons.card_giftcard_outlined,
+                      size: 14, color: Color(0xFF0066FF)),
+                  SizedBox(width: 6),
+                  Text(
+                    'Free Shipping Voucher applied',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF1E293B),
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                ),
-                Spacer(),
-                Text(
-                  '-₱60.00',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF0066FF),
+                  Spacer(),
+                  Text(
+                    '-₱60.00',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF0066FF),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
 
-          // Main Checkout Dock Row
+          // Main Checkout / Edit Dock Row
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             child: Row(
@@ -1058,119 +1124,190 @@ class _CartPageState extends State<CartPage> {
                 // All Select Checkbox
                 Row(
                   children: [
-                    SizedBox(
-                      width: 24,
-                      height: 24,
-                      child: Checkbox(
-                        value: _isAllChecked,
-                        activeColor: const Color(0xFF0066FF),
-                        onChanged: _toggleSelectAll,
-                      ),
+                    _buildCircularCheckbox(
+                      isChecked: _isAllChecked,
+                      onTap: () => _toggleSelectAll(!_isAllChecked),
                     ),
-                    const SizedBox(width: 4),
+                    const SizedBox(width: 8),
                     Text(
-                      'All ($_checkedCount)',
+                      _isEditMode ? 'All' : 'All\n($_checkedCount items)',
                       style: const TextStyle(
-                        fontSize: 12.5,
+                        fontSize: 11.5,
                         fontWeight: FontWeight.bold,
                         color: Color(0xFF0F172A),
+                        height: 1.1,
                       ),
                     ),
                   ],
                 ),
                 const Spacer(),
 
-                // Real-time Calculated Total & Savings
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      children: [
-                        const Text(
-                          'Total: ',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Color(0xFF64748B),
-                          ),
-                        ),
-                        Text(
-                          '₱${_finalTotal.toStringAsFixed(2)}',
-                          style: const TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.w900,
-                            color: Color(0xFF0066FF),
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (_totalSaved > 0)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFE0F7FA),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          'Saved ₱${_totalSaved.toStringAsFixed(2)}',
-                          style: const TextStyle(
-                            fontSize: 9.5,
-                            fontWeight: FontWeight.w900,
-                            color: Color(0xFF00B4D8),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-                const SizedBox(width: 12),
-
-                // Check Out Button (Directs to checkout page!)
-                Container(
-                  height: 44,
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF00D2FF), Color(0xFF0066FF)],
-                      begin: Alignment.centerLeft,
-                      end: Alignment.centerRight,
-                    ),
-                    borderRadius: BorderRadius.circular(22),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF0066FF).withValues(alpha: 0.35),
-                        blurRadius: 8,
-                        offset: const Offset(0, 3),
-                      ),
-                    ],
-                  ),
-                  child: ElevatedButton(
-                    onPressed: _checkedCount == 0
-                        ? null
-                        : () {
-                            Navigator.pushNamed(context, AppRoutes.checkout);
-                          },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.transparent,
-                      shadowColor: Colors.transparent,
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                // EDIT MODE BUTTONS
+                if (_isEditMode) ...[
+                  OutlinedButton(
+                    onPressed: _moveToMyLikes,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF334155),
+                      side: const BorderSide(color: Color(0xFFCBD5E1)),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 10),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(22),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                    ),
+                    child: const Text(
+                      'Move to My Likes',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  OutlinedButton(
+                    onPressed: _deleteSelectedItems,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFFDC2626),
+                      side: const BorderSide(color: Color(0xFFDC2626)),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 20, vertical: 10),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
                       ),
                     ),
                     child: Text(
-                      'Check Out ($_checkedCount)',
+                      _checkedItemsCount > 0
+                          ? 'Delete ($_checkedItemsCount)'
+                          : 'Delete',
                       style: const TextStyle(
-                        fontWeight: FontWeight.w900,
-                        fontSize: 13.5,
-                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
                   ),
-                ),
+                ]
+                // NORMAL MODE BUTTON (Totals & Checkout)
+                else ...[
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        children: [
+                          const Text(
+                            'Total: ',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF64748B),
+                            ),
+                          ),
+                          Text(
+                            '₱${_finalTotal.toStringAsFixed(2)}',
+                            style: const TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w900,
+                              color: Color(0xFF0066FF),
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (_totalSaved > 0)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE0F7FA),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            'Saved ₱${_totalSaved.toStringAsFixed(2)}',
+                            style: const TextStyle(
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w900,
+                              color: Color(0xFF00B4D8),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(width: 12),
+
+                  // Gradient Check Out Button
+                  Container(
+                    height: 44,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF00D2FF), Color(0xFF0066FF)],
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                      ),
+                      borderRadius: BorderRadius.circular(22),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF0066FF).withValues(alpha: 0.35),
+                          blurRadius: 8,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: ElevatedButton(
+                      onPressed: _checkedCount == 0
+                          ? null
+                          : () {
+                              Navigator.pushNamed(context, AppRoutes.checkout);
+                            },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.transparent,
+                        shadowColor: Colors.transparent,
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(22),
+                        ),
+                      ),
+                      child: Text(
+                        'Check Out ($_checkedCount)',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 13.5,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  // Circular Checkbox matching exact reference image design
+  Widget _buildCircularCheckbox({
+    required bool isChecked,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        width: 22,
+        height: 22,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: isChecked ? const Color(0xFF0284C7) : const Color(0xFFE2E8F0),
+          border: isChecked
+              ? null
+              : Border.all(color: const Color(0xFFCBD5E1), width: 1.5),
+        ),
+        child: isChecked
+            ? const Icon(
+                Icons.check,
+                size: 14,
+                color: Colors.white,
+              )
+            : null,
       ),
     );
   }

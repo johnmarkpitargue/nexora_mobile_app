@@ -15,7 +15,7 @@ class ChatDetailPage extends StatefulWidget {
     required this.subtitle,
     this.avatarUrl = '',
     this.avatarIcon,
-    this.avatarBgColor = const Color(0xFF5038ED),
+    this.avatarBgColor = const Color(0xFF0284C7),
     this.orderRef = '',
     required this.initialMessages,
   });
@@ -204,16 +204,16 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
                   style: const TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF5038ED),
+                    color: Color(0xFF0284C7),
                   ),
                 ),
-                backgroundColor: const Color(0xFFEEECFF),
+                backgroundColor: const Color(0xFFE0F2FE),
                 padding: EdgeInsets.zero,
                 materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
             ),
           IconButton(
-            icon: const Icon(Icons.call_rounded, color: Color(0xFF5038ED), size: 20),
+            icon: const Icon(Icons.call_rounded, color: Color(0xFF0284C7), size: 20),
             onPressed: () {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(content: Text('Calling ${widget.title}...')),
@@ -264,7 +264,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
                               horizontal: 14, vertical: 10),
                           decoration: BoxDecoration(
                             color: isUser
-                                ? const Color(0xFF5038ED)
+                                ? const Color(0xFF0075FF)
                                 : Colors.white,
                             borderRadius: BorderRadius.only(
                               topLeft: const Radius.circular(16),
@@ -348,7 +348,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
                       reply,
                       style: const TextStyle(
                         fontSize: 11.5,
-                        color: Color(0xFF5038ED),
+                        color: Color(0xFF0284C7),
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -383,7 +383,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
                 children: [
                   IconButton(
                     icon: const Icon(Icons.add_circle_outline_rounded,
-                        color: Color(0xFF5038ED)),
+                        color: Color(0xFF0284C7)),
                     onPressed: () {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('Attach image / location')),
@@ -414,7 +414,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
                     width: 42,
                     height: 42,
                     decoration: const BoxDecoration(
-                      color: Color(0xFF5038ED),
+                      color: Color(0xFF0284C7),
                       shape: BoxShape.circle,
                     ),
                     child: IconButton(

@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:nexora_flutter_app/app/routes/app_routes.dart';
 import 'package:nexora_flutter_app/core/services/cart_service.dart';
 import 'package:nexora_flutter_app/core/services/order_service.dart';
+import 'package:nexora_flutter_app/core/services/profile_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'widgets/shipping_option_modal.dart';
 
 class CheckoutPage extends StatefulWidget {
   const CheckoutPage({super.key});
@@ -11,36 +14,211 @@ class CheckoutPage extends StatefulWidget {
 }
 
 class _CheckoutPageState extends State<CheckoutPage> {
-  int _selectedPaymentIndex = 0; // 0: NexoraPay, 1: GCash, 2: Visa/Mastercard, 3: COD
-  bool _usePoints = true;
-  bool _voucherApplied = true;
+  int _selectedPaymentIndex = 0;
+  final List<Map<String, dynamic>> _paymentOptions = [
+    {
+      'name': 'Cash on Delivery',
+      'desc': 'Pay in cash upon doorstep delivery',
+      'icon': Icons.payments_outlined,
+      'color': Color(0xFF00B4D8),
+      'tag': 'Supported',
+    },
+  ];
+
+  bool _merchandiseProtection = true;
+  final bool _useCoins = false;
   bool _isPlacingOrder = false;
+
+  // Dynamic Shipping Option State
+  String _selectedShippingType = 'door_to_door';
+  String _selectedShippingName = 'Standard Local';
+  String _estimatedArrivalDate = '8 - 9 Oct';
+  double _selectedShippingFee = 0.0;
+  String? _selectedPickupLocation;
 
   final CartService _cartService = CartService.instance;
   final OrderService _orderService = OrderService.instance;
 
-  final TextEditingController _voucherController =
-      TextEditingController(text: 'NEXORAWELCOME');
-
-  @override
-  void dispose() {
-    _voucherController.dispose();
-    super.dispose();
-  }
-
-  double get _subtotal {
+  double get _merchandiseSubtotal {
     final checked = _cartService.items.where((i) => i.isChecked);
-    if (checked.isEmpty) return 3200.0;
-    return _cartService.subtotal;
+    if (checked.isEmpty) return 490.0;
+    return _cartService.originalSubtotal > 0 ? _cartService.originalSubtotal : 490.0;
   }
 
-  double get _voucherDiscount => _voucherApplied ? 150.0 : 0.0;
-  double get _pointsDiscount => _usePoints ? 50.0 : 0.0;
-  double get _shippingFee => 0.0; // Free Shipping Voucher
+  double get _itemDiscount {
+    final checked = _cartService.items.where((i) => i.isChecked);
+    if (checked.isEmpty) return 191.0;
+    final diff = _merchandiseSubtotal - _cartService.subtotal;
+    return diff > 0 ? diff : 191.0;
+  }
+
+  double get _shippingSubtotal => _selectedShippingFee > 0 ? 75.0 : 34.0;
+  double get _shippingDiscount => _selectedShippingFee > 0 ? 30.0 : 34.0;
 
   double get _finalTotal {
-    final tot = _subtotal - _voucherDiscount - _pointsDiscount + _shippingFee;
-    return tot < 0 ? 0.0 : tot;
+    final baseProductTotal = _merchandiseSubtotal - _itemDiscount;
+    final actualShippingPaid = _selectedShippingFee;
+    final protection = _merchandiseProtection ? 12.0 : 0.0;
+    final total = baseProductTotal + actualShippingPaid + protection;
+    return total < 0 ? 0.0 : total;
+  }
+
+  double get _totalSaved => _itemDiscount + _shippingDiscount;
+
+  Future<void> _openShippingOptionModal() async {
+    final result = await showModalBottomSheet<ShippingOptionResult>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => ShippingOptionModal(
+        initialSelection: ShippingOptionResult(
+          methodType: _selectedShippingType,
+          optionName: _selectedShippingName,
+          estimatedDate: _estimatedArrivalDate,
+          shippingFee: _selectedShippingFee,
+          pickupLocation: _selectedPickupLocation,
+        ),
+      ),
+    );
+
+    if (result != null) {
+      setState(() {
+        _selectedShippingType = result.methodType;
+        _selectedShippingName = result.optionName;
+        _estimatedArrivalDate = result.estimatedDate;
+        _selectedShippingFee = result.shippingFee;
+        _selectedPickupLocation = result.pickupLocation;
+      });
+    }
+  }
+
+
+  void _openPaymentMethodModal() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Payment Method',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF0F172A),
+              ),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'We currently offer Cash on Delivery (COD) exclusively for all orders.',
+              style: TextStyle(
+                fontSize: 12.5,
+                color: Color(0xFF64748B),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              decoration: BoxDecoration(
+                color: const Color(0xFFE0F7FA).withValues(alpha: 0.3),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: const Color(0xFF00B4D8),
+                  width: 1.5,
+                ),
+              ),
+              child: ListTile(
+                onTap: () {
+                  setState(() {
+                    _selectedPaymentIndex = 0;
+                  });
+                  Navigator.pop(ctx);
+                },
+                leading: Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF00B4D8).withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.payments_outlined, color: Color(0xFF00B4D8), size: 20),
+                ),
+                title: Row(
+                  children: [
+                    const Text(
+                      'Cash on Delivery',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+                    ),
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE0F7FA),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Text(
+                        'Active',
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF00B4D8),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                subtitle: const Text(
+                  'Pay in cash upon doorstep delivery',
+                  style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                ),
+                trailing: const Icon(
+                  Icons.check_circle,
+                  color: Color(0xFF00B4D8),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.info_outline, size: 16, color: Color(0xFF64748B)),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Other payment methods are not available at this time. Cash on Delivery is guaranteed and supported for all orders.',
+                      style: TextStyle(fontSize: 11, color: Color(0xFF64748B), height: 1.3),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   void _handlePlaceOrder() {
@@ -49,25 +227,68 @@ class _CheckoutPageState extends State<CheckoutPage> {
     });
 
     final selectedItems = _cartService.removeAndGetSelectedItems();
-    final paymentMethods = [
-      'Paid via NexoraPay',
-      'Paid via GCash',
-      'Paid via Visa/Mastercard',
-      'Cash on Delivery',
-    ];
-    final selectedPayment = paymentMethods[_selectedPaymentIndex];
+    final selectedPayment = _paymentOptions[_selectedPaymentIndex]['name'] as String;
     final currentTotal = _finalTotal;
+    final profile = ProfileService.instance;
 
     _orderService.placeOrder(
-      items: selectedItems,
+      items: selectedItems.isEmpty
+          ? [
+              CartItemModel(
+                id: 'checkout_default',
+                storeName: 'Mikana Official Store',
+                storeBadge: 'MALL',
+                title: 'Mikana Eternal Waves Hinokari Gold Plated Bracelet & Ring Edition',
+                variant: 'Hateshinai',
+                imageUrl:
+                    'https://images.unsplash.com/photo-1603561591411-07134e71a2a9?auto=format&fit=crop&w=300&q=80',
+                price: 299.00,
+                originalPrice: 490.00,
+                quantity: 1,
+              )
+            ]
+          : selectedItems,
       totalPrice: currentTotal,
       paymentMethod: selectedPayment,
+      recipientName: profile.name,
+      recipientPhone: profile.phone,
+      shippingAddress: profile.address,
+      shippingOption: _selectedShippingName,
+      shippingFee: _selectedShippingFee,
+      subtotal: _merchandiseSubtotal,
+      discount: _totalSaved,
+      estimatedArrival: _estimatedArrivalDate,
     );
 
     final placedOrder = _orderService.latestActiveOrder;
-    final orderId = placedOrder?.orderId ?? '#NX-89241';
+    final orderId = placedOrder?.orderId ?? '#NX-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}';
 
-    Future.delayed(const Duration(milliseconds: 1000), () {
+    // Broadcast order to Supabase so the Rider App gets notified live!
+    try {
+      final itemsSummary = selectedItems.isEmpty
+          ? 'Mikana Eternal Waves Bracelet & Ring Edition'
+          : selectedItems.map((e) => '${e.quantity}x ${e.title}').join(', ');
+
+      Supabase.instance.client.from('orders').insert({
+        'order_id': orderId.replaceAll('#', ''),
+        'customer_id': profile.name.isNotEmpty ? profile.name : 'Customer',
+        'item_details': itemsSummary,
+        'delivery_address': profile.address.isNotEmpty
+            ? profile.address
+            : 'Brgy. Real, Calamba City, Laguna',
+        'delivery_lat': 14.2135,
+        'delivery_lng': 121.1731,
+        'status': 'pending',
+      }).then((_) {
+        debugPrint('✅ Order $orderId inserted into Supabase!');
+      }).catchError((err) {
+        debugPrint('⚠️ Supabase order broadcast notice: $err');
+      });
+    } catch (e) {
+      debugPrint('⚠️ Supabase order broadcast error: $e');
+    }
+
+    Future.delayed(const Duration(milliseconds: 800), () {
       if (!mounted) return;
       setState(() {
         _isPlacingOrder = false;
@@ -108,7 +329,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Order $orderId has been dispatched. Track your delivery real-time in My Orders.',
+                  'Order $orderId has been dispatched ($_selectedShippingName • Est. $_estimatedArrivalDate). Track your delivery real-time in My Orders.',
                   style: const TextStyle(
                     fontSize: 13,
                     color: Color(0xFF64748B),
@@ -123,11 +344,16 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   child: ElevatedButton(
                     onPressed: () {
                       Navigator.pop(dialogContext);
-                      Navigator.pushReplacementNamed(context, AppRoutes.orders);
+                      Navigator.pushReplacementNamed(
+                        context,
+                        AppRoutes.orders,
+                        arguments: {'initialIndex': 3},
+                      );
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF0066FF),
+                      backgroundColor: const Color(0xFF00D2FF),
                       foregroundColor: Colors.white,
+                      elevation: 0,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(22),
                       ),
@@ -135,7 +361,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                     child: const Text(
                       'View Order Status',
                       style: TextStyle(
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w900,
                         fontSize: 14,
                       ),
                     ),
@@ -153,67 +379,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF6F8FC),
-      body: SafeArea(
-        child: Stack(
-          children: [
-            SingleChildScrollView(
-              physics: const BouncingScrollPhysics(),
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 8),
-                  // Top Custom Header App Bar
-                  _buildCustomAppBar(context),
-                  const SizedBox(height: 12),
-
-                  // Step Progress Indicator
-                  _buildStepIndicator(),
-                  const SizedBox(height: 14),
-
-                  // Shipping Address Card
-                  _buildShippingAddressCard(),
-                  const SizedBox(height: 14),
-
-                  // Order Items Card
-                  _buildOrderItemsCard(),
-                  const SizedBox(height: 14),
-
-                  // Delivery Method Card
-                  _buildDeliveryMethodCard(),
-                  const SizedBox(height: 14),
-
-                  // Discounts & Rewards Card
-                  _buildDiscountsCard(),
-                  const SizedBox(height: 14),
-
-                  // Payment Method Card
-                  _buildPaymentMethodCard(),
-                  const SizedBox(height: 16),
-
-                  // Payment Summary Card
-                  _buildPaymentSummaryCard(),
-                  const SizedBox(height: 120),
-                ],
-              ),
-            ),
-
-            // Bottom Sticky Checkout Bar
-            Align(
-              alignment: Alignment.bottomCenter,
-              child: _buildBottomCheckoutBar(),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCustomAppBar(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        IconButton(
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0.5,
+        leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Color(0xFF0F172A)),
           onPressed: () {
             if (Navigator.canPop(context)) {
@@ -222,10 +391,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
               Navigator.pushReplacementNamed(context, AppRoutes.home);
             }
           },
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(),
         ),
-        const Text(
+        title: const Text(
           'Checkout',
           style: TextStyle(
             color: Color(0xFF0F172A),
@@ -233,516 +400,446 @@ class _CheckoutPageState extends State<CheckoutPage> {
             fontSize: 18,
           ),
         ),
-        IconButton(
-          icon: const Icon(Icons.chat_bubble_outline, color: Color(0xFF0F172A)),
-          onPressed: () {
-            Navigator.pushNamed(context, AppRoutes.chat);
-          },
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStepIndicator() {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
+        centerTitle: false,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.help_outline, color: Color(0xFF64748B)),
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Nexora Checkout Help & Buyer Protection')),
+              );
+            },
           ),
         ],
       ),
-      child: Column(
+      body: Stack(
         children: [
-          const Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'CHECKOUT STEP 2 OF 3',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w800,
-                  color: Color(0xFF0066FF),
-                  letterSpacing: 0.5,
-                ),
-              ),
-              Row(
-                children: [
-                  Icon(Icons.lock_outline, size: 12, color: Color(0xFF64748B)),
-                  SizedBox(width: 4),
-                  Text(
-                    'Encrypted 256-bit',
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: Color(0xFF64748B),
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ],
+          SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: Column(
+              children: [
+                const SizedBox(height: 10),
+
+                // 1. Delivery Address Card
+                _buildAddressCard(),
+
+                const SizedBox(height: 10),
+
+                // 2. Store & Item Card Group
+                _buildStoreAndItemCard(),
+
+                const SizedBox(height: 10),
+
+                // 3. Shipping Option Card (Clickable to change delivery option!)
+                _buildShippingOptionCard(),
+
+                const SizedBox(height: 10),
+
+                // 4. Platform Vouchers & Coins Card
+                _buildVoucherAndCoinsCard(),
+
+                const SizedBox(height: 10),
+
+                // 5. Payment Methods Card
+                _buildPaymentMethodsCard(),
+
+                const SizedBox(height: 10),
+
+                // 6. Payment Details Summary Breakdown
+                _buildPaymentDetailsCard(),
+
+                // Clearance spacing for bottom dock
+                const SizedBox(height: 110),
+              ],
+            ),
           ),
-          const SizedBox(height: 8),
-          // 3-step progress bar
-          Stack(
-            children: [
-              Container(
-                height: 5,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE2E8F0),
-                  borderRadius: BorderRadius.circular(3),
-                ),
-              ),
-              FractionallySizedBox(
-                widthFactor: 0.66,
-                child: Container(
-                  height: 5,
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF00D2FF), Color(0xFF0066FF)],
-                    ),
-                    borderRadius: BorderRadius.circular(3),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          const Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                '1. Bag',
-                style: TextStyle(
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF0066FF),
-                ),
-              ),
-              Text(
-                '2. Review & Pay',
-                style: TextStyle(
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.w800,
-                  color: Color(0xFF0066FF),
-                ),
-              ),
-              Text(
-                '3. Complete',
-                style: TextStyle(
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.w500,
-                  color: Color(0xFF94A3B8),
-                ),
-              ),
-            ],
+
+          // Bottom Fixed Action Bar
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: _buildBottomCheckoutDock(),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildShippingAddressCard() {
+  Widget _buildAddressCard() {
     return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 10),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
-      padding: const EdgeInsets.all(16),
+      clipBehavior: Clip.antiAlias,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {
+            Navigator.pushNamed(context, AppRoutes.myAddresses);
+          },
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(14),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Padding(
+                      padding: EdgeInsets.only(top: 2),
+                      child: Icon(Icons.location_on, color: Color(0xFF00B4D8), size: 18),
+                    ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: AnimatedBuilder(
+                    animation: ProfileService.instance,
+                    builder: (context, _) {
+                      final profile = ProfileService.instance;
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          RichText(
+                            text: TextSpan(
+                              children: [
+                                TextSpan(
+                                  text: '${profile.name} ',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 13.5,
+                                    color: Color(0xFF0F172A),
+                                  ),
+                                ),
+                                TextSpan(
+                                  text: profile.phone,
+                                  style: const TextStyle(
+                                    fontSize: 11.5,
+                                    color: Color(0xFF64748B),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            profile.address,
+                            style: const TextStyle(
+                              fontSize: 11.5,
+                              color: Color(0xFF475569),
+                              height: 1.3,
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(width: 6),
+                const Icon(Icons.chevron_right, size: 18, color: Color(0xFF94A3B8)),
+              ],
+            ),
+          ),
+
+          // Dashed Cyan/Blue Segment Ribbon at bottom of Address Card
+          SizedBox(
+            height: 4,
+            child: Row(
+              children: List.generate(15, (index) {
+                return Expanded(
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 2),
+                    color: index % 2 == 0 ? const Color(0xFF00D2FF) : const Color(0xFF0066FF),
+                  ),
+                );
+              }),
+            ),
+          ),
+        ],
+      ),
+    ),
+  ),
+);
+}
+
+  Widget _buildStoreAndItemCard() {
+    final checkedItems = _cartService.items.where((i) => i.isChecked).toList();
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Store Header
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Expanded(
-                child: Row(
-                  children: [
-                    Container(
-                      width: 32,
-                      height: 32,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFE0F7FA),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.location_on_outlined,
-                        color: Color(0xFF00B4D8),
-                        size: 18,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    const Expanded(
-                      child: Text(
-                        'Shipping Address',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 15.5,
-                          color: Color(0xFF0F172A),
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFDC2626),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  checkedItems.isNotEmpty && checkedItems.first.storeBadge.isNotEmpty
+                      ? checkedItems.first.storeBadge
+                      : 'Mall',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w900,
+                  ),
                 ),
               ),
-              InkWell(
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Opening address picker...')),
-                  );
-                },
-                child: const Row(
-                  children: [
-                    Text(
-                      'Change',
-                      style: TextStyle(
-                        color: Color(0xFF0066FF),
-                        fontWeight: FontWeight.w700,
-                        fontSize: 12.5,
-                      ),
-                    ),
-                    Icon(
-                      Icons.chevron_right,
-                      size: 16,
-                      color: Color(0xFF0066FF),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-
-          // Wrap user name and badges cleanly for narrow screens
-          Wrap(
-            crossAxisAlignment: WrapCrossAlignment.center,
-            spacing: 6,
-            runSpacing: 4,
-            children: [
-              const Text(
-                'Alex Rivera',
-                style: TextStyle(
+              const SizedBox(width: 6),
+              Text(
+                checkedItems.isNotEmpty && checkedItems.first.storeName.isNotEmpty
+                    ? checkedItems.first.storeName
+                    : 'Mikana Official Store',
+                style: const TextStyle(
                   fontWeight: FontWeight.w800,
                   fontSize: 13.5,
                   color: Color(0xFF0F172A),
                 ),
               ),
-              const Text(
-                '(+63 917 123 4567)',
-                style: TextStyle(
-                  fontSize: 11.5,
-                  color: Color(0xFF64748B),
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE0F2FE),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Text(
-                  'Default Home',
-                  style: TextStyle(
-                    fontSize: 9.5,
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xFF0066FF),
-                  ),
-                ),
-              ),
+              const SizedBox(width: 2),
+              const Icon(Icons.chevron_right, size: 16, color: Color(0xFF94A3B8)),
             ],
           ),
-          const SizedBox(height: 4),
-          const Text(
-            'Unit 402, Lumina Heights Tower 2, Makati City, Metro Manila, 1226',
-            style: TextStyle(
-              fontSize: 12,
-              color: Color(0xFF475569),
-              height: 1.3,
-            ),
-          ),
+
+          const SizedBox(height: 12),
+
+          // Items List
+          if (checkedItems.isEmpty)
+            _buildItemRow(
+              imageUrl:
+                  'https://images.unsplash.com/photo-1603561591411-07134e71a2a9?auto=format&fit=crop&w=300&q=80',
+              title: 'Mikana Eternal Waves Hinokari Gold Plated Bracelet & Ring Edition',
+              variant: 'Hateshinai',
+              price: '₱299',
+              originalPrice: '₱490',
+              qty: 1,
+            )
+          else
+            ...checkedItems.map((item) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: _buildItemRow(
+                  imageUrl: item.imageUrl,
+                  title: item.title,
+                  variant: item.variant,
+                  price: '₱${item.price.toStringAsFixed(0)}',
+                  originalPrice: item.originalPrice != null
+                      ? '₱${item.originalPrice!.toStringAsFixed(0)}'
+                      : null,
+                  qty: item.quantity,
+                ),
+              );
+            }),
+
           const SizedBox(height: 10),
-          // Delivery Instructions box
+
+          // Merchandise Protection Checkbox Box
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
               color: const Color(0xFFF8FAFC),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
+              borderRadius: BorderRadius.circular(8),
             ),
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(
-                  Icons.local_shipping_outlined,
-                  size: 16,
-                  color: Color(0xFF00B4D8),
+                GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _merchandiseProtection = !_merchandiseProtection;
+                    });
+                  },
+                  child: Container(
+                    width: 18,
+                    height: 18,
+                    margin: const EdgeInsets.only(top: 2),
+                    decoration: BoxDecoration(
+                      color: _merchandiseProtection ? const Color(0xFF00D2FF) : Colors.transparent,
+                      borderRadius: BorderRadius.circular(4),
+                      border: _merchandiseProtection
+                          ? null
+                          : Border.all(color: const Color(0xFFCBD5E1), width: 1.5),
+                    ),
+                    child: _merchandiseProtection
+                        ? const Icon(Icons.check, size: 13, color: Colors.white)
+                        : null,
+                  ),
                 ),
                 const SizedBox(width: 8),
-                const Expanded(
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'DELIVERY INSTRUCTIONS',
-                        style: TextStyle(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w800,
-                          color: Color(0xFF64748B),
-                          letterSpacing: 0.3,
-                        ),
+                      const Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Merchandise Protection',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 12,
+                              color: Color(0xFF0F172A),
+                            ),
+                          ),
+                          Text(
+                            '₱12 x 1',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Color(0xFF64748B),
+                            ),
+                          ),
+                        ],
                       ),
-                      Text(
-                        'Leave with front desk / reception',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Color(0xFF1E293B),
-                          fontWeight: FontWeight.w600,
+                      const SizedBox(height: 2),
+                      RichText(
+                        text: const TextSpan(
+                          style: TextStyle(fontSize: 10.5, color: Color(0xFF64748B), height: 1.3),
+                          children: [
+                            TextSpan(
+                              text:
+                                  'Protect your items from total loss due to accidental damage and liquid damage where the original item is beyond repair. ',
+                            ),
+                            TextSpan(
+                              text: 'Learn more >',
+                              style: TextStyle(
+                                color: Color(0xFF0066FF),
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
                   ),
                 ),
-                Icon(
-                  Icons.edit_outlined,
-                  size: 15,
-                  color: Colors.grey.shade600,
-                ),
               ],
             ),
           ),
+
+          const SizedBox(height: 12),
+
+          // Action Rows: Shop Voucher, Message for Seller, E-receipt
+          _buildActionRow(
+            label: 'Shop Voucher',
+            value: 'Select or enter code >',
+            valueColor: const Color(0xFF94A3B8),
+          ),
+          const Divider(height: 16, color: Color(0xFFF1F5F9)),
+          _buildActionRow(
+            label: 'Message for Seller',
+            value: 'Please leave a message >',
+            valueColor: const Color(0xFF94A3B8),
+          ),
+          const Divider(height: 16, color: Color(0xFFF1F5F9)),
+          _buildActionRow(
+            label: 'E-receipt ⓘ',
+            value: 'Request Now >',
+            valueColor: const Color(0xFF94A3B8),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildOrderItemsCard() {
-    final checkedItems = _cartService.items.where((i) => i.isChecked).toList();
-
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 32,
-                    height: 32,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFE0F7FA),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.shopping_bag_outlined,
-                      color: Color(0xFF00B4D8),
-                      size: 18,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Text(
-                    'Order Items (${checkedItems.isEmpty ? 1 : checkedItems.length})',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 15.5,
-                      color: Color(0xFF0F172A),
-                    ),
-                  ),
-                ],
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF1F5F9),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Text(
-                  'Standard Parcel',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF64748B),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-
-          if (checkedItems.isEmpty)
-            _buildOrderItemRow(
-              imageUrl:
-                  'https://images.unsplash.com/photo-1587829741301-dc798b83add3?auto=format&fit=crop&w=150&q=80',
-              badgeText: '75% Layout',
-              title: 'Nexora Aura 75 Mechanical Keyboard',
-              subtitle: 'Chalk White / Violet • Linear Switches',
-              tag: '• In Stock (Direct Factory)',
-              price: '₱3,200.00',
-              qty: 1,
-              onDecrease: () {},
-              onIncrease: () {},
-            )
-          else
-            ...checkedItems.map((item) {
-              return Column(
-                children: [
-                  _buildOrderItemRow(
-                    imageUrl: item.imageUrl,
-                    badgeText: item.storeBadge.isEmpty ? 'Nexora' : item.storeBadge,
-                    title: item.title,
-                    subtitle: item.variant,
-                    tag: '• In Stock',
-                    price: '₱${(item.price * item.quantity).toStringAsFixed(2)}',
-                    qty: item.quantity,
-                    onDecrease: () {
-                      if (item.quantity > 1) {
-                        _cartService.updateQuantity(item.id, item.quantity - 1);
-                      }
-                    },
-                    onIncrease: () {
-                      _cartService.updateQuantity(item.id, item.quantity + 1);
-                    },
-                  ),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 10),
-                    child: Divider(height: 1, color: Color(0xFFF1F5F9)),
-                  ),
-                ],
-              );
-            }),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildOrderItemRow({
+  Widget _buildItemRow({
     required String imageUrl,
-    required String badgeText,
     required String title,
-    required String subtitle,
-    required String tag,
+    required String variant,
     required String price,
+    String? originalPrice,
     required int qty,
-    required VoidCallback onDecrease,
-    required VoidCallback onIncrease,
   }) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Stack(
-          children: [
-            Container(
-              width: 64,
-              height: 64,
-              decoration: BoxDecoration(
-                color: const Color(0xFFF1F5F9),
-                borderRadius: BorderRadius.circular(14),
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: Image.network(
-                imageUrl,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => const Icon(
-                  Icons.shopping_bag,
-                  color: Color(0xFF94A3B8),
-                  size: 28,
-                ),
-              ),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: Image.network(
+            imageUrl,
+            width: 72,
+            height: 72,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) => Container(
+              width: 72,
+              height: 72,
+              color: const Color(0xFFE2E8F0),
+              child: const Icon(Icons.image, color: Colors.grey),
             ),
-            Positioned(
-              bottom: 3,
-              left: 3,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.9),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  badgeText,
-                  style: const TextStyle(
-                    fontSize: 7.5,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF0F172A),
-                  ),
-                ),
-              ),
-            ),
-          ],
+          ),
         ),
         const SizedBox(width: 10),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Text(
-                      title,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 13,
-                        color: Color(0xFF0F172A),
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  Icon(
-                    Icons.delete_outline,
-                    size: 16,
-                    color: Colors.grey.shade400,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 2),
               Text(
-                subtitle,
-                style: TextStyle(
-                  fontSize: 10.5,
-                  color: Colors.grey.shade600,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                tag,
+                title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF00B4D8),
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12,
+                  color: Color(0xFF0F172A),
+                  height: 1.25,
                 ),
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 4),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  variant,
+                  style: const TextStyle(
+                    fontSize: 10.5,
+                    color: Color(0xFF64748B),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE0F2FE),
+                  borderRadius: BorderRadius.circular(3),
+                ),
+                child: const Text(
+                  '0% PayLater (up to 3M)',
+                  style: TextStyle(
+                    fontSize: 8.5,
+                    color: Color(0xFF0284C7),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 4),
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                textBaseline: TextBaseline.alphabetic,
                 children: [
                   Text(
                     price,
@@ -752,477 +849,451 @@ class _CheckoutPageState extends State<CheckoutPage> {
                       color: Color(0xFF0066FF),
                     ),
                   ),
-                  // Quantity Stepper Button
-                  Container(
-                    height: 26,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF1F5F9),
-                      borderRadius: BorderRadius.circular(13),
+                  if (originalPrice != null) ...[
+                    const SizedBox(width: 4),
+                    Text(
+                      originalPrice,
+                      style: const TextStyle(
+                        fontSize: 10,
+                        color: Color(0xFF94A3B8),
+                        decoration: TextDecoration.lineThrough,
+                      ),
                     ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.remove, size: 13),
-                          onPressed: onDecrease,
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
-                        ),
-                        Text(
-                          '$qty',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 11.5,
-                          ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.add, size: 13),
-                          onPressed: onIncrease,
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
-                        ),
-                      ],
-                    ),
-                  ),
+                  ],
                 ],
               ),
             ],
+          ),
+        ),
+        Text(
+          'x$qty',
+          style: const TextStyle(
+            fontSize: 11,
+            color: Color(0xFF94A3B8),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildDeliveryMethodCard() {
+  Widget _buildShippingOptionCard() {
+    final isFree = _selectedShippingFee == 0.0;
+
     return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 10),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
-      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Expanded(
-                child: Row(
-                  children: [
-                    Container(
-                      width: 32,
-                      height: 32,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFE0F7FA),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.local_shipping_outlined,
-                        color: Color(0xFF00B4D8),
-                        size: 18,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    const Expanded(
-                      child: Text(
-                        'Delivery Method',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 15.5,
-                          color: Color(0xFF0F172A),
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
+              const Text(
+                'Shipping Option',
+                style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 13.5,
+                  color: Color(0xFF0F172A),
                 ),
               ),
-              const Text(
-                'Guaranteed On Time',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w800,
-                  color: Color(0xFF0891B2),
+              GestureDetector(
+                onTap: _openShippingOptionModal,
+                child: const Text(
+                  'View All >',
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    color: Color(0xFF0066FF),
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
 
-          // Selected Delivery Card
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF4F9FF),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFF00D2FF), width: 1.5),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 36,
-                  height: 36,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFE0F7FA),
-                    shape: BoxShape.circle,
+          // Selected Shipping Option Box (Clickable!)
+          GestureDetector(
+            onTap: _openShippingOptionModal,
+            child: Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFE0F7FA).withValues(alpha: 0.4),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFF00D2FF), width: 1.2),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 16,
+                    height: 16,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF00D2FF),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.check, size: 11, color: Colors.white),
                   ),
-                  child: const Icon(
-                    Icons.electric_rickshaw,
-                    color: Color(0xFF00B4D8),
-                    size: 18,
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _estimatedArrivalDate,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 13,
+                            color: Color(0xFF0F172A),
+                          ),
+                        ),
+                        Text(
+                          _selectedShippingName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF64748B),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  Row(
                     children: [
-                      Wrap(
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        spacing: 6,
-                        children: [
-                          const Text(
-                            'Nexora Express',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w800,
-                              fontSize: 13,
-                              color: Color(0xFF0F172A),
-                            ),
+                      if (isFree) ...[
+                        const Text(
+                          '₱34',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: Color(0xFF94A3B8),
+                            decoration: TextDecoration.lineThrough,
                           ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF00B4D8),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: const Text(
-                              'FAST TRACK',
-                              style: TextStyle(
-                                fontSize: 8,
-                                fontWeight: FontWeight.w900,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const Text(
-                        '24h Delivery',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 12.5,
-                          color: Color(0xFF0F172A),
                         ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'Fast-track direct rider dispatch',
-                        style: TextStyle(
-                          fontSize: 10.5,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      const Row(
-                        children: [
-                          Icon(Icons.access_time, size: 12, color: Color(0xFF0066FF)),
-                          SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              'Estimated: Tomorrow, 2:00 PM - 5:00 PM',
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w700,
-                                color: Color(0xFF0066FF),
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
+                        const SizedBox(width: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE0F7FA),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: const Color(0xFF00B4D8), width: 0.8),
                           ),
-                        ],
-                      ),
+                          child: const Row(
+                            children: [
+                              Text(
+                                'Free ',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF00B4D8),
+                                ),
+                              ),
+                              Icon(Icons.local_shipping, size: 11, color: Color(0xFF00B4D8)),
+                            ],
+                          ),
+                        ),
+                      ] else ...[
+                        Text(
+                          '₱${_selectedShippingFee.toStringAsFixed(0)}',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFF0F172A),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
-                ),
-                const SizedBox(width: 6),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    const Text(
-                      '₱120.00',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w900,
-                        fontSize: 13.5,
-                        color: Color(0xFF0F172A),
-                      ),
-                    ),
-                    Text(
-                      'Covered by\nVoucher',
-                      style: TextStyle(
-                        fontSize: 9,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.grey.shade600,
-                      ),
-                      textAlign: TextAlign.right,
-                    ),
-                  ],
-                ),
-              ],
+                ],
+              ),
             ),
+          ),
+
+          const SizedBox(height: 8),
+          const Row(
+            children: [
+              Icon(Icons.access_time_filled, size: 14, color: Color(0xFF00B4D8)),
+              SizedBox(width: 4),
+              Text(
+                'Get up to ₱40 if order arrives late',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Color(0xFF64748B),
+                ),
+              ),
+            ],
+          ),
+
+          const Divider(height: 16, color: Color(0xFFF1F5F9)),
+
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Total 1 Item(s)',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Color(0xFF64748B),
+                ),
+              ),
+              Text(
+                '₱${_finalTotal.toStringAsFixed(0)}',
+                style: const TextStyle(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 14.5,
+                  color: Color(0xFF0F172A),
+                ),
+              ),
+            ],
           ),
         ],
       ),
     );
   }
 
-  Widget _buildDiscountsCard() {
+  Widget _buildVoucherAndCoinsCard() {
     return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 10),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
-      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          // Platform Vouchers Row
+          Row(
+            children: [
+              const Icon(Icons.card_giftcard, size: 18, color: Color(0xFF00D2FF)),
+              const SizedBox(width: 8),
+              const Text(
+                'Platform Vouchers',
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                  color: Color(0xFF0F172A),
+                ),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE0F7FA),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: const Color(0xFF00B4D8), width: 0.8),
+                ),
+                child: const Row(
+                  children: [
+                    Text(
+                      'Free Shipping Discount',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF00B4D8),
+                      ),
+                    ),
+                    SizedBox(width: 2),
+                    Icon(Icons.chevron_right, size: 12, color: Color(0xFF00B4D8)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+
+          const Divider(height: 20, color: Color(0xFFF1F5F9)),
+
+          // Coins Switch Row
+          Row(
+            children: [
+              const Icon(Icons.monetization_on_outlined, size: 18, color: Color(0xFFF59E0B)),
+              const SizedBox(width: 8),
+              const Text(
+                'Coins cannot be redeemed ⓘ',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Color(0xFF94A3B8),
+                ),
+              ),
+              const Spacer(),
+              Transform.scale(
+                scale: 0.75,
+                child: Switch(
+                  value: _useCoins,
+                  onChanged: null,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPaymentMethodsCard() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Container(
-                width: 32,
-                height: 32,
-                decoration: const BoxDecoration(
-                  color: Color(0xFFFFE4E6),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.confirmation_number_outlined,
-                  color: Color(0xFFE11D48),
-                  size: 18,
-                ),
-              ),
-              const SizedBox(width: 10),
               const Text(
-                'Discounts & Rewards',
+                'Payment Method',
                 style: TextStyle(
                   fontWeight: FontWeight.w800,
-                  fontSize: 15.5,
+                  fontSize: 13.5,
                   color: Color(0xFF0F172A),
+                ),
+              ),
+              InkWell(
+                onTap: _openPaymentMethodModal,
+                borderRadius: BorderRadius.circular(4),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE0F7FA),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: const Color(0xFF00B4D8).withValues(alpha: 0.3)),
+                  ),
+                  child: const Row(
+                    children: [
+                      Text(
+                        'COD Only',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF00B4D8),
+                        ),
+                      ),
+                      SizedBox(width: 3),
+                      Icon(Icons.info_outline, size: 12, color: Color(0xFF00B4D8)),
+                    ],
+                  ),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 12),
 
-          // Coupon Code Input Field
-          Row(
-            children: [
-              Expanded(
-                child: Container(
-                  height: 38,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF1F5F9),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.local_offer_outlined,
-                          size: 15, color: Color(0xFF64748B)),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: TextField(
-                          controller: _voucherController,
-                          style: const TextStyle(
-                              fontSize: 12.5, fontWeight: FontWeight.bold),
-                          decoration: const InputDecoration(
-                            border: InputBorder.none,
-                            isDense: true,
-                            contentPadding: EdgeInsets.zero,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              ElevatedButton(
-                onPressed: () {
-                  setState(() {
-                    _voucherApplied = true;
-                  });
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF0066FF),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                  elevation: 0,
-                ),
-                child: const Text(
-                  'Applied',
-                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-
-          // Active Voucher Chips
-          if (_voucherApplied) ...[
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFE0F2FE),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.check_circle, size: 12, color: Color(0xFF0066FF)),
-                      const SizedBox(width: 4),
-                      const Text(
-                        'NEXORAWELCOME (-₱150.00 OFF)',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF0066FF),
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            _voucherApplied = false;
-                          });
-                        },
-                        child: const Icon(Icons.close, size: 12, color: Color(0xFF0066FF)),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFE0F7FA),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.local_shipping, size: 12, color: Color(0xFF00B4D8)),
-                      SizedBox(width: 4),
-                      Text(
-                        'Free Shipping Applied (-₱120.00)',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF00B4D8),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-          ],
-
-          // Loyalty Points Box
+          // Cash on Delivery Card (Active & Exclusive)
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFFF1F5F9),
-              borderRadius: BorderRadius.circular(14),
+              color: const Color(0xFFE0F7FA).withValues(alpha: 0.35),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: const Color(0xFF00D2FF),
+                width: 1.2,
+              ),
             ),
             child: Row(
               children: [
                 Container(
-                  width: 30,
-                  height: 30,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFEDE9FE),
-                    shape: BoxShape.circle,
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF00B4D8).withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Icon(
-                    Icons.monetization_on_outlined,
-                    color: Color(0xFF7C3AED),
-                    size: 16,
+                    Icons.payments_outlined,
+                    color: Color(0xFF00B4D8),
+                    size: 20,
                   ),
                 ),
-                const SizedBox(width: 8),
-                Expanded(
+                const SizedBox(width: 12),
+                const Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Wrap(
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        spacing: 4,
+                      Row(
                         children: [
-                          const Text(
-                            'Nexora Loyalty Points ',
+                          Text(
+                            'Cash on Delivery (COD)',
                             style: TextStyle(
-                              fontWeight: FontWeight.w800,
-                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 13,
                               color: Color(0xFF0F172A),
-                            ),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFFFD6D6),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: const Text(
-                              '850 Available',
-                              style: TextStyle(
-                                fontSize: 8,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFFE11D48),
-                              ),
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 1),
-                      const Text(
-                        'Redeem 850 points for ₱85.00 discount',
+                      SizedBox(height: 2),
+                      Text(
+                        'Pay in cash upon doorstep delivery',
                         style: TextStyle(
-                          fontSize: 10.5,
+                          fontSize: 11,
                           color: Color(0xFF64748B),
                         ),
                       ),
                     ],
                   ),
                 ),
-                Switch(
-                  value: _usePoints,
-                  onChanged: (val) {
-                    setState(() {
-                      _usePoints = val;
-                    });
-                  },
-                  activeTrackColor: const Color(0xFF00D2FF),
+                Container(
+                  width: 20,
+                  height: 20,
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Color(0xFF00D2FF),
+                  ),
+                  child: const Icon(Icons.check, size: 13, color: Colors.white),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 10),
+
+          // Informative helper banner
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+            ),
+            child: const Row(
+              children: [
+                Icon(Icons.shield_outlined, size: 15, color: Color(0xFF00B4D8)),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Cash on Delivery is currently our only offered payment method. Please prepare exact payment upon delivery.',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF64748B),
+                      height: 1.3,
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -1232,311 +1303,88 @@ class _CheckoutPageState extends State<CheckoutPage> {
     );
   }
 
-  Widget _buildPaymentMethodCard() {
-    final paymentMethods = [
-      {
-        'title': 'NexoraPay Balance',
-        'badge': 'Fastest',
-        'subtitle': 'Available balance: ₱1,850.50\n(Remainder to GCash)',
-        'icon': Icons.bolt_rounded,
-        'iconColor': const Color(0xFF0066FF),
-      },
-      {
-        'title': 'GCash e-Wallet',
-        'subtitle': 'Instant linking • Fast mobile checkout',
-        'icon': Icons.account_balance_wallet_outlined,
-        'iconColor': const Color(0xFF0891B2),
-      },
-      {
-        'title': 'Visa / Mastercard •••• 4012',
-        'subtitle': 'Expires 09/27',
-        'icon': Icons.credit_card_rounded,
-        'iconColor': const Color(0xFF64748B),
-      },
-      {
-        'title': 'Cash on Delivery (COD)',
-        'subtitle': 'Pay in cash upon doorstep arrival',
-        'icon': Icons.payments_outlined,
-        'iconColor': const Color(0xFF64748B),
-      },
-    ];
-
+  Widget _buildPaymentDetailsCard() {
     return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 10),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 32,
-                    height: 32,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFE0F7FA),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.payment_rounded,
-                      color: Color(0xFF00B4D8),
-                      size: 18,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  const Text(
-                    'Payment Method',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 15.5,
-                      color: Color(0xFF0F172A),
-                    ),
-                  ),
-                ],
-              ),
-              const Text(
-                'Zero Fee',
-                style: TextStyle(
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.w800,
-                  color: Color(0xFF00B4D8),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-
-          // Payment Options List
-          Column(
-            children: List.generate(paymentMethods.length, (index) {
-              final isSelected = _selectedPaymentIndex == index;
-              final item = paymentMethods[index];
-
-              return GestureDetector(
-                onTap: () {
-                  setState(() {
-                    _selectedPaymentIndex = index;
-                  });
-                },
-                child: Container(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: isSelected ? const Color(0xFFF4F9FF) : const Color(0xFFF8FAFC),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                      color: isSelected ? const Color(0xFF00D2FF) : Colors.transparent,
-                      width: 1.5,
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 18,
-                        height: 18,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: isSelected ? const Color(0xFF00B4D8) : Colors.transparent,
-                          border: isSelected
-                              ? null
-                              : Border.all(color: const Color(0xFFCBD5E1), width: 2),
-                        ),
-                        child: isSelected
-                            ? const Icon(Icons.check, size: 12, color: Colors.white)
-                            : null,
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Wrap(
-                              crossAxisAlignment: WrapCrossAlignment.center,
-                              spacing: 6,
-                              children: [
-                                Text(
-                                  item['title'] as String,
-                                  style: TextStyle(
-                                    fontWeight: isSelected ? FontWeight.w800 : FontWeight.w700,
-                                    fontSize: 12.5,
-                                    color: const Color(0xFF0F172A),
-                                  ),
-                                ),
-                                if (item.containsKey('badge')) ...[
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 5, vertical: 1),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFE0F2FE),
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: Text(
-                                      item['badge'] as String,
-                                      style: const TextStyle(
-                                        fontSize: 8,
-                                        fontWeight: FontWeight.bold,
-                                        color: Color(0xFF0066FF),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              item['subtitle'] as String,
-                              style: TextStyle(
-                                fontSize: 10.5,
-                                color: Colors.grey.shade600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Icon(
-                        item['icon'] as IconData,
-                        color: item['iconColor'] as Color,
-                        size: 18,
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            }),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPaymentSummaryCard() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Payment Summary',
+            'Payment Details',
             style: TextStyle(
               fontWeight: FontWeight.w800,
-              fontSize: 15.5,
+              fontSize: 13.5,
               color: Color(0xFF0F172A),
             ),
           ),
+          const SizedBox(height: 10),
+
+          _buildDetailRow('Merchandise Subtotal', '₱${_merchandiseSubtotal.toStringAsFixed(0)}'),
+          const SizedBox(height: 6),
+          _buildDetailRow('Shipping Subtotal', '₱${_shippingSubtotal.toStringAsFixed(0)}'),
+          const SizedBox(height: 6),
+          _buildDetailRow('Item Discount', '-₱${_itemDiscount.toStringAsFixed(0)}',
+              valueColor: const Color(0xFF0066FF)),
+          const SizedBox(height: 6),
+          _buildDetailRow('Shipping Discount Subtotal', '-₱${_shippingDiscount.toStringAsFixed(0)}',
+              valueColor: const Color(0xFF0066FF)),
+
           const SizedBox(height: 12),
-          _buildSummaryRow('Merchandise Subtotal', '₱4,450.00'),
-          const SizedBox(height: 6),
-          _buildSummaryRow('Shipping Fee', '₱120.00'),
-          const SizedBox(height: 6),
-          _buildSummaryRow('Shipping Discount (Voucher)', '-₱120.00',
-              valueColor: const Color(0xFF00B4D8)),
-          const SizedBox(height: 6),
-          if (_voucherApplied)
-            _buildSummaryRow('Store Voucher (NEXORAWELCOME)', '-₱150.00',
-                valueColor: const Color(0xFFE11D48)),
-          const SizedBox(height: 6),
-          if (_usePoints)
-            _buildSummaryRow('Nexora Points Redeemed (850 pts)', '-₱85.00',
-                valueColor: const Color(0xFF0066FF)),
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 10),
-            child: Divider(height: 1, color: Color(0xFFF1F5F9)),
-          ),
 
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text(
-                'Total Amount to Pay',
+                'Total Payment',
                 style: TextStyle(
                   fontWeight: FontWeight.w800,
-                  fontSize: 14,
+                  fontSize: 13.5,
                   color: Color(0xFF0F172A),
                 ),
               ),
               Text(
-                _calculateTotal(),
+                '₱${_finalTotal.toStringAsFixed(0)}',
                 style: const TextStyle(
                   fontWeight: FontWeight.w900,
-                  fontSize: 20,
+                  fontSize: 17,
                   color: Color(0xFF0066FF),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 2),
-          const Text(
-            'Inclusive of all local VAT & service fees',
-            style: TextStyle(
-              fontSize: 10,
-              color: Color(0xFF94A3B8),
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          // 3 Trust Badges Row
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF8FAFC),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _TrustBadge(icon: Icons.shield_outlined, label: 'Buyer Guard'),
-                _TrustBadge(icon: Icons.sync, label: '7-Day Return'),
-                _TrustBadge(icon: Icons.settings, label: '100% Genuine'),
-              ],
-            ),
-          ),
         ],
       ),
     );
   }
 
-  Widget _buildSummaryRow(String label, String value, {Color? valueColor}) {
+  Widget _buildDetailRow(String label, String value, {Color? valueColor}) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Expanded(
-          child: Text(
-            label,
-            style: const TextStyle(
-              fontSize: 12,
-              color: Color(0xFF64748B),
-            ),
-            overflow: TextOverflow.ellipsis,
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 11.5,
+            color: Color(0xFF64748B),
           ),
         ),
         Text(
           value,
           style: TextStyle(
-            fontSize: 12.5,
-            fontWeight: FontWeight.w700,
+            fontSize: 11.5,
+            fontWeight: FontWeight.w600,
             color: valueColor ?? const Color(0xFF0F172A),
           ),
         ),
@@ -1544,140 +1392,121 @@ class _CheckoutPageState extends State<CheckoutPage> {
     );
   }
 
-  String _calculateTotal() {
-    double total = 4450.0 + 120.0 - 120.0;
-    if (_voucherApplied) total -= 150.0;
-    if (_usePoints) total -= 85.0;
-    return '₱${total.toStringAsFixed(2)}';
+  Widget _buildActionRow({
+    required String label,
+    required String value,
+    required Color valueColor,
+  }) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 12,
+            color: Color(0xFF0F172A),
+          ),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 11.5,
+            color: valueColor,
+          ),
+        ),
+      ],
+    );
   }
 
-  Widget _buildBottomCheckoutBar() {
+  Widget _buildBottomCheckoutDock() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 20,
-            offset: const Offset(0, -4),
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 10,
+            offset: const Offset(0, -3),
           ),
         ],
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Expanded(
-            child: Column(
+      child: SafeArea(
+        top: false,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text(
-                  'TOTAL PRICE',
-                  style: TextStyle(
-                    fontSize: 9,
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xFF94A3B8),
-                    letterSpacing: 0.5,
-                  ),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    const Text(
+                      'Total: ',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF64748B),
+                      ),
+                    ),
+                    Text(
+                      '₱${_finalTotal.toStringAsFixed(0)}',
+                      style: const TextStyle(
+                        fontSize: 19,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFF0066FF),
+                      ),
+                    ),
+                  ],
                 ),
                 Text(
-                  _calculateTotal(),
+                  'Saved ₱${_totalSaved.toStringAsFixed(0)}',
                   style: const TextStyle(
-                    fontSize: 19,
-                    fontWeight: FontWeight.w900,
-                    color: Color(0xFF0066FF),
-                  ),
-                ),
-                const Text(
-                  '🏷 Saved ₱355.00 total',
-                  style: TextStyle(
-                    fontSize: 9.5,
+                    fontSize: 10,
                     fontWeight: FontWeight.bold,
                     color: Color(0xFF00B4D8),
                   ),
-                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
-          ),
-          const SizedBox(width: 8),
-          Container(
-            height: 46,
-            constraints: const BoxConstraints(maxWidth: 180),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF00D2FF), Color(0xFF0066FF)],
-                begin: Alignment.centerLeft,
-                end: Alignment.centerRight,
-              ),
-              borderRadius: BorderRadius.circular(23),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF0066FF).withValues(alpha: 0.35),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
+
+            // Vibrant Place Order Cyan Button
+            SizedBox(
+              height: 44,
+              child: ElevatedButton(
+                onPressed: _isPlacingOrder ? null : _handlePlaceOrder,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF00D2FF),
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(horizontal: 32),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(6),
+                  ),
                 ),
-              ],
-            ),
-            child: ElevatedButton.icon(
-              onPressed: _isPlacingOrder ? null : _handlePlaceOrder,
-              icon: _isPlacingOrder
-                  ? const SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
+                child: _isPlacingOrder
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      )
+                    : const Text(
+                        'Place Order',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 14,
+                        ),
                       ),
-                    )
-                  : const Icon(Icons.lock_outline, size: 16, color: Colors.white),
-              label: Text(
-                _isPlacingOrder ? 'Processing...' : 'Place Order →',
-                style: const TextStyle(
-                  fontWeight: FontWeight.w900,
-                  fontSize: 13,
-                  color: Colors.white,
-                ),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.transparent,
-                shadowColor: Colors.transparent,
-                padding: const EdgeInsets.symmetric(horizontal: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(23),
-                ),
               ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _TrustBadge extends StatelessWidget {
-  final IconData icon;
-  final String label;
-
-  const _TrustBadge({required this.icon, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 13, color: const Color(0xFF0066FF)),
-        const SizedBox(width: 3),
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.w700,
-            color: Color(0xFF475569),
-          ),
+          ],
         ),
-      ],
+      ),
     );
   }
 }

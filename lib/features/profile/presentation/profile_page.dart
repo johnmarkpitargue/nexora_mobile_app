@@ -1,6 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:nexora_flutter_app/core/services/address_service.dart';
+import 'package:nexora_flutter_app/core/services/cart_service.dart';
+import 'package:nexora_flutter_app/core/services/chat_service.dart';
+import 'package:nexora_flutter_app/core/services/order_service.dart';
+import 'package:nexora_flutter_app/core/services/profile_service.dart';
+import 'package:nexora_flutter_app/core/services/wishlist_service.dart';
 import '../../../app/routes/app_routes.dart';
-import '../../home/presentation/widgets/floating_nav_dock.dart';
 
 class ProfilePage extends StatefulWidget {
   final VoidCallback? onToggleDarkMode;
@@ -19,19 +25,183 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage> {
   late bool _darkMode;
 
-  // Editable Profile State
-  String _name = 'Alex Rivera';
-  String _username = '@alexrivera';
-  String _email = 'alex.rivera@nexora.io';
-  String _phone = '+63 917 123 4567';
-  String _address = 'Unit 402, Lumina Heights Tower 2, Makati ...';
-  String _avatarUrl =
-      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80';
-
-  double _walletBalance = 1850.50;
   final int _voucherCount = 1;
-  final int _wishlistCount = 4;
   final int _pointsCount = 850;
+
+  final List<String> _presetAvatars = const [
+    'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
+    'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80',
+    'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=200&q=80',
+    'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80',
+    'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=200&q=80',
+    'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?auto=format&fit=crop&w=200&q=80',
+  ];
+
+  ImageProvider _getAvatarImageProvider() {
+    final profile = ProfileService.instance;
+    if (profile.hasCustomAvatarBytes) {
+      return MemoryImage(profile.avatarBytes!);
+    }
+    return NetworkImage(profile.avatarUrl);
+  }
+
+  Future<void> _pickImage(ImageSource source, {StateSetter? setSheetState}) async {
+    try {
+      final picker = ImagePicker();
+      final picked = await picker.pickImage(
+        source: source,
+        maxWidth: 800,
+        maxHeight: 800,
+        imageQuality: 85,
+      );
+      if (picked != null) {
+        final bytes = await picked.readAsBytes();
+        ProfileService.instance.updateAvatarBytes(bytes);
+        if (setSheetState != null) {
+          setSheetState(() {});
+        }
+        if (mounted) {
+          setState(() {});
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Row(
+                children: [
+                  Icon(Icons.check_circle, color: Colors.white),
+                  SizedBox(width: 8),
+                  Text('📸 Profile photo uploaded successfully!'),
+                ],
+              ),
+              backgroundColor: Color(0xFF00C1D4),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Could not select image: $e'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    }
+  }
+
+  void _showPhotoOptionsModal(BuildContext parentContext, {StateSetter? setSheetState}) {
+    showModalBottomSheet(
+      context: parentContext,
+      backgroundColor: Colors.transparent,
+      builder: (modalCtx) => Container(
+        padding: const EdgeInsets.all(20),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Change Profile Photo',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF0F172A),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close_rounded),
+                  onPressed: () => Navigator.pop(modalCtx),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF00C1D4).withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.upload_file_rounded, color: Color(0xFF00C1D4)),
+              ),
+              title: const Text('Upload from Files / Device', style: TextStyle(fontWeight: FontWeight.bold)),
+              subtitle: const Text('Pick photo from your computer or gallery', style: TextStyle(fontSize: 12)),
+              onTap: () {
+                Navigator.pop(modalCtx);
+                _pickImage(ImageSource.gallery, setSheetState: setSheetState);
+              },
+            ),
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0066FF).withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.camera_alt_outlined, color: Color(0xFF0066FF)),
+              ),
+              title: const Text('Take Photo with Camera', style: TextStyle(fontWeight: FontWeight.bold)),
+              subtitle: const Text('Snap a new profile picture now', style: TextStyle(fontSize: 12)),
+              onTap: () {
+                Navigator.pop(modalCtx);
+                _pickImage(ImageSource.camera, setSheetState: setSheetState);
+              },
+            ),
+            const Divider(),
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8),
+              child: Text(
+                'Or Select from Curated Avatars',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF64748B)),
+              ),
+            ),
+            SizedBox(
+              height: 56,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: _presetAvatars.length,
+                separatorBuilder: (context, index) => const SizedBox(width: 12),
+                itemBuilder: (ctx, index) {
+                  final url = _presetAvatars[index];
+                  return GestureDetector(
+                    onTap: () {
+                      ProfileService.instance.updateAvatarUrl(url);
+                      if (setSheetState != null) setSheetState(() {});
+                      Navigator.pop(modalCtx);
+                      if (mounted) setState(() {});
+                    },
+                    child: Container(
+                      width: 52,
+                      height: 52,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: ProfileService.instance.avatarUrl == url && !ProfileService.instance.hasCustomAvatarBytes
+                              ? const Color(0xFF00C1D4)
+                              : const Color(0xFFE2E8F0),
+                          width: 2.5,
+                        ),
+                        image: DecorationImage(
+                          image: NetworkImage(url),
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   void initState() {
@@ -40,21 +210,22 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   void _showEditProfileSheet() {
-    final nameCtrl = TextEditingController(text: _name);
-    final usernameCtrl = TextEditingController(text: _username);
-    final emailCtrl = TextEditingController(text: _email);
-    final phoneCtrl = TextEditingController(text: _phone);
-    final addressCtrl = TextEditingController(text: _address);
+    final profile = ProfileService.instance;
+    final nameCtrl = TextEditingController(text: profile.name);
+    final usernameCtrl = TextEditingController(text: profile.username);
+    final emailCtrl = TextEditingController(text: profile.email);
+    final phoneCtrl = TextEditingController(text: profile.phone);
+    final addressCtrl = TextEditingController(text: profile.address);
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setSheetState) {
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (sheetContext, setSheetState) {
           return Container(
             padding: EdgeInsets.only(
-              bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+              bottom: MediaQuery.of(sheetContext).viewInsets.bottom + 20,
               top: 20,
               left: 20,
               right: 20,
@@ -72,7 +243,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       const Text(
-                        'Edit Profile',
+                        'Edit Personal Information',
                         style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.w900,
@@ -81,7 +252,7 @@ class _ProfilePageState extends State<ProfilePage> {
                       ),
                       IconButton(
                         icon: const Icon(Icons.close_rounded),
-                        onPressed: () => Navigator.pop(context),
+                        onPressed: () => Navigator.pop(sheetContext),
                       ),
                     ],
                   ),
@@ -92,66 +263,58 @@ class _ProfilePageState extends State<ProfilePage> {
                     child: Stack(
                       children: [
                         Container(
-                          width: 84,
-                          height: 84,
+                          width: 88,
+                          height: 88,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             image: DecorationImage(
-                              image: NetworkImage(_avatarUrl),
+                              image: _getAvatarImageProvider(),
                               fit: BoxFit.cover,
                             ),
-                            border: Border.all(color: const Color(0xFF0066FF), width: 2),
+                            border: Border.all(color: const Color(0xFF00C1D4), width: 2.5),
                           ),
                         ),
                         Positioned(
                           right: 0,
                           bottom: 0,
                           child: GestureDetector(
-                            onTap: () {
-                              setSheetState(() {
-                                _avatarUrl =
-                                    'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80';
-                              });
-                              setState(() {
-                                _avatarUrl =
-                                    'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80';
-                              });
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('📸 Profile photo updated!'),
-                                  backgroundColor: Color(0xFF0066FF),
-                                ),
-                              );
-                            },
+                            onTap: () => _showPhotoOptionsModal(sheetContext, setSheetState: setSheetState),
                             child: Container(
-                              width: 28,
-                              height: 28,
+                              width: 30,
+                              height: 30,
                               decoration: const BoxDecoration(
-                                color: Color(0xFF0066FF),
+                                color: Color(0xFF00C1D4),
                                 shape: BoxShape.circle,
                               ),
                               child: const Icon(Icons.camera_alt_rounded,
-                                  color: Colors.white, size: 15),
+                                  color: Colors.white, size: 16),
                             ),
                           ),
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 6),
-                  const Center(
-                    child: Text(
-                      'Tap camera icon to upload photo',
-                      style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                  const SizedBox(height: 8),
+                  Center(
+                    child: TextButton.icon(
+                      onPressed: () => _showPhotoOptionsModal(sheetContext, setSheetState: setSheetState),
+                      icon: const Icon(Icons.upload_file_rounded, size: 16, color: Color(0xFF00C1D4)),
+                      label: const Text(
+                        'Upload or Change Photo',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF00C1D4)),
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
 
-                  // Editable Fields
+                  // Editable Fields with live real-time updates!
                   const Text('Full Name', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                   const SizedBox(height: 4),
                   TextField(
                     controller: nameCtrl,
+                    onChanged: (val) {
+                      ProfileService.instance.updateProfile(name: val);
+                    },
                     decoration: _buildInputDecoration(hint: 'Full Name', prefixIcon: Icons.person_outline),
                   ),
                   const SizedBox(height: 12),
@@ -160,6 +323,9 @@ class _ProfilePageState extends State<ProfilePage> {
                   const SizedBox(height: 4),
                   TextField(
                     controller: usernameCtrl,
+                    onChanged: (val) {
+                      ProfileService.instance.updateProfile(username: val);
+                    },
                     decoration: _buildInputDecoration(hint: '@username', prefixIcon: Icons.alternate_email),
                   ),
                   const SizedBox(height: 12),
@@ -168,6 +334,9 @@ class _ProfilePageState extends State<ProfilePage> {
                   const SizedBox(height: 4),
                   TextField(
                     controller: emailCtrl,
+                    onChanged: (val) {
+                      ProfileService.instance.updateProfile(email: val);
+                    },
                     decoration: _buildInputDecoration(hint: 'Email', prefixIcon: Icons.email_outlined),
                   ),
                   const SizedBox(height: 12),
@@ -176,15 +345,21 @@ class _ProfilePageState extends State<ProfilePage> {
                   const SizedBox(height: 4),
                   TextField(
                     controller: phoneCtrl,
+                    onChanged: (val) {
+                      ProfileService.instance.updateProfile(phone: val);
+                    },
                     decoration: _buildInputDecoration(hint: 'Phone', prefixIcon: Icons.phone_outlined),
                   ),
                   const SizedBox(height: 12),
 
-                  const Text('Default Address', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  const Text('Default Delivery Address', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                   const SizedBox(height: 4),
                   TextField(
                     controller: addressCtrl,
                     maxLines: 2,
+                    onChanged: (val) {
+                      ProfileService.instance.updateProfile(address: val);
+                    },
                     decoration: _buildInputDecoration(hint: 'Address', prefixIcon: Icons.location_on_outlined),
                   ),
                   const SizedBox(height: 20),
@@ -201,18 +376,24 @@ class _ProfilePageState extends State<ProfilePage> {
                     ),
                     child: ElevatedButton(
                       onPressed: () {
-                        setState(() {
-                          _name = nameCtrl.text;
-                          _username = usernameCtrl.text;
-                          _email = emailCtrl.text;
-                          _phone = phoneCtrl.text;
-                          _address = addressCtrl.text;
-                        });
-                        Navigator.pop(context);
+                        ProfileService.instance.updateProfile(
+                          name: nameCtrl.text,
+                          username: usernameCtrl.text,
+                          email: emailCtrl.text,
+                          phone: phoneCtrl.text,
+                          address: addressCtrl.text,
+                        );
+                        Navigator.pop(sheetContext);
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text('🎉 Profile updated successfully!'),
-                            backgroundColor: Color(0xFF0066FF),
+                            content: Row(
+                              children: [
+                                Icon(Icons.check_circle, color: Colors.white),
+                                SizedBox(width: 8),
+                                Text('Profile updated in real-time!'),
+                              ],
+                            ),
+                            backgroundColor: Color(0xFF00C1D4),
                           ),
                         );
                       },
@@ -281,14 +462,13 @@ class _ProfilePageState extends State<ProfilePage> {
           ElevatedButton(
             onPressed: () {
               final val = double.tryParse(amountController.text) ?? 500.0;
-              setState(() {
-                _walletBalance += val;
-              });
+              final newBal = ProfileService.instance.walletBalance + val;
+              ProfileService.instance.updateWalletBalance(newBal);
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text(
-                      'Successfully topped up ₱${val.toStringAsFixed(2)}! New Balance: ₱${_walletBalance.toStringAsFixed(2)}'),
+                      'Successfully topped up ₱${val.toStringAsFixed(2)}! New Balance: ₱${newBal.toStringAsFixed(2)}'),
                   backgroundColor: const Color(0xFF0066FF),
                 ),
               );
@@ -306,13 +486,21 @@ class _ProfilePageState extends State<ProfilePage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF6F8FC),
-      body: SafeArea(
-        bottom: false,
-        child: Stack(
-          children: [
-            SingleChildScrollView(
+    return AnimatedBuilder(
+      animation: Listenable.merge([
+        ProfileService.instance,
+        OrderService.instance,
+        AddressService.instance,
+        WishlistService.instance,
+        CartService.instance,
+        ChatService.instance,
+      ]),
+      builder: (context, _) {
+        return Scaffold(
+          backgroundColor: const Color(0xFFF6F8FC),
+          body: SafeArea(
+            bottom: false,
+            child: SingleChildScrollView(
               physics: const BouncingScrollPhysics(),
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Column(
@@ -327,7 +515,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   _buildUserProfileHeader(),
                   const SizedBox(height: 20),
 
-                  // Key Quick Stats Row (12 Orders, 4 Wishlist, P1.8k Wallet, 850 Points)
+                  // Key Quick Stats Row (Orders, Wishlist, Wallet, Points)
                   _buildQuickStatsRow(),
                   const SizedBox(height: 20),
 
@@ -345,52 +533,35 @@ class _ProfilePageState extends State<ProfilePage> {
                   _buildShoppingBenefitsCard(context),
                   const SizedBox(height: 24),
 
-                  // PREFERENCES & SECURITY Group
-                  _buildSectionHeader('PREFERENCES & SECURITY'),
-                  const SizedBox(height: 10),
-                  _buildPreferencesCard(context),
-                  const SizedBox(height: 24),
+              // PREFERENCES & SECURITY Group
+              _buildSectionHeader('PREFERENCES & SECURITY'),
+              const SizedBox(height: 10),
+              _buildPreferencesCard(context),
+              const SizedBox(height: 24),
 
-                  // SUPPORT & LEGAL Group
-                  _buildSectionHeader('SUPPORT & LEGAL'),
-                  const SizedBox(height: 10),
-                  _buildSupportLegalCard(context),
-                  const SizedBox(height: 24),
+              // SUPPORT & LEGAL Group
+              _buildSectionHeader('SUPPORT & LEGAL'),
+              const SizedBox(height: 10),
+              _buildSupportLegalCard(context),
+              const SizedBox(height: 24),
 
-                  // Log Out Red Button
-                  _buildLogoutButton(context),
-                  const SizedBox(height: 16),
+              // Log Out Red Button
+              _buildLogoutButton(context),
+              const SizedBox(height: 16),
 
-                  // Footer Info
-                  _buildFooterInfo(),
+              // Footer Info
+              _buildFooterInfo(),
 
-                  // Clearance for bottom floating navigation dock
-                  const SizedBox(height: 110),
-                ],
-              ),
-            ),
-
-            // Bottom Floating Nav Dock
-            Align(
-              alignment: Alignment.bottomCenter,
-              child: FloatingNavDock(
-                currentIndex: 3, // Profile active tab
-                onTap: (index) {
-                  if (index == 0) {
-                    Navigator.pushReplacementNamed(context, AppRoutes.home);
-                  } else if (index == 1) {
-                    Navigator.pushReplacementNamed(context, AppRoutes.orders);
-                  } else if (index == 2) {
-                    Navigator.pushReplacementNamed(context, AppRoutes.chat);
-                  }
-                },
-              ),
-            ),
-          ],
+              // Clearance for bottom floating navigation dock
+              const SizedBox(height: 20),
+            ],
+          ),
         ),
       ),
     );
-  }
+  },
+);
+}
 
   Widget _buildHeaderRow(BuildContext context) {
     return Row(
@@ -416,7 +587,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 );
               },
             ),
-            // Cart Icon with Badge 2
+            // Cart Icon with Real-Time Badge
             Stack(
               clipBehavior: Clip.none,
               children: [
@@ -427,31 +598,32 @@ class _ProfilePageState extends State<ProfilePage> {
                     Navigator.pushNamed(context, AppRoutes.cart);
                   },
                 ),
-                Positioned(
-                  right: 4,
-                  top: 4,
-                  child: Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: const BoxDecoration(
-                      color: Color(0xFF00D2FF),
-                      shape: BoxShape.circle,
-                    ),
-                    constraints:
-                        const BoxConstraints(minWidth: 16, minHeight: 16),
-                    child: const Text(
-                      '2',
-                      style: TextStyle(
-                        color: Color(0xFF050B28),
-                        fontSize: 9.5,
-                        fontWeight: FontWeight.w900,
+                if (CartService.instance.itemCount > 0)
+                  Positioned(
+                    right: 4,
+                    top: 4,
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF00D2FF),
+                        shape: BoxShape.circle,
                       ),
-                      textAlign: TextAlign.center,
+                      constraints:
+                          const BoxConstraints(minWidth: 16, minHeight: 16),
+                      child: Text(
+                        '${CartService.instance.itemCount}',
+                        style: const TextStyle(
+                          color: Color(0xFF050B28),
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w900,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
                     ),
                   ),
-                ),
               ],
             ),
-            // Chat Icon with Badge 3
+            // Chat Icon with Real-Time Unread Badge
             Stack(
               clipBehavior: Clip.none,
               children: [
@@ -462,28 +634,29 @@ class _ProfilePageState extends State<ProfilePage> {
                     Navigator.pushNamed(context, AppRoutes.chat);
                   },
                 ),
-                Positioned(
-                  right: 4,
-                  top: 4,
-                  child: Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFE11D48),
-                      shape: BoxShape.circle,
-                    ),
-                    constraints:
-                        const BoxConstraints(minWidth: 16, minHeight: 16),
-                    child: const Text(
-                      '3',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 9.5,
-                        fontWeight: FontWeight.bold,
+                if (ChatService.instance.totalUnreadCount > 0)
+                  Positioned(
+                    right: 4,
+                    top: 4,
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFE11D48),
+                        shape: BoxShape.circle,
                       ),
-                      textAlign: TextAlign.center,
+                      constraints:
+                          const BoxConstraints(minWidth: 16, minHeight: 16),
+                      child: Text(
+                        '${ChatService.instance.totalUnreadCount}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
                     ),
                   ),
-                ),
               ],
             ),
           ],
@@ -493,6 +666,7 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Widget _buildUserProfileHeader() {
+    final profile = ProfileService.instance;
     return Row(
       children: [
         // User Photo Avatar
@@ -506,7 +680,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   image: DecorationImage(
-                    image: NetworkImage(_avatarUrl),
+                    image: _getAvatarImageProvider(),
                     fit: BoxFit.cover,
                   ),
                 ),
@@ -515,13 +689,14 @@ class _ProfilePageState extends State<ProfilePage> {
                 right: 0,
                 bottom: 0,
                 child: Container(
-                  width: 16,
-                  height: 16,
+                  width: 20,
+                  height: 20,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF00D2FF),
+                    color: const Color(0xFF00C1D4),
                     shape: BoxShape.circle,
                     border: Border.all(color: Colors.white, width: 2),
                   ),
+                  child: const Icon(Icons.camera_alt, color: Colors.white, size: 11),
                 ),
               ),
             ],
@@ -536,12 +711,15 @@ class _ProfilePageState extends State<ProfilePage> {
             children: [
               Row(
                 children: [
-                  Text(
-                    _name,
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w900,
-                      color: Color(0xFF0F172A),
+                  Flexible(
+                    child: Text(
+                      profile.name,
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFF0F172A),
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   const SizedBox(width: 6),
@@ -554,7 +732,7 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
               const SizedBox(height: 1),
               Text(
-                _username,
+                profile.username,
                 style: const TextStyle(
                   fontSize: 13,
                   color: Color(0xFF64748B),
@@ -608,6 +786,12 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Widget _buildQuickStatsRow() {
+    final profile = ProfileService.instance;
+    final orderCount = OrderService.instance.activeOrders.length;
+    final walletDisplay = profile.walletBalance >= 1000
+        ? '₱${(profile.walletBalance / 1000).toStringAsFixed(1)}k'
+        : '₱${profile.walletBalance.toStringAsFixed(0)}';
+
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
       decoration: BoxDecoration(
@@ -624,15 +808,13 @@ class _ProfilePageState extends State<ProfilePage> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _buildStatItem('12', 'Orders', () {
+          _buildStatItem('$orderCount', 'Orders', () {
             Navigator.pushReplacementNamed(context, AppRoutes.orders);
           }),
-          _buildStatItem('$_wishlistCount', 'Wishlist', () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Saved Wishlist: $_wishlistCount items')),
-            );
+          _buildStatItem('${WishlistService.instance.itemCount}', 'Wishlist', () {
+            Navigator.pushNamed(context, AppRoutes.wishlist);
           }),
-          _buildStatItem('₱1.8k', 'Wallet', () {
+          _buildStatItem(walletDisplay, 'Wallet', () {
             _showTopUpDialog();
           }),
           _buildStatItem('$_pointsCount', 'Points', () {
@@ -759,21 +941,13 @@ class _ProfilePageState extends State<ProfilePage> {
                 crossAxisAlignment: CrossAxisAlignment.baseline,
                 textBaseline: TextBaseline.alphabetic,
                 children: [
-                  const Text(
-                    '₱1,850',
-                    style: TextStyle(
-                      fontSize: 28,
+                  Text(
+                    '₱${ProfileService.instance.walletBalance.toStringAsFixed(2)}',
+                    style: const TextStyle(
+                      fontSize: 26,
                       fontWeight: FontWeight.w900,
                       color: Colors.white,
                       letterSpacing: -0.5,
-                    ),
-                  ),
-                  Text(
-                    '.50',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.white.withValues(alpha: 0.8),
                     ),
                   ),
                 ],
@@ -954,90 +1128,144 @@ class _ProfilePageState extends State<ProfilePage> {
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               _buildPurchaseStatusItem(
-                  'To Pay', Icons.credit_card_outlined, 0, () {},
-                  isHighlighted: false),
+                  'To Pay',
+                  Icons.credit_card_outlined,
+                  OrderService.instance.activeOrders
+                      .where((o) => o.statusText.toLowerCase() == 'to pay' || o.statusText.toLowerCase() == 'unpaid')
+                      .length, () {
+                Navigator.pushReplacementNamed(context, AppRoutes.orders, arguments: {'initialIndex': 1});
+              }, isHighlighted: false),
               _buildPurchaseStatusItem(
-                  'To Ship', Icons.inventory_2_outlined, 0, () {},
-                  isHighlighted: false),
+                  'To Ship',
+                  Icons.inventory_2_outlined,
+                  OrderService.instance.activeOrders
+                      .where((o) => o.statusText.toLowerCase() == 'to ship' || o.statusText.toLowerCase() == 'processing')
+                      .length, () {
+                Navigator.pushReplacementNamed(context, AppRoutes.orders, arguments: {'initialIndex': 2});
+              }, isHighlighted: false),
               _buildPurchaseStatusItem(
-                  'To Receive', Icons.local_shipping_outlined, 1, () {
-                Navigator.pushReplacementNamed(context, AppRoutes.orders);
-              }, isHighlighted: true),
+                  'To Receive',
+                  Icons.local_shipping_outlined,
+                  OrderService.instance.activeOrders
+                      .where((o) =>
+                          o.statusText.toLowerCase() == 'to receive' ||
+                          o.statusText.toLowerCase() == 'shipping' ||
+                          o.statusText.toLowerCase() == 'shipped' ||
+                          o.statusText.toLowerCase() == 'in transit' ||
+                          o.statusText.toLowerCase() == 'out for delivery')
+                      .length, () {
+                Navigator.pushReplacementNamed(context, AppRoutes.orders, arguments: {'initialIndex': 3});
+              },
+              isHighlighted: OrderService.instance.activeOrders.any((o) =>
+                  o.statusText.toLowerCase() == 'to receive' ||
+                  o.statusText.toLowerCase() == 'shipping' ||
+                  o.statusText.toLowerCase() == 'shipped' ||
+                  o.statusText.toLowerCase() == 'in transit' ||
+                  o.statusText.toLowerCase() == 'out for delivery')),
               _buildPurchaseStatusItem(
-                  'To Review', Icons.rate_review_outlined, 2, () {
-                Navigator.pushReplacementNamed(context, AppRoutes.orders);
+                  'Completed',
+                  Icons.rate_review_outlined,
+                  OrderService.instance.activeOrders
+                      .where((o) => o.statusText.toLowerCase() == 'completed' || o.statusText.toLowerCase() == 'delivered')
+                      .length, () {
+                Navigator.pushReplacementNamed(context, AppRoutes.orders, arguments: {'initialIndex': 4});
               }, isHighlighted: false),
             ],
           ),
-          const SizedBox(height: 16),
 
-          // Active Parcel Status Banner Box
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            decoration: BoxDecoration(
-              color: const Color(0xFFEEECFF),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 32,
-                  height: 32,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFF00D2FF),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.sync_rounded,
-                      color: Color(0xFF050B28), size: 16),
+          // Active Parcel Status Banner Box (Only rendered if there are active in-transit orders)
+          Builder(
+            builder: (context) {
+              final inTransitOrders = OrderService.instance.activeOrders.where(
+                (o) =>
+                    o.statusText.toLowerCase() == 'to receive' ||
+                    o.statusText.toLowerCase() == 'shipping' ||
+                    o.statusText.toLowerCase() == 'shipped' ||
+                    o.statusText.toLowerCase() == 'in transit' ||
+                    o.statusText.toLowerCase() == 'out for delivery',
+              ).toList();
+
+              if (inTransitOrders.isEmpty) {
+                return const SizedBox.shrink();
+              }
+
+              final activeOrder = inTransitOrders.first;
+
+              return Container(
+                margin: const EdgeInsets.only(top: 16),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEEECFF),
+                  borderRadius: BorderRadius.circular(16),
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Parcel arriving today',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 12.5,
-                          color: Color(0xFF0F172A),
-                        ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 32,
+                      height: 32,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF00D2FF),
+                        shape: BoxShape.circle,
                       ),
-                      const SizedBox(height: 1),
-                      Text(
-                        'Order #NX-88219 • Out for delivery',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                ElevatedButton(
-                  onPressed: () {
-                    Navigator.pushReplacementNamed(context, AppRoutes.orders);
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF00D2FF),
-                    foregroundColor: const Color(0xFF050B28),
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                    minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
+                      child: const Icon(Icons.sync_rounded,
+                          color: Color(0xFF050B28), size: 16),
                     ),
-                  ),
-                  child: const Text(
-                    'Track',
-                    style:
-                        TextStyle(fontSize: 12, fontWeight: FontWeight.w900),
-                  ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            activeOrder.etaTime.isNotEmpty
+                                ? activeOrder.etaTime
+                                : 'Parcel arriving today',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 12.5,
+                              color: Color(0xFF0F172A),
+                            ),
+                          ),
+                          const SizedBox(height: 1),
+                          Text(
+                            'Order ${activeOrder.orderId} • ${activeOrder.etaText}',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    ElevatedButton(
+                      onPressed: () {
+                        Navigator.pushNamed(
+                          context,
+                          AppRoutes.orderTracking,
+                          arguments: activeOrder,
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF00D2FF),
+                        foregroundColor: const Color(0xFF050B28),
+                        padding:
+                            const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      child: const Text(
+                        'Track',
+                        style:
+                            TextStyle(fontSize: 12, fontWeight: FontWeight.w900),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              );
+            },
           ),
         ],
       ),
@@ -1122,13 +1350,16 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
+
   Widget _buildShoppingBenefitsCard(BuildContext context) {
     return _buildGroupCard([
       _buildListTile(
         icon: Icons.location_on_outlined,
         title: 'My Addresses',
-        subtitle: _address,
-        onTap: _showEditProfileSheet,
+        subtitle: AddressService.instance.defaultAddress?.fullAddress ?? ProfileService.instance.address,
+        onTap: () {
+          Navigator.pushNamed(context, AppRoutes.myAddresses);
+        },
       ),
       _buildListTile(
         icon: Icons.credit_card_rounded,
@@ -1153,11 +1384,9 @@ class _ProfilePageState extends State<ProfilePage> {
       _buildListTile(
         icon: Icons.favorite_border_rounded,
         title: 'Saved Wishlist',
-        subtitle: '$_wishlistCount items saved',
+        subtitle: '${WishlistService.instance.itemCount} items saved',
         onTap: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Saved Wishlist: $_wishlistCount items')),
-          );
+          Navigator.pushNamed(context, AppRoutes.wishlist);
         },
         isLast: true,
       ),

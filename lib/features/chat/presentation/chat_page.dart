@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:nexora_flutter_app/core/services/chat_service.dart';
 import '../../../app/routes/app_routes.dart';
-import '../../home/presentation/widgets/floating_nav_dock.dart';
 import 'chat_detail_page.dart';
 
 class ChatPage extends StatefulWidget {
@@ -13,6 +13,7 @@ class ChatPage extends StatefulWidget {
 class _ChatPageState extends State<ChatPage> {
   int _selectedFilterIndex = 0;
   final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
   String _searchQuery = '';
   bool _allRead = false;
 
@@ -28,14 +29,14 @@ class _ChatPageState extends State<ChatPage> {
       'id': 'nexora_store',
       'category': 'Official Stores',
       'title': 'Nexora Official Store',
-      'subtitle': 'Your warranty for Nexora Studio Pro Wi...',
+      'subtitle': 'Your warranty for Nexora Studio Pro W...',
       'brandTag': 'BRAND',
       'itemTag': '🎧 Nexora Studio Pro',
       'time': '2:10 PM',
       'unread': 0,
       'isDoubleCheck': true,
       'avatarIcon': Icons.verified_user_rounded,
-      'avatarBg': const Color(0xFF5038ED),
+      'avatarBg': const Color(0xFF0075FF),
       'initialMessages': [
         {
           'sender': 'other',
@@ -53,11 +54,11 @@ class _ChatPageState extends State<ChatPage> {
       'id': 'aura_studios',
       'category': 'Official Stores',
       'title': 'Aura Studios Official',
-      'subtitle': 'Hi Alex! The Warm Stone Hoodie in Size...',
-      'itemTag': '👔 Stone Hoodie (L)',
+      'subtitle': 'Hi Alex! The Warm Stone Hoodie in Siz...',
+      'itemTag': '👗 Stone Hoodie (L)',
       'time': 'Yesterday',
       'unread': 0,
-      'isDoubleCheck': true,
+      'isCheck': true,
       'avatarIcon': Icons.checkroom_rounded,
       'avatarBg': const Color(0xFFFCA5A5),
       'initialMessages': [
@@ -83,7 +84,7 @@ class _ChatPageState extends State<ChatPage> {
       'time': 'Nov 15',
       'unread': 0,
       'avatarIcon': Icons.smart_toy_rounded,
-      'avatarBg': const Color(0xFF818CF8),
+      'avatarBg': const Color(0xFF00B4D8),
       'initialMessages': [
         {
           'sender': 'other',
@@ -97,12 +98,12 @@ class _ChatPageState extends State<ChatPage> {
       'category': 'Official Stores',
       'title': 'LogiTech Hub Store',
       'subtitle': 'Thanks for purchasing with us! Let us k...',
-      'itemTag': '⌨️ MX Mechanical Mini',
+      'itemTag': 'MX Mechanical Mini',
       'time': 'Nov 05',
       'unread': 0,
       'isCheck': true,
       'avatarIcon': Icons.keyboard_rounded,
-      'avatarBg': const Color(0xFF93C5FD),
+      'avatarBg': const Color(0xFF94A3B8),
       'initialMessages': [
         {
           'sender': 'other',
@@ -116,16 +117,19 @@ class _ChatPageState extends State<ChatPage> {
   @override
   void dispose() {
     _searchController.dispose();
+    _searchFocusNode.dispose();
     super.dispose();
   }
 
   void _markAllAsRead() {
+    ChatService.instance.markAllAsRead();
     setState(() {
       _allRead = true;
     });
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('All messages marked as read!'),
+        backgroundColor: Color(0xFF0284C7),
         duration: Duration(seconds: 2),
       ),
     );
@@ -135,7 +139,7 @@ class _ChatPageState extends State<ChatPage> {
     return _conversations.where((item) {
       // Category filter
       if (_selectedFilterIndex == 1) {
-        return false; // Couriers has live card section
+        return false; // Couriers tab shows live dispatch card
       }
       if (_selectedFilterIndex == 2 && item['category'] != 'Official Stores') {
         return false;
@@ -149,7 +153,8 @@ class _ChatPageState extends State<ChatPage> {
         final query = _searchQuery.toLowerCase();
         final title = (item['title'] as String).toLowerCase();
         final subtitle = (item['subtitle'] as String).toLowerCase();
-        return title.contains(query) || subtitle.contains(query);
+        final itemTag = (item['itemTag'] ?? '').toString().toLowerCase();
+        return title.contains(query) || subtitle.contains(query) || itemTag.contains(query);
       }
       return true;
     }).toList();
@@ -169,58 +174,42 @@ class _ChatPageState extends State<ChatPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const SizedBox(height: 12),
-                  // App Bar Header
-                  _buildHeaderAppBar(context),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 8),
+
+                  // Top Navigation Bar (← Messages, Search, Filter, Settings)
+                  _buildTopAppBar(context),
+                  const SizedBox(height: 16),
 
                   // Title Bar & Read All Button
                   _buildTitleRow(),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 14),
 
-                  // Search Bar
+                  // Search Input Bar
                   _buildSearchBar(),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 14),
 
-                  // Filter Pills
+                  // Category Filter Chips
                   _buildFilterPills(),
                   const SizedBox(height: 20),
 
-                  // Live Dispatch Card (Mark Ronald Courier)
+                  // Live Dispatch Connected Card (Mark Ronald Courier)
                   if (_selectedFilterIndex == 0 || _selectedFilterIndex == 1) ...[
                     _buildLiveDispatchCard(context),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 22),
                   ],
 
                   // Conversations List Section
                   if (_selectedFilterIndex != 1) ...[
                     _buildConversationsSection(context),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 22),
                   ],
 
-                  // Need Immediate Help Card
+                  // Need Immediate Help? Card
                   _buildImmediateHelpCard(context),
 
-                  // Bottom padding clearance for floating navigation dock
-                  const SizedBox(height: 110),
+                  // Clearance for bottom floating nav dock
+                  const SizedBox(height: 20),
                 ],
-              ),
-            ),
-
-            // Floating Nav Dock
-            Align(
-              alignment: Alignment.bottomCenter,
-              child: FloatingNavDock(
-                currentIndex: 2, // Chat tab active
-                onTap: (index) {
-                  if (index == 0) {
-                    Navigator.pushReplacementNamed(context, AppRoutes.home);
-                  } else if (index == 1) {
-                    Navigator.pushReplacementNamed(context, AppRoutes.orders);
-                  } else if (index == 3) {
-                    Navigator.pushReplacementNamed(context, AppRoutes.profile);
-                  }
-                },
               ),
             ),
           ],
@@ -229,202 +218,133 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
-  Widget _buildHeaderAppBar(BuildContext context) {
+  /// Top App Bar matching screenshot: ← Messages [Search] [Filter] [Settings]
+  Widget _buildTopAppBar(BuildContext context) {
     return Row(
       children: [
-        Container(
-          width: 38,
-          height: 38,
-          decoration: BoxDecoration(
-            color: const Color(0xFF5038ED),
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF5038ED).withValues(alpha: 0.3),
-                blurRadius: 8,
-                offset: const Offset(0, 3),
-              ),
-            ],
+        IconButton(
+          onPressed: () {
+            if (Navigator.canPop(context)) {
+              Navigator.pop(context);
+            } else {
+              Navigator.pushReplacementNamed(context, AppRoutes.home);
+            }
+          },
+          icon: const Icon(
+            Icons.arrow_back_rounded,
+            color: Color(0xFF0F172A),
+            size: 24,
           ),
-          child: const Center(
-            child: Text(
-              'N',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w900,
-                fontSize: 20,
-              ),
-            ),
-          ),
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(),
         ),
-        const SizedBox(width: 10),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Nexora',
-              style: TextStyle(
-                fontWeight: FontWeight.w800,
-                fontSize: 18,
-                color: Color(0xFF0F172A),
-                height: 1.1,
-              ),
-            ),
-            Text(
-              'Chat Hub',
-              style: TextStyle(
-                fontWeight: FontWeight.w500,
-                fontSize: 12,
-                color: Colors.grey.shade600,
-              ),
-            ),
-          ],
+        const SizedBox(width: 12),
+        const Text(
+          'Messages',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w900,
+            color: Color(0xFF0F172A),
+            letterSpacing: -0.3,
+          ),
         ),
         const Spacer(),
-        _buildCircleIconButton(icon: Icons.search, onPressed: () {}),
-        const SizedBox(width: 8),
-        Stack(
-          children: [
-            _buildCircleIconButton(
-              icon: Icons.notifications_none_rounded,
-              onPressed: () {},
-            ),
-            Positioned(
-              right: 4,
-              top: 4,
-              child: Container(
-                width: 8,
-                height: 8,
-                decoration: const BoxDecoration(
-                  color: Color(0xFFEF4444),
-                  shape: BoxShape.circle,
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(width: 8),
-        Stack(
-          children: [
-            _buildCircleIconButton(
-              icon: Icons.shopping_bag_outlined,
-              onPressed: () {},
-            ),
-            Positioned(
-              right: 2,
-              top: 2,
-              child: Container(
-                padding: const EdgeInsets.all(3),
-                decoration: const BoxDecoration(
-                  color: Color(0xFF5038ED),
-                  shape: BoxShape.circle,
-                ),
-                constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
-                child: const Text(
-                  '2',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(width: 8),
-        Container(
-          width: 36,
-          height: 36,
-          decoration: const BoxDecoration(
-            color: Color(0xFF5038ED),
-            shape: BoxShape.circle,
+        IconButton(
+          onPressed: () {
+            _searchFocusNode.requestFocus();
+          },
+          icon: const Icon(
+            Icons.search_rounded,
+            color: Color(0xFF0F172A),
+            size: 22,
           ),
-          child: const Icon(Icons.person, color: Colors.white, size: 20),
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+        ),
+        IconButton(
+          onPressed: () {
+            _showFilterOptionsModal(context);
+          },
+          icon: const Icon(
+            Icons.tune_rounded,
+            color: Color(0xFF0F172A),
+            size: 20,
+          ),
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+        ),
+        IconButton(
+          onPressed: () {
+            _showSettingsModal(context);
+          },
+          icon: const Icon(
+            Icons.settings_outlined,
+            color: Color(0xFF0F172A),
+            size: 22,
+          ),
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
         ),
       ],
     );
   }
 
-  Widget _buildCircleIconButton({
-    required IconData icon,
-    required VoidCallback onPressed,
-  }) {
-    return Container(
-      width: 36,
-      height: 36,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        shape: BoxShape.circle,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: IconButton(
-        icon: Icon(icon, size: 19, color: const Color(0xFF1E293B)),
-        onPressed: onPressed,
-        padding: EdgeInsets.zero,
-      ),
-    );
-  }
-
+  /// Subheader Title & Read All Pill Button
   Widget _buildTitleRow() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Messages & Support',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.w900,
-                color: Color(0xFF0F172A),
-                letterSpacing: -0.5,
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'All Conversations',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w900,
+                  color: Color(0xFF0F172A),
+                  letterSpacing: -0.4,
+                ),
               ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              'Real-time driver updates and store inquiries',
-              style: TextStyle(
-                fontSize: 12.5,
-                color: Colors.grey.shade600,
-                fontWeight: FontWeight.w500,
+              const SizedBox(height: 3),
+              Text(
+                'Real-time driver updates and store inquiries',
+                style: TextStyle(
+                  fontSize: 12.5,
+                  color: Colors.grey.shade600,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
-        // Read All Pill Button
+
+        // ✓ Read All Button (Matching Screenshot light ice-blue background)
         InkWell(
           onTap: _markAllAsRead,
           borderRadius: BorderRadius.circular(20),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
             decoration: BoxDecoration(
-              color: const Color(0xFFEEECFF),
+              color: const Color(0xFFE0F2FE),
               borderRadius: BorderRadius.circular(20),
             ),
-            child: const Row(
+            child: Row(
               children: [
                 Icon(
-                  Icons.done_all_rounded,
-                  size: 15,
-                  color: Color(0xFF5038ED),
+                  Icons.check_rounded,
+                  size: 14,
+                  color: _allRead ? Colors.grey.shade600 : const Color(0xFF0284C7),
                 ),
-                SizedBox(width: 4),
+                const SizedBox(width: 3),
                 Text(
                   'Read All',
                   style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF5038ED),
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w800,
+                    color: _allRead ? Colors.grey.shade600 : const Color(0xFF0284C7),
                   ),
                 ),
               ],
@@ -435,21 +355,27 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
+  /// Search Bar with outlined rounded pill layout
   Widget _buildSearchBar() {
     return Container(
-      height: 46,
+      height: 48,
       decoration: BoxDecoration(
-        color: const Color(0xFFF1F3F9),
-        borderRadius: BorderRadius.circular(16),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: const Color(0xFFCBD5E1),
+          width: 1,
+        ),
       ),
       child: TextField(
         controller: _searchController,
+        focusNode: _searchFocusNode,
         onChanged: (val) {
           setState(() {
             _searchQuery = val;
           });
         },
-        style: const TextStyle(fontSize: 14),
+        style: const TextStyle(fontSize: 14, color: Color(0xFF0F172A)),
         decoration: InputDecoration(
           hintText: 'Search messages, orders, or stores...',
           hintStyle: TextStyle(
@@ -461,10 +387,13 @@ class _ChatPageState extends State<ChatPage> {
             color: Colors.grey.shade500,
             size: 20,
           ),
-          suffixIcon: Icon(
-            Icons.tune_rounded,
-            color: Colors.grey.shade600,
-            size: 18,
+          suffixIcon: IconButton(
+            icon: Icon(
+              Icons.tune_rounded,
+              color: Colors.grey.shade600,
+              size: 18,
+            ),
+            onPressed: () => _showFilterOptionsModal(context),
           ),
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(vertical: 12),
@@ -473,6 +402,7 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
+  /// Filter Pills Matching Design (All Chats [4], Couriers [1], Official Stores [2], Support [1])
   Widget _buildFilterPills() {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
@@ -483,7 +413,7 @@ class _ChatPageState extends State<ChatPage> {
           final isSelected = _selectedFilterIndex == index;
 
           return Padding(
-            padding: const EdgeInsets.only(right: 10),
+            padding: const EdgeInsets.only(right: 8),
             child: GestureDetector(
               onTap: () {
                 setState(() {
@@ -492,19 +422,16 @@ class _ChatPageState extends State<ChatPage> {
               },
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 decoration: BoxDecoration(
-                  color: isSelected ? const Color(0xFF5038ED) : Colors.white,
+                  color: isSelected ? const Color(0xFF0075FF) : Colors.white,
                   borderRadius: BorderRadius.circular(24),
-                  boxShadow: [
-                    BoxShadow(
-                      color: isSelected
-                          ? const Color(0xFF5038ED).withValues(alpha: 0.3)
-                          : Colors.black.withValues(alpha: 0.03),
-                      blurRadius: isSelected ? 10 : 6,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
+                  border: Border.all(
+                    color: isSelected
+                        ? const Color(0xFF0075FF)
+                        : const Color(0xFFE2E8F0),
+                    width: 1,
+                  ),
                 ),
                 child: Row(
                   children: [
@@ -522,8 +449,8 @@ class _ChatPageState extends State<ChatPage> {
                     Text(
                       filter['label'],
                       style: TextStyle(
-                        color: isSelected ? Colors.white : const Color(0xFF1E293B),
-                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                        color: isSelected ? Colors.white : const Color(0xFF334155),
+                        fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
                         fontSize: 13,
                       ),
                     ),
@@ -533,7 +460,7 @@ class _ChatPageState extends State<ChatPage> {
                       decoration: BoxDecoration(
                         color: isSelected
                             ? Colors.white.withValues(alpha: 0.25)
-                            : const Color(0xFFF1F3F9),
+                            : const Color(0xFFF1F5F9),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
@@ -555,11 +482,13 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
+  /// Live Dispatch Connected Card (Active Courier Section)
   Widget _buildLiveDispatchCard(BuildContext context) {
-    final unreadCount = _allRead ? 0 : 1;
+    final showUnread = ChatService.instance.totalUnreadCount > 0 && !_allRead;
 
     return Column(
       children: [
+        // Live Dispatch Header
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -569,7 +498,7 @@ class _ChatPageState extends State<ChatPage> {
                   width: 8,
                   height: 8,
                   decoration: const BoxDecoration(
-                    color: Color(0xFF0D9488),
+                    color: Color(0xFF06B6D4),
                     shape: BoxShape.circle,
                   ),
                 ),
@@ -579,7 +508,7 @@ class _ChatPageState extends State<ChatPage> {
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w900,
-                    color: Color(0xFF0D9488),
+                    color: Color(0xFF06B6D4),
                     letterSpacing: 0.5,
                   ),
                 ),
@@ -605,12 +534,13 @@ class _ChatPageState extends State<ChatPage> {
               MaterialPageRoute(
                 builder: (context) => const ChatDetailPage(
                   title: 'Mark Ronald',
-                  subtitle: 'Nexora Express Courier',
+                  subtitle: 'Courier',
                   orderRef: '#NX-89240',
+                  avatarBgColor: Color(0xFF00B4D8),
                   initialMessages: [
                     {
                       'sender': 'user',
-                      'text': 'Hi Mark, can you drop it off at the lobby?',
+                      'text': 'Hi Mark, can you drop it off at the front desk?',
                       'time': '4:00 PM'
                     },
                     {
@@ -624,31 +554,27 @@ class _ChatPageState extends State<ChatPage> {
               ),
             );
           },
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(16),
           child: Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFFF0F9FF), Colors.white],
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-              ),
-              borderRadius: BorderRadius.circular(20),
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: const Color(0xFFBAE6FD).withValues(alpha: 0.6),
+                color: const Color(0xFFE2E8F0),
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.03),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
+                  color: Colors.black.withValues(alpha: 0.02),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
                 ),
               ],
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Tags row
+                // Tags Row (On the way ETA 4:30 PM & #NX-89240)
                 Row(
                   children: [
                     Container(
@@ -683,7 +609,7 @@ class _ChatPageState extends State<ChatPage> {
                       child: const Text(
                         '#NX-89240 (2 items)',
                         style: TextStyle(
-                          color: Color(0xFF5038ED),
+                          color: Color(0xFF0075FF),
                           fontWeight: FontWeight.bold,
                           fontSize: 10.5,
                         ),
@@ -693,18 +619,18 @@ class _ChatPageState extends State<ChatPage> {
                 ),
                 const SizedBox(height: 12),
 
-                // Driver Info & Last Message
+                // Driver Avatar & Message
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Avatar
+                    // Courier Avatar
                     Stack(
                       children: [
                         Container(
                           width: 44,
                           height: 44,
                           decoration: const BoxDecoration(
-                            color: Color(0xFF22D3EE),
+                            color: Color(0xFF00B4D8),
                             shape: BoxShape.circle,
                           ),
                           child: const Icon(
@@ -762,7 +688,7 @@ class _ChatPageState extends State<ChatPage> {
                                 style: TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w700,
-                                  color: Color(0xFF5038ED),
+                                  color: Color(0xFF0075FF),
                                 ),
                               ),
                             ],
@@ -785,47 +711,47 @@ class _ChatPageState extends State<ChatPage> {
                 ),
                 const SizedBox(height: 14),
 
-                // Bottom Buttons row
+                // Footer Actions Row (Phone button, Location pin button, Carrier name, Chevron)
                 Row(
                   children: [
                     _buildSmallIconButton(
-                      icon: Icons.call_rounded,
+                      icon: Icons.phone_outlined,
                       onPressed: () {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Calling Mark Ronald...')),
+                          const SnackBar(
+                            content: Text('Calling Mark Ronald (+63 917 123 4567)...'),
+                            backgroundColor: Color(0xFF0284C7),
+                          ),
                         );
                       },
                     ),
                     const SizedBox(width: 8),
                     _buildSmallIconButton(
-                      icon: Icons.location_on_rounded,
+                      icon: Icons.location_on_outlined,
                       onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Tracking live location...')),
-                        );
+                        _showLocationModal(context);
                       },
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 10),
                     Text(
                       'Speedy Logistics',
                       style: TextStyle(
-                        fontSize: 11.5,
+                        fontSize: 12,
                         color: Colors.grey.shade600,
-                        fontWeight: FontWeight.w500,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                     const Spacer(),
-                    if (unreadCount > 0)
+                    if (showUnread)
                       Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 3),
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                         decoration: const BoxDecoration(
-                          color: Color(0xFF5038ED),
+                          color: Color(0xFF0075FF),
                           shape: BoxShape.circle,
                         ),
-                        child: Text(
-                          '$unreadCount',
-                          style: const TextStyle(
+                        child: const Text(
+                          '1',
+                          style: TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,
                             fontSize: 11,
@@ -853,20 +779,21 @@ class _ChatPageState extends State<ChatPage> {
     required VoidCallback onPressed,
   }) {
     return Container(
-      width: 32,
-      height: 32,
-      decoration: BoxDecoration(
-        color: const Color(0xFFEEECFF),
+      width: 34,
+      height: 34,
+      decoration: const BoxDecoration(
+        color: Color(0xFFE0F2FE),
         shape: BoxShape.circle,
       ),
       child: IconButton(
-        icon: Icon(icon, size: 15, color: const Color(0xFF5038ED)),
+        icon: Icon(icon, size: 16, color: const Color(0xFF0284C7)),
         onPressed: onPressed,
         padding: EdgeInsets.zero,
       ),
     );
   }
 
+  /// Conversations Card Container List
   Widget _buildConversationsSection(BuildContext context) {
     final list = _filteredConversations;
 
@@ -899,12 +826,13 @@ class _ChatPageState extends State<ChatPage> {
         Container(
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.03),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
+                color: Colors.black.withValues(alpha: 0.02),
+                blurRadius: 10,
+                offset: const Offset(0, 3),
               ),
             ],
           ),
@@ -916,13 +844,14 @@ class _ChatPageState extends State<ChatPage> {
               height: 1,
               thickness: 1,
               color: Colors.grey.shade100,
-              indent: 70,
+              indent: 72,
             ),
             itemBuilder: (context, index) {
               final chat = list[index];
 
               return InkWell(
                 onTap: () {
+                  ChatService.instance.markAsRead(chat['id'] ?? '');
                   Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -930,7 +859,7 @@ class _ChatPageState extends State<ChatPage> {
                         title: chat['title'],
                         subtitle: chat['category'] ?? 'Store Inquiry',
                         avatarIcon: chat['avatarIcon'],
-                        avatarBgColor: chat['avatarBg'] ?? const Color(0xFF5038ED),
+                        avatarBgColor: chat['avatarBg'] ?? const Color(0xFF0075FF),
                         initialMessages: List<Map<String, dynamic>>.from(
                             chat['initialMessages'] ?? []),
                       ),
@@ -938,9 +867,9 @@ class _ChatPageState extends State<ChatPage> {
                   );
                 },
                 borderRadius: index == 0
-                    ? const BorderRadius.vertical(top: Radius.circular(20))
+                    ? const BorderRadius.vertical(top: Radius.circular(16))
                     : index == list.length - 1
-                        ? const BorderRadius.vertical(bottom: Radius.circular(20))
+                        ? const BorderRadius.vertical(bottom: Radius.circular(16))
                         : BorderRadius.zero,
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
@@ -948,14 +877,14 @@ class _ChatPageState extends State<ChatPage> {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Avatar
+                      // Avatar Icon with Badge Overlay
                       Stack(
                         children: [
                           Container(
                             width: 46,
                             height: 46,
                             decoration: BoxDecoration(
-                              color: chat['avatarBg'] ?? const Color(0xFF5038ED),
+                              color: chat['avatarBg'] ?? const Color(0xFF0075FF),
                               shape: BoxShape.circle,
                             ),
                             child: Icon(
@@ -972,7 +901,7 @@ class _ChatPageState extends State<ChatPage> {
                                 width: 14,
                                 height: 14,
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF5038ED),
+                                  color: const Color(0xFF0075FF),
                                   shape: BoxShape.circle,
                                   border: Border.all(color: Colors.white, width: 2),
                                 ),
@@ -1007,13 +936,13 @@ class _ChatPageState extends State<ChatPage> {
                                         padding: const EdgeInsets.symmetric(
                                             horizontal: 6, vertical: 2),
                                         decoration: BoxDecoration(
-                                          color: const Color(0xFFEEECFF),
+                                          color: const Color(0xFFD1E9FF),
                                           borderRadius: BorderRadius.circular(8),
                                         ),
                                         child: Text(
                                           chat['brandTag'],
                                           style: const TextStyle(
-                                            color: Color(0xFF5038ED),
+                                            color: Color(0xFF0075FF),
                                             fontWeight: FontWeight.w900,
                                             fontSize: 9,
                                           ),
@@ -1065,7 +994,6 @@ class _ChatPageState extends State<ChatPage> {
                             const SizedBox(height: 6),
 
                             Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 if (chat.containsKey('itemTag'))
                                   Container(
@@ -1109,10 +1037,10 @@ class _ChatPageState extends State<ChatPage> {
                                     ),
                                   ),
                                 const Spacer(),
-                                if (chat['isDoubleCheck'] == true)
+                                if (_allRead || chat['isDoubleCheck'] == true)
                                   const Icon(Icons.done_all_rounded,
-                                      size: 16, color: Color(0xFF5038ED)),
-                                if (chat['isCheck'] == true)
+                                      size: 16, color: Color(0xFF0075FF))
+                                else if (chat['isCheck'] == true)
                                   Icon(Icons.done_rounded,
                                       size: 16, color: Colors.grey.shade400),
                                 if (chat.containsKey('resolvedTag'))
@@ -1139,16 +1067,18 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
+  /// "Need Immediate Help?" Bottom Card
   Widget _buildImmediateHelpCard(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFFF0EEFF), Color(0xFFE0F2FE)],
+          colors: [Color(0xFFE0F2FE), Color(0xFFF0FDF4)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFBAE6FD)),
       ),
       child: Column(
         children: [
@@ -1158,11 +1088,11 @@ class _ChatPageState extends State<ChatPage> {
                 width: 38,
                 height: 38,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF5038ED),
+                  color: const Color(0xFF0284C7),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Icon(
-                  Icons.support_agent_rounded,
+                  Icons.headset_mic_rounded,
                   color: Colors.white,
                   size: 22,
                 ),
@@ -1194,7 +1124,7 @@ class _ChatPageState extends State<ChatPage> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.8),
+                  color: Colors.white.withValues(alpha: 0.9),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Text(
@@ -1202,7 +1132,7 @@ class _ChatPageState extends State<ChatPage> {
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w900,
-                    color: Color(0xFF5038ED),
+                    color: Color(0xFF0284C7),
                   ),
                 ),
               ),
@@ -1210,7 +1140,7 @@ class _ChatPageState extends State<ChatPage> {
           ),
           const SizedBox(height: 14),
 
-          // Action Buttons
+          // Action Buttons: + Start Ticket & ? Help Center FAQ
           Row(
             children: [
               Expanded(
@@ -1227,12 +1157,13 @@ class _ChatPageState extends State<ChatPage> {
                     ),
                   ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF5038ED),
+                    backgroundColor: const Color(0xFF0284C7),
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(20),
                     ),
+                    elevation: 0,
                   ),
                 ),
               ),
@@ -1245,7 +1176,7 @@ class _ChatPageState extends State<ChatPage> {
                   icon: const Icon(
                     Icons.help_outline_rounded,
                     size: 16,
-                    color: Color(0xFF0F172A),
+                    color: Color(0xFF0284C7),
                   ),
                   label: const Text(
                     'Help Center FAQ',
@@ -1257,7 +1188,7 @@ class _ChatPageState extends State<ChatPage> {
                   ),
                   style: OutlinedButton.styleFrom(
                     backgroundColor: Colors.white,
-                    side: const BorderSide(color: Colors.transparent),
+                    side: const BorderSide(color: Color(0xFFBAE6FD)),
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(20),
@@ -1281,7 +1212,7 @@ class _ChatPageState extends State<ChatPage> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Row(
           children: [
-            Icon(Icons.confirmation_number_rounded, color: Color(0xFF5038ED)),
+            Icon(Icons.confirmation_number_rounded, color: Color(0xFF0284C7)),
             SizedBox(width: 8),
             Text('Create Support Ticket'),
           ],
@@ -1314,15 +1245,45 @@ class _ChatPageState extends State<ChatPage> {
           ),
           ElevatedButton(
             onPressed: () {
+              final text = ticketController.text.trim();
               Navigator.pop(context);
+              if (text.isNotEmpty) {
+                setState(() {
+                  _conversations.insert(0, {
+                    'id': 'ticket_${DateTime.now().millisecondsSinceEpoch}',
+                    'category': 'Support',
+                    'title': 'Support Ticket #${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}',
+                    'subtitle': text,
+                    'botTag': 'LIVE',
+                    'time': 'Just now',
+                    'unread': 0,
+                    'isDoubleCheck': true,
+                    'avatarIcon': Icons.support_agent_rounded,
+                    'avatarBg': const Color(0xFF0284C7),
+                    'initialMessages': [
+                      {
+                        'sender': 'user',
+                        'text': text,
+                        'time': 'Just now',
+                      },
+                      {
+                        'sender': 'other',
+                        'text': 'A support specialist has been assigned to your ticket! Average response time is under 2 minutes.',
+                        'time': 'Just now',
+                      }
+                    ],
+                  });
+                });
+              }
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text('Support ticket created successfully! Response ETA: 2 mins.'),
+                  content: Text('Support ticket created successfully! Connected with live agent.'),
+                  backgroundColor: Color(0xFF0284C7),
                 ),
               );
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF5038ED),
+              backgroundColor: const Color(0xFF0284C7),
               foregroundColor: Colors.white,
             ),
             child: const Text('Submit Ticket'),
@@ -1346,38 +1307,178 @@ class _ChatPageState extends State<ChatPage> {
           children: [
             const Text(
               'Help Center FAQ',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
             ),
             const SizedBox(height: 14),
             Material(
               color: Colors.transparent,
               child: ListTile(
-                leading: const Icon(Icons.local_shipping_outlined, color: Color(0xFF5038ED)),
+                leading: const Icon(Icons.local_shipping_outlined, color: Color(0xFF0284C7)),
                 title: const Text('Where is my package?'),
                 subtitle: const Text('Track your live delivery status in real-time'),
-                onTap: () => Navigator.pop(context),
+                onTap: () {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Showing live tracking details...'), backgroundColor: Color(0xFF0284C7)),
+                  );
+                },
               ),
             ),
             Material(
               color: Colors.transparent,
               child: ListTile(
-                leading: const Icon(Icons.assignment_return_outlined, color: Color(0xFF5038ED)),
+                leading: const Icon(Icons.assignment_return_outlined, color: Color(0xFF0284C7)),
                 title: const Text('30-Day Hassle-Free Return Policy'),
                 subtitle: const Text('Learn how to request a return or refund'),
-                onTap: () => Navigator.pop(context),
+                onTap: () {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Opening Return policy guide...'), backgroundColor: Color(0xFF0284C7)),
+                  );
+                },
               ),
             ),
             Material(
               color: Colors.transparent,
               child: ListTile(
-                leading: const Icon(Icons.payment_rounded, color: Color(0xFF5038ED)),
+                leading: const Icon(Icons.payment_rounded, color: Color(0xFF0284C7)),
                 title: const Text('Payment & Invoice Queries'),
                 subtitle: const Text('NexoraPay and invoice downloads'),
-                onTap: () => Navigator.pop(context),
+                onTap: () {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Opening Payment & Invoice guide...'), backgroundColor: Color(0xFF0284C7)),
+                  );
+                },
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _showFilterOptionsModal(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Filter Conversations',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+            ),
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: List.generate(_filters.length, (index) {
+                final isSelected = _selectedFilterIndex == index;
+                return ChoiceChip(
+                  label: Text(_filters[index]['label']),
+                  selected: isSelected,
+                  selectedColor: const Color(0xFF0284C7),
+                  labelStyle: TextStyle(
+                    color: isSelected ? Colors.white : const Color(0xFF0F172A),
+                    fontWeight: FontWeight.bold,
+                  ),
+                  onSelected: (selected) {
+                    setState(() {
+                      _selectedFilterIndex = index;
+                    });
+                    Navigator.pop(context);
+                  },
+                );
+              }),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showSettingsModal(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Message Settings',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+            ),
+            const SizedBox(height: 14),
+            SwitchListTile(
+              title: const Text('Live Dispatch Push Notifications'),
+              subtitle: const Text('Receive driver ETA updates'),
+              value: true,
+              activeThumbColor: const Color(0xFF0284C7),
+              onChanged: (val) {},
+            ),
+            SwitchListTile(
+              title: const Text('Store Inquiry Auto-Replies'),
+              subtitle: const Text('Instant support summaries'),
+              value: true,
+              activeThumbColor: const Color(0xFF0284C7),
+              onChanged: (val) {},
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showLocationModal(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.location_on_rounded, color: Color(0xFF0284C7)),
+            SizedBox(width: 8),
+            Text('Delivery Location'),
+          ],
+        ),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.map_rounded, size: 60, color: Color(0xFF0284C7)),
+            SizedBox(height: 12),
+            Text(
+              'Mark Ronald (Courier) is 1.2 km away.',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+            ),
+            SizedBox(height: 4),
+            Text(
+              'Destination: Front Desk / Receptionist Desk, Tower A',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+          ],
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF0284C7),
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Close'),
+          ),
+        ],
       ),
     );
   }
