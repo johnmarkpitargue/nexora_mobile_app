@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:nexora_flutter_app/app/routes/app_routes.dart';
+import 'package:nexora_flutter_app/core/models/shop_models.dart';
 import 'package:nexora_flutter_app/core/services/cart_service.dart';
+import 'package:nexora_flutter_app/core/services/shop_service.dart';
+import 'package:nexora_flutter_app/core/services/wishlist_service.dart';
+import 'package:nexora_flutter_app/features/home/presentation/widgets/product_card.dart';
 
 class ProductDetailsPage extends StatefulWidget {
   const ProductDetailsPage({super.key});
@@ -10,12 +14,16 @@ class ProductDetailsPage extends StatefulWidget {
 }
 
 class _ProductDetailsPageState extends State<ProductDetailsPage> {
+  ProductModel? _productArg;
+  bool _initializedArgs = false;
+
   int _selectedImageIndex = 0;
-  bool _isFavorite = false;
   int _selectedColorIndex = 0;
   int _selectedSwitchIndex = 0;
   int _selectedLayoutIndex = 0;
   int _quantity = 1;
+  final Map<int, int> _selectedVariantGroupIndices = {};
+  String _selectedReviewFilter = 'All';
 
   final List<String> _productImages = [
     'https://images.unsplash.com/photo-1587829741301-dc798b83add3?auto=format&fit=crop&w=600&q=80',
@@ -59,21 +67,88 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
 
   final List<String> _formFactors = ['75% Compact', 'TKL (80%)', 'Full 100%'];
 
-  int _helpfulCount1 = 38;
-  int _helpfulCount2 = 24;
-  bool _voted1 = false;
-  bool _voted2 = false;
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_initializedArgs) {
+      _initializedArgs = true;
+      final args = ModalRoute.of(context)?.settings.arguments;
+      if (args is ProductModel) {
+        _productArg = args;
+        if (args.galleryImages != null && args.galleryImages!.isNotEmpty) {
+          _productImages.clear();
+          _productImages.addAll(args.galleryImages!);
+        } else if (args.imageUrl.isNotEmpty && !_productImages.contains(args.imageUrl)) {
+          _productImages.insert(0, args.imageUrl);
+        }
+        if (args.variantGroups != null) {
+          for (int i = 0; i < args.variantGroups!.length; i++) {
+            _selectedVariantGroupIndices[i] = 0;
+          }
+        }
+      }
+    }
+  }
 
-  void _handleAddToCart() {
+  String get _productTitle =>
+      _productArg?.title ?? 'Nexora Aura 75 Mechanical Keyboard';
+
+  int get _maxStock => _productArg?.stockQuantity ?? 150;
+
+  double get _productBasePrice {
+    if (_productArg == null) return 3200.0;
+    final clean = _productArg!.price.replaceAll(RegExp(r'[^0-9.]'), '');
+    return double.tryParse(clean) ?? 3200.0;
+  }
+
+  double get _productOriginalPrice {
+    if (_productArg == null || _productArg!.originalPrice == null) return 4000.0;
+    final clean = _productArg!.originalPrice!.replaceAll(RegExp(r'[^0-9.]'), '');
+    return double.tryParse(clean) ?? (_productBasePrice * 1.25);
+  }
+
+  double get _currentPriceOffset {
+    double offset = 0.0;
+    if (_productArg?.variantGroups != null) {
+      for (int i = 0; i < _productArg!.variantGroups!.length; i++) {
+        final grp = _productArg!.variantGroups![i];
+        final selIdx = _selectedVariantGroupIndices[i] ?? 0;
+        if (selIdx < grp.options.length) {
+          offset += grp.options[selIdx].priceOffset;
+        }
+      }
+    }
+    return offset;
+  }
+
+  double get _effectivePrice => _productBasePrice + _currentPriceOffset;
+
+  String get _currentVariantSummary {
+    if (_productArg?.variantGroups != null && _productArg!.variantGroups!.isNotEmpty) {
+      final parts = <String>[];
+      for (int i = 0; i < _productArg!.variantGroups!.length; i++) {
+        final grp = _productArg!.variantGroups![i];
+        final selIdx = _selectedVariantGroupIndices[i] ?? 0;
+        if (selIdx < grp.options.length) {
+          parts.add(grp.options[selIdx].name);
+        }
+      }
+      return parts.join(' • ');
+    }
     final selectedColor = _colorVariants[_selectedColorIndex]['label'] as String;
     final selectedSwitch = _switchOptions[_selectedSwitchIndex]['title'] as String;
-    final variantStr = '$selectedColor, $selectedSwitch';
+    return '$selectedColor, $selectedSwitch';
+  }
 
+  void _handleAddToCart() {
     CartService.instance.addItem(
-      title: 'Nexora Aura 75 Mechanical Keyboard RGB',
-      variant: variantStr,
-      price: 3200.00,
+      title: _productTitle,
+      variant: _currentVariantSummary,
+      price: _effectivePrice,
+      originalPrice: _productOriginalPrice,
       imageUrl: _productImages.first,
+      storeName: _productArg?.shopName ?? (_productArg?.isMall == true ? 'Nexora Official Store' : 'Nexora Preferred Store'),
+      storeBadge: _productArg?.shopBadge ?? (_productArg?.isMall == true ? 'MALL' : 'PREFERRED'),
       quantity: _quantity,
     );
 
@@ -85,8 +160,10 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                'Added ${_quantity}x Nexora Aura 75 to Shopping Cart!',
+                'Added ${_quantity}x $_productTitle to Shopping Cart!',
                 style: const TextStyle(fontWeight: FontWeight.bold),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
           ],
@@ -101,6 +178,21 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
         ),
       ),
     );
+  }
+
+  void _handleBuyNow() {
+    CartService.instance.buyNow(
+      title: _productTitle,
+      variant: _currentVariantSummary,
+      price: _effectivePrice,
+      originalPrice: _productOriginalPrice,
+      imageUrl: _productImages.first,
+      storeName: _productArg?.shopName ?? (_productArg?.isMall == true ? 'Nexora Official Store' : 'Nexora Preferred Store'),
+      storeBadge: _productArg?.shopBadge ?? (_productArg?.isMall == true ? 'MALL' : 'PREFERRED'),
+      quantity: _quantity,
+    );
+
+    Navigator.pushNamed(context, AppRoutes.checkout);
   }
 
   @override
@@ -130,22 +222,42 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
         ),
         centerTitle: true,
         actions: [
-          IconButton(
-            icon: Icon(
-              _isFavorite ? Icons.favorite : Icons.favorite_border,
-              color: _isFavorite ? const Color(0xFFE11D48) : const Color(0xFF0F172A),
-            ),
-            onPressed: () {
-              setState(() {
-                _isFavorite = !_isFavorite;
-              });
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(_isFavorite
-                      ? 'Saved to Wishlist!'
-                      : 'Removed from Wishlist'),
-                  duration: const Duration(seconds: 1),
+          AnimatedBuilder(
+            animation: WishlistService.instance,
+            builder: (context, _) {
+              final isFavorite = WishlistService.instance.isInWishlist(_productTitle);
+              return IconButton(
+                icon: Icon(
+                  isFavorite ? Icons.favorite : Icons.favorite_border,
+                  color: isFavorite ? const Color(0xFFE11D48) : const Color(0xFF0F172A),
                 ),
+                onPressed: () {
+                  final productToSave = _productArg ??
+                      ProductModel(
+                        title: _productTitle,
+                        imageUrl: _productImages.first,
+                        category: 'Tech & Gadgets',
+                        price: '₱${_productBasePrice.toStringAsFixed(2)}',
+                        originalPrice: '₱${_productOriginalPrice.toStringAsFixed(2)}',
+                        rating: 4.9,
+                        soldCount: '1.2k',
+                        shippingTag: '2-3 Days | Metro Manila',
+                        isMall: true,
+                      );
+
+                  WishlistService.instance.toggleWishlist(productToSave);
+                  ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        isFavorite
+                            ? 'Removed from Wishlist'
+                            : 'Saved to Wishlist!',
+                      ),
+                      duration: const Duration(seconds: 1),
+                    ),
+                  );
+                },
               );
             },
           ),
@@ -173,9 +285,9 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                 const SizedBox(height: 18),
 
                 // Title & Subtitle Header
-                const Text(
-                  'Nexora Aura 75 Mechanical Keyboard',
-                  style: TextStyle(
+                Text(
+                  _productTitle,
+                  style: const TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.w900,
                     color: Color(0xFF0F172A),
@@ -183,9 +295,10 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                   ),
                 ),
                 const SizedBox(height: 4),
-                const Text(
-                  'Chalk White & Violet Edition • CNC Anodized Aluminum • Gasket Mount Hot-Swap',
-                  style: TextStyle(
+                Text(
+                  _productArg?.description ??
+                      'Chalk White & Violet Edition • CNC Anodized Aluminum • Gasket Mount Hot-Swap',
+                  style: const TextStyle(
                     fontSize: 12,
                     color: Color(0xFF64748B),
                     height: 1.3,
@@ -194,28 +307,28 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                 const SizedBox(height: 8),
 
                 // Rating & Category Rank Row
-                const Row(
+                Row(
                   children: [
-                    Icon(Icons.star_rounded, size: 16, color: Color(0xFFF59E0B)),
-                    SizedBox(width: 4),
+                    const Icon(Icons.star_rounded, size: 16, color: Color(0xFFF59E0B)),
+                    const SizedBox(width: 4),
                     Text(
-                      '4.9',
-                      style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+                      _productArg?.rating.toStringAsFixed(1) ?? '4.9',
+                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
                     ),
-                    SizedBox(width: 4),
+                    const SizedBox(width: 4),
                     Text(
-                      '• 520 reviews',
-                      style: TextStyle(
+                      '• ${_productArg?.reviews?.length ?? 520} reviews',
+                      style: const TextStyle(
                         color: Color(0xFF0066FF),
                         fontWeight: FontWeight.w700,
                         fontSize: 12,
                         decoration: TextDecoration.underline,
                       ),
                     ),
-                    SizedBox(width: 8),
+                    const SizedBox(width: 8),
                     Text(
-                      '• 🏆 Rank #1 in Keyboards',
-                      style: TextStyle(
+                      '• 🏆 ${_productArg?.soldCount ?? '1.2k+'} sold',
+                      style: const TextStyle(
                         color: Color(0xFF0891B2),
                         fontWeight: FontWeight.bold,
                         fontSize: 12,
@@ -229,17 +342,8 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                 _buildPriceCard(),
                 const SizedBox(height: 18),
 
-                // Color Palette Selector
-                _buildColorPaletteSection(),
-                const SizedBox(height: 18),
-
-                // Mechanical Switches Selector
-                _buildSwitchOptionsSection(),
-                const SizedBox(height: 18),
-
-                // Form Factor Selector
-                _buildFormFactorSection(),
-                const SizedBox(height: 18),
+                // Dynamic Variants Selector
+                _buildDynamicVariantsSection(),
 
                 // Quantity Stepper Row
                 _buildQuantitySection(),
@@ -247,13 +351,17 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
 
                 // Priority Dispatch & Warranty Banner
                 _buildDispatchWarrantyCard(),
+                const SizedBox(height: 18),
+
+                // Official Shop Store Profile Banner (Clickable -> ShopPage)
+                _buildShopStoreBanner(),
                 const SizedBox(height: 20),
 
                 // Key Spec Features Grid
                 _buildSpecFeaturesGrid(),
                 const SizedBox(height: 24),
 
-                // Ratings & Reviews Section
+                // Ratings & Reviews Section (Interactive reviews list)
                 _buildReviewsSection(),
                 const SizedBox(height: 110),
               ],
@@ -425,6 +533,9 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
   }
 
   Widget _buildPriceCard() {
+    final discount = _productArg?.discountTag ?? '-20% OFF';
+    final installment = _effectivePrice / 3;
+
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -438,9 +549,9 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
             crossAxisAlignment: CrossAxisAlignment.baseline,
             textBaseline: TextBaseline.alphabetic,
             children: [
-              const Text(
-                '₱3,200.00',
-                style: TextStyle(
+              Text(
+                '₱${_effectivePrice.toStringAsFixed(2)}',
+                style: const TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.w900,
                   color: Color(0xFF0066FF),
@@ -448,7 +559,7 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
               ),
               const SizedBox(width: 8),
               Text(
-                '₱4,000.00',
+                '₱${_productOriginalPrice.toStringAsFixed(2)}',
                 style: TextStyle(
                   fontSize: 13,
                   color: Colors.grey.shade500,
@@ -462,9 +573,9 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                   color: const Color(0xFFBE123C),
                   borderRadius: BorderRadius.circular(6),
                 ),
-                child: const Text(
-                  '-20% OFF',
-                  style: TextStyle(
+                child: Text(
+                  discount,
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 9.5,
                     fontWeight: FontWeight.w900,
@@ -474,13 +585,13 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
             ],
           ),
           const SizedBox(height: 4),
-          const Row(
+          Row(
             children: [
-              Icon(Icons.whatshot, size: 14, color: Color(0xFFE11D48)),
-              SizedBox(width: 4),
+              const Icon(Icons.whatshot, size: 14, color: Color(0xFFE11D48)),
+              const SizedBox(width: 4),
               Text(
-                'Only 14 left in stock - order soon!',
-                style: TextStyle(
+                'Only $_maxStock left in stock - order soon!',
+                style: const TextStyle(
                   fontSize: 11.5,
                   fontWeight: FontWeight.bold,
                   color: Color(0xFFE11D48),
@@ -489,13 +600,13 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
             ],
           ),
           const SizedBox(height: 2),
-          const Row(
+          Row(
             children: [
-              Icon(Icons.credit_card, size: 14, color: Color(0xFF0066FF)),
-              SizedBox(width: 4),
+              const Icon(Icons.credit_card, size: 14, color: Color(0xFF0066FF)),
+              const SizedBox(width: 4),
               Text(
-                'Or ₱1,066.66/mo for 3 mos with 0% interest',
-                style: TextStyle(
+                'Or ₱${installment.toStringAsFixed(2)}/mo for 3 mos with 0% interest',
+                style: const TextStyle(
                   fontSize: 11,
                   color: Color(0xFF475569),
                   fontWeight: FontWeight.w500,
@@ -787,10 +898,10 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          const Column(
+          Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
+              const Text(
                 'Quantity',
                 style: TextStyle(
                   fontWeight: FontWeight.w800,
@@ -799,10 +910,11 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                 ),
               ),
               Text(
-                'Max 3 per customer',
-                style: TextStyle(
+                '$_maxStock pieces in stock • Limit 10/order',
+                style: const TextStyle(
                   fontSize: 10.5,
                   color: Color(0xFF64748B),
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ],
@@ -835,8 +947,15 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                 IconButton(
                   icon: const Icon(Icons.add, size: 15),
                   onPressed: () {
-                    if (_quantity < 3) {
+                    if (_quantity < _maxStock && _quantity < 10) {
                       setState(() => _quantity++);
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Reached max available quantity ($_quantity)'),
+                          duration: const Duration(seconds: 1),
+                        ),
+                      );
                     }
                   },
                   padding: EdgeInsets.zero,
@@ -847,6 +966,342 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildShopStoreBanner() {
+    final shop = ShopService.instance.getShopById(_productArg?.shopId);
+
+    return GestureDetector(
+      onTap: () {
+        Navigator.pushNamed(context, AppRoutes.shop, arguments: shop);
+      },
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.03),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: shop.avatarBg,
+                border: Border.all(color: const Color(0xFF00C1D4), width: 1.8),
+              ),
+              child: Center(
+                child: Text(
+                  shop.initials,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 10.5,
+                    height: 1.1,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          shop.name,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 14,
+                            color: Color(0xFF0F172A),
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      const Icon(Icons.chevron_right, size: 16, color: Color(0xFF64748B)),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE0F2FE),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          shop.badge,
+                          style: const TextStyle(
+                            fontSize: 8.5,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFF0284C7),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      const Icon(Icons.star, size: 12, color: Color(0xFFF59E0B)),
+                      const SizedBox(width: 2),
+                      Text(
+                        '${shop.rating}',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF475569),
+                        ),
+                      ),
+                      Text(
+                        ' (${shop.followers})',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF94A3B8),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+              decoration: BoxDecoration(
+                color: const Color(0xFF0066FF).withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFF0066FF), width: 1.2),
+              ),
+              child: const Text(
+                'Visit Shop',
+                style: TextStyle(
+                  color: Color(0xFF0066FF),
+                  fontWeight: FontWeight.w800,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDynamicVariantsSection() {
+    if (_productArg?.variantGroups == null || _productArg!.variantGroups!.isEmpty) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildColorPaletteSection(),
+          const SizedBox(height: 18),
+          _buildSwitchOptionsSection(),
+          const SizedBox(height: 18),
+          _buildFormFactorSection(),
+          const SizedBox(height: 18),
+        ],
+      );
+    }
+
+    final groups = _productArg!.variantGroups!;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: List.generate(groups.length, (grpIdx) {
+        final grp = groups[grpIdx];
+        final selIdx = _selectedVariantGroupIndices[grpIdx] ?? 0;
+
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    grp.groupName,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 14,
+                      color: Color(0xFF0F172A),
+                    ),
+                  ),
+                  if (selIdx < grp.options.length)
+                    Text(
+                      grp.options[selIdx].name,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 12,
+                        color: Color(0xFF0066FF),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              if (grp.options.any((o) => o.colorHex != null)) ...[
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  physics: const BouncingScrollPhysics(),
+                  child: Row(
+                    children: List.generate(grp.options.length, (optIdx) {
+                      final opt = grp.options[optIdx];
+                      final isSel = selIdx == optIdx;
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 10),
+                        child: GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              _selectedVariantGroupIndices[grpIdx] = optIdx;
+                            });
+                          },
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: isSel ? const Color(0xFFEEF2FF) : Colors.white,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: isSel ? const Color(0xFF0066FF) : const Color(0xFFE2E8F0),
+                                width: isSel ? 1.5 : 1,
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                if (opt.colorHex != null) ...[
+                                  Container(
+                                    width: 14,
+                                    height: 14,
+                                    decoration: BoxDecoration(
+                                      color: opt.colorHex,
+                                      shape: BoxShape.circle,
+                                      border: Border.all(color: const Color(0xFFCBD5E1), width: 1),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                ],
+                                Text(
+                                  opt.name,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: isSel ? FontWeight.w800 : FontWeight.w600,
+                                    color: isSel ? const Color(0xFF0066FF) : const Color(0xFF334155),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    }),
+                  ),
+                ),
+              ] else ...[
+                Column(
+                  children: List.generate(grp.options.length, (optIdx) {
+                    final opt = grp.options[optIdx];
+                    final isSel = selIdx == optIdx;
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _selectedVariantGroupIndices[grpIdx] = optIdx;
+                          });
+                        },
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: isSel ? const Color(0xFF050B28) : Colors.white,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: isSel ? const Color(0xFF00C1D4) : const Color(0xFFE2E8F0),
+                              width: isSel ? 1.5 : 1,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.02),
+                                blurRadius: 6,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 18,
+                                height: 18,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: isSel ? const Color(0xFF00C1D4) : Colors.transparent,
+                                  border: Border.all(
+                                    color: isSel ? const Color(0xFF00C1D4) : const Color(0xFFCBD5E1),
+                                    width: 1.5,
+                                  ),
+                                ),
+                                child: isSel
+                                    ? const Icon(Icons.check, size: 12, color: Color(0xFF050B28))
+                                    : null,
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      opt.name,
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 12.5,
+                                        color: isSel ? Colors.white : const Color(0xFF0F172A),
+                                      ),
+                                    ),
+                                    if (opt.subtitle != null) ...[
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        opt.subtitle!,
+                                        style: TextStyle(
+                                          fontSize: 10.5,
+                                          color: isSel ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                              if (opt.priceOffset > 0)
+                                Text(
+                                  '+₱${opt.priceOffset.toStringAsFixed(0)}',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 11.5,
+                                    color: isSel ? const Color(0xFF38BDF8) : const Color(0xFF0066FF),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
+                ),
+              ],
+            ],
+          ),
+        );
+      }),
     );
   }
 
@@ -1057,35 +1512,100 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
     );
   }
 
+  List<ProductReviewModel> get _defaultFallbackReviews => [
+        ProductReviewModel(
+          id: 'fb_rev1',
+          userName: 'Kiko Valenzuela',
+          initials: 'KV',
+          avatarColor: const Color(0xFF5038ED),
+          rating: 5.0,
+          date: '2d ago',
+          variantName: 'Chalk White / Violet',
+          comment:
+              'Hands down the cleanest sounding stock board I have ever tested. The switches came factory lubricated to absolute perfection. Zero rattle on the spacebar and the violet knob is super tactile!',
+          reviewImages: [
+            'https://images.unsplash.com/photo-1587829741301-dc798b83add3?auto=format&fit=crop&w=300&q=80',
+          ],
+          helpfulCount: 38,
+        ),
+        ProductReviewModel(
+          id: 'fb_rev2',
+          userName: 'Marianne Cruz',
+          initials: 'MC',
+          avatarColor: const Color(0xFF00B4D8),
+          rating: 5.0,
+          date: '5d ago',
+          variantName: 'Chalk White / Violet',
+          comment:
+              'Arrived in less than 24 hours in BGC! Packaged in heavy luxury matte presentation box with switch pullers and coiled lavender cable included. Typing experience is pillowy and deep.',
+          helpfulCount: 24,
+        ),
+      ];
+
   Widget _buildReviewsSection() {
+    final List<ProductReviewModel> reviews =
+        _productArg?.reviews ?? _defaultFallbackReviews;
+    final ratingVal = _productArg?.rating ?? 4.9;
+    final breakdown = _productArg?.ratingBreakdown ??
+        {5: 0.88, 4: 0.09, 3: 0.02, 2: 0.01, 1: 0.0};
+
+    List<ProductReviewModel> filtered = reviews;
+    if (_selectedReviewFilter == 'With Photos') {
+      filtered = reviews.where((r) => r.reviewImages.isNotEmpty).toList();
+    } else if (_selectedReviewFilter == '5 Star') {
+      filtered = reviews.where((r) => r.rating >= 4.8).toList();
+    } else if (_selectedReviewFilter == '4 Star') {
+      filtered = reviews.where((r) => r.rating >= 3.8 && r.rating < 4.8).toList();
+    }
+
+    final withPhotosCount =
+        reviews.where((r) => r.reviewImages.isNotEmpty).length;
+    final fiveStarCount =
+        reviews.where((r) => r.rating >= 4.8).length;
+    final fourStarCount =
+        reviews.where((r) => r.rating >= 3.8 && r.rating < 4.8).length;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Row(
+        Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Row(
               children: [
-                Icon(Icons.storefront, size: 16, color: Color(0xFF0066FF)),
-                SizedBox(width: 4),
-                Text(
-                  'Official Store',
+                const Icon(Icons.rate_review_outlined,
+                    size: 16, color: Color(0xFF0066FF)),
+                const SizedBox(width: 6),
+                const Text(
+                  'Ratings & Reviews',
                   style: TextStyle(
                     fontWeight: FontWeight.w800,
-                    fontSize: 13,
+                    fontSize: 14,
                     color: Color(0xFF0F172A),
                   ),
                 ),
-                SizedBox(width: 4),
-                Icon(Icons.check_circle, size: 13, color: Color(0xFF0066FF)),
+                const SizedBox(width: 4),
+                Text(
+                  '(${reviews.length})',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
+                    color: Color(0xFF64748B),
+                  ),
+                ),
               ],
             ),
-            Text(
-              '1.2k+ sold',
-              style: TextStyle(
-                fontSize: 11.5,
-                color: Color(0xFF64748B),
-                fontWeight: FontWeight.w600,
+            InkWell(
+              onTap: () {
+                setState(() => _selectedReviewFilter = 'All');
+              },
+              child: const Text(
+                'View All',
+                style: TextStyle(
+                  fontSize: 11.5,
+                  color: Color(0xFF0066FF),
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
           ],
@@ -1098,30 +1618,34 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.02),
+                blurRadius: 8,
+                offset: const Offset(0, 3),
+              ),
+            ],
           ),
           child: Row(
             children: [
-              const Column(
+              Column(
                 children: [
                   Text(
-                    '4.9',
-                    style: TextStyle(
+                    ratingVal.toStringAsFixed(1),
+                    style: const TextStyle(
                       fontSize: 32,
                       fontWeight: FontWeight.w900,
                       color: Color(0xFF0F172A),
                     ),
                   ),
                   Row(
-                    children: [
-                      Icon(Icons.star, size: 13, color: Color(0xFFF59E0B)),
-                      Icon(Icons.star, size: 13, color: Color(0xFFF59E0B)),
-                      Icon(Icons.star, size: 13, color: Color(0xFFF59E0B)),
-                      Icon(Icons.star, size: 13, color: Color(0xFFF59E0B)),
-                      Icon(Icons.star, size: 13, color: Color(0xFFF59E0B)),
-                    ],
+                    children: List.generate(5, (index) {
+                      return const Icon(Icons.star,
+                          size: 13, color: Color(0xFFF59E0B));
+                    }),
                   ),
-                  SizedBox(height: 2),
-                  Text(
+                  const SizedBox(height: 2),
+                  const Text(
                     '98% Recommended',
                     style: TextStyle(
                       fontSize: 9.5,
@@ -1135,11 +1659,11 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
               Expanded(
                 child: Column(
                   children: [
-                    _buildStarProgressRow('5', 0.88),
-                    _buildStarProgressRow('4', 0.09),
-                    _buildStarProgressRow('3', 0.02),
-                    _buildStarProgressRow('2', 0.01),
-                    _buildStarProgressRow('1', 0.00),
+                    _buildStarProgressRow('5', breakdown[5] ?? 0.88),
+                    _buildStarProgressRow('4', breakdown[4] ?? 0.09),
+                    _buildStarProgressRow('3', breakdown[3] ?? 0.02),
+                    _buildStarProgressRow('2', breakdown[2] ?? 0.01),
+                    _buildStarProgressRow('1', breakdown[1] ?? 0.00),
                   ],
                 ),
               ),
@@ -1151,59 +1675,76 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
         // Review Filter Chips
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
+          physics: const BouncingScrollPhysics(),
           child: Row(
             children: [
-              _buildReviewFilterChip('All (520)', isSelected: true),
+              _buildReviewFilterChip(
+                'All (${reviews.length})',
+                isSelected: _selectedReviewFilter == 'All',
+                onTap: () => setState(() => _selectedReviewFilter = 'All'),
+              ),
               const SizedBox(width: 8),
-              _buildReviewFilterChip('📷 With Photos (84)', isSelected: false),
+              _buildReviewFilterChip(
+                '📷 With Photos ($withPhotosCount)',
+                isSelected: _selectedReviewFilter == 'With Photos',
+                onTap: () => setState(() => _selectedReviewFilter = 'With Photos'),
+              ),
               const SizedBox(width: 8),
-              _buildReviewFilterChip('🎧 Switch Sound (112)', isSelected: false),
+              _buildReviewFilterChip(
+                '5 ★ ($fiveStarCount)',
+                isSelected: _selectedReviewFilter == '5 Star',
+                onTap: () => setState(() => _selectedReviewFilter = '5 Star'),
+              ),
+              const SizedBox(width: 8),
+              _buildReviewFilterChip(
+                '4 ★ ($fourStarCount)',
+                isSelected: _selectedReviewFilter == '4 Star',
+                onTap: () => setState(() => _selectedReviewFilter = '4 Star'),
+              ),
             ],
           ),
         ),
         const SizedBox(height: 14),
 
-        // Review Card 1
-        _buildReviewCard(
-          avatarColor: const Color(0xFF5038ED),
-          initials: 'KV',
-          userName: 'Kiko Valenzuela',
-          dateText: '2d ago',
-          variantText: 'Variant: Chalk White / Violet',
-          comment:
-              '"Hands down the cleanest sounding stock board I have ever tested. The Gateron Yellow switches came factory lubricated to absolute perfection. Zero rattle on the spacebar and the violet knob is super tactile!"',
-          imageUrl:
-              'https://images.unsplash.com/photo-1587829741301-dc798b83add3?auto=format&fit=crop&w=300&q=80',
-          helpfulCount: _helpfulCount1,
-          voted: _voted1,
-          onHelpfulTap: () {
-            setState(() {
-              _voted1 = !_voted1;
-              _helpfulCount1 += _voted1 ? 1 : -1;
-            });
-          },
-        ),
-        const SizedBox(height: 12),
+        // Dynamic Reviews List
+        if (filtered.isEmpty)
+          Container(
+            padding: const EdgeInsets.all(20),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const Text(
+              'No reviews under this filter yet.',
+              style: TextStyle(color: Color(0xFF64748B), fontSize: 12),
+            ),
+          )
+        else
+          ...filtered.map((rev) {
+            final isLiked = ShopService.instance.hasLikedReview(rev.id);
+            final helpful = ShopService.instance.getReviewHelpfulCount(rev.id, rev.helpfulCount);
 
-        // Review Card 2
-        _buildReviewCard(
-          avatarColor: const Color(0xFF00B4D8),
-          initials: 'MC',
-          userName: 'Marianne Cruz',
-          dateText: '5d ago',
-          variantText: 'Variant: Chalk White / Violet',
-          comment:
-              '"Arrived in less than 24 hours in BGC! Packaged in heavy luxury matte presentation box with switch pullers and coiled lavender cable included. Typing experience is pillowy and deep."',
-          imageUrl: null,
-          helpfulCount: _helpfulCount2,
-          voted: _voted2,
-          onHelpfulTap: () {
-            setState(() {
-              _voted2 = !_voted2;
-              _helpfulCount2 += _voted2 ? 1 : -1;
-            });
-          },
-        ),
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: _buildReviewCard(
+                avatarColor: rev.avatarColor,
+                initials: rev.initials,
+                userName: rev.userName,
+                dateText: rev.date,
+                variantText: rev.variantName,
+                comment: rev.comment,
+                imageUrl: rev.reviewImages.isNotEmpty ? rev.reviewImages.first : null,
+                helpfulCount: helpful,
+                voted: isLiked,
+                onHelpfulTap: () {
+                  setState(() {
+                    ShopService.instance.toggleReviewLike(rev.id);
+                  });
+                },
+              ),
+            );
+          }),
       ],
     );
   }
@@ -1251,19 +1792,26 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
     );
   }
 
-  Widget _buildReviewFilterChip(String label, {required bool isSelected}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-      decoration: BoxDecoration(
-        color: isSelected ? const Color(0xFF00D2FF) : Colors.white,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 11.5,
-          fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-          color: isSelected ? Colors.white : const Color(0xFF475569),
+  Widget _buildReviewFilterChip(String label, {required bool isSelected, VoidCallback? onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFF00D2FF) : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected ? const Color(0xFF00D2FF) : const Color(0xFFE2E8F0),
+            width: 1,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 11.5,
+            fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+            color: isSelected ? Colors.white : const Color(0xFF475569),
+          ),
         ),
       ),
     );
@@ -1417,8 +1965,10 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
   }
 
   Widget _buildBottomActionDock() {
+    final totalPrice = _effectivePrice * _quantity;
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [
@@ -1429,99 +1979,125 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
           ),
         ],
       ),
-      child: Row(
-        children: [
-          // Chat Icon Button
-          GestureDetector(
-            onTap: () {
-              Navigator.pushNamed(context, AppRoutes.chat);
-            },
-            child: Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: const Color(0xFFEEF2FF),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: const Icon(
-                Icons.chat_bubble_outline_rounded,
-                color: Color(0xFF0066FF),
-                size: 20,
+      child: SafeArea(
+        top: false,
+        child: Row(
+          children: [
+            // Chat Icon Button
+            GestureDetector(
+              onTap: () {
+                Navigator.pushNamed(context, AppRoutes.chat);
+              },
+              child: Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEEF2FF),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Icon(
+                  Icons.chat_bubble_outline_rounded,
+                  color: Color(0xFF0066FF),
+                  size: 20,
+                ),
               ),
             ),
-          ),
-          const SizedBox(width: 10),
+            const SizedBox(width: 8),
 
-          // Add to Cart Dark Navy Button
-          Expanded(
-            child: SizedBox(
-              height: 44,
-              child: ElevatedButton.icon(
-                onPressed: _handleAddToCart,
-                icon: const Icon(Icons.shopping_cart_outlined,
-                    size: 16, color: Colors.white),
-                label: const Text(
-                  'Add to Cart',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 13,
-                    color: Colors.white,
+            // Add to Cart Dark Navy Button
+            Expanded(
+              flex: 4,
+              child: SizedBox(
+                height: 46,
+                child: ElevatedButton.icon(
+                  onPressed: _handleAddToCart,
+                  icon: const Icon(Icons.shopping_cart_outlined,
+                      size: 16, color: Colors.white),
+                  label: const Text(
+                    'Add to Cart',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 12.5,
+                      color: Colors.white,
+                    ),
                   ),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF050B28),
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(22),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF050B28),
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(23),
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-          const SizedBox(width: 10),
+            const SizedBox(width: 8),
 
-          // Buy Now Gradient Button
-          Expanded(
-            child: Container(
-              height: 44,
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF00D2FF), Color(0xFF0066FF)],
-                  begin: Alignment.centerLeft,
-                  end: Alignment.centerRight,
-                ),
-                borderRadius: BorderRadius.circular(22),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF0066FF).withValues(alpha: 0.35),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
+            // Buy Now Gradient Pill Button (Perfectly Centered & Aligned)
+            Expanded(
+              flex: 5,
+              child: Container(
+                height: 46,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF00D2FF), Color(0xFF0066FF)],
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
                   ),
-                ],
-              ),
-              child: ElevatedButton(
-                onPressed: () {
-                  Navigator.pushNamed(context, AppRoutes.checkout);
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.transparent,
-                  shadowColor: Colors.transparent,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(22),
-                  ),
+                  borderRadius: BorderRadius.circular(23),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF0066FF).withValues(alpha: 0.35),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
-                child: const Text(
-                  'Buy Now • ₱3,200',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w900,
-                    fontSize: 13,
-                    color: Colors.white,
+                child: ElevatedButton(
+                  onPressed: _handleBuyNow,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.transparent,
+                    shadowColor: Colors.transparent,
+                    padding: EdgeInsets.zero,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(23),
+                    ),
+                  ),
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text(
+                          'Buy Now',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w900,
+                            fontSize: 13,
+                            color: Colors.white,
+                            height: 1.1,
+                          ),
+                        ),
+                        const SizedBox(height: 1),
+                        Text(
+                          '₱${totalPrice.toStringAsFixed(0)}',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 11,
+                            color: Colors.white.withValues(alpha: 0.9),
+                            height: 1.1,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

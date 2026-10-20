@@ -15,20 +15,21 @@ class FloatingNavDock extends StatelessWidget {
   Widget build(BuildContext context) {
     final navItems = [
       _NavItemData(icon: Icons.storefront, label: 'Home'),
-      _NavItemData(icon: Icons.local_shipping_outlined, label: 'Orders', hasDot: true),
+      _NavItemData(icon: Icons.shopping_cart_outlined, label: 'Cart', hasDot: true),
+      _NavItemData(icon: Icons.local_shipping_outlined, label: 'Orders'),
       _NavItemData(icon: Icons.chat_bubble_outline, label: 'Chat'),
       _NavItemData(icon: Icons.person_outline, label: 'Profile'),
     ];
 
     return SafeArea(
       child: Padding(
-        padding: const EdgeInsets.only(left: 20, right: 20, bottom: 8),
+        padding: const EdgeInsets.only(left: 12, right: 12, bottom: 8),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(36),
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
             child: Container(
-              height: 64,
+              height: 60,
               decoration: BoxDecoration(
                 color: Colors.white.withValues(alpha: 0.95),
                 borderRadius: BorderRadius.circular(36),
@@ -45,7 +46,7 @@ class FloatingNavDock extends StatelessWidget {
                   ),
                 ],
               ),
-              padding: const EdgeInsets.symmetric(horizontal: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 4),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: List.generate(navItems.length, (index) {
@@ -58,7 +59,7 @@ class FloatingNavDock extends StatelessWidget {
                     child: isSelected
                         ? Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 18, vertical: 8),
+                                horizontal: 12, vertical: 7),
                             decoration: BoxDecoration(
                               color: const Color(0xFFE0F2FE),
                               borderRadius: BorderRadius.circular(26),
@@ -72,7 +73,7 @@ class FloatingNavDock extends StatelessWidget {
                                   children: [
                                     Icon(
                                       item.icon,
-                                      size: 20,
+                                      size: 18,
                                       color: const Color(0xFF0066FF),
                                     ),
                                     if (item.hasDot)
@@ -96,7 +97,7 @@ class FloatingNavDock extends StatelessWidget {
                                   style: const TextStyle(
                                     color: Color(0xFF0066FF),
                                     fontWeight: FontWeight.w800,
-                                    fontSize: 10,
+                                    fontSize: 9,
                                   ),
                                 ),
                               ],
@@ -111,7 +112,7 @@ class FloatingNavDock extends StatelessWidget {
                                 children: [
                                   Icon(
                                     item.icon,
-                                    size: 22,
+                                    size: 18,
                                     color: const Color(0xFF64748B),
                                   ),
                                   if (item.hasDot)
@@ -135,7 +136,7 @@ class FloatingNavDock extends StatelessWidget {
                                 style: const TextStyle(
                                   color: Color(0xFF64748B),
                                   fontWeight: FontWeight.w600,
-                                  fontSize: 10,
+                                  fontSize: 9,
                                 ),
                               ),
                             ],
