@@ -223,7 +223,7 @@ class DailyDiscoverSection extends StatelessWidget {
               crossAxisCount: 2,
               crossAxisSpacing: 10,
               mainAxisSpacing: 10,
-              childAspectRatio: 0.52,
+              childAspectRatio: 0.50,
             ),
             itemBuilder: (context, index) {
               return ProductCard(product: displayProducts[index]);
