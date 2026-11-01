@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../../core/services/rider_location_service.dart';
+import '../../../core/services/delivery_service.dart';
 
 /// Live Orders Screen for Rider App.
 ///
@@ -90,12 +92,41 @@ class _RiderLiveOrdersScreenState extends State<RiderLiveOrdersScreen> {
   }
 
   /// Updates status in Supabase so customer app updates in real-time
-  Future<void> _updateOrderStatus(String orderId, String newStatus) async {
+  Future<void> _updateOrderStatus(String orderId, String newStatus, {String? orderCode}) async {
     try {
       await Supabase.instance.client
           .from('orders')
           .update({'status': newStatus})
           .eq('id', orderId);
+
+      // Broadcast live rider location & real speed update to Buyer App in real-time
+      if (orderCode != null) {
+        final clean = orderCode.replaceAll('#', '').trim();
+        final loc = RiderLocationService.instance;
+        await loc.getCurrentLocation();
+
+        final channel = Supabase.instance.client.channel('rider_tracking_$clean');
+        channel.subscribe();
+        await channel.sendBroadcastMessage(
+          event: 'location_update',
+          payload: {
+            'rider_lat': loc.currentLat,
+            'rider_lng': loc.currentLng,
+            'rider_speed': double.parse(loc.currentSpeedKmh.toStringAsFixed(1)),
+            'rider_heading': double.parse(loc.currentHeading.toStringAsFixed(1)),
+            'rider_accuracy': double.parse(loc.currentAccuracyMeters.toStringAsFixed(1)),
+            'rider_name': 'Pedro Jose Garcia',
+            'status': newStatus,
+            'timestamp': DateTime.now().toIso8601String(),
+          },
+        );
+
+        if (newStatus.toLowerCase() == 'to_deliver') {
+          loc.startTracking(orderId: clean, status: newStatus);
+        } else if (newStatus.toLowerCase() == 'delivered') {
+          loc.stopTracking();
+        }
+      }
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -290,7 +321,7 @@ class _RiderLiveOrdersScreenState extends State<RiderLiveOrdersScreen> {
               final order = orders[index];
               final rawId = order['id'].toString();
               final orderCode = order['order_id'] ?? rawId.substring(0, 8);
-              final items = order['item_details'] ?? 'Assorted Items';
+              final items = DeliveryService.extractItemTitle(order['item_details']);
               final address = order['delivery_address'] ?? 'No address provided';
               final status = (order['status'] ?? 'pending').toString().toLowerCase();
 
@@ -446,29 +477,87 @@ class _RiderLiveOrdersScreenState extends State<RiderLiveOrdersScreen> {
                         ),
                       ),
 
-                      // Optional Status Progressor (Pending -> To Deliver -> Delivered)
+                      // Step-by-Step Status Progressor (Pending -> Accepted -> At Store -> In Transit -> Delivered)
                       if (status != 'delivered') ...[
                         const SizedBox(height: 8),
                         Row(
                           children: [
-                            if (status == 'pending')
+                            if (status == 'pending') ...[
                               Expanded(
-                                child: OutlinedButton(
-                                  onPressed: () => _updateOrderStatus(rawId, 'to_deliver'),
-                                  style: OutlinedButton.styleFrom(
-                                    foregroundColor: const Color(0xFF8B5CF6),
-                                    side: const BorderSide(color: Color(0xFF8B5CF6)),
+                                child: ElevatedButton.icon(
+                                  onPressed: () {
+                                    DeliveryService.instance.acceptOrder(
+                                      orderCode.toString(),
+                                      fallbackRow: order,
+                                    );
+                                    _updateOrderStatus(rawId, 'accepted', orderCode: orderCode.toString());
+                                  },
+                                  icon: const Icon(Icons.check_circle_outline_rounded, size: 18),
+                                  label: const Text(
+                                    'Accept Order',
+                                    style: TextStyle(fontWeight: FontWeight.bold),
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF0066FF),
+                                    foregroundColor: Colors.white,
+                                    elevation: 0,
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(10),
                                     ),
                                   ),
-                                  child: const Text('Mark Out For Delivery'),
                                 ),
                               ),
-                            if (status == 'to_deliver')
+                            ] else if (status == 'accepted' || status == 'ready') ...[
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  onPressed: () {
+                                    DeliveryService.instance.updateActiveOrderStage(1);
+                                    _updateOrderStatus(rawId, 'at_store', orderCode: orderCode.toString());
+                                  },
+                                  icon: const Icon(Icons.storefront_rounded, size: 18),
+                                  label: const Text(
+                                    'Arrived at Store',
+                                    style: TextStyle(fontWeight: FontWeight.bold),
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF0284C7),
+                                    foregroundColor: Colors.white,
+                                    elevation: 0,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ] else if (status == 'at_store') ...[
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  onPressed: () {
+                                    DeliveryService.instance.updateActiveOrderStage(3);
+                                    _updateOrderStatus(rawId, 'in_transit', orderCode: orderCode.toString());
+                                  },
+                                  icon: const Icon(Icons.local_shipping_rounded, size: 18),
+                                  label: const Text(
+                                    'Confirm Pickup (Out for Delivery)',
+                                    style: TextStyle(fontWeight: FontWeight.bold),
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFFF59E0B),
+                                    foregroundColor: Colors.white,
+                                    elevation: 0,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ] else if (status == 'picked_up' || status == 'in_transit' || status == 'to_deliver') ...[
                               Expanded(
                                 child: OutlinedButton(
-                                  onPressed: () => _updateOrderStatus(rawId, 'delivered'),
+                                  onPressed: () {
+                                    DeliveryService.instance.completeCurrentDelivery();
+                                    _updateOrderStatus(rawId, 'delivered', orderCode: orderCode.toString());
+                                  },
                                   style: OutlinedButton.styleFrom(
                                     foregroundColor: const Color(0xFF10B981),
                                     side: const BorderSide(color: Color(0xFF10B981)),
@@ -479,6 +568,7 @@ class _RiderLiveOrdersScreenState extends State<RiderLiveOrdersScreen> {
                                   child: const Text('Mark Delivered'),
                                 ),
                               ),
+                            ],
                           ],
                         ),
                       ],

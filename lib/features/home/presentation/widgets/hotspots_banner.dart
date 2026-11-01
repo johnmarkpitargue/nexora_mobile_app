@@ -35,7 +35,7 @@ class HotspotsBanner extends StatelessWidget {
                 Row(
                   children: [
                     Text(
-                      'BGC & Makati Hub Surge Active',
+                      'Dispatch Hub Surge Active',
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w800,
@@ -55,7 +55,7 @@ class HotspotsBanner extends StatelessWidget {
                 ),
                 SizedBox(height: 2),
                 Text(
-                  'High order density around High Street & Glorietta.',
+                  'High order density in your active dispatch area.',
                   style: TextStyle(
                     fontSize: 11,
                     color: RiderTheme.textMuted,

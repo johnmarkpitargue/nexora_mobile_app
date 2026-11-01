@@ -1,19 +1,72 @@
-import 'package:flutter/foundation.dart';
+import 'dart:async';
+import 'dart:convert';
+import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/delivery_order.dart';
 import 'rider_service.dart';
+import 'rider_location_service.dart';
 import 'earnings_service.dart';
+import 'chat_service.dart';
+import 'laguna_places_service.dart';
+import 'in_app_notification_service.dart';
+import '../../features/courier/services/courier_service.dart';
+import '../../features/courier/models/courier_models.dart';
 
 class DeliveryService extends ChangeNotifier {
   static final DeliveryService instance = DeliveryService._();
   DeliveryService._() {
     _initInitialData();
     _initSupabaseListener();
+    RiderService.instance.hasActiveTripCallback = () => _activeOrder != null;
+    RiderLocationService.instance.onBroadcastToDispatch = (payload) {
+      if (_dispatchChannel != null && _isDispatchSubscribed == true) {
+        _dispatchChannel!.sendBroadcastMessage(
+          event: 'location_update',
+          payload: payload,
+        );
+      }
+    };
+  }
+
+  /// Explicit initialization hook callable from main.dart after Supabase.initialize
+  void ensureInitialized() {
+    _initSupabaseListener();
+  }
+
+  bool _hasCompletedInitialFetch = false;
+  RealtimeChannel? _dispatchChannel;
+  bool? _isDispatchSubscribed;
+  Timer? _pollTimer;
+  Set<String>? _declinedOrderIdsSet;
+  Set<String> get _declinedOrderIds => _declinedOrderIdsSet ??= {};
+
+  /// Extracts clean readable item title if stored as JSON with chat history
+  static String extractItemTitle(dynamic raw) {
+    if (raw == null) return 'Assorted Nexora Items';
+    final str = raw.toString();
+    if (str.startsWith('{') && str.endsWith('}')) {
+      try {
+        final parsed = jsonDecode(str);
+        if (parsed is Map && parsed['title'] != null) {
+          return parsed['title'].toString();
+        }
+      } catch (_) {}
+    }
+    return str;
   }
 
   final List<DeliveryOrder> _availableOrders = [];
   DeliveryOrder? _activeOrder;
   final List<DeliveryOrder> _completedOrders = [];
+
+  // Continuous active delivery progress state (preserved across navigation/reopens)
+  int _activeOrderStage = 0;
+  bool _pkg1Scanned = false;
+  bool _pkg2Scanned = false;
+  bool _tamperSealChecked = true;
+  bool _fragileSecuredChecked = true;
+  bool _handoverCodeVerified = false;
+  DateTime? _deliveryCompletedTime;
 
   List<DeliveryOrder> get availableOrders => List.unmodifiable(_availableOrders);
   DeliveryOrder? get activeOrder => _activeOrder;
@@ -21,9 +74,57 @@ class DeliveryService extends ChangeNotifier {
   DeliveryOrder? get lastCompletedOrder =>
       _completedOrders.isNotEmpty ? _completedOrders.first : null;
 
+  int get activeOrderStage => _activeOrderStage;
+  bool get pkg1Scanned => _pkg1Scanned;
+  bool get pkg2Scanned => _pkg2Scanned;
+  bool get tamperSealChecked => _tamperSealChecked;
+  bool get fragileSecuredChecked => _fragileSecuredChecked;
+  bool get handoverCodeVerified => _handoverCodeVerified;
+  DateTime? get deliveryCompletedTime => _deliveryCompletedTime;
+
   void _initInitialData() {
     _activeOrder = null;
+    _activeOrderStage = 0;
+    _pkg1Scanned = false;
+    _pkg2Scanned = false;
+    _tamperSealChecked = true;
+    _fragileSecuredChecked = true;
+    _handoverCodeVerified = false;
+    _deliveryCompletedTime = null;
     _availableOrders.clear();
+
+    _availableOrders.add(
+      DeliveryOrder(
+        id: 'NX-8942-ORD',
+        customerName: 'Alex Rivera',
+        customerPhone: '+63 917 555 0192',
+        customerAddress: 'Unit 2402, Lumina Tower, Taguig City',
+        customerNotes: 'Please ring the doorbell or leave with concierge.',
+        merchantName: 'Nexora Official Store',
+        merchantAddress: 'High Street South, 26th St',
+        merchantPhone: '+63 2 8899 0011',
+        items: const [
+          OrderItemDetail(
+            name: 'Nexora Studio Pro Wireless ANC Headphone System',
+            quantity: 1,
+            price: 4999.00,
+            imageUrl: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=200',
+          ),
+        ],
+        deliveryFee: 120.00,
+        tip: 50.00,
+        orderTotal: 5049.00,
+        paymentType: 'Cash on Delivery (COD)',
+        distanceKm: 2.4,
+        estimatedMinutes: 12,
+        createdAt: DateTime.now(),
+        status: DeliveryStatus.available,
+        customerLat: 14.5515,
+        customerLng: 121.0505,
+        merchantLat: 14.5528,
+        merchantLng: 121.0518,
+      ),
+    );
 
     // 3. Past Completed Orders History
     _completedOrders.addAll([
@@ -82,8 +183,238 @@ class DeliveryService extends ChangeNotifier {
     ]);
   }
 
-  void _initSupabaseListener() {
+  bool get isSupabaseReady {
     try {
+      Supabase.instance.client;
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Fetches the latest pending orders from Supabase and adds any new ones to `_availableOrders`.
+  Future<void> refreshAvailableOrders() async {
+    if (!isSupabaseReady) return;
+    try {
+      final data = await Supabase.instance.client
+          .from('orders')
+          .select(
+              'id, order_id, status, customer_id, customer_email, item_details, delivery_address, delivery_lat, delivery_lng, created_at, payment_method, total_price, courier_name, is_rider_accepted')
+          .order('created_at', ascending: false)
+          .limit(15);
+      bool addedAny = false;
+      for (final row in data) {
+        final rawId = row['id'].toString();
+        final orderCode = (row['order_id'] ?? rawId).toString();
+        final clean = orderCode.replaceAll('#', '').trim();
+        if (_declinedOrderIds.contains(clean) || _declinedOrderIds.contains(rawId)) {
+          continue;
+        }
+        final status = (row['status'] ?? 'pending').toString().toLowerCase();
+        if (status == 'pending') {
+          final isMatchActive = _activeOrder != null &&
+              (_activeOrder!.id == orderCode ||
+                  _activeOrder!.id == rawId ||
+                  _activeOrder!.id.replaceAll('#', '').trim() == clean);
+          final isMatchCompleted = _completedOrders.any(
+            (o) =>
+                o.id == orderCode ||
+                o.id == rawId ||
+                o.id.replaceAll('#', '').trim() == clean,
+          );
+          final availIdx = _availableOrders.indexWhere(
+            (o) =>
+                o.id == orderCode ||
+                o.id == rawId ||
+                o.id.replaceAll('#', '').trim() == clean,
+          );
+          if (!isMatchActive && !isMatchCompleted && availIdx < 0) {
+            final newOrder = _createDeliveryOrderFromRow(orderCode, row);
+            _availableOrders.insert(0, newOrder);
+            RiderChatService.instance.subscribeToOrder(orderCode, customerName: newOrder.customerName);
+            addedAny = true;
+
+            if (_hasCompletedInitialFetch) {
+              InAppNotificationService.instance.showNotification(
+                senderName: 'New Delivery Dispatch',
+                message: 'Order #$orderCode (${newOrder.merchantName} ➔ ${newOrder.customerName}) is ready for pickup!',
+                orderId: orderCode,
+                icon: Icons.two_wheeler_rounded,
+                accentColor: const Color(0xFF0066FF),
+              );
+            }
+          }
+        }
+      }
+      _hasCompletedInitialFetch = true;
+      if (addedAny) {
+        notifyListeners();
+      }
+    } catch (_) {
+      _hasCompletedInitialFetch = true;
+    }
+  }
+
+  void _initSupabaseListener() {
+    if (!isSupabaseReady) return;
+    try {
+      // 1. Initial REST fetch & periodic poll for pending orders (15s to keep egress minimal)
+      refreshAvailableOrders();
+      _pollTimer?.cancel();
+      _pollTimer = Timer.periodic(
+        const Duration(seconds: 15),
+        (_) => refreshAvailableOrders(),
+      );
+
+      // 2. Real-time broadcast channel for instant new orders from Buyer App
+      if (_dispatchChannel != null) {
+        Supabase.instance.client.removeChannel(_dispatchChannel!);
+      }
+      _isDispatchSubscribed = false;
+      final dispatchChannel = Supabase.instance.client.channel('orders_dispatch');
+      _dispatchChannel = dispatchChannel;
+      dispatchChannel.onBroadcast(
+        event: 'order_created',
+        callback: (payload) {
+          final orderCode = (payload['order_id'] ?? '').toString();
+          if (orderCode.isEmpty) return;
+          final clean = orderCode.replaceAll('#', '').trim();
+          final isMatchActive = _activeOrder != null && _activeOrder!.id.replaceAll('#', '').trim() == clean;
+          final availIdx = _availableOrders.indexWhere((o) => o.id.replaceAll('#', '').trim() == clean);
+          if (!isMatchActive && availIdx < 0) {
+            final addressStr = (payload['delivery_address'] ?? 'Tuy-Baanan, Liliw, Laguna').toString();
+            final rawLat = (payload['delivery_lat'] as num?)?.toDouble();
+            final rawLng = (payload['delivery_lng'] as num?)?.toDouble();
+
+            double lat = rawLat ?? 0.0;
+            double lng = rawLng ?? 0.0;
+            if (lat == 0.0 || lng == 0.0) {
+              final resolved = LagunaPlacesService.instance.resolveCoordinates(addressStr);
+              lat = resolved.latitude;
+              lng = resolved.longitude;
+            }
+
+            final newOrder = DeliveryOrder(
+              id: orderCode,
+              customerName: (payload['customer_id'] ?? 'Alex Rivera').toString(),
+              customerPhone: '+63 975 963 2035',
+              customerAddress: addressStr,
+              customerLat: lat,
+              customerLng: lng,
+              customerNotes: 'Online order placed via Nexora App',
+              merchantName: 'Nexora Official Flagship Store',
+              merchantAddress: 'Nexora Central Fulfillment Center',
+              merchantPhone: '+63 2 8888 1234',
+              items: [
+                OrderItemDetail(
+                  name: extractItemTitle(payload['item_details']),
+                  quantity: 1,
+                  price: 299.0,
+                  imageUrl: 'https://images.unsplash.com/photo-1587829741301-dc798b83add3?w=200',
+                ),
+              ],
+              deliveryFee: 120.0,
+              tip: 25.0,
+              orderTotal: (payload['total'] as num?)?.toDouble() ?? 444.0,
+              paymentType: 'Cash on Delivery',
+              distanceKm: 2.8,
+              estimatedMinutes: 15,
+              createdAt: DateTime.now(),
+              status: DeliveryStatus.available,
+            );
+            _availableOrders.insert(0, newOrder);
+            RiderChatService.instance.subscribeToOrder(orderCode, customerName: newOrder.customerName);
+            notifyListeners();
+
+            InAppNotificationService.instance.showNotification(
+              senderName: 'New Delivery Dispatch',
+              message: 'Order #$orderCode (${newOrder.merchantName} ➔ ${newOrder.customerName}) is ready for pickup!',
+              orderId: orderCode,
+              icon: Icons.two_wheeler_rounded,
+              accentColor: const Color(0xFF0066FF),
+            );
+          }
+        },
+      );
+
+      // Respond immediately when Buyer App opens tracking and requests Rider's real phone GPS
+      dispatchChannel.onBroadcast(
+        event: 'request_rider_location',
+        callback: (payload) {
+          final orderCode = (payload['order_id'] ?? '').toString().replaceAll('#', '').trim();
+          final targetId = orderCode.isNotEmpty
+              ? orderCode
+              : (_activeOrder?.id.replaceAll('#', '').trim() ?? '');
+          if (targetId.isNotEmpty) {
+            RiderLocationService.instance.broadcastCurrentPhoneLocation(
+              orderId: targetId,
+            );
+          }
+        },
+      );
+
+      // Real-time location update broadcast handler (when customer updates doorstep pin)
+      dispatchChannel.onBroadcast(
+        event: 'location_updated',
+        callback: (payload) {
+          final orderCode = (payload['order_id'] ?? '').toString();
+          if (orderCode.isEmpty) return;
+          final rawLat = (payload['delivery_lat'] as num?)?.toDouble() ??
+              double.tryParse(payload['delivery_lat']?.toString() ?? '');
+          final rawLng = (payload['delivery_lng'] as num?)?.toDouble() ??
+              double.tryParse(payload['delivery_lng']?.toString() ?? '');
+          final addressStr = payload['delivery_address']?.toString();
+          _handleLocationUpdated(orderCode, rawLat, rawLng, addressStr);
+        },
+      );
+
+      // Real-time buyer rating broadcast handler (when buyer rates the delivery rider)
+      dispatchChannel.onBroadcast(
+        event: 'rider_rated',
+        callback: (payload) {
+          final orderCode = (payload['order_id'] ?? '').toString().replaceAll('#', '').trim();
+          final driverStars = (payload['driver_rating'] as num?)?.toInt() ??
+              int.tryParse(payload['driver_rating']?.toString() ?? '') ??
+              5;
+          final deliveryStars = (payload['delivery_rating'] as num?)?.toInt() ??
+              int.tryParse(payload['delivery_rating']?.toString() ?? '') ??
+              5;
+          final newRating = (payload['new_courier_rating'] as num?)?.toDouble() ??
+              double.tryParse(payload['new_courier_rating']?.toString() ?? '');
+          final comment = (payload['comment'] ?? '').toString();
+          final rawTags = payload['tags'];
+          final tags = rawTags is List ? rawTags.map((e) => e.toString()).toList() : <String>[];
+          final courierName = (payload['courier_name'] ?? RiderService.instance.profile.name).toString();
+
+          final updatedRating = RiderService.instance.applyBuyerRating(
+            orderId: orderCode,
+            driverRating: driverStars,
+            deliveryRating: deliveryStars,
+            newCourierRating: newRating,
+            comment: comment,
+            tags: tags,
+          );
+          CourierService.instance.updateRiderRating(courierName, updatedRating);
+          notifyListeners();
+
+          InAppNotificationService.instance.showNotification(
+            senderName: 'New Customer Rating ($driverStars★)',
+            message: comment.isNotEmpty
+                ? '"$comment" • Overall Rating: ${updatedRating.toStringAsFixed(2)} ★'
+                : 'Order #$orderCode rated $driverStars★! Your overall rating is now ${updatedRating.toStringAsFixed(2)} ★.',
+            orderId: orderCode,
+            icon: Icons.star_rounded,
+            accentColor: const Color(0xFFF59E0B),
+          );
+        },
+      );
+      dispatchChannel.subscribe((status, [err]) {
+        if (status == RealtimeSubscribeStatus.subscribed) {
+          _isDispatchSubscribed = true;
+        }
+      });
+
+      // 3. Postgres stream subscription
       Supabase.instance.client
           .from('orders')
           .stream(primaryKey: ['id'])
@@ -94,6 +425,16 @@ class DeliveryService extends ChangeNotifier {
           final orderCode = (row['order_id'] ?? rawId).toString();
           final status = (row['status'] ?? 'pending').toString().toLowerCase();
 
+          // Sync real-time delivery coordinates if changed by customer
+          final rowLat = (row['delivery_lat'] as num?)?.toDouble() ??
+              double.tryParse(row['delivery_lat']?.toString() ?? '');
+          final rowLng = (row['delivery_lng'] as num?)?.toDouble() ??
+              double.tryParse(row['delivery_lng']?.toString() ?? '');
+          final rowAddress = row['delivery_address']?.toString();
+          if (rowLat != null && rowLng != null && rowLat != 0.0 && rowLng != 0.0) {
+            _handleLocationUpdated(orderCode, rowLat, rowLng, rowAddress);
+          }
+
           final isMatchActive = _activeOrder != null &&
               (_activeOrder!.id == orderCode || _activeOrder!.id == rawId || _activeOrder!.id.replaceAll('#', '') == orderCode.replaceAll('#', ''));
           final availIdx = _availableOrders.indexWhere(
@@ -102,39 +443,49 @@ class DeliveryService extends ChangeNotifier {
 
           if (status == 'pending') {
             if (!isMatchActive && availIdx < 0) {
-              final newOrder = DeliveryOrder(
-                id: orderCode,
-                customerName: (row['customer_id'] ?? 'Customer').toString(),
-                customerPhone: '+63 975 963 2035',
-                customerAddress: (row['delivery_address'] ?? 'Brgy. Real, Calamba City, Laguna').toString(),
-                customerNotes: 'Online order placed via Nexora App',
-                merchantName: 'Nexora Official Flagship Store',
-                merchantAddress: 'Nexora Central Fulfillment Center',
-                merchantPhone: '+63 2 8888 1234',
-                items: [
-                  OrderItemDetail(
-                    name: (row['item_details'] ?? 'Assorted Nexora Items').toString(),
-                    quantity: 1,
-                    price: 299.0,
-                    imageUrl: 'https://images.unsplash.com/photo-1587829741301-dc798b83add3?w=200',
-                  ),
-                ],
-                deliveryFee: 120.0,
-                tip: 25.0,
-                orderTotal: 444.0,
-                paymentType: 'Cash on Delivery',
-                distanceKm: 2.8,
-                estimatedMinutes: 15,
-                createdAt: DateTime.now(),
-                status: DeliveryStatus.available,
-              );
+              final newOrder = _createDeliveryOrderFromRow(orderCode, row);
               _availableOrders.insert(0, newOrder);
+              RiderChatService.instance.subscribeToOrder(orderCode, customerName: newOrder.customerName);
               notifyListeners();
+
+              if (_hasCompletedInitialFetch) {
+                InAppNotificationService.instance.showNotification(
+                  senderName: 'New Delivery Dispatch',
+                  message: 'Order #$orderCode (${newOrder.merchantName} ➔ ${newOrder.customerName}) is ready for pickup!',
+                  orderId: orderCode,
+                  icon: Icons.two_wheeler_rounded,
+                  accentColor: const Color(0xFF0066FF),
+                );
+              }
             }
-          } else if (status == 'to_deliver' || status == 'ready') {
-            if (availIdx >= 0 && !isMatchActive) {
+          } else if (status == 'accepted' ||
+              status == 'at_store' ||
+              status == 'picked_up' ||
+              status == 'in_transit' ||
+              status == 'to_deliver' ||
+              status == 'ready') {
+            if (availIdx >= 0) {
               final order = _availableOrders.removeAt(availIdx);
-              _activeOrder = order.copyWith(status: DeliveryStatus.accepted);
+              if (_activeOrder == null) {
+                _activeOrder = order.copyWith(status: DeliveryStatus.accepted);
+                _activeOrderStage = status == 'in_transit'
+                    ? 3
+                    : status == 'picked_up'
+                        ? 2
+                        : status == 'at_store'
+                            ? 1
+                            : 0;
+              }
+              notifyListeners();
+            } else if (!isMatchActive && _activeOrder == null) {
+              _activeOrder = _createDeliveryOrderFromRow(orderCode, row).copyWith(status: DeliveryStatus.accepted);
+              _activeOrderStage = status == 'in_transit'
+                  ? 3
+                  : status == 'picked_up'
+                      ? 2
+                      : status == 'at_store'
+                          ? 1
+                          : 0;
               notifyListeners();
             }
           } else if (status == 'delivered') {
@@ -152,29 +503,255 @@ class DeliveryService extends ChangeNotifier {
     }
   }
 
-  void acceptOrder(String orderId) {
-    final index = _availableOrders.indexWhere((o) => o.id == orderId);
-    if (index != -1) {
-      final order = _availableOrders.removeAt(index);
-      _activeOrder = order.copyWith(status: DeliveryStatus.accepted);
-      notifyListeners();
+  void _handleLocationUpdated(String orderCode, double? rawLat, double? rawLng, String? addressStr) {
+    if (rawLat == null || rawLng == null || rawLat == 0.0 || rawLng == 0.0) return;
+    final clean = orderCode.replaceAll('#', '').trim();
+    bool changed = false;
 
-      try {
-        final clean = orderId.replaceAll('#', '');
-        final isNum = int.tryParse(clean) != null;
-        if (isNum) {
-          Supabase.instance.client.from('orders').update({'status': 'to_deliver'}).eq('id', int.parse(clean));
-        } else {
-          Supabase.instance.client.from('orders').update({'status': 'to_deliver'}).eq('order_id', clean);
-        }
-      } catch (e) {
-        debugPrint('⚠️ Accept order Supabase sync: $e');
+    if (_activeOrder != null && _activeOrder!.id.replaceAll('#', '').trim() == clean) {
+      if ((_activeOrder!.customerLat - rawLat).abs() > 0.00001 ||
+          (_activeOrder!.customerLng - rawLng).abs() > 0.00001 ||
+          (addressStr != null && addressStr != _activeOrder!.customerAddress)) {
+        _activeOrder = _activeOrder!.copyWith(
+          customerLat: rawLat,
+          customerLng: rawLng,
+          customerAddress: addressStr ?? _activeOrder!.customerAddress,
+        );
+        changed = true;
+        debugPrint('📍 [Rider] Active order $clean destination pin updated to ($rawLat, $rawLng)');
+
+        InAppNotificationService.instance.showNotification(
+          senderName: 'Customer Updated Pinpoint',
+          message: 'Doorstep pin updated for Order #$clean: ${addressStr ?? "New GPS coordinates"}',
+          orderId: clean,
+          icon: Icons.edit_location_alt_rounded,
+          accentColor: const Color(0xFF10B981),
+        );
       }
+    }
+
+    final availIdx = _availableOrders.indexWhere((o) => o.id.replaceAll('#', '').trim() == clean);
+    if (availIdx >= 0) {
+      if ((_availableOrders[availIdx].customerLat - rawLat).abs() > 0.00001 ||
+          (_availableOrders[availIdx].customerLng - rawLng).abs() > 0.00001 ||
+          (addressStr != null && addressStr != _availableOrders[availIdx].customerAddress)) {
+        _availableOrders[availIdx] = _availableOrders[availIdx].copyWith(
+          customerLat: rawLat,
+          customerLng: rawLng,
+          customerAddress: addressStr ?? _availableOrders[availIdx].customerAddress,
+        );
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      notifyListeners();
     }
   }
 
+  void _syncStatusToSupabase(String orderId, String status, {bool isAccepting = false, String? proofPhoto}) {
+    final clean = orderId.replaceAll('#', '').trim();
+    final riderName = RiderService.instance.profile.name;
+    final riderRating = RiderService.instance.profile.rating;
+
+    // Sync with CourierService so both Rider and Courier modes stay in sync
+    CourierService.instance.syncFromDeliveryOrder(clean, status, riderName: riderName);
+
+    // Also update RiderLocationService status and broadcast real phone GPS
+    RiderLocationService.instance.updateOrderStatus(status);
+
+    if (!isSupabaseReady) return;
+    try {
+      _updateOrderRowInSupabase(clean, status, proofPhoto: proofPhoto);
+
+      final statusPayload = <String, dynamic>{
+        'order_id': clean,
+        'status': status,
+        'rider_accepted': true,
+        'courier_name': riderName,
+        'courier_rating': riderRating,
+        if (proofPhoto != null && proofPhoto.isNotEmpty) 'proof_photo': proofPhoto,
+        if (RiderLocationService.instance.hasRealGpsFix) ...{
+          'rider_lat': RiderLocationService.instance.currentLat,
+          'rider_lng': RiderLocationService.instance.currentLng,
+          'rider_speed': RiderLocationService.instance.currentSpeedKmh,
+          'rider_heading': RiderLocationService.instance.currentHeading,
+          'rider_accuracy': RiderLocationService.instance.currentAccuracyMeters,
+        },
+        'timestamp': DateTime.now().toIso8601String(),
+      };
+
+      // Broadcast status update on persistent _dispatchChannel (avoiding channel clobbering)
+      if (_dispatchChannel != null && _isDispatchSubscribed == true) {
+        if (isAccepting) {
+          _dispatchChannel!.sendBroadcastMessage(
+            event: 'order_accepted',
+            payload: statusPayload,
+          );
+        }
+        _dispatchChannel!.sendBroadcastMessage(
+          event: 'status_updated',
+          payload: statusPayload,
+        );
+      }
+
+      final trackCh = Supabase.instance.client.channel('rider_tracking_$clean');
+      trackCh.subscribe((subStatus, [err]) {
+        if (subStatus == RealtimeSubscribeStatus.subscribed) {
+          trackCh.sendBroadcastMessage(
+            event: 'status_update',
+            payload: statusPayload,
+          );
+        }
+      });
+    } catch (e) {
+      debugPrint('⚠️ Order status Supabase sync: $e');
+    }
+  }
+
+  Future<void> _updateOrderRowInSupabase(String clean, String status, {String? proofPhoto}) async {
+    final updateData = <String, dynamic>{'status': status};
+    if (proofPhoto != null && proofPhoto.isNotEmpty) {
+      updateData['proof_photo'] = proofPhoto;
+    }
+    final isNum = int.tryParse(clean) != null;
+    if (isNum) {
+      try {
+        await Supabase.instance.client.from('orders').update(updateData).eq('id', int.parse(clean));
+      } catch (_) {}
+    }
+    try {
+      await Supabase.instance.client.from('orders').update(updateData).eq('order_id', clean);
+    } catch (_) {}
+    try {
+      await Supabase.instance.client.from('orders').update(updateData).eq('id', clean);
+    } catch (_) {}
+  }
+
+  /// Activate a CourierParcel as the active delivery order for 5-stage navigation & handover
+  void activateCourierParcel(CourierParcel parcel) {
+    final order = CourierService.instance.toDeliveryOrder(parcel);
+    final initialStatus =
+        parcel.status == CourierParcelStatus.inTransit ? 'in_transit' : 'to_deliver';
+    _activeOrder = order.copyWith(status: DeliveryStatus.accepted);
+    _activeOrderStage = parcel.status == CourierParcelStatus.inTransit ? 2 : 0;
+    _pkg1Scanned = parcel.status == CourierParcelStatus.inTransit;
+    _pkg2Scanned = parcel.status == CourierParcelStatus.inTransit;
+    _tamperSealChecked = true;
+    _fragileSecuredChecked = true;
+    _handoverCodeVerified = false;
+    _deliveryCompletedTime = null;
+    RiderService.instance.recordOrderAccepted();
+    RiderChatService.instance.subscribeToOrder(parcel.id, customerName: parcel.customerName);
+    RiderLocationService.instance.startTracking(
+      orderId: parcel.id,
+      riderName: RiderService.instance.profile.name,
+      status: initialStatus,
+    );
+    notifyListeners();
+    _syncStatusToSupabase(
+      parcel.id,
+      initialStatus,
+      isAccepting: true,
+    );
+  }
+
+  void acceptOrder(String orderId, {Map<String, dynamic>? fallbackRow}) {
+    final clean = orderId.replaceAll('#', '').trim();
+    final index = _availableOrders.indexWhere(
+      (o) => o.id == orderId || o.id.replaceAll('#', '').trim() == clean,
+    );
+    DeliveryOrder? order;
+    if (index != -1) {
+      order = _availableOrders.removeAt(index);
+    } else if (fallbackRow != null) {
+      order = _createDeliveryOrderFromRow(clean, fallbackRow);
+    }
+
+    if (order != null) {
+      _activeOrderStage = 0;
+      _pkg1Scanned = false;
+      _pkg2Scanned = false;
+      _tamperSealChecked = true;
+      _fragileSecuredChecked = true;
+      _handoverCodeVerified = false;
+      _deliveryCompletedTime = null;
+      _activeOrder = order.copyWith(status: DeliveryStatus.accepted);
+      RiderService.instance.recordOrderAccepted();
+      RiderChatService.instance.subscribeToOrder(order.id, customerName: order.customerName);
+      // Immediately start tracking & broadcasting Rider's real phone GPS
+      RiderLocationService.instance.startTracking(
+        orderId: order.id,
+        riderName: RiderService.instance.profile.name,
+        status: 'accepted',
+      );
+      notifyListeners();
+
+      _syncStatusToSupabase(order.id, 'accepted', isAccepting: true);
+    }
+  }
+
+  void updateActiveOrderStage(int stage) {
+    if (_activeOrder == null) return;
+    _activeOrderStage = stage;
+
+    DeliveryStatus nextStatus;
+    String statusStr = 'accepted';
+    switch (stage) {
+      case 0:
+        nextStatus = DeliveryStatus.accepted;
+        statusStr = 'accepted';
+        break;
+      case 1:
+        nextStatus = DeliveryStatus.atMerchant;
+        statusStr = 'at_store';
+        break;
+      case 2:
+        nextStatus = DeliveryStatus.pickedUp;
+        statusStr = 'picked_up';
+        break;
+      case 3:
+        nextStatus = DeliveryStatus.atCustomer;
+        statusStr = 'in_transit';
+        break;
+      case 4:
+      default:
+        nextStatus = DeliveryStatus.delivered;
+        statusStr = 'delivered';
+        _deliveryCompletedTime ??= DateTime.now();
+        break;
+    }
+
+    _activeOrder = _activeOrder!.copyWith(status: nextStatus);
+    notifyListeners();
+
+    _syncStatusToSupabase(_activeOrder!.id, statusStr);
+  }
+
+  void updateActiveOrderScanProgress({
+    bool? pkg1,
+    bool? pkg2,
+    bool? tamperSealChecked,
+    bool? fragileSecuredChecked,
+    bool? handoverVerified,
+    DateTime? completedTime,
+  }) {
+    if (pkg1 != null) _pkg1Scanned = pkg1;
+    if (pkg2 != null) _pkg2Scanned = pkg2;
+    if (tamperSealChecked != null) _tamperSealChecked = tamperSealChecked;
+    if (fragileSecuredChecked != null) _fragileSecuredChecked = fragileSecuredChecked;
+    if (handoverVerified != null) _handoverCodeVerified = handoverVerified;
+    if (completedTime != null) _deliveryCompletedTime = completedTime;
+    notifyListeners();
+  }
+
   void declineOrder(String orderId) {
-    _availableOrders.removeWhere((o) => o.id == orderId);
+    final clean = orderId.replaceAll('#', '').trim();
+    _declinedOrderIds.add(clean);
+    _availableOrders.removeWhere(
+      (o) => o.id == orderId || o.id.replaceAll('#', '').trim() == clean,
+    );
+    RiderService.instance.recordOrderDeclined();
     notifyListeners();
   }
 
@@ -230,19 +807,17 @@ class DeliveryService extends ChangeNotifier {
     );
 
     _activeOrder = null;
+    _activeOrderStage = 0;
+    _pkg1Scanned = false;
+    _pkg2Scanned = false;
+    _tamperSealChecked = true;
+    _fragileSecuredChecked = true;
+    _handoverCodeVerified = false;
+    _deliveryCompletedTime = null;
     notifyListeners();
 
-    try {
-      final clean = completed.id.replaceAll('#', '');
-      final isNum = int.tryParse(clean) != null;
-      if (isNum) {
-        Supabase.instance.client.from('orders').update({'status': 'delivered'}).eq('id', int.parse(clean));
-      } else {
-        Supabase.instance.client.from('orders').update({'status': 'delivered'}).eq('order_id', clean);
-      }
-    } catch (e) {
-      debugPrint('⚠️ Complete order Supabase sync: $e');
-    }
+    _syncStatusToSupabase(completed.id, 'delivered', proofPhoto: photoPath);
+    RiderLocationService.instance.stopTracking();
   }
 
   void addSimulatedNewDispatch() {
@@ -251,10 +826,10 @@ class DeliveryService extends ChangeNotifier {
       id: 'NX-${9300 + count}-ORD',
       customerName: 'Kristine Bautista',
       customerPhone: '+63 915 221 8899',
-      customerAddress: 'Fairways Tower, 5th Ave & McKinley Rd, BGC',
+      customerAddress: 'Fairways Tower, 5th Ave & McKinley Rd',
       customerNotes: 'Unit 21-C, buzzer is working.',
-      merchantName: 'Zara Flagship BGC',
-      merchantAddress: 'One Bonifacio High Street Mall, BGC',
+      merchantName: 'Zara Official Store',
+      merchantAddress: 'One High Street Mall',
       merchantPhone: '+63 2 8999 0011',
       items: const [
         OrderItemDetail(
@@ -276,5 +851,48 @@ class DeliveryService extends ChangeNotifier {
 
     _availableOrders.insert(0, newOrder);
     notifyListeners();
+  }
+
+  DeliveryOrder _createDeliveryOrderFromRow(String orderCode, Map<String, dynamic> row) {
+    final addressStr = (row['delivery_address'] ?? 'Tuy-Baanan, Liliw, Laguna').toString();
+    final rawLat = (row['delivery_lat'] as num?)?.toDouble();
+    final rawLng = (row['delivery_lng'] as num?)?.toDouble();
+
+    double lat = rawLat ?? 0.0;
+    double lng = rawLng ?? 0.0;
+    if (lat == 0.0 || lng == 0.0) {
+      final resolved = LagunaPlacesService.instance.resolveCoordinates(addressStr);
+      lat = resolved.latitude;
+      lng = resolved.longitude;
+    }
+
+    return DeliveryOrder(
+      id: orderCode,
+      customerName: (row['customer_id'] ?? 'Alex Rivera').toString(),
+      customerPhone: '+63 975 963 2035',
+      customerAddress: addressStr,
+      customerLat: lat,
+      customerLng: lng,
+      customerNotes: 'Online order placed via Nexora App',
+      merchantName: 'Nexora Official Flagship Store',
+      merchantAddress: 'Nexora Central Fulfillment Center',
+      merchantPhone: '+63 2 8888 1234',
+      items: [
+        OrderItemDetail(
+          name: extractItemTitle(row['item_details']),
+          quantity: 1,
+          price: 299.0,
+          imageUrl: 'https://images.unsplash.com/photo-1587829741301-dc798b83add3?w=200',
+        ),
+      ],
+      deliveryFee: 120.0,
+      tip: 25.0,
+      orderTotal: 444.0,
+      paymentType: 'Cash on Delivery',
+      distanceKm: 2.8,
+      estimatedMinutes: 15,
+      createdAt: DateTime.now(),
+      status: DeliveryStatus.available,
+    );
   }
 }

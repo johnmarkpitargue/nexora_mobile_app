@@ -249,30 +249,35 @@ class _WeeklyChartWidgetState extends State<WeeklyChartWidget>
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'WEEKLY PERFORMANCE',
-                    style: TextStyle(
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.w900,
-                      color: Color(0xFF64748B),
-                      letterSpacing: 0.8,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'WEEKLY PERFORMANCE',
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFF64748B),
+                        letterSpacing: 0.8,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    _getSectionTitle(),
-                    style: const TextStyle(
-                      fontSize: 16.5,
-                      fontWeight: FontWeight.w900,
-                      color: Color(0xFF0F172A),
-                      letterSpacing: -0.3,
+                    const SizedBox(height: 3),
+                    Text(
+                      _getSectionTitle(),
+                      style: const TextStyle(
+                        fontSize: 16.5,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFF0F172A),
+                        letterSpacing: -0.3,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
+              const SizedBox(width: 8),
               Container(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 4.5),
@@ -306,7 +311,10 @@ class _WeeklyChartWidgetState extends State<WeeklyChartWidget>
                   children: List.generate(dataset.length, (index) {
                     final item = dataset[index];
                     final isSelected = _selectedBarIndex == index;
-                    final isSunOrCurrent = item.isCurrent || isSelected;
+                    // Fix: Only highlight the selected bar. If no bar is explicitly selected, fall back to current.
+                    final isBarHighlighted = _selectedBarIndex != null
+                        ? isSelected
+                        : item.isCurrent;
 
                     // Compute height scale
                     final double rawFactor = item.amount / maxAmount;
@@ -323,13 +331,8 @@ class _WeeklyChartWidgetState extends State<WeeklyChartWidget>
                         behavior: HitTestBehavior.opaque,
                         onTap: () {
                           setState(() {
-                            if (_selectedBarIndex == index) {
-                              // Toggle drill-down
-                              _drillDownActive = !_drillDownActive;
-                            } else {
-                              _selectedBarIndex = index;
-                              _drillDownActive = true;
-                            }
+                            _selectedBarIndex = index;
+                            _drillDownActive = true;
                           });
                         },
                         child: Padding(
@@ -342,10 +345,10 @@ class _WeeklyChartWidgetState extends State<WeeklyChartWidget>
                                 duration: const Duration(milliseconds: 200),
                                 style: TextStyle(
                                   fontSize: 9.5,
-                                  fontWeight: isSunOrCurrent
+                                  fontWeight: isBarHighlighted
                                       ? FontWeight.w900
                                       : FontWeight.w800,
-                                  color: isSunOrCurrent
+                                  color: isBarHighlighted
                                       ? const Color(0xFF0284C7)
                                       : const Color(0xFF64748B),
                                 ),
@@ -359,7 +362,7 @@ class _WeeklyChartWidgetState extends State<WeeklyChartWidget>
                                 curve: Curves.easeOutCubic,
                                 height: 92 * heightFactor,
                                 decoration: BoxDecoration(
-                                  gradient: isSunOrCurrent
+                                  gradient: isBarHighlighted
                                       ? const LinearGradient(
                                           colors: [
                                             Color(0xFF00C4FF),
@@ -377,7 +380,7 @@ class _WeeklyChartWidgetState extends State<WeeklyChartWidget>
                                           end: Alignment.topCenter,
                                         ),
                                   borderRadius: BorderRadius.circular(9),
-                                  boxShadow: isSunOrCurrent
+                                  boxShadow: isBarHighlighted
                                       ? [
                                           BoxShadow(
                                             color: const Color(0xFF00C4FF)
@@ -396,15 +399,30 @@ class _WeeklyChartWidgetState extends State<WeeklyChartWidget>
                                 duration: const Duration(milliseconds: 200),
                                 style: TextStyle(
                                   fontSize: 11,
-                                  fontWeight: isSunOrCurrent
+                                  fontWeight: isBarHighlighted
                                       ? FontWeight.w900
                                       : FontWeight.w600,
-                                  color: isSunOrCurrent
+                                  color: isBarHighlighted
                                       ? const Color(0xFF0284C7)
-                                      : const Color(0xFF64748B),
+                                      : (item.isCurrent
+                                          ? const Color(0xFF0F172A)
+                                          : const Color(0xFF64748B)),
                                 ),
                                 child: Text(item.dayName),
                               ),
+                              if (item.isCurrent) ...[
+                                const SizedBox(height: 2),
+                                Container(
+                                  width: 4,
+                                  height: 4,
+                                  decoration: BoxDecoration(
+                                    color: isBarHighlighted
+                                        ? const Color(0xFF0284C7)
+                                        : const Color(0xFF94A3B8),
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                              ],
                             ],
                           ),
                         ),
@@ -431,38 +449,44 @@ class _WeeklyChartWidgetState extends State<WeeklyChartWidget>
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 7,
-                        height: 7,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFF00C4FF),
-                          shape: BoxShape.circle,
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 7,
+                          height: 7,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFF00C4FF),
+                            shape: BoxShape.circle,
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        activeItem.dateLabel.isNotEmpty
-                            ? activeItem.dateLabel
-                            : activeItem.dayName,
-                        style: const TextStyle(
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w800,
-                          color: Color(0xFF0369A1),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            activeItem.dateLabel.isNotEmpty
+                                ? activeItem.dateLabel
+                                : activeItem.dayName,
+                            style: const TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFF0369A1),
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        '• ₱${activeItem.amount.toStringAsFixed(2)}',
-                        style: const TextStyle(
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w900,
-                          color: Color(0xFF0F172A),
+                        const SizedBox(width: 6),
+                        Text(
+                          '• ₱${activeItem.amount.toStringAsFixed(2)}',
+                          style: const TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFF0F172A),
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
+                  const SizedBox(width: 8),
                   GestureDetector(
                     onTap: () {
                       setState(() => _drillDownActive = !_drillDownActive);
@@ -504,14 +528,22 @@ class _WeeklyChartWidgetState extends State<WeeklyChartWidget>
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _buildMetricColumn('TRIPS', displayTrips.toString(),
-                    const Color(0xFF0F172A)),
-                _buildMetricColumn('HOURS', displayHours,
-                    const Color(0xFF0F172A)),
-                _buildMetricColumn(
-                    'AVG/HR', displayAvg, const Color(0xFF059669)),
-                _buildMetricColumn(
-                    'TIPS', displayTips, const Color(0xFF0284C7)),
+                Expanded(
+                  child: _buildMetricColumn('TRIPS', displayTrips.toString(),
+                      const Color(0xFF0F172A)),
+                ),
+                Expanded(
+                  child: _buildMetricColumn('HOURS', displayHours,
+                      const Color(0xFF0F172A)),
+                ),
+                Expanded(
+                  child: _buildMetricColumn(
+                      'AVG/HR', displayAvg, const Color(0xFF059669)),
+                ),
+                Expanded(
+                  child: _buildMetricColumn(
+                      'TIPS', displayTips, const Color(0xFF0284C7)),
+                ),
               ],
             ),
           ),

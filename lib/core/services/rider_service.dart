@@ -134,6 +134,95 @@ class RiderService extends ChangeNotifier {
   };
 
   RiderProfile get profile => _profile;
+  RiderProfile get currentRider => _profile;
+
+  int? _acceptedOrdersCountVal;
+  int? _declinedOrdersCountVal;
+  int get _acceptedOrdersCount => _acceptedOrdersCountVal ??= 48;
+  set _acceptedOrdersCount(int v) => _acceptedOrdersCountVal = v;
+  int get _declinedOrdersCount => _declinedOrdersCountVal ??= 1;
+  set _declinedOrdersCount(int v) => _declinedOrdersCountVal = v;
+
+  List<RiderReview>? _reviewsList;
+  List<RiderReview> get _reviews => _reviewsList ??= [
+    RiderReview(
+      orderId: 'NX-8819-ORD',
+      customerName: 'Elena Gilbert',
+      driverRating: 5,
+      deliveryRating: 5,
+      comment: 'Very polite rider and delivered ahead of schedule!',
+      tags: const ['Polite & Friendly', 'Fast Delivery', 'Handled with Care'],
+      createdAt: DateTime.now().subtract(const Duration(hours: 2)),
+    ),
+    RiderReview(
+      orderId: 'NX-8641-ORD',
+      customerName: 'David Lee',
+      driverRating: 5,
+      deliveryRating: 5,
+      comment: 'Followed condo drop-off instructions accurately.',
+      tags: const ['Followed Instructions', 'Good Communication'],
+      createdAt: DateTime.now().subtract(const Duration(hours: 5)),
+    ),
+  ];
+
+  List<RiderReview> get reviews => List.unmodifiable(_reviews);
+
+  void recordOrderAccepted() {
+    _acceptedOrdersCount++;
+    final total = _acceptedOrdersCount + _declinedOrdersCount;
+    final newRate = double.parse((( _acceptedOrdersCount / total) * 100.0).clamp(0.0, 100.0).toStringAsFixed(1));
+    _profile = _profile.copyWith(completionRate: newRate);
+    notifyListeners();
+  }
+
+  void recordOrderDeclined() {
+    _declinedOrdersCount++;
+    final total = _acceptedOrdersCount + _declinedOrdersCount;
+    final newRate = double.parse(((_acceptedOrdersCount / total) * 100.0).clamp(0.0, 100.0).toStringAsFixed(1));
+    _profile = _profile.copyWith(completionRate: newRate);
+    notifyListeners();
+  }
+
+  double applyBuyerRating({
+    required String orderId,
+    required int driverRating,
+    required int deliveryRating,
+    double? newCourierRating,
+    String? comment,
+    List<String>? tags,
+    String? customerName,
+  }) {
+    final cleanId = orderId.replaceAll('#', '').trim();
+    final combinedScore = (driverRating * 0.7) + (deliveryRating * 0.3);
+    final updatedRating = newCourierRating ??
+        double.parse(
+          (((_profile.rating * 3.0) + combinedScore) / 4.0)
+              .clamp(1.0, 5.0)
+              .toStringAsFixed(2),
+        );
+
+    _profile = _profile.copyWith(rating: updatedRating);
+
+    // Avoid duplicate entry for the same orderId, or replace existing
+    _reviews.removeWhere((r) => r.orderId.replaceAll('#', '').trim() == cleanId);
+    _reviews.insert(
+      0,
+      RiderReview(
+        orderId: cleanId.isEmpty ? 'NX-ORDER' : cleanId,
+        customerName: (customerName != null && customerName.isNotEmpty)
+            ? customerName
+            : 'Verified Buyer',
+        driverRating: driverRating,
+        deliveryRating: deliveryRating,
+        comment: comment ?? '',
+        tags: tags ?? const [],
+        createdAt: DateTime.now(),
+      ),
+    );
+
+    notifyListeners();
+    return updatedRating;
+  }
 
   // Test Switcher: Toggle between test fixtures (Rider 1, Rider 2, Rider 3)
   void switchRider(String riderId) {
@@ -152,7 +241,15 @@ class RiderService extends ChangeNotifier {
     return _profile.id == targetRiderId;
   }
 
-  // RID-PROF-006: Suspended rider cannot work / go online
+  bool Function()? hasActiveTripCallback;
+  bool get hasActiveTrip => hasActiveTripCallback != null ? hasActiveTripCallback!() : false;
+
+  void setOnlineStatus(bool online) {
+    _profile = _profile.copyWith(isOnline: online);
+    notifyListeners();
+  }
+
+  // RID-PROF-006 & COU-SHIFT-004 & COU-SHIFT-005
   OperationResult toggleOnlineStatus() {
     if (_profile.accountStatus.toLowerCase() == 'suspended') {
       _profile = _profile.copyWith(isOnline: false);
@@ -161,7 +258,16 @@ class RiderService extends ChangeNotifier {
         'Account Suspended: You cannot go online or accept deliveries. Please contact Hub Dispatch.',
       );
     }
-    _profile = _profile.copyWith(isOnline: !_profile.isOnline);
+
+    // COU-SHIFT-004: If rider is on duty and attempts to go off duty while on an active trip
+    if (_profile.isOnline && hasActiveTrip) {
+      return OperationResult.fail(
+        'Cannot Go Off Duty: You have an active trip in transit. Complete the delivery or hand over the trip to dispatch first.',
+      );
+    }
+
+    final newStatus = !_profile.isOnline;
+    _profile = _profile.copyWith(isOnline: newStatus);
     notifyListeners();
     return OperationResult.ok(
       _profile.isOnline
@@ -189,6 +295,18 @@ class RiderService extends ChangeNotifier {
             _profile.plateNumber.toUpperCase().replaceAll(RegExp(r'[\s\-]'), '')) {
       return OperationResult.fail(
         'Plate $newPlate is already registered to another active fleet vehicle.',
+      );
+    }
+
+    // Check OR/CR document format
+    final lowerOrCr = newOrCrName.toLowerCase();
+    final isAllowed = lowerOrCr.endsWith('.jpg') ||
+        lowerOrCr.endsWith('.jpeg') ||
+        lowerOrCr.endsWith('.png') ||
+        lowerOrCr.endsWith('.pdf');
+    if (!isAllowed || lowerOrCr.contains('docx') || lowerOrCr.contains('exe')) {
+      return OperationResult.fail(
+        'OR/CR rejected: Invalid file format ($newOrCrName). Only JPG, PNG, and PDF up to 5.0 MB are accepted.',
       );
     }
 
@@ -261,6 +379,37 @@ class RiderService extends ChangeNotifier {
 
     // Accepted
     _profile = _profile.copyWith(licenseDocName: fileName);
+    notifyListeners();
+    return OperationResult.ok('Document "$fileName" accepted and updated.');
+  }
+
+  OperationResult uploadOrCrDocument({
+    required String fileName,
+    required double fileSizeMb,
+  }) {
+    // 1. File size boundary: Max 5.0 MB
+    if (fileSizeMb > 5.0) {
+      return OperationResult.fail(
+        'File rejected: ${fileSizeMb.toStringAsFixed(1)} MB exceeds the 5.0 MB limit. Previous document kept.',
+      );
+    }
+
+    // 2. Extension validation (reject docx and executable / renamed files)
+    final lower = fileName.toLowerCase();
+    final isAllowed =
+        lower.endsWith('.jpg') || lower.endsWith('.jpeg') || lower.endsWith('.png') || lower.endsWith('.pdf');
+
+    if (!isAllowed || lower.contains('docx') || lower.contains('exe')) {
+      return OperationResult.fail(
+        'File rejected: Invalid file format ($fileName). Only JPG, PNG, and PDF up to 5.0 MB are accepted. Previous document kept.',
+      );
+    }
+
+    // Accepted
+    _profile = _profile.copyWith(
+      orCrDocName: fileName,
+      vehicleReverificationStatus: 'Pending Re-verification',
+    );
     notifyListeners();
     return OperationResult.ok('Document "$fileName" accepted and updated.');
   }

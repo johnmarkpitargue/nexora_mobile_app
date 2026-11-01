@@ -33,7 +33,7 @@ class RouteProgressWidget extends StatelessWidget {
       {'title': 'At Store', 'icon': Icons.storefront_rounded},
       {'title': 'Pickup', 'icon': Icons.archive_outlined},
       {'title': 'Transit', 'icon': Icons.local_shipping_outlined},
-      {'title': 'Delivered', 'icon': Icons.check_rounded},
+      {'title': 'Delivered', 'icon': Icons.verified_outlined},
     ];
 
     final isCompleted = currentStageIndex >= 4;
@@ -58,15 +58,20 @@ class RouteProgressWidget extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                currentStageIndex == 1 ? 'ACTIVE PIPELINE' : 'DELIVERY PROGRESS',
-                style: const TextStyle(
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.w900,
-                  color: Color(0xFF64748B),
-                  letterSpacing: 0.8,
+              Flexible(
+                child: Text(
+                  currentStageIndex == 1 ? 'ACTIVE PIPELINE' : 'DELIVERY PROGRESS',
+                  style: const TextStyle(
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF64748B),
+                    letterSpacing: 0.8,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
+              const SizedBox(width: 6),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
                 decoration: BoxDecoration(
@@ -126,7 +131,7 @@ class RouteProgressWidget extends StatelessWidget {
             builder: (context, constraints) {
               final double totalWidth = constraints.maxWidth;
               const double circleSize = 34.0;
-              final double spacing = (totalWidth - (circleSize * stages.length)) / (stages.length - 1);
+              final double stepWidth = totalWidth / stages.length;
 
               return Stack(
                 alignment: Alignment.centerLeft,
@@ -134,89 +139,103 @@ class RouteProgressWidget extends StatelessWidget {
                   // Background track connecting line
                   Positioned(
                     top: circleSize / 2 - 1.5,
-                    left: circleSize / 2,
-                    right: circleSize / 2,
+                    left: stepWidth / 2,
+                    right: stepWidth / 2,
                     child: Container(
                       height: 3,
                       color: const Color(0xFFE2E8F0),
                     ),
                   ),
 
-                  // Active progress connecting line
+                  // Active progress connecting line (green for completed portion)
                   if (currentStageIndex > 0)
                     Positioned(
                       top: circleSize / 2 - 1.5,
-                      left: circleSize / 2,
-                      width: (circleSize + spacing) * currentStageIndex.clamp(0, stages.length - 1),
+                      left: stepWidth / 2,
+                      width: stepWidth * currentStageIndex.clamp(0, stages.length - 1),
                       child: Container(
                         height: 3,
-                        color: const Color(0xFF00C4FF),
+                        color: const Color(0xFF10B981),
                       ),
                     ),
 
                   // Stepper nodes
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: List.generate(stages.length, (index) {
-                      final isStepDone = currentStageIndex >= index;
+                      final isPast = currentStageIndex > index;
                       final isCurrent = currentStageIndex == index;
+                      final isStepDone = currentStageIndex >= index;
 
-                      return GestureDetector(
-                        onTap: () => onStepTapped?.call(index),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              width: circleSize,
-                              height: circleSize,
-                              decoration: BoxDecoration(
-                                color: isStepDone
-                                    ? const Color(0xFF00C4FF)
-                                    : const Color(0xFFF1F5F9),
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: isStepDone
-                                      ? const Color(0xFF00C4FF)
-                                      : const Color(0xFFCBD5E1),
-                                  width: 1.5,
+                      return Expanded(
+                        child: GestureDetector(
+                          onTap: (onStepTapped != null && index <= currentStageIndex)
+                              ? () => onStepTapped?.call(index)
+                              : null,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Container(
+                                width: circleSize,
+                                height: circleSize,
+                                decoration: BoxDecoration(
+                                  color: isPast
+                                      ? const Color(0xFF10B981)
+                                      : (isCurrent
+                                          ? const Color(0xFF00C4FF)
+                                          : const Color(0xFFF1F5F9)),
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: isPast
+                                        ? const Color(0xFF059669)
+                                        : (isCurrent
+                                            ? const Color(0xFF00C4FF)
+                                            : const Color(0xFFCBD5E1)),
+                                    width: 1.5,
+                                  ),
+                                  boxShadow: isCurrent
+                                      ? [
+                                          BoxShadow(
+                                            color: const Color(0xFF00C4FF)
+                                                .withValues(alpha: 0.35),
+                                            blurRadius: 8,
+                                            offset: const Offset(0, 3),
+                                          ),
+                                        ]
+                                      : null,
                                 ),
-                                boxShadow: isCurrent
-                                    ? [
-                                        BoxShadow(
-                                          color: const Color(0xFF00C4FF)
-                                              .withValues(alpha: 0.35),
-                                          blurRadius: 8,
-                                          offset: const Offset(0, 3),
-                                        ),
-                                      ]
-                                    : null,
-                              ),
-                              child: Center(
-                                child: Icon(
-                                  stages[index]['icon'] as IconData,
-                                  size: 17,
-                                  color: isStepDone
-                                      ? Colors.white
-                                      : const Color(0xFF94A3B8),
+                                child: Center(
+                                  child: Icon(
+                                    isPast
+                                        ? Icons.check_rounded
+                                        : stages[index]['icon'] as IconData,
+                                    size: isPast ? 18 : 17,
+                                    color: isStepDone
+                                        ? Colors.white
+                                        : const Color(0xFF94A3B8),
+                                  ),
                                 ),
                               ),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              stages[index]['title'] as String,
-                              style: TextStyle(
-                                fontSize: 10.5,
-                                fontWeight: isStepDone
-                                    ? FontWeight.w900
-                                    : FontWeight.w600,
-                                color: isStepDone
-                                    ? (isCurrent
-                                        ? const Color(0xFF0284C7)
-                                        : const Color(0xFF0F172A))
-                                    : const Color(0xFF64748B),
+                              const SizedBox(height: 6),
+                              Text(
+                                stages[index]['title'] as String,
+                                textAlign: TextAlign.center,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 10.5,
+                                  fontWeight: isStepDone
+                                      ? FontWeight.w900
+                                      : FontWeight.w600,
+                                  color: isPast
+                                      ? const Color(0xFF047857)
+                                      : (isCurrent
+                                          ? const Color(0xFF0284C7)
+                                          : const Color(0xFF64748B)),
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       );
                     }),

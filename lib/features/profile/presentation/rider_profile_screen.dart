@@ -1,6 +1,77 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../../core/services/rider_service.dart';
+import '../../../core/services/in_app_notification_service.dart';
 import '../../auth/presentation/rider_landing_page.dart';
+import '../../courier/services/shift_duty_coordinator.dart';
+
+class DocumentValidationResult {
+  final bool isValid;
+  final String? errorMessage;
+  final String fileTypeLabel;
+  final double sizeMb;
+  final String fileName;
+
+  DocumentValidationResult({
+    required this.isValid,
+    this.errorMessage,
+    required this.fileTypeLabel,
+    required this.sizeMb,
+    required this.fileName,
+  });
+}
+
+DocumentValidationResult validateUploadedDocument({
+  required String fileName,
+  required double sizeMb,
+}) {
+  final parts = fileName.toLowerCase().split('.');
+  final ext = parts.length > 1 ? parts.last : '';
+
+  String typeLabel;
+  if (ext == 'pdf') {
+    typeLabel = 'PDF Document';
+  } else if (ext == 'jpg' || ext == 'jpeg') {
+    typeLabel = 'JPEG Image';
+  } else if (ext == 'png') {
+    typeLabel = 'PNG Image';
+  } else {
+    typeLabel = ext.isNotEmpty ? ext.toUpperCase() : 'Unknown File';
+  }
+
+  final isAllowedExtension = ['jpg', 'jpeg', 'png', 'pdf'].contains(ext);
+  final isDisguisedExeOrDocx =
+      fileName.toLowerCase().contains('docx') || fileName.toLowerCase().contains('exe');
+
+  if (!isAllowedExtension || isDisguisedExeOrDocx) {
+    return DocumentValidationResult(
+      isValid: false,
+      errorMessage:
+          'Invalid file format ($typeLabel). Only JPG, PNG, and PDF files are allowed.',
+      fileTypeLabel: typeLabel,
+      sizeMb: sizeMb,
+      fileName: fileName,
+    );
+  }
+
+  if (sizeMb > 5.0) {
+    return DocumentValidationResult(
+      isValid: false,
+      errorMessage:
+          'File size (${sizeMb.toStringAsFixed(2)} MB) exceeds the 5.0 MB limit. Please select a smaller file.',
+      fileTypeLabel: typeLabel,
+      sizeMb: sizeMb,
+      fileName: fileName,
+    );
+  }
+
+  return DocumentValidationResult(
+    isValid: true,
+    fileTypeLabel: typeLabel,
+    sizeMb: sizeMb,
+    fileName: fileName,
+  );
+}
 
 class RiderProfileScreen extends StatefulWidget {
   final String? initialRiderId;
@@ -162,6 +233,339 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
     );
   }
 
+  // --- File Upload & Validation Helpers (Max 5.0 MB, JPG/PNG/PDF) ---
+  void _openDocumentPicker({
+    required BuildContext context,
+    required String title,
+    required void Function(String fileName, double fileSizeMb) onFileSelected,
+  }) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      ),
+      builder: (sheetCtx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE0F2FE),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.cloud_upload_rounded,
+                        color: Color(0xFF0284C7), size: 22),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Upload $title',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFF0F172A),
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        const Text(
+                          'Max file size: 5.0 MB • JPG, PNG, or PDF',
+                          style:
+                              TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE0F2FE),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.camera_alt_outlined,
+                      color: Color(0xFF0284C7)),
+                ),
+                title: const Text('Take Photo (Camera)',
+                    style:
+                        TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5)),
+                subtitle: const Text('Capture document using device camera',
+                    style: TextStyle(fontSize: 11)),
+                onTap: () async {
+                  Navigator.pop(sheetCtx);
+                  await _pickImageFromSource(
+                    context: context,
+                    source: ImageSource.camera,
+                    onFileSelected: onFileSelected,
+                  );
+                },
+              ),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE0F2FE),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.photo_library_outlined,
+                      color: Color(0xFF0284C7)),
+                ),
+                title: const Text('Choose from Gallery',
+                    style:
+                        TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5)),
+                subtitle: const Text('Select image from photo gallery',
+                    style: TextStyle(fontSize: 11)),
+                onTap: () async {
+                  Navigator.pop(sheetCtx);
+                  await _pickImageFromSource(
+                    context: context,
+                    source: ImageSource.gallery,
+                    onFileSelected: onFileSelected,
+                  );
+                },
+              ),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFEF3C7),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.folder_open_outlined,
+                      color: Color(0xFFD97706)),
+                ),
+                title: const Text('Browse Files (PDF or Images)',
+                    style:
+                        TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5)),
+                subtitle: const Text(
+                    'Select official digital PDF scan or document file',
+                    style: TextStyle(fontSize: 11)),
+                onTap: () async {
+                  Navigator.pop(sheetCtx);
+                  await _pickDocumentFile(
+                    context: context,
+                    title: title,
+                    onFileSelected: onFileSelected,
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickImageFromSource({
+    required BuildContext context,
+    required ImageSource source,
+    required void Function(String fileName, double fileSizeMb) onFileSelected,
+  }) async {
+    try {
+      final picker = ImagePicker();
+      final XFile? file = await picker.pickImage(
+        source: source,
+        imageQuality: 85,
+      );
+      if (file == null) return;
+
+      final bytes = await file.readAsBytes();
+      final sizeMb = bytes.length / (1024.0 * 1024.0);
+      final fileName = file.name.isNotEmpty
+          ? file.name
+          : 'photo_${DateTime.now().millisecondsSinceEpoch}.jpg';
+
+      if (!context.mounted) return;
+
+      _validateAndDispatchFile(
+        context: context,
+        fileName: fileName,
+        sizeMb: sizeMb,
+        onFileSelected: onFileSelected,
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not access image: $e'),
+          backgroundColor: const Color(0xFFEF4444),
+        ),
+      );
+    }
+  }
+
+  Future<void> _pickDocumentFile({
+    required BuildContext context,
+    required String title,
+    required void Function(String fileName, double fileSizeMb) onFileSelected,
+  }) async {
+    final nameController = TextEditingController(
+      text: title.toLowerCase().contains('license')
+          ? 'driver_license_scan.pdf'
+          : 'or_cr_official_copy.pdf',
+    );
+    double selectedSizeMb = 1.2;
+
+    await showDialog(
+      context: context,
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (ctx, setDlgState) {
+          return AlertDialog(
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            title: const Row(
+              children: [
+                Icon(Icons.picture_as_pdf_rounded,
+                    color: Color(0xFFEF4444), size: 24),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Attach Digital PDF',
+                    style: TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Enter or select document file name (JPG, PNG, or PDF):',
+                    style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: nameController,
+                    decoration: InputDecoration(
+                      labelText: 'File Name',
+                      hintText: 'e.g. document.pdf',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      prefixIcon: const Icon(Icons.description_outlined),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Document Size:',
+                        style: TextStyle(
+                            fontSize: 12, fontWeight: FontWeight.w700),
+                      ),
+                      Text(
+                        '${selectedSizeMb.toStringAsFixed(1)} MB',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: selectedSizeMb > 5.0
+                              ? const Color(0xFFEF4444)
+                              : const Color(0xFF10B981),
+                        ),
+                      ),
+                    ],
+                  ),
+                  Slider(
+                    value: selectedSizeMb,
+                    min: 0.5,
+                    max: 6.0,
+                    divisions: 11,
+                    label: '${selectedSizeMb.toStringAsFixed(1)} MB',
+                    activeColor: selectedSizeMb > 5.0
+                        ? const Color(0xFFEF4444)
+                        : const Color(0xFF0284C7),
+                    onChanged: (val) {
+                      setDlgState(() => selectedSizeMb = val);
+                    },
+                  ),
+                  const Text(
+                    'Rule: Only JPG, PNG, and PDF up to 5.0 MB are accepted.',
+                    style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogCtx),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(dialogCtx);
+                  _validateAndDispatchFile(
+                    context: context,
+                    fileName: nameController.text.trim(),
+                    sizeMb: selectedSizeMb,
+                    onFileSelected: onFileSelected,
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF0284C7),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10)),
+                ),
+                child: const Text('Attach & Validate'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  void _validateAndDispatchFile({
+    required BuildContext context,
+    required String fileName,
+    required double sizeMb,
+    required void Function(String fileName, double fileSizeMb) onFileSelected,
+  }) {
+    final validation = validateUploadedDocument(
+      fileName: fileName,
+      sizeMb: sizeMb,
+    );
+
+    if (!validation.isValid) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(validation.errorMessage ?? 'Invalid file.'),
+          backgroundColor: const Color(0xFFEF4444),
+        ),
+      );
+      return;
+    }
+
+    onFileSelected(validation.fileName, validation.sizeMb);
+  }
+
   // --- RID-PROF-002 & RID-PROF-003: Edit Vehicle Details Modal ---
   void _showEditVehicleDialog(BuildContext context) {
     final profile = RiderService.instance.profile;
@@ -278,52 +682,6 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                     prefixIcon: const Icon(Icons.pin_outlined),
                   ),
                 ),
-                const SizedBox(height: 8),
-
-                // Quick QA Test Chips
-                Wrap(
-                  spacing: 6,
-                  children: [
-                    ActionChip(
-                      label: const Text('Plate 789GHI (Valid)',
-                          style: TextStyle(fontSize: 11)),
-                      backgroundColor: const Color(0xFFF0FDF4),
-                      side: const BorderSide(color: Color(0xFF86EFAC)),
-                      onPressed: () {
-                        setSheetState(() {
-                          plateController.text = '789GHI';
-                          orCrFile = 'or_cr.pdf';
-                          orCrSize = 0.9;
-                          localError = null;
-                        });
-                      },
-                    ),
-                    ActionChip(
-                      label: const Text('ABC1234 (Duplicate)',
-                          style: TextStyle(fontSize: 11)),
-                      backgroundColor: const Color(0xFFFEF2F2),
-                      side: const BorderSide(color: Color(0xFFFCA5A5)),
-                      onPressed: () {
-                        setSheetState(() {
-                          plateController.text = 'ABC1234';
-                          localError = null;
-                        });
-                      },
-                    ),
-                    ActionChip(
-                      label: const Text('abc1234 (Duplicate lowercase)',
-                          style: TextStyle(fontSize: 11)),
-                      backgroundColor: const Color(0xFFFEF2F2),
-                      side: const BorderSide(color: Color(0xFFFCA5A5)),
-                      onPressed: () {
-                        setSheetState(() {
-                          plateController.text = 'abc1234';
-                          localError = null;
-                        });
-                      },
-                    ),
-                  ],
-                ),
                 const SizedBox(height: 16),
 
                 // Attached OR/CR document preview
@@ -346,8 +704,15 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.picture_as_pdf_rounded,
-                          color: Color(0xFFEF4444), size: 24),
+                      Icon(
+                        orCrFile.toLowerCase().endsWith('.pdf')
+                            ? Icons.picture_as_pdf_rounded
+                            : Icons.image_rounded,
+                        color: orCrFile.toLowerCase().endsWith('.pdf')
+                            ? const Color(0xFFEF4444)
+                            : const Color(0xFF0284C7),
+                        size: 26,
+                      ),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Column(
@@ -360,24 +725,42 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                                 fontWeight: FontWeight.w800,
                                 color: Color(0xFF0F172A),
                               ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                             Text(
-                              'File Size: ${(orCrSize * 1024).toStringAsFixed(0)} KB (Under 5.0 MB limit)',
+                              'File Size: ${orCrSize < 1.0 ? '${(orCrSize * 1024).toStringAsFixed(0)} KB' : '${orCrSize.toStringAsFixed(2)} MB'} (Under 5.0 MB limit)',
                               style: const TextStyle(
                                   fontSize: 11, color: Color(0xFF64748B)),
                             ),
                           ],
                         ),
                       ),
-                      TextButton(
+                      const SizedBox(width: 8),
+                      ElevatedButton.icon(
                         onPressed: () {
-                          setSheetState(() {
-                            orCrFile = 'or_cr.pdf';
-                            orCrSize = 0.9;
-                          });
+                          _openDocumentPicker(
+                            context: context,
+                            title: 'OR/CR (LTO Registration)',
+                            onFileSelected: (fileName, sizeMb) {
+                              setSheetState(() {
+                                orCrFile = fileName;
+                                orCrSize = sizeMb;
+                                localError = null;
+                              });
+                            },
+                          );
                         },
-                        child: const Text('Re-upload',
-                            style: TextStyle(fontSize: 12)),
+                        icon: const Icon(Icons.upload_file_rounded, size: 16),
+                        label: const Text('Upload File'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF0284C7),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 8),
+                          textStyle: const TextStyle(
+                              fontSize: 12, fontWeight: FontWeight.bold),
+                        ),
                       ),
                     ],
                   ),
@@ -458,6 +841,8 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
       builder: (ctx) => StatefulBuilder(
         builder: (context, setModalState) {
           final currentProfile = RiderService.instance.profile;
+          final activeDocName =
+              isLicense ? currentProfile.licenseDocName : currentProfile.orCrDocName;
 
           return SafeArea(
             child: Padding(
@@ -511,7 +896,7 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Company: ${currentProfile.company} • File: $docName',
+                    'Company: ${currentProfile.company} • File: $activeDocName',
                     style:
                         const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
                   ),
@@ -624,10 +1009,10 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                   ),
                   const SizedBox(height: 18),
 
-                  // Actions for Driver's License (RID-PROF-004 & RID-PROF-005)
+                  // 1. Actions for Driver's License: Expiry Date
                   if (isLicense) ...[
                     const Text(
-                      'License Expiry Date (RID-PROF-004)',
+                      'License Expiry Date',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w800,
@@ -695,155 +1080,111 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 6),
-
-                    // Quick Boundary Buttons: Yesterday vs Today
-                    Wrap(
-                      spacing: 6,
-                      children: [
-                        ActionChip(
-                          label: const Text('Set to Yesterday (Reject)',
-                              style: TextStyle(fontSize: 11)),
-                          backgroundColor: const Color(0xFFFEF2F2),
-                          side: const BorderSide(color: Color(0xFFFCA5A5)),
-                          onPressed: () {
-                            final yesterday = DateTime.now()
-                                .subtract(const Duration(days: 1));
-                            final res = RiderService.instance
-                                .updateLicenseExpiry(yesterday);
-                            setModalState(() {});
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(res.message),
-                                backgroundColor: const Color(0xFFEF4444),
-                              ),
-                            );
-                          },
-                        ),
-                        ActionChip(
-                          label: const Text('Set to Today (Accept)',
-                              style: TextStyle(fontSize: 11)),
-                          backgroundColor: const Color(0xFFF0FDF4),
-                          side: const BorderSide(color: Color(0xFF86EFAC)),
-                          onPressed: () {
-                            final today = DateTime.now();
-                            final res = RiderService.instance
-                                .updateLicenseExpiry(today);
-                            setModalState(() {});
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(res.message),
-                                backgroundColor: const Color(0xFF10B981),
-                              ),
-                            );
-                          },
-                        ),
-                      ],
-                    ),
                     const SizedBox(height: 16),
+                  ],
 
-                    // RID-PROF-005: File Upload Boundary Rules
-                    const Text(
-                      'Document Upload Rules (RID-PROF-005)',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFF0F172A),
-                      ),
+                  // 2. Upload Document File Section (Driver's License & OR/CR)
+                  Text(
+                    isLicense
+                        ? 'Driver\'s License Document'
+                        : 'Vehicle OR/CR Document',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF0F172A),
                     ),
-                    const SizedBox(height: 6),
-                    const Text(
-                      'Rule: Only JPG/PNG/PDF <= 5.0 MB accepted. Rejected uploads preserve existing document.',
-                      style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                  ),
+                  const SizedBox(height: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
                     ),
-                    const SizedBox(height: 6),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 4,
+                    child: Row(
                       children: [
-                        ActionChip(
-                          label: const Text('size_5.0MB.jpg (accept)',
-                              style: TextStyle(fontSize: 11)),
-                          backgroundColor: const Color(0xFFF0FDF4),
-                          side: const BorderSide(color: Color(0xFF86EFAC)),
-                          onPressed: () {
-                            final res =
-                                RiderService.instance.uploadDriverLicense(
-                              fileName: 'size_5.0MB.jpg',
-                              fileSizeMb: 5.0,
-                            );
-                            setModalState(() {});
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(res.message),
-                                backgroundColor: const Color(0xFF10B981),
-                              ),
-                            );
-                          },
+                        Icon(
+                          activeDocName.toLowerCase().endsWith('.pdf')
+                              ? Icons.picture_as_pdf_rounded
+                              : Icons.image_rounded,
+                          color: activeDocName.toLowerCase().endsWith('.pdf')
+                              ? const Color(0xFFEF4444)
+                              : const Color(0xFF0284C7),
+                          size: 26,
                         ),
-                        ActionChip(
-                          label: const Text('size_5.1MB.jpg (reject)',
-                              style: TextStyle(fontSize: 11)),
-                          backgroundColor: const Color(0xFFFEF2F2),
-                          side: const BorderSide(color: Color(0xFFFCA5A5)),
-                          onPressed: () {
-                            final res =
-                                RiderService.instance.uploadDriverLicense(
-                              fileName: 'size_5.1MB.jpg',
-                              fileSizeMb: 5.1,
-                            );
-                            setModalState(() {});
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(res.message),
-                                backgroundColor: const Color(0xFFEF4444),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                activeDocName,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w800,
+                                  color: Color(0xFF0F172A),
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
-                            );
-                          },
+                              const SizedBox(height: 2),
+                              const Text(
+                                'JPG, PNG, or PDF • Max 5.0 MB',
+                                style: TextStyle(
+                                    fontSize: 11, color: Color(0xFF64748B)),
+                              ),
+                            ],
+                          ),
                         ),
-                        ActionChip(
-                          label: const Text('price_list.docx (reject)',
-                              style: TextStyle(fontSize: 11)),
-                          backgroundColor: const Color(0xFFFEF2F2),
-                          side: const BorderSide(color: Color(0xFFFCA5A5)),
+                        const SizedBox(width: 8),
+                        ElevatedButton.icon(
                           onPressed: () {
-                            final res =
-                                RiderService.instance.uploadDriverLicense(
-                              fileName: 'price_list.docx',
-                              fileSizeMb: 1.2,
-                            );
-                            setModalState(() {});
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(res.message),
-                                backgroundColor: const Color(0xFFEF4444),
-                              ),
+                            _openDocumentPicker(
+                              context: context,
+                              title: isLicense
+                                  ? "Driver's License"
+                                  : "OR/CR (LTO Registration)",
+                              onFileSelected: (fileName, sizeMb) {
+                                final res = isLicense
+                                    ? RiderService.instance.uploadDriverLicense(
+                                        fileName: fileName,
+                                        fileSizeMb: sizeMb,
+                                      )
+                                    : RiderService.instance.uploadOrCrDocument(
+                                        fileName: fileName,
+                                        fileSizeMb: sizeMb,
+                                      );
+                                setModalState(() {});
+                                if (!context.mounted) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(res.message),
+                                    backgroundColor: res.success
+                                        ? const Color(0xFF10B981)
+                                        : const Color(0xFFEF4444),
+                                  ),
+                                );
+                              },
                             );
                           },
-                        ),
-                        ActionChip(
-                          label: const Text('renamed_exe.jpg (reject)',
-                              style: TextStyle(fontSize: 11)),
-                          backgroundColor: const Color(0xFFFEF2F2),
-                          side: const BorderSide(color: Color(0xFFFCA5A5)),
-                          onPressed: () {
-                            final res =
-                                RiderService.instance.uploadDriverLicense(
-                              fileName: 'renamed_exe.jpg',
-                              fileSizeMb: 1.0,
-                            );
-                            setModalState(() {});
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(res.message),
-                                backgroundColor: const Color(0xFFEF4444),
-                              ),
-                            );
-                          },
+                          icon: const Icon(Icons.file_upload_outlined,
+                              size: 16),
+                          label: const Text('Upload File'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF0284C7),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 8),
+                            textStyle: const TextStyle(
+                                fontSize: 12, fontWeight: FontWeight.bold),
+                          ),
                         ),
                       ],
                     ),
-                  ],
+                  ),
+                  const SizedBox(height: 18),
                   const SizedBox(height: 16),
 
                   SizedBox(
@@ -1009,10 +1350,7 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                   icon: const Icon(Icons.notifications_none_rounded,
                       color: Color(0xFF0F172A), size: 20),
                   onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                          content: Text('No new dispatch notifications')),
-                    );
+                    InAppNotificationService.instance.showNotificationHistory(context);
                   },
                 ),
               ),
@@ -1024,71 +1362,6 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // QA Test Bench Switcher Bar (Instant testing of test cases)
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF0F172A),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Row(
-                        children: [
-                          Icon(Icons.science_outlined,
-                              color: Color(0xFF38BDF8), size: 14),
-                          SizedBox(width: 6),
-                          Text(
-                            'QA Test Scenarios Switcher:',
-                            style: TextStyle(
-                              color: Colors.white70,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: Row(
-                          children: [
-                            _qaChip(
-                              'Rider 1 (Active: Pedro)',
-                              isSelected: profile.id == 'NX-RD-001' &&
-                                  _unauthorizedViewId == null,
-                              onTap: () {
-                                setState(() => _unauthorizedViewId = null);
-                                RiderService.instance.switchRider('NX-RD-001');
-                              },
-                            ),
-                            const SizedBox(width: 6),
-                            _qaChip(
-                              'Rider 3 (Suspended: RID-006)',
-                              isSelected: profile.id == 'NX-RD-003' &&
-                                  _unauthorizedViewId == null,
-                              onTap: () {
-                                setState(() => _unauthorizedViewId = null);
-                                RiderService.instance.switchRider('NX-RD-003');
-                              },
-                            ),
-                            const SizedBox(width: 6),
-                            _qaChip(
-                              'View Rider 2 (RID-007 Auth Denied)',
-                              isSelected: _unauthorizedViewId != null,
-                              onTap: () {
-                                setState(() => _unauthorizedViewId = 'NX-RD-002');
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 12),
 
                 // 1. Rider Header Card (RID-PROF-001)
                 Container(
@@ -1340,50 +1613,235 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                               activeTrackColor: const Color(0xFF0284C7)
                                   .withValues(alpha: 0.35),
                               onChanged: (_) {
-                                final res =
-                                    RiderService.instance.toggleOnlineStatus();
-                                if (!res.success) {
-                                  showDialog(
-                                    context: context,
-                                    builder: (ctx) => AlertDialog(
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius:
-                                            BorderRadius.circular(20),
-                                      ),
-                                      title: const Row(
-                                        children: [
-                                          Icon(Icons.block_rounded,
-                                              color: Color(0xFFEF4444),
-                                              size: 24),
-                                          SizedBox(width: 8),
-                                          Text(
-                                            'Suspension Notice',
-                                            style: TextStyle(
-                                                fontWeight: FontWeight.w900),
-                                          ),
-                                        ],
-                                      ),
-                                      content: Text(res.message),
-                                      actions: [
-                                        ElevatedButton(
-                                          onPressed: () =>
-                                              Navigator.pop(ctx),
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor:
-                                                const Color(0xFFEF4444),
-                                            foregroundColor: Colors.white,
-                                          ),
-                                          child: const Text('Acknowledge'),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                }
+                                ShiftDutyCoordinator.handleRiderToggleDuty(context);
                               },
                             ),
                           ],
                         ),
                       ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 18),
+
+                // 1B. Customer Ratings & Order Acceptance Section
+                _sectionHeader(
+                  icon: Icons.star_rounded,
+                  title: 'Customer Ratings & Acceptance',
+                  actionText: '${RiderService.instance.reviews.length} Reviews',
+                  actionColor: const Color(0xFFF59E0B),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFFFBEB),
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(color: const Color(0xFFFDE68A)),
+                              ),
+                              child: Column(
+                                children: [
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      const Icon(Icons.star_rounded, color: Color(0xFFF59E0B), size: 18),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        profile.rating.toStringAsFixed(2),
+                                        style: const TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.w900,
+                                          color: Color(0xFF92400E),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 2),
+                                  const Text(
+                                    'Rider Rating',
+                                    style: TextStyle(
+                                      fontSize: 10.5,
+                                      fontWeight: FontWeight.w700,
+                                      color: Color(0xFFB45309),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFECFDF5),
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(color: const Color(0xFFA7F3D0)),
+                              ),
+                              child: Column(
+                                children: [
+                                  Text(
+                                    '${profile.completionRate.toStringAsFixed(1)}%',
+                                    style: const TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w900,
+                                      color: Color(0xFF065F46),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  const Text(
+                                    'Acceptance Rate',
+                                    style: TextStyle(
+                                      fontSize: 10.5,
+                                      fontWeight: FontWeight.w700,
+                                      color: Color(0xFF047857),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF0F9FF),
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(color: const Color(0xFFBAE6FD)),
+                              ),
+                              child: Column(
+                                children: [
+                                  Text(
+                                    '${profile.totalDeliveries}',
+                                    style: const TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w900,
+                                      color: Color(0xFF075985),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  const Text(
+                                    'Deliveries',
+                                    style: TextStyle(
+                                      fontSize: 10.5,
+                                      fontWeight: FontWeight.w700,
+                                      color: Color(0xFF0284C7),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (RiderService.instance.reviews.isNotEmpty) ...[
+                        const SizedBox(height: 14),
+                        const Text(
+                          'RECENT BUYER FEEDBACK',
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF64748B),
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        ...RiderService.instance.reviews.take(3).map((review) {
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF8FAFC),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: const Color(0xFFE2E8F0)),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      '${review.customerName} • #${review.orderId}',
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w800,
+                                        color: Color(0xFF0F172A),
+                                      ),
+                                    ),
+                                    Row(
+                                      children: List.generate(
+                                        5,
+                                        (idx) => Icon(
+                                          idx < review.driverRating
+                                              ? Icons.star_rounded
+                                              : Icons.star_outline_rounded,
+                                          size: 14,
+                                          color: const Color(0xFFF59E0B),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                if (review.comment.isNotEmpty) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    '"${review.comment}"',
+                                    style: const TextStyle(
+                                      fontSize: 11.5,
+                                      color: Color(0xFF334155),
+                                      fontStyle: FontStyle.italic,
+                                    ),
+                                  ),
+                                ],
+                                if (review.tags.isNotEmpty) ...[
+                                  const SizedBox(height: 6),
+                                  Wrap(
+                                    spacing: 6,
+                                    runSpacing: 4,
+                                    children: review.tags
+                                        .map(
+                                          (tag) => Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 7,
+                                              vertical: 2,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFFE0F2FE),
+                                              borderRadius: BorderRadius.circular(6),
+                                            ),
+                                            child: Text(
+                                              tag,
+                                              style: const TextStyle(
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.w700,
+                                                color: Color(0xFF0284C7),
+                                              ),
+                                            ),
+                                          ),
+                                        )
+                                        .toList(),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          );
+                        }),
+                      ],
                     ],
                   ),
                 ),
@@ -2017,32 +2475,6 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
     );
   }
 
-  Widget _qaChip(String text,
-      {required bool isSelected, required VoidCallback onTap}) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? const Color(0xFF0284C7)
-              : Colors.white.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: isSelected ? const Color(0xFF38BDF8) : Colors.transparent,
-          ),
-        ),
-        child: Text(
-          text,
-          style: TextStyle(
-            color: isSelected ? Colors.white : Colors.white70,
-            fontSize: 10.5,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-      ),
-    );
-  }
 
   Widget _sectionHeader({
     required IconData icon,

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'rider_login_page.dart';
+import 'add_rider_page.dart';
 
 class _RiderAdvantageSlide {
   final IconData icon;
@@ -29,16 +30,13 @@ class RiderLandingPage extends StatefulWidget {
 }
 
 class _RiderLandingPageState extends State<RiderLandingPage>
-    with TickerProviderStateMixin {
+    with SingleTickerProviderStateMixin {
   late final PageController _pageController;
   int _currentPage = 0;
   Timer? _autoRotateTimer;
   bool _isInteracting = false;
 
-  late final AnimationController _btnShimmerController;
   late final AnimationController _bgAnimController;
-  late final Animation<double> _btnShimmerAnim;
-  late final Animation<double> _arrowBounceAnim;
 
   final List<_RiderAdvantageSlide> _slides = const [
     _RiderAdvantageSlide(
@@ -84,26 +82,6 @@ class _RiderLandingPageState extends State<RiderLandingPage>
     super.initState();
     _pageController = PageController(initialPage: 0);
 
-    // Button shimmer and arrow bounce animation
-    _btnShimmerController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 2200),
-    )..repeat();
-
-    _btnShimmerAnim = Tween<double>(begin: -1.0, end: 2.0).animate(
-      CurvedAnimation(
-        parent: _btnShimmerController,
-        curve: Curves.easeInOutSine,
-      ),
-    );
-
-    _arrowBounceAnim = Tween<double>(begin: 0.0, end: 4.0).animate(
-      CurvedAnimation(
-        parent: _btnShimmerController,
-        curve: Curves.easeInOut,
-      ),
-    );
-
     // Background ambient velocity & radar animation
     _bgAnimController = AnimationController(
       vsync: this,
@@ -117,7 +95,6 @@ class _RiderLandingPageState extends State<RiderLandingPage>
   void dispose() {
     _autoRotateTimer?.cancel();
     _pageController.dispose();
-    _btnShimmerController.dispose();
     _bgAnimController.dispose();
     super.dispose();
   }
@@ -199,34 +176,20 @@ class _RiderLandingPageState extends State<RiderLandingPage>
                     children: [
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 5),
+                            horizontal: 14, vertical: 6),
                         decoration: BoxDecoration(
                           color: const Color(0xFFE0F2FE),
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(color: const Color(0xFFBAE6FD)),
                         ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              width: 8,
-                              height: 8,
-                              decoration: const BoxDecoration(
-                                color: Color(0xFF00D2FF),
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            const Text(
-                              'NEXORA RIDER APP',
-                              style: TextStyle(
-                                fontSize: 10.5,
-                                fontWeight: FontWeight.w900,
-                                color: Color(0xFF0284C7),
-                                letterSpacing: 0.5,
-                              ),
-                            ),
-                          ],
+                        child: const Text(
+                          'NEXORA RIDER',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFF0284C7),
+                            letterSpacing: 0.6,
+                          ),
                         ),
                       ),
                     ],
@@ -412,8 +375,8 @@ class _RiderLandingPageState extends State<RiderLandingPage>
                   ),
                   const SizedBox(height: 36),
 
-                  // 6. Animated Primary Button: LOG IN AS A RIDER ->
-                  _buildAnimatedLoginButton(),
+                  // 6. Primary Button: LOG IN AS A RIDER ->
+                  _buildLoginButton(),
                   const SizedBox(height: 24),
 
                   // 7. Complete 3-Tier Dispatch Security Footer
@@ -575,63 +538,55 @@ class _RiderLandingPageState extends State<RiderLandingPage>
     );
   }
 
-  Widget _buildAnimatedLoginButton() {
-    return AnimatedBuilder(
-      animation: _btnShimmerController,
-      builder: (context, child) {
-        return Container(
-          width: double.infinity,
-          height: 54,
-          decoration: BoxDecoration(
+  Widget _buildLoginButton() {
+    return Container(
+      width: double.infinity,
+      height: 54,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(28),
+        gradient: const LinearGradient(
+          colors: [
+            Color(0xFF00D2FF), // Electric Cyan
+            Color(0xFF0284C7), // Sky Blue
+            Color(0xFF0369A1), // Deep Ocean
+          ],
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF00D2FF).withValues(alpha: 0.4),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: ElevatedButton(
+        onPressed: _openLogin,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.transparent,
+          shadowColor: Colors.transparent,
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(28),
-            gradient: LinearGradient(
-              colors: const [
-                Color(0xFF00D2FF), // Electric Cyan
-                Color(0xFF0284C7), // Sky Blue
-                Color(0xFF0369A1), // Deep Ocean
-              ],
-              begin: Alignment(-1.0 + _btnShimmerAnim.value, 0.0),
-              end: Alignment(1.0 + _btnShimmerAnim.value, 0.0),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF00D2FF).withValues(alpha: 0.4),
-                blurRadius: 18,
-                offset: const Offset(0, 8),
-              ),
-            ],
           ),
-          child: ElevatedButton(
-            onPressed: _openLogin,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.transparent,
-              shadowColor: Colors.transparent,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(28),
+        ),
+        child: const Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              'LOG IN AS A RIDER',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0.5,
               ),
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Text(
-                  'LOG IN AS A RIDER',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Transform.translate(
-                  offset: Offset(_arrowBounceAnim.value, 0),
-                  child: const Icon(Icons.arrow_forward_rounded, size: 20),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
+            SizedBox(width: 8),
+            Icon(Icons.arrow_forward_rounded, size: 20),
+          ],
+        ),
+      ),
     );
   }
 
@@ -709,6 +664,26 @@ class _RiderLandingPageState extends State<RiderLandingPage>
                   ),
                 ),
               ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Center(
+          child: TextButton.icon(
+            key: const Key('logistics_add_rider_btn'),
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const AddRiderPage()),
+              );
+            },
+            icon: const Icon(Icons.business_center_outlined, size: 16, color: Color(0xFF0284C7)),
+            label: const Text(
+              'Logistics Admin: Add Rider Form',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF0284C7),
+              ),
             ),
           ),
         ),

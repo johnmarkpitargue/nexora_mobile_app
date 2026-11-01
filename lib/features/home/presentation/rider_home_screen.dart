@@ -7,16 +7,79 @@ import '../../delivery/presentation/active_delivery_screen.dart';
 import 'widgets/online_status_card.dart';
 import 'widgets/earnings_summary_card.dart';
 import 'widgets/available_order_card.dart';
-import 'widgets/hotspots_banner.dart';
 import '../../delivery/presentation/rider_live_orders_screen.dart';
+import '../../../core/services/chat_service.dart';
+import '../../../core/models/chat_message.dart';
+import '../../../core/services/in_app_notification_service.dart';
+import '../../../core/services/external_notification_service.dart';
+import '../../../core/services/rider_location_service.dart';
+import '../../chat/presentation/rider_chat_screen.dart';
+import '../../courier/services/shift_duty_coordinator.dart';
 
-class RiderHomeScreen extends StatelessWidget {
+class RiderHomeScreen extends StatefulWidget {
   final Function(int tabIndex) onNavigateTab;
 
   const RiderHomeScreen({
     super.key,
     required this.onNavigateTab,
   });
+
+  @override
+  State<RiderHomeScreen> createState() => _RiderHomeScreenState();
+}
+
+class _RiderHomeScreenState extends State<RiderHomeScreen> {
+  @override
+  void initState() {
+    super.initState();
+    _subscribeChat();
+    // Request system notification permission directly without showing an in-app banner
+    ExternalNotificationService.requestPermissionAsync();
+    // Initialize accurate rider phone GPS fix immediately
+    RiderLocationService.instance.getCurrentLocation();
+    // Ensure latest orders from Buyer App are synced
+    DeliveryService.instance.refreshAvailableOrders();
+  }
+
+  void _subscribeChat() {
+    final activeOrder = DeliveryService.instance.activeOrder;
+    final orderId = activeOrder?.id ??
+        (DeliveryService.instance.availableOrders.isNotEmpty
+            ? DeliveryService.instance.availableOrders.first.id
+            : 'NX-8942-ORD');
+    RiderChatService.instance.subscribeToOrder(orderId);
+    RiderChatService.instance.onNewMessageReceived = _handleNewMessage;
+  }
+
+  void _handleNewMessage(RiderChatMessage msg) {
+    if (!mounted) return;
+    InAppNotificationService.instance.showNotification(
+      senderName: msg.senderName.isNotEmpty ? msg.senderName : 'Customer',
+      message: msg.text,
+      orderId: msg.orderId,
+      icon: Icons.person_pin_circle_rounded,
+      accentColor: const Color(0xFF0284C7),
+      onReply: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => RiderChatScreen(
+              orderId: msg.orderId,
+              customerName: msg.senderName,
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    if (RiderChatService.instance.onNewMessageReceived == _handleNewMessage) {
+      RiderChatService.instance.onNewMessageReceived = null;
+    }
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -76,7 +139,7 @@ class RiderHomeScreen extends StatelessWidget {
                   ],
                 ),
                 Text(
-                  'Makati / BGC Hub #4',
+                  'Central Logistics Hub #4',
                   style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.w600,
@@ -88,6 +151,120 @@ class RiderHomeScreen extends StatelessWidget {
           ],
         ),
         actions: [
+          AnimatedBuilder(
+            animation: RiderChatService.instance,
+            builder: (context, _) {
+              final activeOrder = DeliveryService.instance.activeOrder;
+              final orderId = activeOrder?.id ?? 'NX-8942-ORD';
+              final unread = RiderChatService.instance.getUnreadCount(orderId);
+              return Stack(
+                alignment: Alignment.center,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.chat_bubble_outline_rounded, color: Color(0xFF0284C7)),
+                    tooltip: 'In-App Messages',
+                    onPressed: () {
+                      final targetOrder = activeOrder ??
+                          (DeliveryService.instance.availableOrders.isNotEmpty
+                              ? DeliveryService.instance.availableOrders.first
+                              : null);
+                      final name = targetOrder?.customerName ?? 'Alex Rivera';
+                      final id = targetOrder?.id ?? 'NX-8942-ORD';
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => RiderChatScreen(
+                            orderId: id,
+                            customerName: name,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  if (unread > 0)
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: IgnorePointer(
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: const BoxDecoration(
+                            color: Color(0xFFEF4444),
+                            shape: BoxShape.circle,
+                          ),
+                          constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                          child: Text(
+                            '$unread',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w900,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
+          // Nexora Notification Bell & Center
+          ValueListenableBuilder<int>(
+            valueListenable: InAppNotificationService.instance.unreadCountNotifier,
+            builder: (context, unread, _) {
+              return Tooltip(
+                message: 'Dispatch & Order Alerts',
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(22),
+                    onTap: () {
+                      InAppNotificationService.instance.showNotificationHistory(context);
+                    },
+                    child: SizedBox(
+                      width: 44,
+                      height: 44,
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          const Icon(
+                            Icons.notifications_none_rounded,
+                            color: Color(0xFF0F172A),
+                            size: 24,
+                          ),
+                          if (unread > 0)
+                            Positioned(
+                              top: 5,
+                              right: 5,
+                              child: IgnorePointer(
+                                child: Container(
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: const BoxDecoration(
+                                    color: Color(0xFF0066FF),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                                  child: Text(
+                                    '$unread',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.radar_rounded, color: Color(0xFF0066FF)),
             tooltip: 'Live Incoming Orders',
@@ -98,56 +275,14 @@ class RiderHomeScreen extends StatelessWidget {
               );
             },
           ),
-          AnimatedBuilder(
-            animation: RiderService.instance,
-            builder: (context, _) {
-              final isOnline = RiderService.instance.profile.isOnline;
-              return Container(
-                margin: const EdgeInsets.only(right: 16),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: isOnline
-                      ? RiderTheme.onlineGreenLight
-                      : const Color(0xFFF1F5F9),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: isOnline
-                        ? RiderTheme.onlineGreen.withValues(alpha: 0.3)
-                        : RiderTheme.cardBorder,
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        color: isOnline
-                            ? RiderTheme.onlineGreen
-                            : RiderTheme.textLight,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      isOnline ? 'ONLINE' : 'OFFLINE',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w900,
-                        color: isOnline
-                            ? const Color(0xFF047857)
-                            : RiderTheme.textMuted,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
+          const SizedBox(width: 6),
         ],
       ),
       body: AnimatedBuilder(
-        animation: Listenable.merge([RiderService.instance, DeliveryService.instance]),
+        animation: Listenable.merge([
+          RiderService.instance,
+          DeliveryService.instance,
+        ]),
         builder: (context, _) {
           final isOnline = RiderService.instance.profile.isOnline;
           final activeOrder = DeliveryService.instance.activeOrder;
@@ -224,7 +359,13 @@ class RiderHomeScreen extends StatelessWidget {
                                 ),
                               ),
                               Text(
-                                activeOrder.status.label,
+                                DeliveryService.instance.activeOrderStage == 1
+                                    ? 'At Store / Picking Up'
+                                    : DeliveryService.instance.activeOrderStage == 2
+                                        ? 'Pickup Verified'
+                                        : DeliveryService.instance.activeOrderStage == 3
+                                            ? 'In Transit to Customer'
+                                            : activeOrder.status.label,
                                 style: const TextStyle(
                                   color: RiderTheme.secondary,
                                   fontWeight: FontWeight.w800,
@@ -290,13 +431,12 @@ class RiderHomeScreen extends StatelessWidget {
 
                 // 3. Earnings Summary Card
                 EarningsSummaryCard(
-                  onSeeWallet: () => onNavigateTab(2), // Switch to wallet tab
+                  onSeeWallet: () => widget.onNavigateTab(2), // Switch to wallet tab
                 ),
                 const SizedBox(height: 14),
 
-                // 4. Hotspots Banner
-                const HotspotsBanner(),
-                const SizedBox(height: 20),
+                // 4. Spacing before available requests
+                const SizedBox(height: 6),
 
                 // 5. Available Orders Header
                 Row(
@@ -372,7 +512,7 @@ class RiderHomeScreen extends StatelessWidget {
                         const SizedBox(height: 16),
                         ElevatedButton(
                           onPressed: () {
-                            RiderService.instance.toggleOnlineStatus();
+                            ShiftDutyCoordinator.handleRiderToggleDuty(context);
                           },
                           child: const Text('Go Online Now'),
                         ),
@@ -403,7 +543,7 @@ class RiderHomeScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         const Text(
-                          'You are in high priority for BGC & Makati hubs. Orders will appear here automatically.',
+                          'You are on priority dispatch. New orders will appear here automatically.',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: 12,
@@ -416,8 +556,21 @@ class RiderHomeScreen extends StatelessWidget {
                 else
                   ...availableOrders.map((order) {
                     return AvailableOrderCard(
+                      key: ValueKey('order_${order.id}'),
                       order: order,
                       onAccept: () {
+                        final currentActive = DeliveryService.instance.activeOrder;
+                        if (currentActive != null) {
+                          InAppNotificationService.instance.showNotification(
+                            senderName: 'Active Delivery in Progress',
+                            message: 'You already have an active trip for ${currentActive.customerName}. Tap the banner above to continue it.',
+                            orderId: currentActive.id,
+                            icon: Icons.two_wheeler_rounded,
+                            accentColor: const Color(0xFF0284C7),
+                          );
+                          return;
+                        }
+
                         DeliveryService.instance.acceptOrder(order.id);
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(

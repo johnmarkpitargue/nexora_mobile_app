@@ -1,75 +1,66 @@
 import 'package:flutter/material.dart';
 import '../../../core/services/rider_service.dart';
+import '../../../core/services/rider_account_service.dart';
 import '../../shell/presentation/rider_shell.dart';
+import '../../courier/presentation/courier_dashboard_page.dart';
+import '../../courier/services/courier_profile_service.dart';
 
 class RiderLoginPage extends StatefulWidget {
-  const RiderLoginPage({super.key});
+  final String? initialEmail;
+  final String? activationSuccessMessage;
+
+  const RiderLoginPage({
+    super.key,
+    this.initialEmail,
+    this.activationSuccessMessage,
+  });
 
   @override
   State<RiderLoginPage> createState() => _RiderLoginPageState();
 }
 
-class _RiderLoginPageState extends State<RiderLoginPage>
-    with SingleTickerProviderStateMixin {
-  int _selectedTab = 1; // 0: Mobile Number, 1: Rider ID (per design)
-  final TextEditingController _idController =
-      TextEditingController(text: 'NX-9104-RDR');
-  final TextEditingController _phoneController =
-      TextEditingController(text: '+63 917 123 4567');
-  final TextEditingController _pinController =
-      TextEditingController(text: '123456');
+class _RiderLoginPageState extends State<RiderLoginPage> {
+  late final TextEditingController _identifierController;
+  late final TextEditingController _passwordController;
 
-  bool _obscurePin = true;
+  bool _obscurePassword = true;
   bool _rememberDevice = true;
   bool _isLoading = false;
-
-  late final AnimationController _shimmerController;
-  late final Animation<double> _shimmerAnim;
 
   @override
   void initState() {
     super.initState();
-    _shimmerController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 2400),
-    )..repeat();
-
-    _shimmerAnim = Tween<double>(begin: -1.0, end: 2.0).animate(
-      CurvedAnimation(parent: _shimmerController, curve: Curves.easeInOutSine),
+    _identifierController = TextEditingController(
+      text: widget.initialEmail ?? 'pedrojose.garcia@example.com',
     );
+    _passwordController = TextEditingController(text: 'Rider@2026');
   }
 
   @override
   void dispose() {
-    _shimmerController.dispose();
-    _idController.dispose();
-    _phoneController.dispose();
-    _pinController.dispose();
+    _identifierController.dispose();
+    _passwordController.dispose();
     super.dispose();
   }
 
   void _handleLogin() async {
-    final identifier = _selectedTab == 1
-        ? _idController.text.trim()
-        : _phoneController.text.trim();
-    final pin = _pinController.text.trim();
+    final identifier = _identifierController.text.trim();
+    final password = _passwordController.text;
 
     if (identifier.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(_selectedTab == 1
-              ? 'Please enter your Rider ID or Fleet Badge'
-              : 'Please enter your registered mobile number'),
-          backgroundColor: const Color(0xFFEF4444),
+        const SnackBar(
+          content: Text('Please enter your registered email address or mobile number'),
+          backgroundColor: Color(0xFFEF4444),
         ),
       );
       return;
     }
 
-    if (pin.isEmpty) {
+    if (password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please enter your 6-digit Security PIN'),
+          content: Text('Please enter your account password or security PIN'),
           backgroundColor: Color(0xFFEF4444),
         ),
       );
@@ -77,60 +68,158 @@ class _RiderLoginPageState extends State<RiderLoginPage>
     }
 
     setState(() => _isLoading = true);
-    await Future.delayed(const Duration(milliseconds: 800));
+    await Future.delayed(const Duration(milliseconds: 600));
 
     if (!mounted) return;
     setState(() => _isLoading = false);
 
-    // Switch session to Rider 1 (Pedro Jose Garcia) or matched ID
-    RiderService.instance.switchRider('NX-RD-001');
+    // 0. COURIER HUB DISPATCH ACCOUNT REDIRECTION
+    // If logging into the dedicated Courier Hub account, immediately redirect to CourierDashboardPage
+    final cleanIdentifier = identifier.toLowerCase().trim();
+    final cleanPhone = identifier.replaceAll(RegExp(r'[\s\-\+]'), '');
+    final isCourierAccount = cleanIdentifier == 'courier@nexora.io' ||
+        cleanIdentifier == 'courier.hub@nexora.io' ||
+        cleanIdentifier == 'courier@example.com' ||
+        cleanIdentifier == 'ernesto.villareal@example.com' ||
+        cleanIdentifier == 'courier1@bilishatid.example.com' ||
+        cleanIdentifier == 'courier2@bilishatid.example.com' ||
+        cleanIdentifier == 'courier3@bilishatid.example.com' ||
+        cleanIdentifier.contains('courier') ||
+        cleanIdentifier == 'operations@bilishatid.example.com' ||
+        cleanPhone.endsWith('9189876543') ||
+        cleanPhone.endsWith('9285551234');
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Welcome back, Pedro! Daily dispatch route loaded.'),
-        backgroundColor: Color(0xFF10B981),
-      ),
-    );
+    if (isCourierAccount) {
+      final isCourierPassword = password == 'Courier@2026' ||
+          password == 'Passw0rd!' ||
+          password == '123456' ||
+          password == 'password123' ||
+          password == 'Rider@2026';
 
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(builder: (ctx) => const RiderShell()),
-      (route) => false,
-    );
-  }
-
-  void _showWhereToFindDialog() {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Row(
-          children: [
-            Icon(Icons.badge_rounded, color: Color(0xFF0284C7), size: 24),
-            SizedBox(width: 8),
-            Text(
-              'Rider ID / Fleet Badge',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
-            ),
-          ],
-        ),
-        content: const Text(
-          'Your Rider ID is provided upon verification by your Pasig Hub Dispatch supervisor.\n\nIt begins with "NX-" or "RDR-" (e.g. NX-9104-RDR or NX-RD-001) and is printed on your physical fleet ID card and digital onboarding clearance.',
-          style: TextStyle(fontSize: 13, height: 1.45, color: Color(0xFF475569)),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Understood',
-                style: TextStyle(fontWeight: FontWeight.w800)),
+      if (!isCourierPassword) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Invalid Courier credentials. Use password Courier@2026 or 123456.'),
+            backgroundColor: Color(0xFFEF4444),
           ),
-        ],
+        );
+        return;
+      }
+
+      // Switch active courier profile fixture for COU-PROF-001 to 008
+      if (cleanIdentifier.contains('courier3') || cleanIdentifier.contains('suspended')) {
+        CourierProfileService.instance.switchCourier('NX-CR-003');
+      } else if (cleanIdentifier.contains('courier2')) {
+        CourierProfileService.instance.switchCourier('NX-CR-002');
+      } else {
+        CourierProfileService.instance.switchCourier('NX-CR-001');
+      }
+
+      // Authorize and set courier session in RiderAccountService
+      RiderAccountService.instance.setSession(
+        role: 'courier',
+        company: CourierProfileService.instance.profile.company,
+        email: cleanIdentifier,
+      );
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Row(
+            children: [
+              Icon(Icons.hub_rounded, color: Colors.white, size: 20),
+              SizedBox(width: 10),
+              Expanded(
+                child: Text('Courier Hub verified! Redirecting to Courier Dispatch Dashboard...'),
+              ),
+            ],
+          ),
+          backgroundColor: Color(0xFF0066FF),
+          duration: Duration(seconds: 2),
+        ),
+      );
+
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (ctx) => const CourierDashboardPage()),
+        (route) => false,
+      );
+      return;
+    }
+
+    // 1. Check if rider is registered in RiderAccountService (supports email or mobile)
+    final accountResult = RiderAccountService.instance.loginRider(
+      identifier: identifier,
+      password: password,
+    );
+
+    if (accountResult.success) {
+      // Activated rider authenticated
+      RiderService.instance.switchRider('NX-RD-001');
+
+      final riderName = accountResult.rider?.fullName ?? 'Pedro Jose Garcia';
+      final company = accountResult.rider?.companyName ?? 'Bilis Hatid Express Inc.';
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Welcome back, $riderName! Daily dispatch route loaded for $company.'),
+          backgroundColor: const Color(0xFF10B981),
+        ),
+      );
+
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (ctx) => const RiderShell()),
+        (route) => false,
+      );
+      return;
+    }
+
+    // 2. If account exists in service but is Pending Activation or Suspended, block with error message
+    if (accountResult.isPendingActivation ||
+        accountResult.message.toLowerCase().contains('pending activation') ||
+        accountResult.message.toLowerCase().contains('suspended')) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(accountResult.message),
+          backgroundColor: const Color(0xFFEF4444),
+        ),
+      );
+      return;
+    }
+
+    // 3. Fallback / Seeded Demo Rider access
+    final isDemoEmail = identifier.toLowerCase() == 'pedrojose.garcia@example.com';
+    final isDemoPhone = cleanPhone.contains('9171234567');
+    final isDemoPassword = password == 'Rider@2026' || password == '123456';
+
+    if (isDemoEmail || isDemoPhone || isDemoPassword) {
+      RiderService.instance.switchRider('NX-RD-001');
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Welcome back, Pedro! Daily dispatch route loaded.'),
+          backgroundColor: Color(0xFF10B981),
+        ),
+      );
+
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (ctx) => const RiderShell()),
+        (route) => false,
+      );
+      return;
+    }
+
+    // Otherwise show error
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(accountResult.message),
+        backgroundColor: const Color(0xFFEF4444),
       ),
     );
   }
 
-  void _showForgotPinDialog() {
+  void _showForgotPasswordOrPinDialog() {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -141,13 +230,13 @@ class _RiderLoginPageState extends State<RiderLoginPage>
             Icon(Icons.lock_reset_rounded, color: Color(0xFF0284C7), size: 24),
             SizedBox(width: 8),
             Text(
-              'Reset Security PIN',
+              'Reset Password or PIN',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
             ),
           ],
         ),
         content: const Text(
-          'A 6-digit OTP reset token will be sent to your verified mobile number and GCash-linked contact.\n\nPlease ensure your device is able to receive SMS dispatch pings.',
+          'A 6-digit OTP verification token or password reset link will be sent to your registered email or verified mobile number.\n\nPlease ensure your device is able to receive SMS or inbox pings.',
           style: TextStyle(fontSize: 13, height: 1.45, color: Color(0xFF475569)),
         ),
         actions: [
@@ -160,7 +249,7 @@ class _RiderLoginPageState extends State<RiderLoginPage>
               Navigator.pop(ctx);
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text('OTP reset token sent to your registered mobile!'),
+                  content: Text('Reset instructions sent to your registered contact!'),
                   backgroundColor: Color(0xFF0284C7),
                 ),
               );
@@ -172,7 +261,7 @@ class _RiderLoginPageState extends State<RiderLoginPage>
                 borderRadius: BorderRadius.circular(12),
               ),
             ),
-            child: const Text('Send Reset OTP'),
+            child: const Text('Send Reset Link'),
           ),
         ],
       ),
@@ -214,44 +303,125 @@ class _RiderLoginPageState extends State<RiderLoginPage>
       body: SafeArea(
         child: SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 8),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 1. Header Pill: NEXORA RIDER • FLEET ACCESS
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE0F2FE),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: const Color(0xFFBAE6FD)),
+              // 0. Activation Success Banner
+              if (widget.activationSuccessMessage != null)
+                Container(
+                  margin: const EdgeInsets.only(bottom: 16),
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFDCFCE7),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0xFF86EFAC)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.check_circle_rounded,
+                          color: Color(0xFF15803D), size: 22),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          widget.activationSuccessMessage!,
+                          style: const TextStyle(
+                            color: Color(0xFF14532D),
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 8,
-                      height: 8,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFF00D2FF),
-                        shape: BoxShape.circle,
+
+              // 1. Official Rider Brand Header
+              Row(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF0284C7).withValues(alpha: 0.08),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    padding: const EdgeInsets.all(5),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.asset(
+                        'assets/images/logo.png',
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) => Container(
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF0284C7),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Center(
+                            child: Text(
+                              'N',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w900,
+                                fontSize: 20,
+                              ),
+                            ),
+                          ),
+                        ),
                       ),
                     ),
-                    const SizedBox(width: 6),
-                    const Text(
-                      'NEXORA RIDER • FLEET ACCESS',
-                      style: TextStyle(
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w900,
-                        color: Color(0xFF0284C7),
-                        letterSpacing: 0.5,
-                      ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              'Nexora',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w900,
+                                color: Color(0xFF0F172A),
+                                letterSpacing: -0.3,
+                              ),
+                            ),
+                            SizedBox(width: 5),
+                            Text(
+                              'RIDER',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w900,
+                                color: Color(0xFF0284C7),
+                                letterSpacing: 0.8,
+                              ),
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: 1),
+                        Text(
+                          'Courier & Fleet Dispatch Portal',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF64748B),
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 20),
 
               // 2. Title & Subtitle
               const Text(
@@ -265,70 +435,25 @@ class _RiderLoginPageState extends State<RiderLoginPage>
               ),
               const SizedBox(height: 6),
               const Text(
-                'Sign in to access your daily routes and delivery tasks.',
+                'Sign in with your registered email or mobile number to access your daily routes and delivery tasks.',
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
                   color: Color(0xFF64748B),
+                  height: 1.4,
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 28),
 
-              // 3. Dual Tab Selector (Mobile Number | Rider ID)
-              Container(
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF1F5F9),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
+              // 3. Form Field 1: Email or Mobile Number (Single Unified Field)
+              const Text(
+                'EMAIL OR MOBILE NUMBER',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w900,
+                  color: Color(0xFF475569),
+                  letterSpacing: 0.4,
                 ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: _tabPill(
-                        index: 0,
-                        icon: Icons.phone_android_rounded,
-                        label: 'Mobile Number',
-                      ),
-                    ),
-                    Expanded(
-                      child: _tabPill(
-                        index: 1,
-                        icon: Icons.badge_outlined,
-                        label: 'Rider ID',
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              // 4. Form Field 1: Rider ID or Mobile Number
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    _selectedTab == 1 ? 'RIDER ID / FLEET BADGE' : 'REGISTERED MOBILE',
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w900,
-                      color: Color(0xFF475569),
-                      letterSpacing: 0.4,
-                    ),
-                  ),
-                  if (_selectedTab == 1)
-                    GestureDetector(
-                      onTap: _showWhereToFindDialog,
-                      child: const Text(
-                        'Where to find?',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w800,
-                          color: Color(0xFF0284C7),
-                        ),
-                      ),
-                    ),
-                ],
               ),
               const SizedBox(height: 8),
 
@@ -346,32 +471,30 @@ class _RiderLoginPageState extends State<RiderLoginPage>
                   ],
                 ),
                 child: TextField(
-                  controller:
-                      _selectedTab == 1 ? _idController : _phoneController,
+                  controller: _identifierController,
+                  keyboardType: TextInputType.emailAddress,
                   style: const TextStyle(
                     fontSize: 14.5,
                     fontWeight: FontWeight.w800,
                     color: Color(0xFF0F172A),
-                    letterSpacing: 0.5,
+                    letterSpacing: 0.3,
                   ),
                   decoration: InputDecoration(
-                    prefixIcon: Icon(
-                      _selectedTab == 1
-                          ? Icons.badge_outlined
-                          : Icons.phone_iphone_rounded,
-                      color: const Color(0xFF64748B),
+                    hintText: 'Enter your email or mobile number',
+                    hintStyle: const TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFF94A3B8),
+                    ),
+                    prefixIcon: const Icon(
+                      Icons.person_outline_rounded,
+                      color: Color(0xFF64748B),
                       size: 20,
                     ),
                     suffixIcon: IconButton(
                       icon: const Icon(Icons.cancel_rounded,
                           color: Color(0xFF94A3B8), size: 18),
-                      onPressed: () {
-                        if (_selectedTab == 1) {
-                          _idController.clear();
-                        } else {
-                          _phoneController.clear();
-                        }
-                      },
+                      onPressed: () => _identifierController.clear(),
                     ),
                     border: InputBorder.none,
                     contentPadding:
@@ -381,32 +504,36 @@ class _RiderLoginPageState extends State<RiderLoginPage>
               ),
               const SizedBox(height: 6),
               const Text(
-                'Assigned by your Hub Dispatch supervisor (starts with NX or RDR)',
+                'You can use your registered rider email (e.g. name@domain.com) or PH mobile (+63 9XX...)',
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w500,
                   color: Color(0xFF64748B),
                 ),
               ),
-              const SizedBox(height: 18),
+              const SizedBox(height: 20),
 
-              // 5. Form Field 2: Security PIN / Password
+              // 4. Form Field 2: Password or Security PIN
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
-                    'SECURITY PIN / PASSWORD',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w900,
-                      color: Color(0xFF475569),
-                      letterSpacing: 0.4,
+                  const Flexible(
+                    child: Text(
+                      'PASSWORD OR SECURITY PIN',
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFF475569),
+                        letterSpacing: 0.4,
+                      ),
                     ),
                   ),
+                  const SizedBox(width: 8),
                   GestureDetector(
-                    onTap: _showForgotPinDialog,
+                    onTap: _showForgotPasswordOrPinDialog,
                     child: const Text(
-                      'Forgot PIN?',
+                      'Forgot Password?',
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w800,
@@ -432,16 +559,24 @@ class _RiderLoginPageState extends State<RiderLoginPage>
                   ],
                 ),
                 child: TextField(
-                  controller: _pinController,
-                  obscureText: _obscurePin,
-                  keyboardType: TextInputType.number,
+                  controller: _passwordController,
+                  obscureText: _obscurePassword,
+                  autocorrect: false,
+                  enableSuggestions: false,
                   style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 4.0,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.2,
                     color: Color(0xFF0F172A),
                   ),
                   decoration: InputDecoration(
+                    hintText: 'Enter your password or 6-digit PIN',
+                    hintStyle: const TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w500,
+                      letterSpacing: 0,
+                      color: Color(0xFF94A3B8),
+                    ),
                     prefixIcon: const Icon(
                       Icons.lock_outline_rounded,
                       color: Color(0xFF64748B),
@@ -449,14 +584,14 @@ class _RiderLoginPageState extends State<RiderLoginPage>
                     ),
                     suffixIcon: IconButton(
                       icon: Icon(
-                        _obscurePin
+                        _obscurePassword
                             ? Icons.visibility_outlined
                             : Icons.visibility_off_outlined,
                         color: const Color(0xFF64748B),
                         size: 20,
                       ),
                       onPressed: () {
-                        setState(() => _obscurePin = !_obscurePin);
+                        setState(() => _obscurePassword = !_obscurePassword);
                       },
                     ),
                     border: InputBorder.none,
@@ -465,9 +600,18 @@ class _RiderLoginPageState extends State<RiderLoginPage>
                   ),
                 ),
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 6),
+              const Text(
+                'Enter your account password or 6-digit dispatch security PIN',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  color: Color(0xFF64748B),
+                ),
+              ),
+              const SizedBox(height: 18),
 
-              // 6. Checkbox Row: Remember Device + Auto-login 30d
+              // 5. Checkbox Row: Remember Device + Auto-login 30d
               Row(
                 children: [
                   SizedBox(
@@ -485,15 +629,18 @@ class _RiderLoginPageState extends State<RiderLoginPage>
                     ),
                   ),
                   const SizedBox(width: 8),
-                  const Text(
-                    'Remember device',
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF1E293B),
+                  const Flexible(
+                    child: Text(
+                      'Remember device',
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF1E293B),
+                      ),
                     ),
                   ),
-                  const Spacer(),
+                  const SizedBox(width: 8),
                   Container(
                     padding:
                         const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -513,13 +660,13 @@ class _RiderLoginPageState extends State<RiderLoginPage>
                   ),
                 ],
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 28),
 
-              // 7. Animated Primary Login Button
-              _buildAnimatedLoginButton(),
+              // 6. Clean Static Primary Login Button
+              _buildLoginButton(),
               const SizedBox(height: 36),
 
-              // 8. 3-Tier Dispatch Security Footer
+              // 7. Security Footer
               _buildSecurityFooter(),
               const SizedBox(height: 16),
             ],
@@ -529,121 +676,64 @@ class _RiderLoginPageState extends State<RiderLoginPage>
     );
   }
 
-  Widget _tabPill({
-    required int index,
-    required IconData icon,
-    required String label,
-  }) {
-    final isSelected = _selectedTab == index;
-
-    return GestureDetector(
-      onTap: () => setState(() => _selectedTab = index),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        decoration: BoxDecoration(
-          color: isSelected ? Colors.white : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
-                  ),
-                ]
-              : null,
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              icon,
-              size: 16,
-              color: isSelected
-                  ? const Color(0xFF0284C7)
-                  : const Color(0xFF64748B),
-            ),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: isSelected ? FontWeight.w900 : FontWeight.w700,
-                color: isSelected
-                    ? const Color(0xFF0F172A)
-                    : const Color(0xFF64748B),
-              ),
-            ),
+  Widget _buildLoginButton() {
+    return Container(
+      width: double.infinity,
+      height: 52,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        gradient: const LinearGradient(
+          colors: [
+            Color(0xFF00D2FF), // Electric Cyan
+            Color(0xFF0284C7), // Sky Blue
+            Color(0xFF0369A1), // Deep Ocean
           ],
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF00D2FF).withValues(alpha: 0.25),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
-    );
-  }
-
-  Widget _buildAnimatedLoginButton() {
-    return AnimatedBuilder(
-      animation: _shimmerAnim,
-      builder: (context, child) {
-        return Container(
-          width: double.infinity,
-          height: 52,
-          decoration: BoxDecoration(
+      child: ElevatedButton(
+        onPressed: _isLoading ? null : _handleLogin,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.transparent,
+          shadowColor: Colors.transparent,
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
-            gradient: LinearGradient(
-              colors: const [
-                Color(0xFF00D2FF), // Cyan
-                Color(0xFF0284C7), // Sky Blue
-                Color(0xFF0369A1), // Deep Ocean
-              ],
-              begin: Alignment(-1.0 + _shimmerAnim.value, 0.0),
-              end: Alignment(1.0 + _shimmerAnim.value, 0.0),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF00D2FF).withValues(alpha: 0.35),
-                blurRadius: 16,
-                offset: const Offset(0, 6),
-              ),
-            ],
           ),
-          child: ElevatedButton(
-            onPressed: _isLoading ? null : _handleLogin,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.transparent,
-              shadowColor: Colors.transparent,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-            ),
-            child: _isLoading
-                ? const SizedBox(
-                    width: 22,
-                    height: 22,
-                    child: CircularProgressIndicator(
-                      color: Colors.white,
-                      strokeWidth: 2.5,
+        ),
+        child: _isLoading
+            ? const SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(
+                  color: Colors.white,
+                  strokeWidth: 2.5,
+                ),
+              )
+            : const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    'LOG IN',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 0.5,
                     ),
-                  )
-                : const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        'LOG IN',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                      SizedBox(width: 8),
-                      Icon(Icons.arrow_forward_rounded, size: 20),
-                    ],
                   ),
-          ),
-        );
-      },
+                  SizedBox(width: 8),
+                  Icon(Icons.arrow_forward_rounded, size: 20),
+                ],
+              ),
+      ),
     );
   }
 
@@ -687,12 +777,15 @@ class _RiderLoginPageState extends State<RiderLoginPage>
               children: [
                 Text('🔒', style: TextStyle(fontSize: 12)),
                 SizedBox(width: 6),
-                Text(
-                  'Nexora Fleet Access • 256–Bit SSL Encrypted',
-                  style: TextStyle(
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xFF0284C7),
+                Flexible(
+                  child: Text(
+                    'Nexora Fleet Access • 256–Bit SSL Encrypted',
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF0284C7),
+                    ),
                   ),
                 ),
               ],

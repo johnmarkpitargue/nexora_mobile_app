@@ -3,10 +3,18 @@ import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'core/constants/supabase_constants.dart';
 import 'core/theme/rider_theme.dart';
+import 'core/services/external_notification_service.dart';
+import 'core/services/in_app_notification_service.dart';
+import 'core/services/chat_service.dart';
+import 'core/services/delivery_service.dart';
 import 'features/auth/presentation/rider_landing_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Request system notification permission for receiving customer/dispatch messages when app is in background/minimized
+  ExternalNotificationService.requestPermission();
+
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
@@ -20,6 +28,8 @@ Future<void> main() async {
       // ignore: deprecated_member_use
       anonKey: SupabaseConstants.anonKey,
     );
+    RiderChatService.instance.ensureInitialized();
+    DeliveryService.instance.ensureInitialized();
   } catch (e) {
     debugPrint('Supabase initialization notice: $e');
   }
@@ -34,6 +44,7 @@ class NexoraRiderApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Nexora Rider',
+      navigatorKey: InAppNotificationService.navigatorKey,
       debugShowCheckedModeBanner: false,
       theme: RiderTheme.lightTheme,
       home: const RiderLandingPage(),

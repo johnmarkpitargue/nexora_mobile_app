@@ -18,19 +18,36 @@
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="A new Flutter project.">
+  <meta name="description" content="Nexora Rider - Real-time Delivery & Courier Dispatch System">
+  <meta name="theme-color" content="#0066FF">
 
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="nexora_rider_app">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Nexora Rider">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
-  <title>nexora_rider_app</title>
+  <title>Nexora Rider | Delivery Partner</title>
   <link rel="manifest" href="manifest.json">
+
+  <!-- Register Nexora Rider Notification Service Worker -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function() {
+        navigator.serviceWorker.register('sw.js')
+          .then(function(reg) {
+            console.log('[Nexora Rider] Service Worker registered with scope:', reg.scope);
+          })
+          .catch(function(err) {
+            console.warn('[Nexora Rider] Service Worker registration failed:', err);
+          });
+      });
+    }
+  </script>
 </head>
 <body>
   <!--

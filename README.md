@@ -8,7 +8,7 @@ A high-performance courier and logistics mobile application built with **Flutter
 
 ### ⚡ 1. Duty & Shift Operations
 - **Online / Offline Duty Toggle**: One-tap shift activation with animated status indicators and live shift duration tracking.
-- **Vehicle & Hub Identity**: Displays assigned vehicle specifications (*Yamaha NMAX 155*), plate number (*NCR 8821-X*), and primary hub (*Makati / BGC Central Hub #4*).
+- **Vehicle & Hub Identity**: Displays assigned vehicle specifications (*Yamaha NMAX 155*), plate number (*NCR 8821-X*), and primary hub (*Nexora Central Hub #4*).
 - **Surge Hotspot Alerts**: Real-time high-density dispatch notifications with dynamic trip bonuses (*e.g., +₱30/trip surge*).
 
 ### 📦 2. Dispatch Pool & Order Acceptance

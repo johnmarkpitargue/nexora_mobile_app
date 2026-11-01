@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/rider_theme.dart';
 import '../../../../core/services/rider_service.dart';
+import '../../../courier/services/shift_duty_coordinator.dart';
 
 class OnlineStatusCard extends StatelessWidget {
   const OnlineStatusCard({super.key});
@@ -106,19 +107,37 @@ class OnlineStatusCard extends StatelessWidget {
                             ),
                           ],
                         ),
-                        const SizedBox(height: 2),
-                        Text(
-                          isOnline
-                              ? 'Searching orders in ${profile.assignedHub.split('#').first.trim()}...'
-                              : 'Go online to start receiving delivery requests',
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.85),
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
+                        const SizedBox(height: 3),
+                        if (isOnline)
+                          const Row(
+                            children: [
+                              Icon(Icons.gps_fixed_rounded, size: 13, color: Color(0xFF10B981)),
+                              SizedBox(width: 4),
+                              Expanded(
+                                child: Text(
+                                  'Active • Receiving live delivery orders',
+                                  style: TextStyle(
+                                    color: Color(0xFF34D399),
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          )
+                        else
+                          Text(
+                            'Offline • Switch on to receive delivery orders',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.85),
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
                       ],
                     ),
                   ),
@@ -128,59 +147,57 @@ class OnlineStatusCard extends StatelessWidget {
                     activeTrackColor: RiderTheme.onlineGreen.withValues(alpha: 0.35),
                     inactiveThumbColor: Colors.white70,
                     inactiveTrackColor: Colors.white24,
-                    onChanged: (val) {
-                      RiderService.instance.toggleOnlineStatus();
+                    onChanged: (_) {
+                      ShiftDutyCoordinator.handleRiderToggleDuty(context);
                     },
                   ),
                 ],
               ),
-              if (isOnline) ...[
-                const SizedBox(height: 14),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          const Icon(Icons.two_wheeler_rounded,
-                              size: 16, color: RiderTheme.secondary),
-                          const SizedBox(width: 6),
-                          Text(
-                            profile.vehicleModel,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ],
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: RiderTheme.secondary.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          profile.plateNumber,
-                          style: const TextStyle(
-                            color: RiderTheme.secondary,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+              const SizedBox(height: 14),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-              ],
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.two_wheeler_rounded,
+                            size: 16, color: RiderTheme.secondary),
+                        const SizedBox(width: 6),
+                        Text(
+                          profile.vehicleModel,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: RiderTheme.secondary.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        profile.plateNumber,
+                        style: const TextStyle(
+                          color: RiderTheme.secondary,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
         );

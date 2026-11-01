@@ -1,3 +1,25 @@
+class RiderReview {
+  final String orderId;
+  final String customerName;
+  final int driverRating;
+  final int deliveryRating;
+  final String comment;
+  final List<String> tags;
+  final DateTime createdAt;
+
+  const RiderReview({
+    required this.orderId,
+    required this.customerName,
+    required this.driverRating,
+    required this.deliveryRating,
+    this.comment = '',
+    this.tags = const [],
+    required this.createdAt,
+  });
+
+  double get averageScore => (driverRating * 0.7) + (deliveryRating * 0.3);
+}
+
 class RiderProfile {
   final String id;
   final String name;

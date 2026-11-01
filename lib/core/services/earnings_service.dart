@@ -235,4 +235,36 @@ class EarningsService extends ChangeNotifier {
     notifyListeners();
     return true;
   }
+
+  double _codHeldBalance = 640.00;
+  double get codHeldBalance => _codHeldBalance;
+
+  void remitCodCash({
+    required double amount,
+    required String method,
+    String? referenceNumber,
+    String? hubOfficer,
+  }) {
+    if (amount <= 0) return;
+    _codHeldBalance = (_codHeldBalance - amount).clamp(0.0, double.infinity);
+
+    final isEwallet = method.contains('GCash') || method.contains('Maya');
+    final txn = EarningTransaction(
+      id: 'REMIT-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}',
+      title: 'COD Cash Remitted ($method)',
+      subtitle: isEwallet
+          ? 'Ref: ${referenceNumber ?? "NEX-EWALLET-OK"} • Instant Clear'
+          : 'Hub Counter Voucher • Approved by ${hubOfficer ?? "Elena V. (Hub 4B)"}',
+      amount: -amount,
+      timestamp: DateTime.now(),
+      type: TransactionType.cashOut,
+    );
+    _transactions.insert(0, txn);
+    notifyListeners();
+  }
+
+  void resetCodBalanceForTest([double balance = 640.00]) {
+    _codHeldBalance = balance;
+    notifyListeners();
+  }
 }

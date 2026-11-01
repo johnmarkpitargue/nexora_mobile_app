@@ -84,6 +84,16 @@ class DeliveryOrder {
   final String? recipientNotes;
   final int acceptanceCountdownSec;
 
+  final double customerLat;
+  final double customerLng;
+  final double merchantLat;
+  final double merchantLng;
+
+  final String packageSize;
+  final double packageWeightKg;
+  final bool isFragile;
+  final bool fitsInsulatedBag;
+
   const DeliveryOrder({
     required this.id,
     required this.customerName,
@@ -105,9 +115,26 @@ class DeliveryOrder {
     this.proofPhotoPath,
     this.recipientNotes,
     this.acceptanceCountdownSec = 30,
+    this.customerLat = 14.1332,
+    this.customerLng = 121.4367,
+    this.merchantLat = 14.2250,
+    this.merchantLng = 121.1610,
+    this.packageSize = 'Medium Box (30x20x15cm)',
+    this.packageWeightKg = 2.4,
+    this.isFragile = true,
+    this.fitsInsulatedBag = true,
   });
 
   double get riderEarnings => deliveryFee + tip;
+
+  /// Masked neighborhood area for unaccepted orders to protect customer privacy
+  String get maskedDropoffArea {
+    final parts = customerAddress.split(',');
+    if (parts.length >= 2) {
+      return parts.sublist(parts.length - 2).map((s) => s.trim()).join(', ');
+    }
+    return customerAddress;
+  }
 
   DeliveryOrder copyWith({
     String? id,
@@ -130,6 +157,14 @@ class DeliveryOrder {
     String? proofPhotoPath,
     String? recipientNotes,
     int? acceptanceCountdownSec,
+    double? customerLat,
+    double? customerLng,
+    double? merchantLat,
+    double? merchantLng,
+    String? packageSize,
+    double? packageWeightKg,
+    bool? isFragile,
+    bool? fitsInsulatedBag,
   }) {
     return DeliveryOrder(
       id: id ?? this.id,
@@ -152,6 +187,14 @@ class DeliveryOrder {
       proofPhotoPath: proofPhotoPath ?? this.proofPhotoPath,
       recipientNotes: recipientNotes ?? this.recipientNotes,
       acceptanceCountdownSec: acceptanceCountdownSec ?? this.acceptanceCountdownSec,
+      customerLat: customerLat ?? this.customerLat,
+      customerLng: customerLng ?? this.customerLng,
+      merchantLat: merchantLat ?? this.merchantLat,
+      merchantLng: merchantLng ?? this.merchantLng,
+      packageSize: packageSize ?? this.packageSize,
+      packageWeightKg: packageWeightKg ?? this.packageWeightKg,
+      isFragile: isFragile ?? this.isFragile,
+      fitsInsulatedBag: fitsInsulatedBag ?? this.fitsInsulatedBag,
     );
   }
 }
