@@ -6,7 +6,13 @@ import 'package:nexora_flutter_app/core/services/chat_service.dart';
 import 'package:nexora_flutter_app/core/services/order_service.dart';
 import 'package:nexora_flutter_app/core/services/profile_service.dart';
 import 'package:nexora_flutter_app/core/services/wishlist_service.dart';
+import 'package:nexora_flutter_app/core/services/buyer_account_service.dart';
+import 'package:nexora_flutter_app/core/services/payment_method_service.dart';
+import 'package:nexora_flutter_app/core/services/shop_service.dart';
+import 'package:nexora_flutter_app/core/services/supabase_auth_service.dart';
 import '../../../app/routes/app_routes.dart';
+import '../../../core/utils/guest_auth_guard.dart';
+import 'account_security_modal.dart';
 
 class ProfilePage extends StatefulWidget {
   final VoidCallback? onToggleDarkMode;
@@ -24,9 +30,6 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   late bool _darkMode;
-
-  final int _voucherCount = 1;
-  final int _pointsCount = 850;
 
   final List<String> _presetAvatars = const [
     'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
@@ -56,6 +59,30 @@ class _ProfilePageState extends State<ProfilePage> {
       );
       if (picked != null) {
         final bytes = await picked.readAsBytes();
+        final sizeMb = bytes.lengthInBytes / (1024 * 1024);
+        final name = picked.name;
+
+        final session = BuyerAccountService.instance.currentBuyerSession;
+        final res = BuyerAccountService.instance.editProfile(
+          firstName: session?.firstName ?? ProfileService.instance.name.split(' ').first,
+          lastName: session?.lastName ?? (ProfileService.instance.name.split(' ').length > 1 ? ProfileService.instance.name.split(' ').sublist(1).join(' ') : 'Cruz'),
+          photoName: name,
+          photoSizeMb: sizeMb,
+          photoBytes: bytes,
+        );
+
+        if (!res.success) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(res.message),
+                backgroundColor: Colors.redAccent,
+              ),
+            );
+          }
+          return;
+        }
+
         ProfileService.instance.updateAvatarBytes(bytes);
         if (setSheetState != null) {
           setSheetState(() {});
@@ -71,7 +98,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   Text('📸 Profile photo uploaded successfully!'),
                 ],
               ),
-              backgroundColor: Color(0xFF00C1D4),
+              backgroundColor: Color(0xFF0066FF),
             ),
           );
         }
@@ -124,10 +151,10 @@ class _ProfilePageState extends State<ProfilePage> {
               leading: Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF00C1D4).withValues(alpha: 0.1),
+                  color: const Color(0xFF0066FF).withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.upload_file_rounded, color: Color(0xFF00C1D4)),
+                child: const Icon(Icons.upload_file_rounded, color: Color(0xFF0066FF)),
               ),
               title: const Text('Upload from Files / Device', style: TextStyle(fontWeight: FontWeight.bold)),
               subtitle: const Text('Pick photo from your computer or gallery', style: TextStyle(fontSize: 12)),
@@ -182,7 +209,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         shape: BoxShape.circle,
                         border: Border.all(
                           color: ProfileService.instance.avatarUrl == url && !ProfileService.instance.hasCustomAvatarBytes
-                              ? const Color(0xFF00C1D4)
+                              ? const Color(0xFF0066FF)
                               : const Color(0xFFE2E8F0),
                           width: 2.5,
                         ),
@@ -211,11 +238,14 @@ class _ProfilePageState extends State<ProfilePage> {
 
   void _showEditProfileSheet() {
     final profile = ProfileService.instance;
-    final nameCtrl = TextEditingController(text: profile.name);
+    final session = BuyerAccountService.instance.currentBuyerSession;
+    final firstName = session?.firstName ?? profile.name.split(' ').first;
+    final lastName = session?.lastName ?? (profile.name.split(' ').length > 1 ? profile.name.split(' ').sublist(1).join(' ') : 'Cruz');
+    final firstNameCtrl = TextEditingController(text: firstName);
+    final lastNameCtrl = TextEditingController(text: lastName);
     final usernameCtrl = TextEditingController(text: profile.username);
-    final emailCtrl = TextEditingController(text: profile.email);
-    final phoneCtrl = TextEditingController(text: profile.phone);
     final addressCtrl = TextEditingController(text: profile.address);
+    String? sheetError;
 
     showModalBottomSheet(
       context: context,
@@ -271,7 +301,7 @@ class _ProfilePageState extends State<ProfilePage> {
                               image: _getAvatarImageProvider(),
                               fit: BoxFit.cover,
                             ),
-                            border: Border.all(color: const Color(0xFF00C1D4), width: 2.5),
+                            border: Border.all(color: const Color(0xFF0066FF), width: 2.5),
                           ),
                         ),
                         Positioned(
@@ -283,7 +313,7 @@ class _ProfilePageState extends State<ProfilePage> {
                               width: 30,
                               height: 30,
                               decoration: const BoxDecoration(
-                                color: Color(0xFF00C1D4),
+                                color: Color(0xFF0066FF),
                                 shape: BoxShape.circle,
                               ),
                               child: const Icon(Icons.camera_alt_rounded,
@@ -298,24 +328,70 @@ class _ProfilePageState extends State<ProfilePage> {
                   Center(
                     child: TextButton.icon(
                       onPressed: () => _showPhotoOptionsModal(sheetContext, setSheetState: setSheetState),
-                      icon: const Icon(Icons.upload_file_rounded, size: 16, color: Color(0xFF00C1D4)),
+                      icon: const Icon(Icons.upload_file_rounded, size: 16, color: Color(0xFF0066FF)),
                       label: const Text(
-                        'Upload or Change Photo',
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF00C1D4)),
+                        'Upload or Change Photo (Max 5MB)',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0066FF)),
                       ),
                     ),
                   ),
                   const SizedBox(height: 12),
 
-                  // Editable Fields with live real-time updates!
-                  const Text('Full Name', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                  const SizedBox(height: 4),
-                  TextField(
-                    controller: nameCtrl,
-                    onChanged: (val) {
-                      ProfileService.instance.updateProfile(name: val);
-                    },
-                    decoration: _buildInputDecoration(hint: 'Full Name', prefixIcon: Icons.person_outline),
+                  if (sheetError != null) ...[
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFEBEB),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.redAccent.shade100),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.error_outline, color: Colors.redAccent, size: 18),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              sheetError!,
+                              style: const TextStyle(color: Colors.redAccent, fontSize: 12, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                  ],
+
+                  // Editable First & Last Name (BUY-ACCT-001)
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('First Name *', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                            const SizedBox(height: 4),
+                            TextField(
+                              controller: firstNameCtrl,
+                              decoration: _buildInputDecoration(hint: 'First Name', prefixIcon: Icons.person_outline),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Last Name *', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                            const SizedBox(height: 4),
+                            TextField(
+                              controller: lastNameCtrl,
+                              decoration: _buildInputDecoration(hint: 'Last Name', prefixIcon: Icons.badge_outlined),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 12),
 
@@ -323,44 +399,94 @@ class _ProfilePageState extends State<ProfilePage> {
                   const SizedBox(height: 4),
                   TextField(
                     controller: usernameCtrl,
-                    onChanged: (val) {
-                      ProfileService.instance.updateProfile(username: val);
-                    },
                     decoration: _buildInputDecoration(hint: '@username', prefixIcon: Icons.alternate_email),
                   ),
                   const SizedBox(height: 12),
 
-                  const Text('Email Address', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  // Email Address (Security Protected)
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Email Address (Verified)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                      TextButton(
+                        onPressed: () {
+                          Navigator.pop(sheetContext);
+                          showAccountSecurityModal(context);
+                        },
+                        style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(50, 24)),
+                        child: const Text('Change via OTP', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0066FF))),
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 4),
-                  TextField(
-                    controller: emailCtrl,
-                    onChanged: (val) {
-                      ProfileService.instance.updateProfile(email: val);
-                    },
-                    decoration: _buildInputDecoration(hint: 'Email', prefixIcon: Icons.email_outlined),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.email_outlined, size: 18, color: Color(0xFF64748B)),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            BuyerAccountService.instance.currentBuyerSession?.email ?? profile.email,
+                            style: const TextStyle(fontSize: 13.5, color: Color(0xFF334155), fontWeight: FontWeight.w500),
+                          ),
+                        ),
+                        const Icon(Icons.verified, size: 16, color: Color(0xFF00D2FF)),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 12),
 
-                  const Text('Mobile Phone', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  // Mobile Phone (Security Protected)
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Mobile Phone (Verified)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                      TextButton(
+                        onPressed: () {
+                          Navigator.pop(sheetContext);
+                          showAccountSecurityModal(context);
+                        },
+                        style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(50, 24)),
+                        child: const Text('Change via OTP', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0066FF))),
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 4),
-                  TextField(
-                    controller: phoneCtrl,
-                    onChanged: (val) {
-                      ProfileService.instance.updateProfile(phone: val);
-                    },
-                    decoration: _buildInputDecoration(hint: 'Phone', prefixIcon: Icons.phone_outlined),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.phone_outlined, size: 18, color: Color(0xFF64748B)),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            BuyerAccountService.instance.currentBuyerSession?.mobileNumber ?? profile.phone,
+                            style: const TextStyle(fontSize: 13.5, color: Color(0xFF334155), fontWeight: FontWeight.w500),
+                          ),
+                        ),
+                        const Icon(Icons.verified, size: 16, color: Color(0xFF00D2FF)),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 12),
 
-                  const Text('Default Delivery Address', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  const Text('Delivery Address Note', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                   const SizedBox(height: 4),
                   TextField(
                     controller: addressCtrl,
                     maxLines: 2,
-                    onChanged: (val) {
-                      ProfileService.instance.updateProfile(address: val);
-                    },
-                    decoration: _buildInputDecoration(hint: 'Address', prefixIcon: Icons.location_on_outlined),
+                    decoration: _buildInputDecoration(hint: 'Address Note', prefixIcon: Icons.location_on_outlined),
                   ),
                   const SizedBox(height: 20),
 
@@ -376,11 +502,20 @@ class _ProfilePageState extends State<ProfilePage> {
                     ),
                     child: ElevatedButton(
                       onPressed: () {
+                        setSheetState(() => sheetError = null);
+                        final valRes = BuyerAccountService.instance.editProfile(
+                          firstName: firstNameCtrl.text,
+                          lastName: lastNameCtrl.text,
+                        );
+
+                        if (!valRes.success) {
+                          setSheetState(() => sheetError = valRes.message);
+                          return;
+                        }
+
                         ProfileService.instance.updateProfile(
-                          name: nameCtrl.text,
+                          name: '${firstNameCtrl.text.trim()} ${lastNameCtrl.text.trim()}',
                           username: usernameCtrl.text,
-                          email: emailCtrl.text,
-                          phone: phoneCtrl.text,
                           address: addressCtrl.text,
                         );
                         Navigator.pop(sheetContext);
@@ -390,10 +525,10 @@ class _ProfilePageState extends State<ProfilePage> {
                               children: [
                                 Icon(Icons.check_circle, color: Colors.white),
                                 SizedBox(width: 8),
-                                Text('Profile updated in real-time!'),
+                                Text('Profile updated successfully!'),
                               ],
                             ),
-                            backgroundColor: Color(0xFF00C1D4),
+                            backgroundColor: Color(0xFF0066FF),
                           ),
                         );
                       },
@@ -423,77 +558,18 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  void _showTopUpDialog() {
-    final amountController = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Row(
-          children: [
-            Icon(Icons.add_card_rounded, color: Color(0xFF0066FF)),
-            SizedBox(width: 8),
-            Text('Top Up NexoraPay'),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('Enter amount to add to your balance:'),
-            const SizedBox(height: 12),
-            TextField(
-              controller: amountController,
-              keyboardType: TextInputType.number,
-              decoration: InputDecoration(
-                prefixText: '₱ ',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                hintText: '500.00',
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final val = double.tryParse(amountController.text) ?? 500.0;
-              final newBal = ProfileService.instance.walletBalance + val;
-              ProfileService.instance.updateWalletBalance(newBal);
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                      'Successfully topped up ₱${val.toStringAsFixed(2)}! New Balance: ₱${newBal.toStringAsFixed(2)}'),
-                  backgroundColor: const Color(0xFF0066FF),
-                ),
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF0066FF),
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Confirm Top Up'),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: Listenable.merge([
+        BuyerAccountService.instance,
         ProfileService.instance,
         OrderService.instance,
         AddressService.instance,
         WishlistService.instance,
         CartService.instance,
         ChatService.instance,
+        ShopService.instance,
       ]),
       builder: (context, _) {
         return Scaffold(
@@ -511,17 +587,13 @@ class _ProfilePageState extends State<ProfilePage> {
                   _buildHeaderRow(context),
                   const SizedBox(height: 20),
 
-                  // User Profile Avatar & Verified Info Header
+                  // User Profile Avatar & Info Header
                   _buildUserProfileHeader(),
                   const SizedBox(height: 20),
 
-                  // Key Quick Stats Row (Orders, Wishlist, Wallet, Points)
+                  // Key Quick Stats Row (Orders, Wishlist, Vouchers)
                   _buildQuickStatsRow(),
                   const SizedBox(height: 20),
-
-                  // NexoraPay Balance Gradient Dark Navy Card
-                  _buildNexoraPayCard(context),
-                  const SizedBox(height: 24),
 
                   // My Purchases Section Card
                   _buildMyPurchasesSection(context),
@@ -532,12 +604,6 @@ class _ProfilePageState extends State<ProfilePage> {
                   const SizedBox(height: 10),
                   _buildShoppingBenefitsCard(context),
                   const SizedBox(height: 24),
-
-              // PREFERENCES & SECURITY Group
-              _buildSectionHeader('PREFERENCES & SECURITY'),
-              const SizedBox(height: 10),
-              _buildPreferencesCard(context),
-              const SizedBox(height: 24),
 
               // SUPPORT & LEGAL Group
               _buildSectionHeader('SUPPORT & LEGAL'),
@@ -553,7 +619,7 @@ class _ProfilePageState extends State<ProfilePage> {
               _buildFooterInfo(),
 
               // Clearance for bottom floating navigation dock
-              const SizedBox(height: 20),
+              const SizedBox(height: 110),
             ],
           ),
         ),
@@ -581,10 +647,9 @@ class _ProfilePageState extends State<ProfilePage> {
             IconButton(
               icon: const Icon(Icons.settings_outlined,
                   color: Color(0xFF0F172A), size: 22),
+              tooltip: 'Settings & Preferences',
               onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Opening Account Settings...')),
-                );
+                _showSettingsModal(context);
               },
             ),
             // Cart Icon with Real-Time Badge
@@ -666,7 +731,98 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Widget _buildUserProfileHeader() {
+    final isLoggedIn = BuyerAccountService.instance.isLoggedIn;
     final profile = ProfileService.instance;
+    final session = BuyerAccountService.instance.currentBuyerSession;
+
+    if (!isLoggedIn) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.03),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            // Guest Avatar Placeholder
+            Container(
+              width: 58,
+              height: 58,
+              decoration: const BoxDecoration(
+                color: Color(0xFFEFF6FF),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.person_outline_rounded,
+                size: 32,
+                color: Color(0xFF0066FF),
+              ),
+            ),
+            const SizedBox(width: 14),
+
+            // Guest User Details
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: const [
+                  Text(
+                    'Guest User',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF0F172A),
+                    ),
+                  ),
+                  SizedBox(height: 2),
+                  Text(
+                    'Sign in to sync orders & perks',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      color: Color(0xFF64748B),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Direct Sign In Button
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pushNamed(context, AppRoutes.login);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0066FF),
+                foregroundColor: Colors.white,
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+              ),
+              child: const Text(
+                'Sign In',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final displayName = session?.fullName ?? profile.name;
+    final displayUsername = session != null ? '@${session.email.split('@').first}' : profile.username;
+
     return Row(
       children: [
         // User Photo Avatar
@@ -692,7 +848,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   width: 20,
                   height: 20,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF00C1D4),
+                    color: const Color(0xFF0066FF),
                     shape: BoxShape.circle,
                     border: Border.all(color: Colors.white, width: 2),
                   ),
@@ -709,55 +865,22 @@ class _ProfilePageState extends State<ProfilePage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  Flexible(
-                    child: Text(
-                      profile.name,
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w900,
-                        color: Color(0xFF0F172A),
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  const Icon(
-                    Icons.verified,
-                    size: 18,
-                    color: Color(0xFF00D2FF),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 1),
               Text(
-                profile.username,
+                displayName,
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w900,
+                  color: Color(0xFF0F172A),
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 2),
+              Text(
+                displayUsername,
                 style: const TextStyle(
                   fontSize: 13,
                   color: Color(0xFF64748B),
                   fontWeight: FontWeight.w500,
-                ),
-              ),
-              const SizedBox(height: 6),
-
-              // VIP Platinum Badge Pill
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF00D2FF), Color(0xFF0066FF)],
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Text(
-                  'VIP PLATINUM',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w900,
-                    fontSize: 9.5,
-                    letterSpacing: 0.5,
-                  ),
                 ),
               ),
             ],
@@ -786,14 +909,14 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Widget _buildQuickStatsRow() {
+    final isLoggedIn = BuyerAccountService.instance.isLoggedIn;
     final profile = ProfileService.instance;
     final orderCount = OrderService.instance.activeOrders.length;
-    final walletDisplay = profile.walletBalance >= 1000
-        ? '₱${(profile.walletBalance / 1000).toStringAsFixed(1)}k'
-        : '₱${profile.walletBalance.toStringAsFixed(0)}';
+    final followCount = ShopService.instance.followedShopCount;
+    final voucherDisplay = '${profile.voucherCount > 0 ? profile.voucherCount : 5}';
 
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
@@ -808,20 +931,44 @@ class _ProfilePageState extends State<ProfilePage> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _buildStatItem('$orderCount', 'Orders', () {
+          _buildStatItem(isLoggedIn ? '$orderCount' : '-', 'Orders', () {
+            if (!isLoggedIn) {
+              GuestAuthGuard.requireLogin(
+                context,
+                title: 'Sign In to View Orders',
+                message: 'Sign in to track orders, shipping status, and view past receipts.',
+              );
+              return;
+            }
             Navigator.pushReplacementNamed(context, AppRoutes.orders);
+          }),
+          _buildStatItem(isLoggedIn ? '$followCount' : '-', 'Following', () {
+            if (!isLoggedIn) {
+              GuestAuthGuard.requireLogin(
+                context,
+                title: 'Followed Stores',
+                message: 'Sign in to see and manage the stores you follow on Nexora.',
+              );
+              return;
+            }
+            Navigator.pushNamed(context, AppRoutes.followedStores);
           }),
           _buildStatItem('${WishlistService.instance.itemCount}', 'Wishlist', () {
             Navigator.pushNamed(context, AppRoutes.wishlist);
           }),
-          _buildStatItem(walletDisplay, 'Wallet', () {
-            _showTopUpDialog();
-          }),
-          _buildStatItem('$_pointsCount', 'Points', () {
+          _buildStatItem(isLoggedIn ? voucherDisplay : '-', 'Vouchers', () {
+            if (!isLoggedIn) {
+              GuestAuthGuard.requireLogin(
+                context,
+                title: 'Member Vouchers',
+                message: 'Sign in or create an account to claim discount vouchers and free shipping.',
+              );
+              return;
+            }
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Nexora Rewards Points: $_pointsCount pts')),
+              SnackBar(content: Text('$voucherDisplay Discount & Free Shipping Vouchers Available')),
             );
-          }, textColor: const Color(0xFF00D2FF)),
+          }),
         ],
       ),
     );
@@ -829,241 +976,35 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Widget _buildStatItem(String val, String label, VoidCallback onTap,
       {Color? textColor}) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        child: Column(
-          children: [
-            Text(
-              val,
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w900,
-                color: textColor ?? const Color(0xFF0F172A),
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 12,
-                color: Color(0xFF64748B),
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildNexoraPayCard(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF050B28), Color(0xFF0B1953), Color(0xFF004080)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF050B28).withValues(alpha: 0.35),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              const Row(
-                children: [
-                  Icon(Icons.account_balance_wallet_outlined,
-                      color: Color(0xFF00D2FF), size: 18),
-                  SizedBox(width: 8),
-                  Text(
-                    'NEXORAPAY BALANCE',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w800,
-                      fontSize: 11,
-                      letterSpacing: 0.5,
-                    ),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  val,
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                    color: textColor ?? const Color(0xFF0F172A),
                   ),
-                ],
-              ),
-              Row(
-                children: [
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Row(
-                      children: [
-                        CircleAvatar(
-                          radius: 3,
-                          backgroundColor: Color(0xFF00D2FF),
-                        ),
-                        SizedBox(width: 5),
-                        Text(
-                          'Active',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 10,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.baseline,
-                textBaseline: TextBaseline.alphabetic,
-                children: [
-                  Text(
-                    '₱${ProfileService.instance.walletBalance.toStringAsFixed(2)}',
-                    style: const TextStyle(
-                      fontSize: 26,
-                      fontWeight: FontWeight.w900,
-                      color: Colors.white,
-                      letterSpacing: -0.5,
-                    ),
-                  ),
-                ],
-              ),
-              InkWell(
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                        content: Text('Opening NexoraPay transaction history...')),
-                  );
-                },
-                child: const Row(
-                  children: [
-                    Text(
-                      'History',
-                      style: TextStyle(
-                        color: Colors.white70,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    SizedBox(width: 2),
-                    Icon(Icons.chevron_right_rounded,
-                        color: Color(0xFF00D2FF), size: 16),
-                  ],
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: 18),
-
-          Row(
-            children: [
-              _buildWalletActionTile('Top Up', Icons.add_circle_outline_rounded,
-                  () {
-                _showTopUpDialog();
-              }),
-              const SizedBox(width: 8),
-              _buildWalletActionTile('Pay QR', Icons.qr_code_scanner_rounded, () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Opening QR Pay Scanner...')),
-                );
-              }),
-              const SizedBox(width: 8),
-              _buildWalletActionTile('Send', Icons.sync_alt_rounded, () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Opening Transfer money...')),
-                );
-              }),
-              const SizedBox(width: 8),
-              _buildWalletActionTile(
-                'Vouchers',
-                Icons.confirmation_number_outlined,
-                () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                        content: Text('Available Vouchers: $_voucherCount')),
-                  );
-                },
-                badgeCount: _voucherCount,
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildWalletActionTile(
-      String label, IconData icon, VoidCallback onTap,
-      {int badgeCount = 0}) {
-    return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
-          ),
-          child: Column(
-            children: [
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Icon(icon, color: const Color(0xFF00D2FF), size: 20),
-                  if (badgeCount > 0)
-                    Positioned(
-                      top: -4,
-                      right: -6,
-                      child: Container(
-                        padding: const EdgeInsets.all(3),
-                        decoration: const BoxDecoration(
-                          color: Color(0xFF00D2FF),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Text(
-                          '$badgeCount',
-                          style: const TextStyle(
-                            color: Color(0xFF050B28),
-                            fontSize: 9,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 2),
               Text(
                 label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 11,
+                  fontSize: 12,
+                  color: Color(0xFF64748B),
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ],
@@ -1074,6 +1015,8 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Widget _buildMyPurchasesSection(BuildContext context) {
+    final isLoggedIn = BuyerAccountService.instance.isLoggedIn;
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -1102,6 +1045,14 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
               InkWell(
                 onTap: () {
+                  if (!isLoggedIn) {
+                    GuestAuthGuard.requireLogin(
+                      context,
+                      title: 'My Purchases',
+                      message: 'Sign in to review and track all your active purchases and completed orders.',
+                    );
+                    return;
+                  }
                   Navigator.pushReplacementNamed(context, AppRoutes.orders);
                 },
                 child: const Row(
@@ -1128,68 +1079,105 @@ class _ProfilePageState extends State<ProfilePage> {
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               _buildPurchaseStatusItem(
-                  'To Pay',
-                  Icons.credit_card_outlined,
-                  OrderService.instance.activeOrders
-                      .where((o) => o.statusText.toLowerCase() == 'to pay' || o.statusText.toLowerCase() == 'unpaid')
-                      .length, () {
-                Navigator.pushReplacementNamed(context, AppRoutes.orders, arguments: {'initialIndex': 1});
-              }, isHighlighted: false),
+                'To Pay',
+                Icons.credit_card_outlined,
+                isLoggedIn
+                    ? OrderService.instance.activeOrders
+                        .where((o) => o.statusText.toLowerCase() == 'to pay' || o.statusText.toLowerCase() == 'unpaid')
+                        .length
+                    : 0,
+                () {
+                  if (!isLoggedIn) {
+                    GuestAuthGuard.requireLogin(context, title: 'My Purchases');
+                    return;
+                  }
+                  Navigator.pushReplacementNamed(context, AppRoutes.orders, arguments: {'initialIndex': 1});
+                },
+                isHighlighted: false,
+              ),
               _buildPurchaseStatusItem(
-                  'To Ship',
-                  Icons.inventory_2_outlined,
-                  OrderService.instance.activeOrders
-                      .where((o) => o.statusText.toLowerCase() == 'to ship' || o.statusText.toLowerCase() == 'processing')
-                      .length, () {
-                Navigator.pushReplacementNamed(context, AppRoutes.orders, arguments: {'initialIndex': 2});
-              }, isHighlighted: false),
+                'To Ship',
+                Icons.inventory_2_outlined,
+                isLoggedIn
+                    ? OrderService.instance.activeOrders
+                        .where((o) => o.statusText.toLowerCase() == 'to ship' || o.statusText.toLowerCase() == 'processing')
+                        .length
+                    : 0,
+                () {
+                  if (!isLoggedIn) {
+                    GuestAuthGuard.requireLogin(context, title: 'My Purchases');
+                    return;
+                  }
+                  Navigator.pushReplacementNamed(context, AppRoutes.orders, arguments: {'initialIndex': 2});
+                },
+                isHighlighted: false,
+              ),
               _buildPurchaseStatusItem(
-                  'To Receive',
-                  Icons.local_shipping_outlined,
-                  OrderService.instance.activeOrders
-                      .where((o) =>
-                          o.statusText.toLowerCase() == 'to receive' ||
-                          o.statusText.toLowerCase() == 'shipping' ||
-                          o.statusText.toLowerCase() == 'shipped' ||
-                          o.statusText.toLowerCase() == 'in transit' ||
-                          o.statusText.toLowerCase() == 'out for delivery')
-                      .length, () {
-                Navigator.pushReplacementNamed(context, AppRoutes.orders, arguments: {'initialIndex': 3});
-              },
-              isHighlighted: OrderService.instance.activeOrders.any((o) =>
-                  o.statusText.toLowerCase() == 'to receive' ||
-                  o.statusText.toLowerCase() == 'shipping' ||
-                  o.statusText.toLowerCase() == 'shipped' ||
-                  o.statusText.toLowerCase() == 'in transit' ||
-                  o.statusText.toLowerCase() == 'out for delivery')),
+                'To Receive',
+                Icons.local_shipping_outlined,
+                isLoggedIn
+                    ? OrderService.instance.activeOrders
+                        .where((o) =>
+                            o.statusText.toLowerCase() == 'to receive' ||
+                            o.statusText.toLowerCase() == 'shipping' ||
+                            o.statusText.toLowerCase() == 'shipped' ||
+                            o.statusText.toLowerCase() == 'in transit' ||
+                            o.statusText.toLowerCase() == 'out for delivery')
+                        .length
+                    : 0,
+                () {
+                  if (!isLoggedIn) {
+                    GuestAuthGuard.requireLogin(context, title: 'My Purchases');
+                    return;
+                  }
+                  Navigator.pushReplacementNamed(context, AppRoutes.orders, arguments: {'initialIndex': 3});
+                },
+                isHighlighted: isLoggedIn &&
+                    OrderService.instance.activeOrders.any((o) =>
+                        o.statusText.toLowerCase() == 'to receive' ||
+                        o.statusText.toLowerCase() == 'shipping' ||
+                        o.statusText.toLowerCase() == 'shipped' ||
+                        o.statusText.toLowerCase() == 'in transit' ||
+                        o.statusText.toLowerCase() == 'out for delivery'),
+              ),
               _buildPurchaseStatusItem(
-                  'Completed',
-                  Icons.rate_review_outlined,
-                  OrderService.instance.activeOrders
-                      .where((o) => o.statusText.toLowerCase() == 'completed' || o.statusText.toLowerCase() == 'delivered')
-                      .length, () {
-                Navigator.pushReplacementNamed(context, AppRoutes.orders, arguments: {'initialIndex': 4});
-              }, isHighlighted: false),
+                'Completed',
+                Icons.rate_review_outlined,
+                isLoggedIn
+                    ? OrderService.instance.activeOrders
+                        .where((o) => o.statusText.toLowerCase() == 'completed' || o.statusText.toLowerCase() == 'delivered')
+                        .length
+                    : 0,
+                () {
+                  if (!isLoggedIn) {
+                    GuestAuthGuard.requireLogin(context, title: 'My Purchases');
+                    return;
+                  }
+                  Navigator.pushReplacementNamed(context, AppRoutes.orders, arguments: {'initialIndex': 4});
+                },
+                isHighlighted: false,
+              ),
             ],
           ),
 
-          // Active Parcel Status Banner Box (Only rendered if there are active in-transit orders)
-          Builder(
-            builder: (context) {
-              final inTransitOrders = OrderService.instance.activeOrders.where(
-                (o) =>
-                    o.statusText.toLowerCase() == 'to receive' ||
-                    o.statusText.toLowerCase() == 'shipping' ||
-                    o.statusText.toLowerCase() == 'shipped' ||
-                    o.statusText.toLowerCase() == 'in transit' ||
-                    o.statusText.toLowerCase() == 'out for delivery',
-              ).toList();
+          // Active Parcel Status Banner Box (Only rendered if user is logged in AND there are active in-transit orders)
+          if (isLoggedIn)
+            Builder(
+              builder: (context) {
+                final inTransitOrders = OrderService.instance.activeOrders.where(
+                  (o) =>
+                      o.statusText.toLowerCase() == 'to receive' ||
+                      o.statusText.toLowerCase() == 'shipping' ||
+                      o.statusText.toLowerCase() == 'shipped' ||
+                      o.statusText.toLowerCase() == 'in transit' ||
+                      o.statusText.toLowerCase() == 'out for delivery',
+                ).toList();
 
-              if (inTransitOrders.isEmpty) {
-                return const SizedBox.shrink();
-              }
+                if (inTransitOrders.isEmpty) {
+                  return const SizedBox.shrink();
+                }
 
-              final activeOrder = inTransitOrders.first;
+                final activeOrder = inTransitOrders.first;
 
               return Container(
                 margin: const EdgeInsets.only(top: 16),
@@ -1352,32 +1340,60 @@ class _ProfilePageState extends State<ProfilePage> {
 
 
   Widget _buildShoppingBenefitsCard(BuildContext context) {
+    final isLoggedIn = BuyerAccountService.instance.isLoggedIn;
+
     return _buildGroupCard([
       _buildListTile(
         icon: Icons.location_on_outlined,
         title: 'My Addresses',
-        subtitle: AddressService.instance.defaultAddress?.fullAddress ?? ProfileService.instance.address,
+        subtitle: isLoggedIn
+            ? (AddressService.instance.defaultAddress?.fullAddress ??
+                (ProfileService.instance.address.isNotEmpty
+                    ? ProfileService.instance.address
+                    : 'No delivery address set'))
+            : 'Sign in to view saved addresses',
         onTap: () {
+          if (!isLoggedIn) {
+            GuestAuthGuard.requireLogin(
+              context,
+              title: 'Saved Addresses',
+              message: 'Sign in or create an account to view and manage delivery addresses.',
+            );
+            return;
+          }
           Navigator.pushNamed(context, AppRoutes.myAddresses);
         },
       ),
-      _buildListTile(
-        icon: Icons.credit_card_rounded,
-        title: 'Payment Methods',
-        subtitle: 'GCash •••• 9128, Visa •••• 4012',
-        onTap: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Opening Payment Methods...')),
-          );
-        },
-      ),
-      _buildListTile(
-        icon: Icons.local_offer_outlined,
-        title: 'Nexora Rewards Club',
-        subtitle: 'Platinum Tier • 850 pts',
-        onTap: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Opening Nexora Rewards Club...')),
+      AnimatedBuilder(
+        animation: PaymentMethodService.instance,
+        builder: (context, _) {
+          if (!isLoggedIn) {
+            return _buildListTile(
+              icon: Icons.credit_card_rounded,
+              title: 'Payment Methods',
+              subtitle: 'Sign in to link GCash & payment cards',
+              onTap: () {
+                GuestAuthGuard.requireLogin(
+                  context,
+                  title: 'Payment Methods',
+                  message: 'Sign in or create an account to manage GCash and payment options.',
+                );
+              },
+            );
+          }
+          final gcash = PaymentMethodService.instance.gcashMethod;
+          final defaultMethod = PaymentMethodService.instance.defaultMethod;
+          String subtitle = 'Manage GCash & Cards';
+          if (gcash != null && gcash.isLinked) {
+            subtitle = 'GCash (${gcash.formattedDisplay}) • ${defaultMethod.type == PaymentType.gcash ? "Default" : "Linked"}';
+          }
+          return _buildListTile(
+            icon: Icons.credit_card_rounded,
+            title: 'Payment Methods',
+            subtitle: subtitle,
+            onTap: () {
+              Navigator.pushNamed(context, AppRoutes.paymentMethods);
+            },
           );
         },
       ),
@@ -1393,88 +1409,188 @@ class _ProfilePageState extends State<ProfilePage> {
     ]);
   }
 
-  Widget _buildPreferencesCard(BuildContext context) {
-    return _buildGroupCard([
-      _buildListTile(
-        icon: Icons.security_rounded,
-        title: 'Security & Biometrics',
-        subtitle: 'Face ID enabled',
-        onTap: () {},
-      ),
-      _buildListTile(
-        icon: Icons.notifications_none_rounded,
-        title: 'Notification Preferences',
-        subtitle: 'Push, SMS & Courier Alerts',
-        onTap: () {},
-      ),
-      _buildListTile(
-        icon: Icons.language_rounded,
-        title: 'Language & Currency',
-        subtitle: 'English (PH) • PHP (₱)',
-        onTap: () {},
-      ),
-      Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
-          children: [
-            Container(
-              width: 36,
-              height: 36,
+  void _showSettingsModal(BuildContext parentContext) {
+    showModalBottomSheet(
+      context: parentContext,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (sheetContext, setSheetState) {
+            final isLoggedIn = BuyerAccountService.instance.isLoggedIn;
+            return Container(
+              padding: const EdgeInsets.fromLTRB(20, 14, 20, 28),
               decoration: const BoxDecoration(
-                color: Color(0xFFF1F5F9),
-                shape: BoxShape.circle,
+                color: Color(0xFFF6F8FC),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
               ),
-              child: const Icon(Icons.nightlight_round,
-                  color: Color(0xFF0066FF), size: 18),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Dark Mode',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 14,
-                      color: Color(0xFF0F172A),
+              child: SafeArea(
+                top: false,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFCBD5E1),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    'Adjust appearance scheme',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey.shade600,
+                    const SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Settings & Preferences',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w900,
+                                color: Color(0xFF0F172A),
+                              ),
+                            ),
+                            SizedBox(height: 2),
+                            Text(
+                              'Manage account security, alerts & appearance',
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                color: Color(0xFF64748B),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close_rounded, color: Color(0xFF64748B)),
+                          onPressed: () => Navigator.pop(sheetContext),
+                        ),
+                      ],
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 18),
+                    _buildSectionHeader('PREFERENCES & SECURITY'),
+                    const SizedBox(height: 10),
+                    _buildGroupCard([
+                      _buildListTile(
+                        icon: Icons.security_rounded,
+                        title: 'Account Security',
+                        subtitle: isLoggedIn
+                            ? 'Password, Email & Phone via OTP'
+                            : 'Sign in to protect and secure your account',
+                        onTap: () {
+                          Navigator.pop(sheetContext);
+                          if (!isLoggedIn) {
+                            GuestAuthGuard.requireLogin(
+                              parentContext,
+                              title: 'Account Security',
+                              message:
+                                  'Sign in or register to configure passwords, two-factor auth, and profile security.',
+                            );
+                            return;
+                          }
+                          showAccountSecurityModal(parentContext);
+                        },
+                      ),
+                      _buildListTile(
+                        icon: Icons.notifications_none_rounded,
+                        title: 'Notification Preferences',
+                        subtitle: 'Push, Phone Alerts & Courier Tracking',
+                        onTap: () {
+                          Navigator.pop(sheetContext);
+                          Navigator.pushNamed(
+                              parentContext, AppRoutes.notificationPreferences);
+                        },
+                      ),
+                      _buildListTile(
+                        icon: Icons.language_rounded,
+                        title: 'Language & Currency',
+                        subtitle: 'English (PH) • PHP (₱)',
+                        onTap: () {
+                          ScaffoldMessenger.of(parentContext).showSnackBar(
+                            const SnackBar(
+                              content: Text('Language & Currency: English (PH) • PHP (₱)'),
+                              duration: Duration(seconds: 1),
+                            ),
+                          );
+                        },
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 12),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 36,
+                              height: 36,
+                              decoration: const BoxDecoration(
+                                color: Color(0xFFF1F5F9),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.nightlight_round,
+                                  color: Color(0xFF0066FF), size: 18),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Dark Mode',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 14,
+                                      color: Color(0xFF0F172A),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'Adjust appearance scheme',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey.shade600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Switch(
+                              value: _darkMode,
+                              activeTrackColor: const Color(0xFF0066FF),
+                              onChanged: (val) {
+                                setState(() {
+                                  _darkMode = val;
+                                });
+                                setSheetState(() {});
+                                if (widget.onToggleDarkMode != null) {
+                                  widget.onToggleDarkMode!();
+                                }
+                                ScaffoldMessenger.of(parentContext).showSnackBar(
+                                  SnackBar(
+                                    content: Text(_darkMode
+                                        ? 'Dark Mode enabled!'
+                                        : 'Light Mode enabled!'),
+                                    duration: const Duration(seconds: 1),
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                    ]),
+                  ],
+                ),
               ),
-            ),
-            Switch(
-              value: _darkMode,
-              activeTrackColor: const Color(0xFF0066FF),
-              onChanged: (val) {
-                setState(() {
-                  _darkMode = val;
-                });
-                if (widget.onToggleDarkMode != null) {
-                  widget.onToggleDarkMode!();
-                }
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(_darkMode
-                        ? 'Dark Mode enabled!'
-                        : 'Light Mode enabled!'),
-                    duration: const Duration(seconds: 1),
-                  ),
-                );
-              },
-            ),
-          ],
-        ),
-      ),
-    ]);
+            );
+          },
+        );
+      },
+    );
   }
 
   Widget _buildSupportLegalCard(BuildContext context) {
@@ -1584,6 +1700,49 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Widget _buildLogoutButton(BuildContext context) {
+    final isLoggedIn = BuyerAccountService.instance.isLoggedIn;
+
+    if (!isLoggedIn) {
+      return Container(
+        width: double.infinity,
+        height: 50,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(25),
+          gradient: const LinearGradient(
+            colors: [Color(0xFF0066FF), Color(0xFF0052CC)],
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF0066FF).withValues(alpha: 0.28),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: ElevatedButton.icon(
+          onPressed: () {
+            Navigator.pushNamed(context, AppRoutes.login);
+          },
+          icon: const Icon(Icons.login_rounded, color: Colors.white, size: 18),
+          label: const Text(
+            'Sign In or Create Account',
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w800,
+              fontSize: 15,
+            ),
+          ),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.transparent,
+            shadowColor: Colors.transparent,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(25),
+            ),
+          ),
+        ),
+      );
+    }
+
     return Container(
       width: double.infinity,
       height: 48,
@@ -1599,9 +1758,7 @@ class _ProfilePageState extends State<ProfilePage> {
         ],
       ),
       child: TextButton.icon(
-        onPressed: () {
-          Navigator.pushReplacementNamed(context, AppRoutes.login);
-        },
+        onPressed: () => _showLogoutConfirmationDialog(context),
         icon: const Icon(Icons.logout_rounded, color: Color(0xFFE11D48), size: 18),
         label: const Text(
           'Log Out',
@@ -1611,6 +1768,124 @@ class _ProfilePageState extends State<ProfilePage> {
             fontSize: 15,
           ),
         ),
+      ),
+    );
+  }
+
+  void _showLogoutConfirmationDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        backgroundColor: Colors.white,
+        contentPadding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 56,
+              height: 56,
+              decoration: const BoxDecoration(
+                color: Color(0xFFFFE4E6),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.logout_rounded,
+                color: Color(0xFFE11D48),
+                size: 28,
+              ),
+            ),
+            const SizedBox(height: 18),
+            const Text(
+              'Log Out of Nexora?',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF0F172A),
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Are you sure you want to log out? You will need to sign in again to access your orders and cart.',
+              style: TextStyle(
+                fontSize: 13,
+                color: Color(0xFF64748B),
+                height: 1.4,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        actions: [
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => Navigator.pop(dialogCtx),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    side: const BorderSide(color: Color(0xFFE2E8F0)),
+                  ),
+                  child: const Text(
+                    'Cancel',
+                    style: TextStyle(
+                      color: Color(0xFF64748B),
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () async {
+                    Navigator.pop(dialogCtx);
+                    // Clear session from BuyerAccount, Supabase, and Google Play Services cache
+                    await SupabaseAuthService.instance.signOut();
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Logged out successfully'),
+                        backgroundColor: Color(0xFF0F172A),
+                        behavior: SnackBarBehavior.floating,
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                    Navigator.pushNamedAndRemoveUntil(
+                      context,
+                      AppRoutes.login,
+                      (route) => false,
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFE11D48),
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text(
+                    'Log Out',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

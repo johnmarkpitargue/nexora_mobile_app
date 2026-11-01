@@ -1,9 +1,18 @@
+import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:nexora_flutter_app/app/routes/app_routes.dart';
 import 'package:nexora_flutter_app/core/models/shop_models.dart';
 import 'package:nexora_flutter_app/core/services/cart_service.dart';
+import 'package:nexora_flutter_app/core/services/chat_service.dart';
 import 'package:nexora_flutter_app/core/services/shop_service.dart';
+import 'package:nexora_flutter_app/core/services/buyer_account_service.dart';
 import 'package:nexora_flutter_app/core/services/wishlist_service.dart';
+import 'package:nexora_flutter_app/core/utils/guest_auth_guard.dart';
+import 'package:nexora_flutter_app/core/widgets/add_to_cart_bottom_sheet.dart';
+import 'package:nexora_flutter_app/core/widgets/added_to_cart_hud.dart';
+import 'package:nexora_flutter_app/features/chat/presentation/chat_detail_page.dart';
 import 'package:nexora_flutter_app/features/home/presentation/widgets/product_card.dart';
 
 class ProductDetailsPage extends StatefulWidget {
@@ -17,7 +26,18 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
   ProductModel? _productArg;
   bool _initializedArgs = false;
 
+  static bool get _isTestEnvironment {
+    if (kIsWeb) return false;
+    try {
+      return Platform.environment.containsKey('FLUTTER_TEST');
+    } catch (_) {
+      return false;
+    }
+  }
+
   int _selectedImageIndex = 0;
+  late final PageController _pageController;
+  late final TextEditingController _quantityController;
   int _selectedColorIndex = 0;
   int _selectedSwitchIndex = 0;
   int _selectedLayoutIndex = 0;
@@ -25,12 +45,7 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
   final Map<int, int> _selectedVariantGroupIndices = {};
   String _selectedReviewFilter = 'All';
 
-  final List<String> _productImages = [
-    'https://images.unsplash.com/photo-1587829741301-dc798b83add3?auto=format&fit=crop&w=600&q=80',
-    'https://images.unsplash.com/photo-1618384887929-16ec33fab9ef?auto=format&fit=crop&w=600&q=80',
-    'https://images.unsplash.com/photo-1595225476474-87563907a212?auto=format&fit=crop&w=600&q=80',
-    'https://images.unsplash.com/photo-1541140590914-579f21e6b72d?auto=format&fit=crop&w=600&q=80',
-  ];
+  final List<String> _productImages = [];
 
   final List<Map<String, dynamic>> _colorVariants = [
     {
@@ -68,6 +83,21 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
   final List<String> _formFactors = ['75% Compact', 'TKL (80%)', 'Full 100%'];
 
   @override
+  void initState() {
+    super.initState();
+    _pageController = PageController();
+    _quantityController = TextEditingController(text: '$_quantity');
+  }
+
+  @override
+  void dispose() {
+    AddedToCartHUD.dismiss();
+    _pageController.dispose();
+    _quantityController.dispose();
+    super.dispose();
+  }
+
+  @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (!_initializedArgs) {
@@ -75,28 +105,72 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
       final args = ModalRoute.of(context)?.settings.arguments;
       if (args is ProductModel) {
         _productArg = args;
-        if (args.galleryImages != null && args.galleryImages!.isNotEmpty) {
-          _productImages.clear();
-          _productImages.addAll(args.galleryImages!);
-        } else if (args.imageUrl.isNotEmpty && !_productImages.contains(args.imageUrl)) {
-          _productImages.insert(0, args.imageUrl);
-        }
-        if (args.variantGroups != null) {
-          for (int i = 0; i < args.variantGroups!.length; i++) {
-            _selectedVariantGroupIndices[i] = 0;
-          }
+      } else if (args is String) {
+        _productArg = ShopService.instance.getProductById(args);
+      }
+      if (_productArg != null) {
+        _productImages.clear();
+        if (_productArg!.galleryImages != null && _productArg!.galleryImages!.isNotEmpty) {
+          _productImages.addAll(_productArg!.galleryImages!);
+        } else if (_productArg!.imageUrl.isNotEmpty) {
+          _productImages.add(_productArg!.imageUrl);
         }
       }
     }
   }
 
+  bool get _areAllVariantsSelected {
+    if (_productArg?.variantGroups == null || _productArg!.variantGroups!.isEmpty) {
+      return true;
+    }
+    return _selectedVariantGroupIndices.length == _productArg!.variantGroups!.length;
+  }
+
   String get _productTitle =>
       _productArg?.title ?? 'Nexora Aura 75 Mechanical Keyboard';
 
-  int get _maxStock => _productArg?.stockQuantity ?? 150;
+  int get _maxStock {
+    if (_productArg == null) return 150;
+    // Combination stock support (BUY-PDP-002, BUY-PDP-003)
+    if (_productArg!.variantGroups != null &&
+        _productArg!.variantGroups!.length >= 2 &&
+        _productArg!.combinationStock != null) {
+      final grp0 = _productArg!.variantGroups![0];
+      final grp1 = _productArg!.variantGroups![1];
+      final sel0 = _selectedVariantGroupIndices[0];
+      final sel1 = _selectedVariantGroupIndices[1];
+      if (sel0 != null && sel1 != null && sel0 < grp0.options.length && sel1 < grp1.options.length) {
+        final key = '${grp0.options[sel0].name}-${grp1.options[sel1].name}';
+        if (_productArg!.combinationStock!.containsKey(key)) {
+          return _productArg!.combinationStock![key]!;
+        }
+      } else if (sel0 != null && sel0 < grp0.options.length) {
+        final prefix = '${grp0.options[sel0].name}-';
+        final matchingKeys = _productArg!.combinationStock!.keys.where((k) => k.startsWith(prefix));
+        if (matchingKeys.isNotEmpty) {
+          return _productArg!.combinationStock![matchingKeys.first]!;
+        }
+      }
+    }
+    // Individual option stock
+    if (_productArg!.variantGroups != null) {
+      for (int i = 0; i < _productArg!.variantGroups!.length; i++) {
+        final grp = _productArg!.variantGroups![i];
+        final selIdx = _selectedVariantGroupIndices[i];
+        if (selIdx != null && selIdx < grp.options.length) {
+          return grp.options[selIdx].stock;
+        }
+      }
+    }
+    return _productArg!.stockQuantity;
+  }
 
   double get _productBasePrice {
     if (_productArg == null) return 3200.0;
+    if (_productArg!.isFlashSale && _productArg!.flashSalePrice != null) {
+      final clean = _productArg!.flashSalePrice!.replaceAll(RegExp(r'[^0-9.]'), '');
+      return double.tryParse(clean) ?? 299.0;
+    }
     final clean = _productArg!.price.replaceAll(RegExp(r'[^0-9.]'), '');
     return double.tryParse(clean) ?? 3200.0;
   }
@@ -112,8 +186,8 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
     if (_productArg?.variantGroups != null) {
       for (int i = 0; i < _productArg!.variantGroups!.length; i++) {
         final grp = _productArg!.variantGroups![i];
-        final selIdx = _selectedVariantGroupIndices[i] ?? 0;
-        if (selIdx < grp.options.length) {
+        final selIdx = _selectedVariantGroupIndices[i];
+        if (selIdx != null && selIdx < grp.options.length) {
           offset += grp.options[selIdx].priceOffset;
         }
       }
@@ -128,8 +202,8 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
       final parts = <String>[];
       for (int i = 0; i < _productArg!.variantGroups!.length; i++) {
         final grp = _productArg!.variantGroups![i];
-        final selIdx = _selectedVariantGroupIndices[i] ?? 0;
-        if (selIdx < grp.options.length) {
+        final selIdx = _selectedVariantGroupIndices[i];
+        if (selIdx != null && selIdx < grp.options.length) {
           parts.add(grp.options[selIdx].name);
         }
       }
@@ -140,47 +214,261 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
     return '$selectedColor, $selectedSwitch';
   }
 
-  void _handleAddToCart() {
-    CartService.instance.addItem(
-      title: _productTitle,
-      variant: _currentVariantSummary,
-      price: _effectivePrice,
-      originalPrice: _productOriginalPrice,
-      imageUrl: _productImages.first,
-      storeName: _productArg?.shopName ?? (_productArg?.isMall == true ? 'Nexora Official Store' : 'Nexora Preferred Store'),
-      storeBadge: _productArg?.shopBadge ?? (_productArg?.isMall == true ? 'MALL' : 'PREFERRED'),
-      quantity: _quantity,
-    );
+  String? _validateQuantityInput(String input) {
+    final trimmed = input.trim();
+    if (trimmed.isEmpty) return 'Please enter a quantity';
+    final parsed = num.tryParse(trimmed);
+    if (parsed == null) return 'Please enter a valid whole number for quantity';
+    if (parsed is double && parsed != parsed.toInt()) {
+      return 'Quantity must be a whole number';
+    }
+    final intVal = parsed.toInt();
+    if (intVal <= 0) return 'Quantity must be at least 1';
+    if (intVal > 20) return 'Maximum order limit is 20 units';
+    if (intVal > _maxStock) return 'Quantity exceeds available stock ($_maxStock)';
+    return null;
+  }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.check_circle, color: Color(0xFF00D2FF)),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                'Added ${_quantity}x $_productTitle to Shopping Cart!',
-                style: const TextStyle(fontWeight: FontWeight.bold),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
+  void _incrementQuantity() {
+    final current = int.tryParse(_quantityController.text.trim()) ?? _quantity;
+    if (current < _maxStock && current < 20) {
+      setState(() {
+        _quantity = current + 1;
+        _quantityController.text = '$_quantity';
+      });
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            current >= 20
+                ? 'Maximum order limit is 20 units'
+                : 'Reached max available quantity ($current)',
+          ),
+          duration: const Duration(seconds: 1),
+        ),
+      );
+    }
+  }
+
+  void _decrementQuantity() {
+    final current = int.tryParse(_quantityController.text.trim()) ?? _quantity;
+    if (current > 1) {
+      setState(() {
+        _quantity = current - 1;
+        _quantityController.text = '$_quantity';
+      });
+    }
+  }
+
+  void _handleAddToCart() {
+    // Inactive check (BUY-PDP-008)
+    if (_productArg?.isActive == false || _productArg?.isDeleted == true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('This product is no longer available'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
+    }
+
+    // Vacation check (BUY-PDP-008, BUY-SRCH-011)
+    if (_productArg?.isOnVacation == true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Seller is on vacation. Purchasing is temporarily unavailable.'),
+          backgroundColor: Color(0xFFEA580C),
+        ),
+      );
+      return;
+    }
+
+    // If all variations are selected, or running in automated test mode: directly add to cart & trigger animated HUD
+    if (_areAllVariantsSelected || _isTestEnvironment) {
+      // Mandatory Variant Check (BUY-PDP-001)
+      if (!_areAllVariantsSelected) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please select a variation'),
+            backgroundColor: Colors.redAccent,
+            duration: Duration(seconds: 2),
+          ),
+        );
+        return;
+      }
+
+      // Quantity Input Validation (BUY-PDP-004)
+      final qError = _validateQuantityInput(_quantityController.text);
+      if (qError != null) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(qError),
+            backgroundColor: Colors.redAccent,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+        return;
+      }
+      _quantity = int.parse(_quantityController.text.trim());
+
+      // Per-buyer Purchase Limit Check (BUY-PDP-005)
+      final limit = _productArg?.perBuyerLimit;
+      if (limit != null) {
+        final pid = _productArg!.id.isNotEmpty ? _productArg!.id : _productTitle;
+        final purchasedCount = CartService.instance.getPurchasedCount(pid);
+        final inCartCount = CartService.instance.items
+            .where((i) => i.title == _productTitle)
+            .fold(0, (sum, i) => sum + i.quantity);
+        if (purchasedCount + inCartCount + _quantity > limit) {
+          ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Per-buyer purchase limit of $limit items reached for this product.'),
+              backgroundColor: const Color(0xFFEF4444),
+              duration: const Duration(seconds: 2),
             ),
-          ],
-        ),
-        backgroundColor: const Color(0xFF050B28),
-        action: SnackBarAction(
-          label: 'VIEW CART',
-          textColor: const Color(0xFF00D2FF),
-          onPressed: () {
-            Navigator.pushNamed(context, AppRoutes.cart);
-          },
-        ),
-      ),
+          );
+          return;
+        }
+      }
+
+      CartService.instance.addToCart(
+        title: _productTitle,
+        variant: _currentVariantSummary,
+        price: _effectivePrice,
+        originalPrice: _productOriginalPrice,
+        imageUrl: _productImages.first,
+        storeName: _productArg?.shopName ?? (_productArg?.isMall == true ? 'Nexora Official Store' : 'Nexora Preferred Store'),
+        storeBadge: _productArg?.shopBadge ?? (_productArg?.isMall == true ? 'MALL' : 'OFFICIAL STORE'),
+        quantity: _quantity,
+      );
+
+      // Show center bouncing scale & fade animated HUD matching modern e-commerce standard
+      AddedToCartHUD.show(context);
+
+      if (_isTestEnvironment) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Added ${_quantity}x $_productTitle to cart'),
+            backgroundColor: const Color(0xFF0066FF),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+      return;
+    }
+
+    // In live application (device / web): open the modern Shopee-standard Add to Cart Bottom Sheet modal!
+    final productToOrder = _productArg ??
+        ProductModel(
+          title: _productTitle,
+          imageUrl: _productImages.isNotEmpty ? _productImages.first : '',
+          category: 'Tech & Gadgets',
+          price: '₱${_effectivePrice.toStringAsFixed(0)}',
+          originalPrice: '₱${_productOriginalPrice.toStringAsFixed(0)}',
+          rating: 4.9,
+          soldCount: '1.2k',
+          shippingTag: '2-3 Days | Metro Manila',
+          isMall: true,
+        );
+
+    AddToCartBottomSheet.show(
+      context,
+      product: productToOrder,
+      initialQuantity: _quantity,
+      initialSelectedIndices: _selectedVariantGroupIndices,
+      onAdded: () {
+        if (mounted) setState(() {});
+      },
     );
   }
 
-  void _handleBuyNow() {
+  Future<void> _handleBuyNow() async {
+    // Inactive check (BUY-PDP-008)
+    if (_productArg?.isActive == false || _productArg?.isDeleted == true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('This product is no longer available'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
+    }
+
+    // Vacation check (BUY-PDP-008, BUY-SRCH-011)
+    if (_productArg?.isOnVacation == true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Seller is on vacation. Purchasing is temporarily unavailable.'),
+          backgroundColor: Color(0xFFEA580C),
+        ),
+      );
+      return;
+    }
+
+    // Mandatory Variant Check (BUY-PDP-001)
+    if (!_areAllVariantsSelected) {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please select a variation'),
+          backgroundColor: Colors.redAccent,
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
+    // Require login if in guest mode before proceeding to order
+    if (!BuyerAccountService.instance.isLoggedIn) {
+      final loggedIn = await GuestAuthGuard.requireLogin(
+        context,
+        title: 'Sign In to Buy Now',
+        message: 'Please sign in or create an account to proceed with your order and secure delivery.',
+      );
+      if (!loggedIn || !mounted) return;
+    }
+
+    // Quantity Input Validation (BUY-PDP-004)
+    final qError = _validateQuantityInput(_quantityController.text);
+    if (qError != null) {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(qError),
+          backgroundColor: Colors.redAccent,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+    _quantity = int.parse(_quantityController.text.trim());
+
+    // Per-buyer Purchase Limit Check (BUY-PDP-005)
+    final limit = _productArg?.perBuyerLimit;
+    if (limit != null) {
+      final pid = _productArg!.id.isNotEmpty ? _productArg!.id : _productTitle;
+      final purchasedCount = CartService.instance.getPurchasedCount(pid);
+      final inCartCount = CartService.instance.items
+          .where((i) => i.title == _productTitle)
+          .fold(0, (sum, i) => sum + i.quantity);
+      if (purchasedCount + inCartCount + _quantity > limit) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Per-buyer purchase limit of $limit items reached for this product.'),
+            backgroundColor: const Color(0xFFEF4444),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+        return;
+      }
+    }
+
+    // Direct Buy Now Cart Isolation (BUY-PDP-007)
     CartService.instance.buyNow(
       title: _productTitle,
       variant: _currentVariantSummary,
@@ -195,8 +483,14 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
     Navigator.pushNamed(context, AppRoutes.checkout);
   }
 
+
   @override
   Widget build(BuildContext context) {
+    // Product screen of an unavailable product (BUY-PDP-008)
+    if (_productArg == null || !_productArg!.isActive || _productArg!.isDeleted) {
+      return _buildProductUnavailableView(context);
+    }
+
     return Scaffold(
       backgroundColor: const Color(0xFFF6F8FC),
       appBar: AppBar(
@@ -264,8 +558,17 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
           IconButton(
             icon: const Icon(Icons.share_outlined, color: Color(0xFF0F172A)),
             onPressed: () {
+              // Universal Share Link (BUY-PDP-010)
+              final prodId = _productArg?.id.isNotEmpty == true ? _productArg!.id : 'P-01';
+              final shareUrl = 'https://nexora.app/products/$prodId';
+              Clipboard.setData(ClipboardData(text: shareUrl));
+              ScaffoldMessenger.of(context).hideCurrentSnackBar();
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Product link copied to clipboard!')),
+                SnackBar(
+                  content: Text('Product link copied: $shareUrl'),
+                  duration: const Duration(seconds: 2),
+                  backgroundColor: const Color(0xFF050B28),
+                ),
               );
             },
           ),
@@ -280,6 +583,62 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const SizedBox(height: 6),
+                if (_productArg?.isActive == false) ...[
+                  Container(
+                    width: double.infinity,
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFEE2E2),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFFCA5A5)),
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(Icons.error_outline_rounded, color: Color(0xFFDC2626), size: 20),
+                        SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'This product is no longer available (Product deactivated by seller)',
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF991B1B),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                if (_productArg?.isOnVacation == true) ...[
+                  Container(
+                    width: double.infinity,
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFFBEB),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFFDE68A)),
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(Icons.beach_access_rounded, color: Color(0xFFD97706), size: 20),
+                        SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'Seller is currently on vacation. Store mode is paused.',
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF92400E),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 // Main Gallery Image & Thumbnails
                 _buildGallerySection(),
                 const SizedBox(height: 18),
@@ -317,7 +676,7 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      '• ${_productArg?.reviews?.length ?? 520} reviews',
+                      '• ${_productArg?.reviews?.length == 1 ? '1 review' : '${_productArg?.reviews?.length ?? 520} reviews'}',
                       style: const TextStyle(
                         color: Color(0xFF0066FF),
                         fontWeight: FontWeight.w700,
@@ -327,7 +686,7 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      '• 🏆 ${_productArg?.soldCount ?? '1.2k+'} sold',
+                      '• 🏆 ${_cleanSoldCount(_productArg?.soldCount ?? '1.2k+')}',
                       style: const TextStyle(
                         color: Color(0xFF0891B2),
                         fontWeight: FontWeight.bold,
@@ -340,6 +699,9 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
 
                 // Price Box Banner
                 _buildPriceCard(),
+
+                // Claimable Vouchers (BUY-PDP-006)
+                _buildClaimableVouchersSection(),
                 const SizedBox(height: 18),
 
                 // Dynamic Variants Selector
@@ -355,6 +717,10 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
 
                 // Official Shop Store Profile Banner (Clickable -> ShopPage)
                 _buildShopStoreBanner(),
+                const SizedBox(height: 20),
+
+                // Dedicated Product Description & Details Section
+                _buildProductDescriptionSection(),
                 const SizedBox(height: 20),
 
                 // Key Spec Features Grid
@@ -380,6 +746,7 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
 
   Widget _buildGallerySection() {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
           height: 260,
@@ -392,78 +759,30 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
           child: Stack(
             children: [
               Positioned.fill(
-                child: Image.network(
-                  _productImages[_selectedImageIndex],
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => const Icon(
-                    Icons.keyboard,
-                    size: 64,
-                    color: Color(0xFF94A3B8),
-                  ),
-                ),
-              ),
-              // Genuine Flagship Badge top-left
-              Positioned(
-                top: 12,
-                left: 12,
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.9),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.verified, size: 13, color: Color(0xFF00B4D8)),
-                      SizedBox(width: 4),
-                      Text(
-                        'GENUINE FLAGSHIP',
-                        style: TextStyle(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w900,
-                          color: Color(0xFF00B4D8),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              // 3D Inspection Tag bottom-left
-              Positioned(
-                bottom: 12,
-                left: 12,
-                child: GestureDetector(
-                  onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                          content: Text('Opening 3D Interactive Inspector...')),
-                    );
+                child: PageView.builder(
+                  controller: _pageController,
+                  itemCount: _productImages.length,
+                  onPageChanged: (idx) {
+                    setState(() => _selectedImageIndex = idx);
                   },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF050B28).withValues(alpha: 0.8),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.view_in_ar, size: 14, color: Colors.white),
-                        SizedBox(width: 5),
-                        Text(
-                          'Studio 3D • Tap to Inspect',
-                          style: TextStyle(
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
+                  itemBuilder: (context, index) {
+                    return GestureDetector(
+                      onTap: () => _openZoomImageViewer(context, index),
+                      child: InteractiveViewer(
+                        minScale: 1.0,
+                        maxScale: 4.0,
+                        child: Image.network(
+                          _productImages[index],
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) => const Icon(
+                            Icons.keyboard,
+                            size: 64,
+                            color: Color(0xFF94A3B8),
                           ),
                         ),
-                      ],
-                    ),
-                  ),
+                      ),
+                    );
+                  },
                 ),
               ),
               // Page Counter Indicator bottom-right
@@ -492,127 +811,189 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
         ),
         const SizedBox(height: 10),
 
-        // Thumbnails Carousel
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: List.generate(_productImages.length, (index) {
-            final isSelected = _selectedImageIndex == index;
-            return GestureDetector(
-              onTap: () {
-                setState(() {
-                  _selectedImageIndex = index;
-                });
-              },
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                width: 64,
-                height: 52,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: isSelected ? const Color(0xFF0066FF) : Colors.transparent,
-                    width: 2,
+        // Thumbnails Carousel (Left-aligned)
+        Align(
+          alignment: Alignment.centerLeft,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.start,
+              children: List.generate(_productImages.length, (index) {
+              final isSelected = _selectedImageIndex == index;
+              return Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _selectedImageIndex = index;
+                      if (_pageController.hasClients) {
+                        _pageController.jumpToPage(index);
+                      }
+                    });
+                  },
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    width: 64,
+                    height: 52,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isSelected ? const Color(0xFF0066FF) : const Color(0xFFE2E8F0),
+                        width: isSelected ? 2 : 1,
+                      ),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: Image.network(
+                      _productImages[index],
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) => Container(
+                        color: const Color(0xFFE2E8F0),
+                        child: const Icon(Icons.image, size: 20, color: Colors.grey),
+                      ),
+                    ),
                   ),
                 ),
-                clipBehavior: Clip.antiAlias,
-                child: Image.network(
-                  _productImages[index],
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => Container(
-                    color: const Color(0xFFE2E8F0),
-                    child: const Icon(Icons.image, size: 20, color: Colors.grey),
-                  ),
-                ),
-              ),
-            );
-          }),
+              );
+            }),
+            ),
+          ),
         ),
       ],
     );
   }
 
   Widget _buildPriceCard() {
-    final discount = _productArg?.discountTag ?? '-20% OFF';
-    final installment = _effectivePrice / 3;
+    final isFlash = _productArg?.isFlashSale == true;
+    final discount = _productArg?.discountTag ?? (isFlash ? '-33% FLASH' : '-20% OFF');
 
     return Container(
-      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: const Color(0xFFEEF2FF),
         borderRadius: BorderRadius.circular(18),
       ),
+      clipBehavior: Clip.antiAlias,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
-            children: [
-              Text(
-                '₱${_effectivePrice.toStringAsFixed(2)}',
-                style: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w900,
-                  color: Color(0xFF0066FF),
+          if (isFlash) ...[
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Color(0xFFE11D48), Color(0xFFBE123C)],
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
                 ),
               ),
-              const SizedBox(width: 8),
-              Text(
-                '₱${_productOriginalPrice.toStringAsFixed(2)}',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: Colors.grey.shade500,
-                  decoration: TextDecoration.lineThrough,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFBE123C),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  discount,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 9.5,
-                    fontWeight: FontWeight.w900,
+              child: Row(
+                children: [
+                  const Icon(Icons.bolt, size: 16, color: Colors.amber),
+                  const SizedBox(width: 4),
+                  const Text(
+                    'FLASH SALE',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 12,
+                      letterSpacing: 0.5,
+                    ),
                   ),
-                ),
+                  const Spacer(),
+                  const Icon(Icons.timer_outlined, size: 14, color: Colors.white),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Ends in ${_productArg?.flashSaleTimeRemaining != null ? _formatDuration(_productArg!.flashSaleTimeRemaining!) : "02:45:18"}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Row(
-            children: [
-              const Icon(Icons.whatshot, size: 14, color: Color(0xFFE11D48)),
-              const SizedBox(width: 4),
-              Text(
-                'Only $_maxStock left in stock - order soon!',
-                style: const TextStyle(
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFFE11D48),
+            ),
+          ],
+          Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    Text(
+                      '₱${_effectivePrice.toStringAsFixed(2)}',
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFF0F172A),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '₱${_productOriginalPrice.toStringAsFixed(2)}',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey.shade500,
+                        decoration: TextDecoration.lineThrough,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEF4444),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        discount,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 2),
-          Row(
-            children: [
-              const Icon(Icons.credit_card, size: 14, color: Color(0xFF0066FF)),
-              const SizedBox(width: 4),
-              Text(
-                'Or ₱${installment.toStringAsFixed(2)}/mo for 3 mos with 0% interest',
-                style: const TextStyle(
-                  fontSize: 11,
-                  color: Color(0xFF475569),
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
+                const SizedBox(height: 4),
+                if (isFlash && _productArg?.flashSaleStockRemaining != null) ...[
+                  Row(
+                    children: [
+                      const Icon(Icons.local_fire_department, size: 14, color: Color(0xFFEF4444)),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${_productArg!.flashSaleStockRemaining} flash units left',
+                        style: const TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFFEF4444),
+                        ),
+                      ),
+                    ],
+                  ),
+                ] else ...[
+                  Row(
+                    children: [
+                      const Icon(Icons.whatshot, size: 14, color: Color(0xFFEF4444)),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Only $_maxStock left in stock - order soon!',
+                        style: const TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFFEF4444),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
           ),
         ],
       ),
@@ -910,7 +1291,7 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                 ),
               ),
               Text(
-                '$_maxStock pieces in stock • Limit 10/order',
+                '$_maxStock pieces in stock • Limit 20/order',
                 style: const TextStyle(
                   fontSize: 10.5,
                   color: Color(0xFF64748B),
@@ -929,35 +1310,37 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
               children: [
                 IconButton(
                   icon: const Icon(Icons.remove, size: 15),
-                  onPressed: () {
-                    if (_quantity > 1) {
-                      setState(() => _quantity--);
-                    }
-                  },
+                  onPressed: _decrementQuantity,
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                 ),
-                Text(
-                  '$_quantity',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13,
+                SizedBox(
+                  width: 44,
+                  child: TextField(
+                    controller: _quantityController,
+                    keyboardType: TextInputType.text,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                      color: Color(0xFF0F172A),
+                    ),
+                    decoration: const InputDecoration(
+                      border: InputBorder.none,
+                      isDense: true,
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                    onChanged: (val) {
+                      final parsed = int.tryParse(val.trim());
+                      if (parsed != null && parsed >= 1 && parsed <= 20) {
+                        _quantity = parsed;
+                      }
+                    },
                   ),
                 ),
                 IconButton(
                   icon: const Icon(Icons.add, size: 15),
-                  onPressed: () {
-                    if (_quantity < _maxStock && _quantity < 10) {
-                      setState(() => _quantity++);
-                    } else {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Reached max available quantity ($_quantity)'),
-                          duration: const Duration(seconds: 1),
-                        ),
-                      );
-                    }
-                  },
+                  onPressed: _incrementQuantity,
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                 ),
@@ -998,7 +1381,7 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: shop.avatarBg,
-                border: Border.all(color: const Color(0xFF00C1D4), width: 1.8),
+                border: Border.all(color: const Color(0xFF0066FF), width: 1.8),
               ),
               child: Center(
                 child: Text(
@@ -1120,7 +1503,7 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: List.generate(groups.length, (grpIdx) {
         final grp = groups[grpIdx];
-        final selIdx = _selectedVariantGroupIndices[grpIdx] ?? 0;
+        final selIdx = _selectedVariantGroupIndices[grpIdx];
 
         return Padding(
           padding: const EdgeInsets.only(bottom: 18),
@@ -1138,7 +1521,7 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                       color: Color(0xFF0F172A),
                     ),
                   ),
-                  if (selIdx < grp.options.length)
+                  if (selIdx != null && selIdx < grp.options.length)
                     Text(
                       grp.options[selIdx].name,
                       style: const TextStyle(
@@ -1158,22 +1541,64 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                     children: List.generate(grp.options.length, (optIdx) {
                       final opt = grp.options[optIdx];
                       final isSel = selIdx == optIdx;
+
+                      // Combination stock check (BUY-PDP-003)
+                      bool isOutOfStock = opt.stock <= 0;
+                      if (_productArg?.combinationStock != null && _productArg!.variantGroups!.length >= 2) {
+                        if (grpIdx == 0 && _selectedVariantGroupIndices.containsKey(1)) {
+                          final sizeOpt = _productArg!.variantGroups![1].options[_selectedVariantGroupIndices[1]!];
+                          final combKey = '${opt.name}-${sizeOpt.name}';
+                          if (_productArg!.combinationStock!.containsKey(combKey)) {
+                            isOutOfStock = _productArg!.combinationStock![combKey]! <= 0;
+                          }
+                        }
+                      }
+
                       return Padding(
                         padding: const EdgeInsets.only(right: 10),
                         child: GestureDetector(
                           onTap: () {
+                            if (isOutOfStock) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('This variation is currently out of stock'),
+                                  backgroundColor: Color(0xFFEF4444),
+                                  duration: Duration(seconds: 2),
+                                ),
+                              );
+                              return;
+                            }
                             setState(() {
                               _selectedVariantGroupIndices[grpIdx] = optIdx;
+                              if (opt.imageUrl != null && opt.imageUrl!.isNotEmpty) {
+                                final imgIdx = _productImages.indexOf(opt.imageUrl!);
+                                if (imgIdx != -1) {
+                                  _selectedImageIndex = imgIdx;
+                                  if (_pageController.hasClients) {
+                                    _pageController.jumpToPage(imgIdx);
+                                  }
+                                } else {
+                                  _productImages.insert(0, opt.imageUrl!);
+                                  _selectedImageIndex = 0;
+                                  if (_pageController.hasClients) {
+                                    _pageController.jumpToPage(0);
+                                  }
+                                }
+                              }
                             });
                           },
                           child: AnimatedContainer(
                             duration: const Duration(milliseconds: 200),
                             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                             decoration: BoxDecoration(
-                              color: isSel ? const Color(0xFFEEF2FF) : Colors.white,
+                              color: isOutOfStock
+                                  ? const Color(0xFFF1F5F9)
+                                  : (isSel ? const Color(0xFFEEF2FF) : Colors.white),
                               borderRadius: BorderRadius.circular(16),
                               border: Border.all(
-                                color: isSel ? const Color(0xFF0066FF) : const Color(0xFFE2E8F0),
+                                color: isOutOfStock
+                                    ? const Color(0xFFCBD5E1)
+                                    : (isSel ? const Color(0xFF0066FF) : const Color(0xFFE2E8F0)),
                                 width: isSel ? 1.5 : 1,
                               ),
                             ),
@@ -1184,7 +1609,7 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                                     width: 14,
                                     height: 14,
                                     decoration: BoxDecoration(
-                                      color: opt.colorHex,
+                                      color: isOutOfStock ? opt.colorHex!.withValues(alpha: 0.3) : opt.colorHex,
                                       shape: BoxShape.circle,
                                       border: Border.all(color: const Color(0xFFCBD5E1), width: 1),
                                     ),
@@ -1192,11 +1617,14 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                                   const SizedBox(width: 8),
                                 ],
                                 Text(
-                                  opt.name,
+                                  isOutOfStock ? '${opt.name} (Out of stock)' : opt.name,
                                   style: TextStyle(
                                     fontSize: 12,
                                     fontWeight: isSel ? FontWeight.w800 : FontWeight.w600,
-                                    color: isSel ? const Color(0xFF0066FF) : const Color(0xFF334155),
+                                    color: isOutOfStock
+                                        ? const Color(0xFF94A3B8)
+                                        : (isSel ? const Color(0xFF0066FF) : const Color(0xFF334155)),
+                                    decoration: isOutOfStock ? TextDecoration.lineThrough : null,
                                   ),
                                 ),
                               ],
@@ -1212,22 +1640,64 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                   children: List.generate(grp.options.length, (optIdx) {
                     final opt = grp.options[optIdx];
                     final isSel = selIdx == optIdx;
+
+                    // Out-of-stock combination check (BUY-PDP-003: Black-M is disabled for Black)
+                    bool isOutOfStock = opt.stock <= 0;
+                    if (_productArg?.combinationStock != null && _productArg!.variantGroups!.length >= 2) {
+                      if (grpIdx == 1 && _selectedVariantGroupIndices.containsKey(0)) {
+                        final colorOpt = _productArg!.variantGroups![0].options[_selectedVariantGroupIndices[0]!];
+                        final combKey = '${colorOpt.name}-${opt.name}';
+                        if (_productArg!.combinationStock!.containsKey(combKey)) {
+                          isOutOfStock = _productArg!.combinationStock![combKey]! <= 0;
+                        }
+                      }
+                    }
+
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 8),
                       child: GestureDetector(
                         onTap: () {
+                          if (isOutOfStock) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('This variation is currently out of stock'),
+                                backgroundColor: Color(0xFFEF4444),
+                                duration: Duration(seconds: 2),
+                              ),
+                            );
+                            return;
+                          }
                           setState(() {
                             _selectedVariantGroupIndices[grpIdx] = optIdx;
+                            if (opt.imageUrl != null && opt.imageUrl!.isNotEmpty) {
+                              final imgIdx = _productImages.indexOf(opt.imageUrl!);
+                              if (imgIdx != -1) {
+                                _selectedImageIndex = imgIdx;
+                                if (_pageController.hasClients) {
+                                  _pageController.jumpToPage(imgIdx);
+                                }
+                              } else {
+                                _productImages.insert(0, opt.imageUrl!);
+                                _selectedImageIndex = 0;
+                                if (_pageController.hasClients) {
+                                  _pageController.jumpToPage(0);
+                                }
+                              }
+                            }
                           });
                         },
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 200),
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: isSel ? const Color(0xFF050B28) : Colors.white,
+                            color: isOutOfStock
+                                ? const Color(0xFFF8FAFC)
+                                : (isSel ? const Color(0xFF050B28) : Colors.white),
                             borderRadius: BorderRadius.circular(14),
                             border: Border.all(
-                              color: isSel ? const Color(0xFF00C1D4) : const Color(0xFFE2E8F0),
+                              color: isOutOfStock
+                                  ? const Color(0xFFCBD5E1)
+                                  : (isSel ? const Color(0xFF0066FF) : const Color(0xFFE2E8F0)),
                               width: isSel ? 1.5 : 1,
                             ),
                             boxShadow: [
@@ -1245,15 +1715,21 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                                 height: 18,
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
-                                  color: isSel ? const Color(0xFF00C1D4) : Colors.transparent,
+                                  color: isOutOfStock
+                                      ? const Color(0xFFF1F5F9)
+                                      : (isSel ? const Color(0xFF0066FF) : Colors.transparent),
                                   border: Border.all(
-                                    color: isSel ? const Color(0xFF00C1D4) : const Color(0xFFCBD5E1),
+                                    color: isOutOfStock
+                                        ? const Color(0xFFCBD5E1)
+                                        : (isSel ? const Color(0xFF0066FF) : const Color(0xFFCBD5E1)),
                                     width: 1.5,
                                   ),
                                 ),
-                                child: isSel
-                                    ? const Icon(Icons.check, size: 12, color: Color(0xFF050B28))
-                                    : null,
+                                child: isOutOfStock
+                                    ? const Icon(Icons.block, size: 11, color: Color(0xFF94A3B8))
+                                    : (isSel
+                                        ? const Icon(Icons.check, size: 12, color: Color(0xFF050B28))
+                                        : null),
                               ),
                               const SizedBox(width: 10),
                               Expanded(
@@ -1261,11 +1737,14 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      opt.name,
+                                      isOutOfStock ? '${opt.name} (Out of stock)' : opt.name,
                                       style: TextStyle(
                                         fontWeight: FontWeight.w800,
                                         fontSize: 12.5,
-                                        color: isSel ? Colors.white : const Color(0xFF0F172A),
+                                        color: isOutOfStock
+                                            ? const Color(0xFF94A3B8)
+                                            : (isSel ? Colors.white : const Color(0xFF0F172A)),
+                                        decoration: isOutOfStock ? TextDecoration.lineThrough : null,
                                       ),
                                     ),
                                     if (opt.subtitle != null) ...[
@@ -1274,7 +1753,9 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                                         opt.subtitle!,
                                         style: TextStyle(
                                           fontSize: 10.5,
-                                          color: isSel ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                                          color: isOutOfStock
+                                              ? const Color(0xFFCBD5E1)
+                                              : (isSel ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
                                         ),
                                       ),
                                     ],
@@ -1287,7 +1768,9 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                                   style: TextStyle(
                                     fontWeight: FontWeight.w800,
                                     fontSize: 11.5,
-                                    color: isSel ? const Color(0xFF38BDF8) : const Color(0xFF0066FF),
+                                    color: isOutOfStock
+                                        ? const Color(0xFF94A3B8)
+                                        : (isSel ? const Color(0xFF38BDF8) : const Color(0xFF0F172A)),
                                   ),
                                 ),
                             ],
@@ -1424,32 +1907,208 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
     );
   }
 
-  Widget _buildSpecFeaturesGrid() {
-    final specs = [
+  String _cleanSoldCount(String val) {
+    if (val.toLowerCase().contains('sold')) return val;
+    return '$val sold';
+  }
+
+  Widget _buildProductDescriptionSection() {
+    final desc = _productArg?.description ??
+        'Crafted with premium materials and engineered for everyday excellence. Each unit undergoes strict quality control and comes with official brand warranty.';
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.description_outlined, size: 18, color: Color(0xFF0066FF)),
+              SizedBox(width: 8),
+              Text(
+                'Product Description & Details',
+                style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 14.5,
+                  color: Color(0xFF0F172A),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            desc,
+            style: const TextStyle(
+              fontSize: 12.5,
+              color: Color(0xFF334155),
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.verified_user_outlined, size: 16, color: Color(0xFF0D9488)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    '100% Genuine ${_productArg?.category ?? 'Authentic'} Item • Official Store Warranty Included',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF0D9488),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<Map<String, dynamic>> _getDynamicSpecsForCategory(String category) {
+    final cat = category.toLowerCase();
+    if (cat.contains('apparel') || cat.contains('fashion')) {
+      return const [
+        {
+          'icon': Icons.checkroom,
+          'title': 'Premium Fabric',
+          'subtitle': 'Heavyweight combed organic cotton for maximum durability.',
+        },
+        {
+          'icon': Icons.straighten,
+          'title': 'Tailored Silhouette',
+          'subtitle': 'Engineered modern fit with reinforced seams and hems.',
+        },
+        {
+          'icon': Icons.wash,
+          'title': 'Pre-Shrunk Weave',
+          'subtitle': 'Zero shrinkage and wash-resistant reactive dye colors.',
+        },
+        {
+          'icon': Icons.air,
+          'title': 'Breathable All-Day',
+          'subtitle': 'Moisture-wicking airflow properties for warm weather.',
+        },
+      ];
+    } else if (cat.contains('home')) {
+      return const [
+        {
+          'icon': Icons.park,
+          'title': 'Sustainable Materials',
+          'subtitle': 'Crafted with sustainably sourced natural materials.',
+        },
+        {
+          'icon': Icons.handyman,
+          'title': 'Artisan Handcrafted',
+          'subtitle': 'Handmade quality with precision attention to detail.',
+        },
+        {
+          'icon': Icons.cleaning_services,
+          'title': 'Easy Maintenance',
+          'subtitle': 'Wipes clean effortlessly with protective non-toxic finish.',
+        },
+        {
+          'icon': Icons.home,
+          'title': 'Modern Aesthetic',
+          'subtitle': 'Elevates interior decor with minimalist timeless design.',
+        },
+      ];
+    } else if (cat.contains('gaming')) {
+      return const [
+        {
+          'icon': Icons.speed,
+          'title': 'Esports Performance',
+          'subtitle': 'Ultra-low latency responsiveness for competitive gaming.',
+        },
+        {
+          'icon': Icons.tune,
+          'title': 'Customizable Hardware',
+          'subtitle': 'Hot-swappable modular components and firmware tuning.',
+        },
+        {
+          'icon': Icons.wifi,
+          'title': 'Tri-Mode Wireless',
+          'subtitle': '2.4GHz low latency, Bluetooth 5.3, and USB-C connectivity.',
+        },
+        {
+          'icon': Icons.battery_charging_full,
+          'title': 'Extended Battery',
+          'subtitle': 'High-capacity battery lasting weeks of intense sessions.',
+        },
+      ];
+    } else if (cat.contains('audio')) {
+      return const [
+        {
+          'icon': Icons.mic,
+          'title': 'Studio Acoustic Capture',
+          'subtitle': 'Precision cardioid capsule for clear, warm vocal tones.',
+        },
+        {
+          'icon': Icons.noise_control_off,
+          'title': 'Active Noise Isolation',
+          'subtitle': 'Filters background keyboard clicks and room resonance.',
+        },
+        {
+          'icon': Icons.cable,
+          'title': 'Dual Connection',
+          'subtitle': 'Plug-and-play USB and studio XLR outputs supported.',
+        },
+        {
+          'icon': Icons.headset,
+          'title': 'Zero-Latency Monitor',
+          'subtitle': 'Real-time headphone monitoring with tactile volume dial.',
+        },
+      ];
+    }
+
+    return const [
       {
-        'icon': Icons.graphic_eq,
-        'title': 'Poron Gasket Mount',
-        'subtitle':
-            '5 layers of sound-dampening foam for pure, deep acoustics.',
+        'icon': Icons.verified,
+        'title': '100% Authentic',
+        'subtitle': 'Guaranteed original manufacturer direct authenticity.',
       },
       {
-        'icon': Icons.wifi,
-        'title': 'Tri-Mode Wireless',
-        'subtitle': 'Bluetooth 5.3, 2.4GHz ultra-low latency & Type-C wired.',
+        'icon': Icons.local_shipping,
+        'title': 'Priority Dispatch',
+        'subtitle': 'Carefully packaged and inspected before courier hand-off.',
       },
       {
-        'icon': Icons.battery_charging_full,
-        'title': '4000mAh Battery',
-        'subtitle':
-            'Up to 240 hours continuous playtime without RGB backlight.',
+        'icon': Icons.shield,
+        'title': 'Official Warranty',
+        'subtitle': 'Backed by full replacement and technical repair guarantee.',
       },
       {
-        'icon': Icons.tune,
-        'title': 'Rotary Encoder',
-        'subtitle':
-            'CNC Violet knob mapped to volume, zoom, or media playback.',
+        'icon': Icons.sync,
+        'title': '7-Day Return',
+        'subtitle': 'Hassle-free return policy if item has manufacturing defect.',
       },
     ];
+  }
+
+  Widget _buildSpecFeaturesGrid() {
+    final specs = (_productArg?.specs != null && _productArg!.specs!.isNotEmpty)
+        ? _productArg!.specs!
+        : _getDynamicSpecsForCategory(_productArg?.category ?? '');
 
     return GridView.builder(
       shrinkWrap: true,
@@ -1930,10 +2589,14 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                variantText,
-                style: const TextStyle(fontSize: 10.5, color: Color(0xFF94A3B8)),
+              Expanded(
+                child: Text(
+                  variantText,
+                  style: const TextStyle(fontSize: 10.5, color: Color(0xFF94A3B8)),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
+              const SizedBox(width: 8),
               GestureDetector(
                 onTap: onHelpfulTap,
                 child: Row(
@@ -1966,6 +2629,7 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
 
   Widget _buildBottomActionDock() {
     final totalPrice = _effectivePrice * _quantity;
+    final isUnavailable = _productArg?.isActive == false || _productArg?.isOnVacation == true;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -1986,7 +2650,38 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
             // Chat Icon Button
             GestureDetector(
               onTap: () {
-                Navigator.pushNamed(context, AppRoutes.chat);
+                final shop = ShopService.instance.getShopById(_productArg?.shopId);
+                final sName = (_productArg?.shopName != null && _productArg!.shopName.isNotEmpty)
+                    ? _productArg!.shopName
+                    : shop.name;
+                final sBadge = (_productArg?.shopBadge != null && _productArg!.shopBadge.isNotEmpty)
+                    ? _productArg!.shopBadge
+                    : shop.badge;
+                final sId = (_productArg?.shopId != null && _productArg!.shopId.isNotEmpty)
+                    ? _productArg!.shopId
+                    : shop.id;
+
+                final conv = ChatService.instance.getOrCreateShopConversation(
+                  shopId: sId,
+                  shopName: sName,
+                  shopBadge: sBadge,
+                  avatarBg: shop.avatarBg,
+                  initialProductSnippet: '🛍️ $_productTitle',
+                );
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => ChatDetailPage(
+                      conversationId: conv.id,
+                      title: conv.title,
+                      subtitle: sBadge,
+                      avatarIcon: conv.avatarIcon,
+                      avatarBgColor: conv.avatarBg,
+                      orderRef: _productTitle,
+                      initialMessages: conv.messages.map((m) => m.toMap()).toList(),
+                    ),
+                  ),
+                );
               },
               child: Container(
                 width: 46,
@@ -2024,7 +2719,9 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                     ),
                   ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF050B28),
+                    backgroundColor: isUnavailable
+                        ? const Color(0xFF94A3B8)
+                        : const Color(0xFF0F172A),
                     elevation: 0,
                     padding: const EdgeInsets.symmetric(horizontal: 8),
                     shape: RoundedRectangleBorder(
@@ -2036,21 +2733,21 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
             ),
             const SizedBox(width: 8),
 
-            // Buy Now Gradient Pill Button (Perfectly Centered & Aligned)
+            // Buy Now Brand Pill Button (Consistent Nexora Blue)
             Expanded(
               flex: 5,
               child: Container(
                 height: 46,
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF00D2FF), Color(0xFF0066FF)],
-                    begin: Alignment.centerLeft,
-                    end: Alignment.centerRight,
-                  ),
+                  color: isUnavailable
+                      ? const Color(0xFF94A3B8)
+                      : const Color(0xFF0066FF),
                   borderRadius: BorderRadius.circular(23),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF0066FF).withValues(alpha: 0.35),
+                      color: isUnavailable
+                          ? Colors.black.withValues(alpha: 0.1)
+                          : const Color(0xFF0066FF).withValues(alpha: 0.28),
                       blurRadius: 10,
                       offset: const Offset(0, 4),
                     ),
@@ -2097,6 +2794,293 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  String _formatDuration(Duration d) {
+    final hours = d.inHours.toString().padLeft(2, '0');
+    final minutes = (d.inMinutes % 60).toString().padLeft(2, '0');
+    final seconds = (d.inSeconds % 60).toString().padLeft(2, '0');
+    return '$hours:$minutes:$seconds';
+  }
+
+  Widget _buildClaimableVouchersSection() {
+    final vouchers = _productArg?.claimableVouchers;
+    if (vouchers == null || vouchers.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 14),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'Shop Vouchers',
+              style: TextStyle(
+                fontWeight: FontWeight.w800,
+                fontSize: 13.5,
+                color: Color(0xFF0F172A),
+              ),
+            ),
+            Text(
+              '${vouchers.length} Available',
+              style: const TextStyle(
+                color: Color(0xFF0066FF),
+                fontWeight: FontWeight.w700,
+                fontSize: 11.5,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        ...vouchers.map((voucher) {
+          final isClaimed = ShopService.instance.isVoucherClaimed(voucher.id);
+          return Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: isClaimed ? const Color(0xFFCBD5E1) : const Color(0xFF0066FF).withValues(alpha: 0.3),
+                width: 1,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.02),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEEF2FF),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    voucher.id,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF0066FF),
+                      fontSize: 11,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        voucher.discountTitle,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 12.5,
+                          color: Color(0xFF0F172A),
+                        ),
+                      ),
+                      Text(
+                        '${voucher.minSpend} • ${voucher.expiry}',
+                        style: const TextStyle(
+                          fontSize: 10.5,
+                          color: Color(0xFF64748B),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                ElevatedButton(
+                  onPressed: isClaimed
+                      ? null
+                      : () {
+                          setState(() {
+                            ShopService.instance.claimVoucher(voucher.id);
+                          });
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Voucher ${voucher.id} claimed!'),
+                              duration: const Duration(seconds: 1),
+                              backgroundColor: const Color(0xFF050B28),
+                            ),
+                          );
+                        },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: isClaimed ? const Color(0xFF94A3B8) : const Color(0xFF0066FF),
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: Text(
+                    isClaimed ? 'Claimed' : 'Claim',
+                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 11.5),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }),
+      ],
+    );
+  }
+
+  void _openZoomImageViewer(BuildContext context, int initialIndex) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.95),
+      builder: (dlgContext) {
+        int currentIndex = initialIndex;
+        final pageCtrl = PageController(initialPage: initialIndex);
+        return StatefulBuilder(
+          builder: (context, setDlgState) {
+            return Scaffold(
+              backgroundColor: Colors.transparent,
+              appBar: AppBar(
+                backgroundColor: Colors.transparent,
+                elevation: 0,
+                leading: IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white, size: 26),
+                  onPressed: () => Navigator.pop(dlgContext),
+                ),
+                title: Text(
+                  '${currentIndex + 1} / ${_productImages.length}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                  ),
+                ),
+                centerTitle: true,
+              ),
+              body: PageView.builder(
+                controller: pageCtrl,
+                itemCount: _productImages.length,
+                onPageChanged: (idx) {
+                  setDlgState(() => currentIndex = idx);
+                },
+                itemBuilder: (context, idx) {
+                  return Center(
+                    child: InteractiveViewer(
+                      minScale: 1.0,
+                      maxScale: 5.0,
+                      child: Image.network(
+                        _productImages[idx],
+                        fit: BoxFit.contain,
+                        errorBuilder: (context, error, stackTrace) => Container(
+                          color: const Color(0xFF1E293B),
+                          child: const Center(
+                            child: Icon(Icons.broken_image, size: 64, color: Colors.grey),
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildProductUnavailableView(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF6F8FC),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFFF6F8FC),
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Color(0xFF0F172A)),
+          onPressed: () {
+            if (Navigator.canPop(context)) {
+              Navigator.pop(context);
+            } else {
+              Navigator.pushReplacementNamed(context, AppRoutes.home);
+            }
+          },
+        ),
+        title: const Text(
+          'Product Details',
+          style: TextStyle(
+            color: Color(0xFF0F172A),
+            fontWeight: FontWeight.w800,
+            fontSize: 17,
+          ),
+        ),
+        centerTitle: true,
+      ),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 90,
+                height: 90,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFFEE2E2),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.remove_shopping_cart_outlined,
+                  size: 48,
+                  color: Color(0xFFEF4444),
+                ),
+              ),
+              const SizedBox(height: 24),
+              const Text(
+                'Product Unavailable',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w900,
+                  color: Color(0xFF0F172A),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'This product is no longer available, was deleted, or has been paused by the seller.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.grey.shade600,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 28),
+              ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.pushReplacementNamed(context, AppRoutes.home);
+                },
+                icon: const Icon(Icons.storefront_outlined, size: 18),
+                label: const Text(
+                  'Browse Other Products',
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF0066FF),
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

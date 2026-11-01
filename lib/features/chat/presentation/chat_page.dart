@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:nexora_flutter_app/app/routes/app_routes.dart';
 import 'package:nexora_flutter_app/core/services/chat_service.dart';
-import '../../../app/routes/app_routes.dart';
+import '../../../core/services/order_service.dart';
+import '../../../core/services/order_chat_service.dart';
 import 'chat_detail_page.dart';
 
 class ChatPage extends StatefulWidget {
@@ -17,108 +20,42 @@ class _ChatPageState extends State<ChatPage> {
   String _searchQuery = '';
   bool _allRead = false;
 
-  final List<Map<String, dynamic>> _filters = [
-    {'label': 'All Chats', 'count': 4},
-    {'label': 'Couriers', 'count': 1, 'dotColor': const Color(0xFF06B6D4)},
-    {'label': 'Official Stores', 'count': 2},
-    {'label': 'Support', 'count': 1},
-  ];
-
-  final List<Map<String, dynamic>> _conversations = [
-    {
-      'id': 'nexora_store',
-      'category': 'Official Stores',
-      'title': 'Nexora Official Store',
-      'subtitle': 'Your warranty for Nexora Studio Pro W...',
-      'brandTag': 'BRAND',
-      'itemTag': '🎧 Nexora Studio Pro',
-      'time': '2:10 PM',
-      'unread': 0,
-      'isDoubleCheck': true,
-      'avatarIcon': Icons.verified_user_rounded,
-      'avatarBg': const Color(0xFF0075FF),
-      'initialMessages': [
-        {
-          'sender': 'other',
-          'text': 'Hello Alex! Thank you for purchasing Nexora Studio Pro Wireless.',
-          'time': '2:00 PM'
-        },
-        {
-          'sender': 'other',
-          'text': 'Your warranty for Nexora Studio Pro Wireless is now active for 1 year.',
-          'time': '2:10 PM'
-        },
-      ]
-    },
-    {
-      'id': 'aura_studios',
-      'category': 'Official Stores',
-      'title': 'Aura Studios Official',
-      'subtitle': 'Hi Alex! The Warm Stone Hoodie in Siz...',
-      'itemTag': '👗 Stone Hoodie (L)',
-      'time': 'Yesterday',
-      'unread': 0,
-      'isCheck': true,
-      'avatarIcon': Icons.checkroom_rounded,
-      'avatarBg': const Color(0xFFFCA5A5),
-      'initialMessages': [
-        {
-          'sender': 'user',
-          'text': 'Hi, is the Warm Stone Hoodie in Size L in stock?',
-          'time': 'Yesterday 4:30 PM'
-        },
-        {
-          'sender': 'other',
-          'text': 'Hi Alex! The Warm Stone Hoodie in Size L has been dispatched with your order!',
-          'time': 'Yesterday 4:35 PM'
-        },
-      ]
-    },
-    {
-      'id': 'ai_support',
-      'category': 'Support',
-      'title': 'Nexora AI Support',
-      'subtitle': 'Ticket #SUP-4491 closed: Refund for...',
-      'botTag': 'BOT',
-      'resolvedTag': 'Case Resolved',
-      'time': 'Nov 15',
-      'unread': 0,
-      'avatarIcon': Icons.smart_toy_rounded,
-      'avatarBg': const Color(0xFF00B4D8),
-      'initialMessages': [
-        {
-          'sender': 'other',
-          'text': 'Ticket #SUP-4491 closed: Refund for item process completed.',
-          'time': 'Nov 15 10:00 AM'
-        },
-      ]
-    },
-    {
-      'id': 'logitech_store',
-      'category': 'Official Stores',
-      'title': 'LogiTech Hub Store',
-      'subtitle': 'Thanks for purchasing with us! Let us k...',
-      'itemTag': 'MX Mechanical Mini',
-      'time': 'Nov 05',
-      'unread': 0,
-      'isCheck': true,
-      'avatarIcon': Icons.keyboard_rounded,
-      'avatarBg': const Color(0xFF94A3B8),
-      'initialMessages': [
-        {
-          'sender': 'other',
-          'text': 'Thanks for purchasing with us! Let us know if you need driver software setup.',
-          'time': 'Nov 05 3:20 PM'
-        },
-      ]
-    },
-  ];
+  @override
+  void initState() {
+    super.initState();
+    ChatService.instance.addListener(_onChatServiceChanged);
+    OrderChatService.instance.addListener(_onChatServiceChanged);
+    final activeOrders = OrderService.instance.activeOrders;
+    final orderId = activeOrders.isNotEmpty ? activeOrders.first.orderId : 'NX-8942-ORD';
+    OrderChatService.instance.subscribeToOrder(orderId);
+  }
 
   @override
   void dispose() {
+    ChatService.instance.removeListener(_onChatServiceChanged);
+    OrderChatService.instance.removeListener(_onChatServiceChanged);
     _searchController.dispose();
     _searchFocusNode.dispose();
     super.dispose();
+  }
+
+  void _onChatServiceChanged() {
+    if (mounted) setState(() {});
+  }
+
+  List<Map<String, dynamic>> get _filters {
+    final active = ChatService.instance.conversations;
+    final hidden = ChatService.instance.hiddenConversations;
+    final officialCount = active.where((c) => c.category == 'Official Stores').length;
+    final supportCount = active.where((c) => c.category == 'Support').length;
+
+    return [
+      {'label': 'All Chats', 'count': active.length},
+      {'label': 'Couriers', 'count': 1, 'dotColor': const Color(0xFF06B6D4)},
+      {'label': 'Official Stores', 'count': officialCount},
+      {'label': 'Support', 'count': supportCount},
+      {'label': 'Hidden', 'count': hidden.length, 'icon': Icons.visibility_off_outlined},
+    ];
   }
 
   void _markAllAsRead() {
@@ -135,29 +72,151 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
-  List<Map<String, dynamic>> get _filteredConversations {
-    return _conversations.where((item) {
+  List<ChatConversationModel> get _filteredConversations {
+    final bool isHiddenTab = _selectedFilterIndex == 4;
+    final sourceList = isHiddenTab
+        ? ChatService.instance.hiddenConversations
+        : ChatService.instance.conversations;
+
+    return sourceList.where((item) {
       // Category filter
-      if (_selectedFilterIndex == 1) {
-        return false; // Couriers tab shows live dispatch card
-      }
-      if (_selectedFilterIndex == 2 && item['category'] != 'Official Stores') {
-        return false;
-      }
-      if (_selectedFilterIndex == 3 && item['category'] != 'Support') {
-        return false;
+      if (!isHiddenTab) {
+        if (_selectedFilterIndex == 1) {
+          return false; // Couriers tab shows live dispatch card
+        }
+        if (_selectedFilterIndex == 2 && item.category != 'Official Stores') {
+          return false;
+        }
+        if (_selectedFilterIndex == 3 && item.category != 'Support') {
+          return false;
+        }
       }
 
       // Search query filter
       if (_searchQuery.isNotEmpty) {
         final query = _searchQuery.toLowerCase();
-        final title = (item['title'] as String).toLowerCase();
-        final subtitle = (item['subtitle'] as String).toLowerCase();
-        final itemTag = (item['itemTag'] ?? '').toString().toLowerCase();
+        final title = item.title.toLowerCase();
+        final subtitle = item.subtitle.toLowerCase();
+        final itemTag = (item.itemTag ?? '').toLowerCase();
         return title.contains(query) || subtitle.contains(query) || itemTag.contains(query);
       }
       return true;
     }).toList();
+  }
+
+  void _hideConversation(ChatConversationModel chat) {
+    ChatService.instance.hideConversation(chat.id);
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Conversation with "${chat.title}" hidden'),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: const Color(0xFF0F172A),
+        duration: const Duration(seconds: 4),
+        action: SnackBarAction(
+          label: 'Undo',
+          textColor: const Color(0xFF00C1D4),
+          onPressed: () {
+            ChatService.instance.unhideConversation(chat.id);
+          },
+        ),
+      ),
+    );
+  }
+
+  void _unhideConversation(ChatConversationModel chat) {
+    ChatService.instance.unhideConversation(chat.id);
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Conversation with "${chat.title}" restored'),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: const Color(0xFF0F172A),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  void _confirmDeleteConversation(ChatConversationModel chat) {
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: const BoxDecoration(
+                color: Color(0xFFFEE2E2),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.delete_outline_rounded,
+                color: Color(0xFFEF4444),
+                size: 22,
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Text(
+                'Delete Conversation?',
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF0F172A),
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          'Are you sure you want to delete your conversation with "${chat.title}"? This conversation and its messages will be permanently removed.',
+          style: const TextStyle(
+            fontSize: 13.5,
+            color: Color(0xFF475569),
+            height: 1.4,
+          ),
+        ),
+        actionsPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogCtx),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(
+                color: Color(0xFF64748B),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(dialogCtx);
+              ChatService.instance.deleteConversation(chat.id);
+              ScaffoldMessenger.of(context).hideCurrentSnackBar();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Conversation with "${chat.title}" deleted'),
+                  backgroundColor: const Color(0xFF0F172A),
+                  behavior: SnackBarBehavior.floating,
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFEF4444),
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            ),
+            child: const Text('Delete', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -192,7 +251,7 @@ class _ChatPageState extends State<ChatPage> {
                   _buildFilterPills(),
                   const SizedBox(height: 20),
 
-                  // Live Dispatch Connected Card (Mark Ronald Courier)
+                  // Live Dispatch Connected Card (Pedro Jose Garcia Courier)
                   if (_selectedFilterIndex == 0 || _selectedFilterIndex == 1) ...[
                     _buildLiveDispatchCard(context),
                     const SizedBox(height: 22),
@@ -208,7 +267,7 @@ class _ChatPageState extends State<ChatPage> {
                   _buildImmediateHelpCard(context),
 
                   // Clearance for bottom floating nav dock
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 100),
                 ],
               ),
             ),
@@ -218,27 +277,23 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
-  /// Top App Bar matching screenshot: ← Messages [Search] [Filter] [Settings]
   Widget _buildTopAppBar(BuildContext context) {
+    final canPop = Navigator.canPop(context);
     return Row(
       children: [
-        IconButton(
-          onPressed: () {
-            if (Navigator.canPop(context)) {
-              Navigator.pop(context);
-            } else {
-              Navigator.pushReplacementNamed(context, AppRoutes.home);
-            }
-          },
-          icon: const Icon(
-            Icons.arrow_back_rounded,
-            color: Color(0xFF0F172A),
-            size: 24,
+        if (canPop) ...[
+          IconButton(
+            onPressed: () => Navigator.pop(context),
+            icon: const Icon(
+              Icons.arrow_back_rounded,
+              color: Color(0xFF0F172A),
+              size: 24,
+            ),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
           ),
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(),
-        ),
-        const SizedBox(width: 12),
+          const SizedBox(width: 12),
+        ],
         const Text(
           'Messages',
           style: TextStyle(
@@ -435,7 +490,14 @@ class _ChatPageState extends State<ChatPage> {
                 ),
                 child: Row(
                   children: [
-                    if (filter.containsKey('dotColor') && !isSelected) ...[
+                    if (filter.containsKey('icon')) ...[
+                      Icon(
+                        filter['icon'] as IconData,
+                        size: 14,
+                        color: isSelected ? Colors.white : const Color(0xFF64748B),
+                      ),
+                      const SizedBox(width: 5),
+                    ] else if (filter.containsKey('dotColor') && !isSelected) ...[
                       Container(
                         width: 7,
                         height: 7,
@@ -484,7 +546,20 @@ class _ChatPageState extends State<ChatPage> {
 
   /// Live Dispatch Connected Card (Active Courier Section)
   Widget _buildLiveDispatchCard(BuildContext context) {
-    final showUnread = ChatService.instance.totalUnreadCount > 0 && !_allRead;
+    final activeOrders = OrderService.instance.activeOrders;
+    final activeOrder = activeOrders.isNotEmpty ? activeOrders.first : null;
+    final orderId = activeOrder?.orderId.replaceAll('#', '').trim() ?? 'NX-8942-ORD';
+    final courierName = (activeOrder?.courierName.isNotEmpty == true && !activeOrder!.courierName.contains('Mark'))
+        ? activeOrder.courierName
+        : 'Pedro Jose Garcia';
+    final messages = OrderChatService.instance.getMessages(orderId);
+    final lastMsg = messages.isNotEmpty ? messages.last : null;
+    final previewText = lastMsg != null
+        ? (lastMsg['text'] ?? '')
+        : 'Good day! I have picked up your order and am on my way.';
+    final previewTime = lastMsg != null ? (lastMsg['time'] ?? 'Just now') : 'Live';
+    final courierUnread = OrderChatService.instance.getUnreadCount(orderId);
+    final showUnread = courierUnread > 0 || (ChatService.instance.totalUnreadCount > 0 && !_allRead);
 
     return Column(
       children: [
@@ -532,24 +607,14 @@ class _ChatPageState extends State<ChatPage> {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => const ChatDetailPage(
-                  title: 'Mark Ronald',
-                  subtitle: 'Courier',
-                  orderRef: '#NX-89240',
-                  avatarBgColor: Color(0xFF00B4D8),
-                  initialMessages: [
-                    {
-                      'sender': 'user',
-                      'text': 'Hi Mark, can you drop it off at the front desk?',
-                      'time': '4:00 PM'
-                    },
-                    {
-                      'sender': 'other',
-                      'text':
-                          'Noted po! Will leave it with the front desk receptionist and ask for a claim receipt.',
-                      'time': '4:05 PM'
-                    },
-                  ],
+                builder: (context) => ChatDetailPage(
+                  orderId: orderId,
+                  title: courierName,
+                  subtitle: 'Courier • Active on route',
+                  orderRef: '#$orderId',
+                  avatarBgColor: const Color(0xFF00B4D8),
+                  avatarIcon: Icons.two_wheeler_rounded,
+                  initialMessages: messages.isNotEmpty ? messages : const [],
                 ),
               ),
             );
@@ -606,9 +671,9 @@ class _ChatPageState extends State<ChatPage> {
                         color: const Color(0xFFEEECFF),
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: const Text(
-                        '#NX-89240 (2 items)',
-                        style: TextStyle(
+                      child: Text(
+                        '#$orderId',
+                        style: const TextStyle(
                           color: Color(0xFF0075FF),
                           fontWeight: FontWeight.bold,
                           fontSize: 10.5,
@@ -663,29 +728,36 @@ class _ChatPageState extends State<ChatPage> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Row(
-                                children: [
-                                  const Text(
-                                    'Mark Ronald',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w900,
-                                      fontSize: 14.5,
-                                      color: Color(0xFF0F172A),
+                              Expanded(
+                                child: Row(
+                                  children: [
+                                    Flexible(
+                                      child: Text(
+                                        courierName,
+                                        overflow: TextOverflow.ellipsis,
+                                        maxLines: 1,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w900,
+                                          fontSize: 14.5,
+                                          color: Color(0xFF0F172A),
+                                        ),
+                                      ),
                                     ),
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    '• Courier',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey.shade600,
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      '• Courier',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey.shade600,
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
-                              const Text(
-                                '4:05 PM',
-                                style: TextStyle(
+                              const SizedBox(width: 8),
+                              Text(
+                                previewTime,
+                                style: const TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w700,
                                   color: Color(0xFF0075FF),
@@ -695,7 +767,7 @@ class _ChatPageState extends State<ChatPage> {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            '"Noted po! Will leave it with the front desk receptionist and ask for a claim...',
+                            previewText,
                             style: TextStyle(
                               fontSize: 12.5,
                               color: Colors.grey.shade700,
@@ -719,7 +791,7 @@ class _ChatPageState extends State<ChatPage> {
                       onPressed: () {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text('Calling Mark Ronald (+63 917 123 4567)...'),
+                            content: Text('Calling Pedro Jose Garcia (+63 917 123 4567)...'),
                             backgroundColor: Color(0xFF0284C7),
                           ),
                         );
@@ -796,15 +868,16 @@ class _ChatPageState extends State<ChatPage> {
   /// Conversations Card Container List
   Widget _buildConversationsSection(BuildContext context) {
     final list = _filteredConversations;
+    final isHiddenTab = _selectedFilterIndex == 4;
 
     return Column(
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text(
-              'CONVERSATIONS',
-              style: TextStyle(
+            Text(
+              isHiddenTab ? 'HIDDEN CONVERSATIONS' : 'CONVERSATIONS',
+              style: const TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w900,
                 color: Color(0xFF64748B),
@@ -812,7 +885,9 @@ class _ChatPageState extends State<ChatPage> {
               ),
             ),
             Text(
-              '${list.length} recent stores',
+              isHiddenTab
+                  ? '${list.length} hidden'
+                  : '${list.length} recent stores',
               style: TextStyle(
                 fontSize: 11.5,
                 color: Colors.grey.shade600,
@@ -823,246 +898,126 @@ class _ChatPageState extends State<ChatPage> {
         ),
         const SizedBox(height: 10),
 
-        Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFFE2E8F0)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.02),
-                blurRadius: 10,
-                offset: const Offset(0, 3),
-              ),
-            ],
-          ),
-          child: ListView.separated(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: list.length,
-            separatorBuilder: (context, index) => Divider(
-              height: 1,
-              thickness: 1,
-              color: Colors.grey.shade100,
-              indent: 72,
+        if (list.isEmpty)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
             ),
-            itemBuilder: (context, index) {
-              final chat = list[index];
-
-              return InkWell(
-                onTap: () {
-                  ChatService.instance.markAsRead(chat['id'] ?? '');
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => ChatDetailPage(
-                        title: chat['title'],
-                        subtitle: chat['category'] ?? 'Store Inquiry',
-                        avatarIcon: chat['avatarIcon'],
-                        avatarBgColor: chat['avatarBg'] ?? const Color(0xFF0075FF),
-                        initialMessages: List<Map<String, dynamic>>.from(
-                            chat['initialMessages'] ?? []),
-                      ),
-                    ),
-                  );
-                },
-                borderRadius: index == 0
-                    ? const BorderRadius.vertical(top: Radius.circular(16))
-                    : index == list.length - 1
-                        ? const BorderRadius.vertical(bottom: Radius.circular(16))
-                        : BorderRadius.zero,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 14),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Avatar Icon with Badge Overlay
-                      Stack(
-                        children: [
-                          Container(
-                            width: 46,
-                            height: 46,
-                            decoration: BoxDecoration(
-                              color: chat['avatarBg'] ?? const Color(0xFF0075FF),
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(
-                              chat['avatarIcon'] ?? Icons.storefront_rounded,
-                              color: Colors.white,
-                              size: 22,
-                            ),
-                          ),
-                          if (chat.containsKey('brandTag'))
-                            Positioned(
-                              right: 0,
-                              bottom: 0,
-                              child: Container(
-                                width: 14,
-                                height: 14,
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF0075FF),
-                                  shape: BoxShape.circle,
-                                  border: Border.all(color: Colors.white, width: 2),
-                                ),
-                                child: const Icon(Icons.check,
-                                    color: Colors.white, size: 8),
-                              ),
-                            ),
-                        ],
-                      ),
-                      const SizedBox(width: 12),
-
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Row(
-                                  children: [
-                                    Text(
-                                      chat['title'],
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w800,
-                                        fontSize: 14,
-                                        color: Color(0xFF0F172A),
-                                      ),
-                                    ),
-                                    if (chat.containsKey('brandTag')) ...[
-                                      const SizedBox(width: 6),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 6, vertical: 2),
-                                        decoration: BoxDecoration(
-                                          color: const Color(0xFFD1E9FF),
-                                          borderRadius: BorderRadius.circular(8),
-                                        ),
-                                        child: Text(
-                                          chat['brandTag'],
-                                          style: const TextStyle(
-                                            color: Color(0xFF0075FF),
-                                            fontWeight: FontWeight.w900,
-                                            fontSize: 9,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                    if (chat.containsKey('botTag')) ...[
-                                      const SizedBox(width: 6),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 6, vertical: 2),
-                                        decoration: BoxDecoration(
-                                          color: const Color(0xFFCFFAFE),
-                                          borderRadius: BorderRadius.circular(8),
-                                        ),
-                                        child: Text(
-                                          chat['botTag'],
-                                          style: const TextStyle(
-                                            color: Color(0xFF0891B2),
-                                            fontWeight: FontWeight.w900,
-                                            fontSize: 9,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ],
-                                ),
-                                Text(
-                                  chat['time'],
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: Colors.grey.shade500,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 3),
-
-                            Text(
-                              chat['subtitle'],
-                              style: TextStyle(
-                                fontSize: 12.5,
-                                color: Colors.grey.shade600,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            const SizedBox(height: 6),
-
-                            Row(
-                              children: [
-                                if (chat.containsKey('itemTag'))
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 8, vertical: 3),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFF1F5F9),
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    child: Text(
-                                      chat['itemTag'],
-                                      style: TextStyle(
-                                        fontSize: 10.5,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.grey.shade700,
-                                      ),
-                                    ),
-                                  ),
-                                if (chat.containsKey('resolvedTag'))
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 8, vertical: 3),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFFFE4E6),
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        const Icon(Icons.shield_outlined,
-                                            size: 11, color: Color(0xFFE11D48)),
-                                        const SizedBox(width: 3),
-                                        Text(
-                                          chat['resolvedTag'],
-                                          style: const TextStyle(
-                                            fontSize: 10.5,
-                                            fontWeight: FontWeight.bold,
-                                            color: Color(0xFFE11D48),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                const Spacer(),
-                                if (_allRead || chat['isDoubleCheck'] == true)
-                                  const Icon(Icons.done_all_rounded,
-                                      size: 16, color: Color(0xFF0075FF))
-                                else if (chat['isCheck'] == true)
-                                  Icon(Icons.done_rounded,
-                                      size: 16, color: Colors.grey.shade400),
-                                if (chat.containsKey('resolvedTag'))
-                                  Text(
-                                    'Automated',
-                                    style: TextStyle(
-                                      fontSize: 10.5,
-                                      color: Colors.grey.shade500,
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+            child: Column(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFF1F5F9),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    isHiddenTab
+                        ? Icons.visibility_off_outlined
+                        : Icons.chat_bubble_outline_rounded,
+                    size: 28,
+                    color: const Color(0xFF94A3B8),
                   ),
                 ),
-              );
-            },
+                const SizedBox(height: 12),
+                Text(
+                  isHiddenTab
+                      ? 'No Hidden Conversations'
+                      : 'No conversations found',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                    color: Color(0xFF334155),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  isHiddenTab
+                      ? 'Slide any conversation to the left and tap "Hide" to move it here.'
+                      : 'Start messaging a store or clear your search filter.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey.shade500,
+                  ),
+                ),
+              ],
+            ),
+          )
+        else
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.02),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: list.length,
+              separatorBuilder: (context, index) => Divider(
+                height: 1,
+                thickness: 1,
+                color: Colors.grey.shade100,
+                indent: 72,
+              ),
+              itemBuilder: (context, index) {
+                final chat = list[index];
+                final isFirst = index == 0;
+                final isLast = index == list.length - 1;
+                final borderRadius = BorderRadius.vertical(
+                  top: isFirst ? const Radius.circular(16) : Radius.zero,
+                  bottom: isLast ? const Radius.circular(16) : Radius.zero,
+                );
+
+                return SlidableConversationCard(
+                  key: ValueKey(chat.id),
+                  chat: chat,
+                  isHiddenMode: isHiddenTab,
+                  borderRadius: borderRadius,
+                  onTap: () {
+                    ChatService.instance.markAsRead(chat.id);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => ChatDetailPage(
+                          conversationId: chat.id,
+                          title: chat.title,
+                          subtitle: chat.category,
+                          avatarIcon: chat.avatarIcon,
+                          avatarBgColor: chat.avatarBg,
+                          orderRef: chat.itemTag ?? '',
+                          initialMessages:
+                              chat.messages.map((m) => m.toMap()).toList(),
+                        ),
+                      ),
+                    );
+                  },
+                  onHide: () {
+                    if (isHiddenTab) {
+                      _unhideConversation(chat);
+                    } else {
+                      _hideConversation(chat);
+                    }
+                  },
+                  onDelete: () {
+                    _confirmDeleteConversation(chat);
+                  },
+                );
+              },
+            ),
           ),
-        ),
       ],
     );
   }
@@ -1248,32 +1203,7 @@ class _ChatPageState extends State<ChatPage> {
               final text = ticketController.text.trim();
               Navigator.pop(context);
               if (text.isNotEmpty) {
-                setState(() {
-                  _conversations.insert(0, {
-                    'id': 'ticket_${DateTime.now().millisecondsSinceEpoch}',
-                    'category': 'Support',
-                    'title': 'Support Ticket #${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}',
-                    'subtitle': text,
-                    'botTag': 'LIVE',
-                    'time': 'Just now',
-                    'unread': 0,
-                    'isDoubleCheck': true,
-                    'avatarIcon': Icons.support_agent_rounded,
-                    'avatarBg': const Color(0xFF0284C7),
-                    'initialMessages': [
-                      {
-                        'sender': 'user',
-                        'text': text,
-                        'time': 'Just now',
-                      },
-                      {
-                        'sender': 'other',
-                        'text': 'A support specialist has been assigned to your ticket! Average response time is under 2 minutes.',
-                        'time': 'Just now',
-                      }
-                    ],
-                  });
-                });
+                ChatService.instance.addSupportTicket(text: text);
               }
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
@@ -1441,6 +1371,7 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   void _showLocationModal(BuildContext context) {
+    final activeOrder = OrderService.instance.latestActiveOrder;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -1458,7 +1389,7 @@ class _ChatPageState extends State<ChatPage> {
             Icon(Icons.map_rounded, size: 60, color: Color(0xFF0284C7)),
             SizedBox(height: 12),
             Text(
-              'Mark Ronald (Courier) is 1.2 km away.',
+              'Pedro Jose Garcia (Courier) is 1.2 km away.',
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
             ),
             SizedBox(height: 4),
@@ -1470,13 +1401,558 @@ class _ChatPageState extends State<ChatPage> {
           ],
         ),
         actions: [
-          ElevatedButton(
+          TextButton(
             onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+          ElevatedButton.icon(
+            onPressed: () {
+              Navigator.pop(context);
+              Navigator.pushNamed(
+                context,
+                AppRoutes.orderTracking,
+                arguments: activeOrder,
+              );
+            },
+            icon: const Icon(Icons.my_location_rounded, size: 16),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF0284C7),
               foregroundColor: Colors.white,
             ),
-            child: const Text('Close'),
+            label: const Text('Track Live on Map'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Interactive Slidable Conversation Card with Hide & Delete Actions
+class SlidableConversationCard extends StatefulWidget {
+  final ChatConversationModel chat;
+  final bool isHiddenMode;
+  final BorderRadius borderRadius;
+  final VoidCallback onTap;
+  final VoidCallback onHide;
+  final VoidCallback onDelete;
+
+  const SlidableConversationCard({
+    super.key,
+    required this.chat,
+    required this.isHiddenMode,
+    required this.borderRadius,
+    required this.onTap,
+    required this.onHide,
+    required this.onDelete,
+  });
+
+  @override
+  State<SlidableConversationCard> createState() => _SlidableConversationCardState();
+}
+
+class _SlidableConversationCardState extends State<SlidableConversationCard>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _slideAnimation;
+  double _dragExtent = 0.0;
+  static const double _maxSlideExtent = 148.0;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 220),
+    );
+    _slideAnimation = Tween<double>(begin: 0.0, end: -_maxSlideExtent).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _snapOpen() {
+    _controller.animateTo(1.0);
+    HapticFeedback.selectionClick();
+  }
+
+  void _snapClose() {
+    _controller.animateTo(0.0);
+    _dragExtent = 0.0;
+  }
+
+  void _showContextMenu(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (modalCtx) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 36,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 18),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Row(
+                children: [
+                  CircleAvatar(
+                    backgroundColor: widget.chat.avatarBg,
+                    radius: 18,
+                    child: Icon(widget.chat.avatarIcon, size: 18, color: Colors.white),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      widget.chat.title,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: Color(0xFF0F172A),
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              const Divider(height: 1),
+              const SizedBox(height: 8),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: widget.isHiddenMode
+                        ? const Color(0xFFDCFCE7)
+                        : const Color(0xFFEEF2FF),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                    widget.isHiddenMode
+                        ? Icons.visibility_rounded
+                        : Icons.visibility_off_rounded,
+                    color: widget.isHiddenMode
+                        ? const Color(0xFF10B981)
+                        : const Color(0xFF6366F1),
+                    size: 20,
+                  ),
+                ),
+                title: Text(
+                  widget.isHiddenMode ? 'Unhide Conversation' : 'Hide Conversation',
+                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                ),
+                subtitle: Text(
+                  widget.isHiddenMode
+                      ? 'Restore back to your active inbox'
+                      : 'Move conversation to hidden archives',
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                ),
+                onTap: () {
+                  Navigator.pop(modalCtx);
+                  widget.onHide();
+                },
+              ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFEE2E2),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.delete_outline_rounded,
+                    color: Color(0xFFEF4444),
+                    size: 20,
+                  ),
+                ),
+                title: const Text(
+                  'Delete Conversation',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                    color: Color(0xFFEF4444),
+                  ),
+                ),
+                subtitle: Text(
+                  'Permanently remove conversation and messages',
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                ),
+                onTap: () {
+                  Navigator.pop(modalCtx);
+                  widget.onDelete();
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: widget.borderRadius,
+      child: Stack(
+        children: [
+          // Background Action Buttons Slider
+          Positioned.fill(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                // Hide / Unhide Action Button
+                GestureDetector(
+                  onTap: () {
+                    _snapClose();
+                    widget.onHide();
+                  },
+                  child: Container(
+                    width: 74,
+                    color: widget.isHiddenMode
+                        ? const Color(0xFF10B981)
+                        : const Color(0xFF475569),
+                    alignment: Alignment.center,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          widget.isHiddenMode
+                              ? Icons.visibility_rounded
+                              : Icons.visibility_off_rounded,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          widget.isHiddenMode ? 'Unhide' : 'Hide',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: -0.2,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                // Delete Action Button
+                GestureDetector(
+                  onTap: () {
+                    _snapClose();
+                    widget.onDelete();
+                  },
+                  child: Container(
+                    width: 74,
+                    color: const Color(0xFFEF4444),
+                    alignment: Alignment.center,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: const [
+                        Icon(
+                          Icons.delete_outline_rounded,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          'Delete',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: -0.2,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Sliding Foreground Card
+          AnimatedBuilder(
+            animation: _controller,
+            builder: (context, child) {
+              final offset = _controller.isAnimating
+                  ? _slideAnimation.value
+                  : _dragExtent;
+              return Transform.translate(
+                offset: Offset(offset, 0),
+                child: child,
+              );
+            },
+            child: GestureDetector(
+              onHorizontalDragUpdate: (details) {
+                setState(() {
+                  _dragExtent = (_dragExtent + (details.primaryDelta ?? 0.0))
+                      .clamp(-_maxSlideExtent, 0.0);
+                  _controller.value = (-_dragExtent) / _maxSlideExtent;
+                });
+              },
+              onHorizontalDragEnd: (details) {
+                if (details.primaryVelocity != null &&
+                    details.primaryVelocity! < -250) {
+                  _snapOpen();
+                } else if (details.primaryVelocity != null &&
+                    details.primaryVelocity! > 250) {
+                  _snapClose();
+                } else if (_dragExtent < -(_maxSlideExtent / 2)) {
+                  _snapOpen();
+                } else {
+                  _snapClose();
+                }
+              },
+              child: Material(
+                color: Colors.white,
+                child: InkWell(
+                  onTap: () {
+                    if (_controller.value > 0.05) {
+                      _snapClose();
+                    } else {
+                      widget.onTap();
+                    }
+                  },
+                  onLongPress: () => _showContextMenu(context),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 14,
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Avatar Icon with Badge Overlay
+                        Stack(
+                          children: [
+                            Container(
+                              width: 46,
+                              height: 46,
+                              decoration: BoxDecoration(
+                                color: widget.chat.avatarBg,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                widget.chat.avatarIcon,
+                                color: Colors.white,
+                                size: 22,
+                              ),
+                            ),
+                            if (widget.chat.brandTag != null)
+                              Positioned(
+                                right: 0,
+                                bottom: 0,
+                                child: Container(
+                                  width: 14,
+                                  height: 14,
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF0075FF),
+                                    shape: BoxShape.circle,
+                                    border: Border.all(color: Colors.white, width: 2),
+                                  ),
+                                  child: const Icon(Icons.check,
+                                      color: Colors.white, size: 8),
+                                ),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(width: 12),
+
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Expanded(
+                                    child: Row(
+                                      children: [
+                                        Flexible(
+                                          child: Text(
+                                            widget.chat.title,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.w800,
+                                              fontSize: 14,
+                                              color: Color(0xFF0F172A),
+                                            ),
+                                          ),
+                                        ),
+                                        if (widget.chat.brandTag != null) ...[
+                                          const SizedBox(width: 6),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 6, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFFD1E9FF),
+                                              borderRadius: BorderRadius.circular(8),
+                                            ),
+                                            child: Text(
+                                              widget.chat.brandTag!,
+                                              style: const TextStyle(
+                                                color: Color(0xFF0075FF),
+                                                fontWeight: FontWeight.w900,
+                                                fontSize: 9,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                        if (widget.chat.botTag != null) ...[
+                                          const SizedBox(width: 6),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 6, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFFCFFAFE),
+                                              borderRadius: BorderRadius.circular(8),
+                                            ),
+                                            child: Text(
+                                              widget.chat.botTag!,
+                                              style: const TextStyle(
+                                                color: Color(0xFF0891B2),
+                                                fontWeight: FontWeight.w900,
+                                                fontSize: 9,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                        if (widget.isHiddenMode) ...[
+                                          const SizedBox(width: 6),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 6, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFFF1F5F9),
+                                              borderRadius: BorderRadius.circular(8),
+                                            ),
+                                            child: const Text(
+                                              'HIDDEN',
+                                              style: TextStyle(
+                                                color: Color(0xFF64748B),
+                                                fontWeight: FontWeight.w900,
+                                                fontSize: 9,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    widget.chat.time,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: Colors.grey.shade500,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 3),
+
+                              Text(
+                                widget.chat.subtitle,
+                                style: TextStyle(
+                                  fontSize: 12.5,
+                                  color: Colors.grey.shade600,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 6),
+
+                              Row(
+                                children: [
+                                  if (widget.chat.itemTag != null &&
+                                      widget.chat.itemTag!.isNotEmpty)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 8, vertical: 3),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFF1F5F9),
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: Text(
+                                        widget.chat.itemTag!,
+                                        style: TextStyle(
+                                          fontSize: 10.5,
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.grey.shade700,
+                                        ),
+                                      ),
+                                    ),
+                                  if (widget.chat.resolvedTag != null)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 8, vertical: 3),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFFFE4E6),
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          const Icon(Icons.shield_outlined,
+                                              size: 11, color: Color(0xFFE11D48)),
+                                          const SizedBox(width: 3),
+                                          Text(
+                                            widget.chat.resolvedTag!,
+                                            style: const TextStyle(
+                                              fontSize: 10.5,
+                                              fontWeight: FontWeight.bold,
+                                              color: Color(0xFFE11D48),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  const Spacer(),
+                                  if (widget.chat.isDoubleCheck)
+                                    const Icon(Icons.done_all_rounded,
+                                        size: 16, color: Color(0xFF0075FF))
+                                  else if (widget.chat.isCheck)
+                                    Icon(Icons.done_rounded,
+                                        size: 16, color: Colors.grey.shade400),
+                                  const SizedBox(width: 6),
+                                  // Subtle slider swipe hint icon
+                                  Icon(
+                                    Icons.chevron_left_rounded,
+                                    size: 16,
+                                    color: Colors.grey.shade400,
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
           ),
         ],
       ),

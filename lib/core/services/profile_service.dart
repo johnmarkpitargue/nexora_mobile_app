@@ -10,13 +10,12 @@ class ProfileService extends ChangeNotifier {
   String _username = '@alexrivera';
   String _email = 'alex.rivera@nexora.io';
   String _phone = '+63 917 123 4567';
-  String _address = 'Unit 402, Lumina Heights Tower 2, Makati, Metro Manila';
+  String _address = '';
   String _avatarUrl =
       'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80';
   Uint8List? _avatarBytes;
   double _walletBalance = 1850.50;
   final int _voucherCount = 1;
-  final int _pointsCount = 850;
 
   // Getters
   String get name => _name;
@@ -29,7 +28,6 @@ class ProfileService extends ChangeNotifier {
   double get walletBalance => _walletBalance;
   int get voucherCount => _voucherCount;
   int get wishlistCount => WishlistService.instance.itemCount;
-  int get pointsCount => _pointsCount;
 
   bool get hasCustomAvatarBytes => _avatarBytes != null && _avatarBytes!.isNotEmpty;
 

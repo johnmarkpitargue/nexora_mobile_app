@@ -21,53 +21,44 @@ class HeaderAppBar extends StatelessWidget implements PreferredSizeWidget {
       ),
       child: Row(
         children: [
-          // White Capsule Search Field Bar
+          // Translucent Capsule Search Field Bar
           Expanded(
-            child: Container(
-              height: 42,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(22),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.search,
-                    color: Color(0xFF0066FF),
-                    size: 20,
+            child: GestureDetector(
+              onTap: () {
+                Navigator.pushNamed(context, AppRoutes.search);
+              },
+              child: Container(
+                height: 42,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(22),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.22),
+                    width: 1,
                   ),
-                  const SizedBox(width: 8),
-                  const Expanded(
-                    child: TextField(
-                      decoration: InputDecoration(
-                        hintText: 'Search products, bra...',
-                        hintStyle: TextStyle(
-                          color: Color(0xFF94A3B8),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.search,
+                      color: Colors.white.withValues(alpha: 0.85),
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Search products, brands, categories...',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.7),
                           fontSize: 12.5,
                         ),
-                        border: InputBorder.none,
-                        isDense: true,
-                        contentPadding: EdgeInsets.zero,
-                      ),
-                      style: TextStyle(
-                        color: Color(0xFF0F172A),
-                        fontSize: 12.5,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                  ),
-                  const Icon(
-                    Icons.qr_code_scanner,
-                    color: Color(0xFF64748B),
-                    size: 18,
-                  ),
-                  const SizedBox(width: 8),
-                  const Icon(
-                    Icons.camera_alt_outlined,
-                    color: Color(0xFF64748B),
-                    size: 18,
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),

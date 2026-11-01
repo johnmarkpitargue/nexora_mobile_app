@@ -29,8 +29,28 @@
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="assets/images/logo.png"/>
 
+  <!-- Google Fonts: Plus Jakarta Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
   <title>Nexora – Next-Gen E-Commerce</title>
   <link rel="manifest" href="manifest.json">
+
+  <!-- Register Nexora Buyer Service Worker -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function() {
+        navigator.serviceWorker.register('sw.js')
+          .then(function(reg) {
+            console.log('[Nexora Buyer] Service Worker registered:', reg.scope);
+          })
+          .catch(function(err) {
+            console.warn('[Nexora Buyer] Service Worker registration failed:', err);
+          });
+      });
+    }
+  </script>
 </head>
 <body>
   <!--

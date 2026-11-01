@@ -1,32 +1,111 @@
 import 'package:flutter/material.dart';
 import '../models/shop_models.dart';
 import '../../features/home/presentation/widgets/product_card.dart';
+import 'buyer_account_service.dart';
+
+class SearchFilterParams {
+  final String query;
+  final String? category;
+  final double? minPrice;
+  final double? maxPrice;
+  final double? minRating;
+  final String? location;
+  final String sortBy; // 'relevance', 'price_asc', 'price_desc', 'best_selling', 'latest'
+
+  const SearchFilterParams({
+    this.query = '',
+    this.category,
+    this.minPrice,
+    this.maxPrice,
+    this.minRating,
+    this.location,
+    this.sortBy = 'relevance',
+  });
+}
+
+class SearchResult {
+  final List<ProductModel> products;
+  final String? typoSuggestion;
+  final String? errorMessage;
+
+  const SearchResult({
+    required this.products,
+    this.typoSuggestion,
+    this.errorMessage,
+  });
+}
 
 class ShopService extends ChangeNotifier {
   static final ShopService instance = ShopService._internal();
-  ShopService._internal();
+  ShopService._internal() {
+    BuyerAccountService.instance.addListener(_onBuyerChanged);
+  }
 
-  final Set<String> _followedShopIds = {};
-  final Set<String> _claimedVoucherIds = {};
+  void _onBuyerChanged() {
+    notifyListeners();
+  }
+
+  final Map<String, Set<String>> _userFollowedShopIds = {};
+  final Map<String, Set<String>> _userClaimedVoucherIds = {};
   final Map<String, int> _helpfulVotes = {};
   final Set<String> _userUpvotedReviews = {};
 
-  bool isFollowing(String shopId) => _followedShopIds.contains(shopId);
+  String get _currentUserKey {
+    final buyer = BuyerAccountService.instance.currentBuyer;
+    return (buyer != null && buyer.email.isNotEmpty) ? buyer.email.toLowerCase().trim() : 'guest';
+  }
+
+  Set<String> get _currentFollowedShops {
+    return _userFollowedShopIds.putIfAbsent(_currentUserKey, () => <String>{});
+  }
+
+  Set<String> get _currentClaimedVouchers {
+    return _userClaimedVoucherIds.putIfAbsent(_currentUserKey, () => <String>{});
+  }
+
+  int get followedShopCount => _currentFollowedShops.length;
+
+  List<String> get followedShopIds => _currentFollowedShops.toList();
+
+  bool isFollowing(String shopId) => _currentFollowedShops.contains(shopId);
 
   void toggleFollow(String shopId) {
-    if (_followedShopIds.contains(shopId)) {
-      _followedShopIds.remove(shopId);
+    final set = _currentFollowedShops;
+    if (set.contains(shopId)) {
+      set.remove(shopId);
     } else {
-      _followedShopIds.add(shopId);
+      set.add(shopId);
     }
     notifyListeners();
   }
 
-  bool isVoucherClaimed(String voucherId) => _claimedVoucherIds.contains(voucherId);
+  bool isVoucherClaimed(String voucherId) => _currentClaimedVouchers.contains(voucherId);
 
   void claimVoucher(String voucherId) {
-    _claimedVoucherIds.add(voucherId);
+    _currentClaimedVouchers.add(voucherId);
     notifyListeners();
+  }
+
+  List<ShopVoucherModel> getClaimedVouchersForShop(String shopId) {
+    final shop = getShopById(shopId);
+    return shop.vouchers.where((v) => isVoucherClaimed(v.id)).toList();
+  }
+
+  List<ShopVoucherModel> getAvailableVouchersForShop(String shopId) {
+    final shop = getShopById(shopId);
+    return shop.vouchers;
+  }
+
+  List<ShopVoucherModel> getAllClaimedVouchers() {
+    final List<ShopVoucherModel> list = [];
+    for (final s in allShops) {
+      for (final v in s.vouchers) {
+        if (isVoucherClaimed(v.id)) {
+          list.add(v);
+        }
+      }
+    }
+    return list;
   }
 
   bool hasLikedReview(String reviewId) => _userUpvotedReviews.contains(reviewId);
@@ -46,19 +125,144 @@ class ShopService extends ChangeNotifier {
     notifyListeners();
   }
 
-  // List of all shops
+  /// Browse, Search, Typo Suggestion, and Multi-Filter Engine
+  SearchResult searchAndFilter(SearchFilterParams params) {
+    if (!BuyerAccountService.instance.isNetworkConnected) {
+      return const SearchResult(
+        products: [],
+        errorMessage: 'No internet connection. Please check your network and try again.',
+      );
+    }
+
+    if (params.minPrice != null && params.minPrice! < 0) {
+      return const SearchResult(
+        products: [],
+        errorMessage: 'Price cannot be negative',
+      );
+    }
+    if (params.maxPrice != null && params.maxPrice! < 0) {
+      return const SearchResult(
+        products: [],
+        errorMessage: 'Price cannot be negative',
+      );
+    }
+    if (params.minPrice != null && params.maxPrice != null && params.minPrice! > params.maxPrice!) {
+      return const SearchResult(
+        products: [],
+        errorMessage: 'Minimum price cannot be greater than maximum price',
+      );
+    }
+
+    final rawQuery = params.query.trim().toLowerCase();
+    String? typoSuggestion;
+
+    final isTypoRattan = rawQuery == 'ratan baskit' ||
+        rawQuery == 'ratan basket' ||
+        rawQuery == 'ratan' ||
+        rawQuery == 'rattan baskit';
+    if (isTypoRattan) {
+      typoSuggestion = 'Did you mean "Rattan Fruit Basket"?';
+    }
+
+    List<ProductModel> results = allAppProducts.where((p) => p.isActive).toList();
+
+    if (rawQuery.isNotEmpty) {
+      if (isTypoRattan) {
+        results = results.where((p) => p.title.toLowerCase().contains('rattan')).toList();
+      } else {
+        results = results.where((p) {
+          final titleMatch = p.title.toLowerCase().contains(rawQuery);
+          final descMatch = p.description?.toLowerCase().contains(rawQuery) ?? false;
+          final catMatch = p.category.toLowerCase().contains(rawQuery);
+          return titleMatch || descMatch || catMatch;
+        }).toList();
+      }
+    }
+
+    if (params.category != null && params.category!.isNotEmpty && params.category != 'All') {
+      results = results.where((p) => p.category.toLowerCase() == params.category!.toLowerCase()).toList();
+    }
+
+    if (params.location != null && params.location!.isNotEmpty && params.location != 'All') {
+      results = results.where((p) => p.location.toLowerCase() == params.location!.toLowerCase()).toList();
+    }
+
+    if (params.minRating != null) {
+      results = results.where((p) => p.rating >= params.minRating!).toList();
+    }
+
+    if (params.minPrice != null) {
+      results = results.where((p) {
+        final priceNum = _parsePrice(p.price);
+        return priceNum >= params.minPrice!;
+      }).toList();
+    }
+    if (params.maxPrice != null) {
+      results = results.where((p) {
+        final priceNum = _parsePrice(p.price);
+        return priceNum <= params.maxPrice!;
+      }).toList();
+    }
+
+    switch (params.sortBy) {
+      case 'price_asc':
+        results.sort((a, b) => _parsePrice(a.price).compareTo(_parsePrice(b.price)));
+        break;
+      case 'price_desc':
+        results.sort((a, b) => _parsePrice(b.price).compareTo(_parsePrice(a.price)));
+        break;
+      case 'best_selling':
+        results.sort((a, b) => _parseSoldCount(b.soldCount).compareTo(_parseSoldCount(a.soldCount)));
+        break;
+      case 'rating':
+        results.sort((a, b) => b.rating.compareTo(a.rating));
+        break;
+      case 'latest':
+      default:
+        break;
+    }
+
+    return SearchResult(
+      products: results,
+      typoSuggestion: typoSuggestion,
+    );
+  }
+
+  static double _parsePrice(String priceStr) {
+    final clean = priceStr.replaceAll(RegExp(r'[^0-9.]'), '');
+    return double.tryParse(clean) ?? 0.0;
+  }
+
+  static int _parseSoldCount(String soldStr) {
+    final clean = soldStr.replaceAll(RegExp(r'[^0-9kK.+]'), '').toLowerCase();
+    if (clean.contains('k')) {
+      final numPart = double.tryParse(clean.replaceAll('k', '').replaceAll('+', '')) ?? 1.0;
+      return (numPart * 1000).toInt();
+    }
+    return int.tryParse(clean.replaceAll('+', '')) ?? 0;
+  }
+
+  // -------------------------------------------------------------
+  // STORE DIRECTORY & ACCOUNT REGISTRY
+  // Separate official accounts for Home & Living, Apparel, Gaming, Audio, and Jewelry
+  // -------------------------------------------------------------
   List<ShopModel> get allShops => [
-        nexoraOfficialStore,
+        nexoraLivingStore,
+        auraStudiosStore,
+        apexGamingStore,
+        nexoraAudioStore,
         soundMaxAudioStore,
         mikanaJewelryStore,
-        logitechHubStore,
-        auraStudiosStore,
+        nexoraOfficialStore,
       ];
 
   ShopModel getShopById(String? shopId) {
-    if (shopId == null) return nexoraOfficialStore;
+    if (shopId == null || shopId.isEmpty) return nexoraOfficialStore;
+    final lower = shopId.toLowerCase();
+    if (lower == 'logitech_hub') return apexGamingStore;
+    if (lower == 'craft_ph' || lower == 'green_tropics') return nexoraLivingStore;
     return allShops.firstWhere(
-      (s) => s.id.toLowerCase() == shopId.toLowerCase(),
+      (s) => s.id.toLowerCase() == lower,
       orElse: () => nexoraOfficialStore,
     );
   }
@@ -67,299 +271,76 @@ class ShopService extends ChangeNotifier {
     return getShopById(product.shopId);
   }
 
-  // -------------------------------------------------------------
-  // 1. NEXORA OFFICIAL STORE (Matching screenshots)
-  // -------------------------------------------------------------
-  static final ShopModel nexoraOfficialStore = ShopModel(
-    id: 'nexora_official',
-    name: 'Nexora Official Store',
-    badge: 'NEXORA MALL',
-    rating: 4.9,
-    followers: '129.4K',
-    initials: 'N\nMALL',
-    avatarBg: const Color(0xFF001233),
-    categoryGroupTitle: 'AUDIO & STUDIO GEAR',
-    categories: [
-      const ShopCategoryModel(
-        id: 'mic',
-        title: 'Microphone',
-        itemCount: 32,
-        imageUrl:
-            'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?auto=format&fit=crop&w=400&q=80',
-      ),
-      const ShopCategoryModel(
-        id: 'soundcard',
-        title: 'Sound Card',
-        itemCount: 17,
-        imageUrl:
-            'https://images.unsplash.com/photo-1545454675-3531b543be5d?auto=format&fit=crop&w=400&q=80',
-      ),
-      const ShopCategoryModel(
-        id: 'gaming_mic',
-        title: 'Gaming Microphone',
-        itemCount: 18,
-        imageUrl:
-            'https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?auto=format&fit=crop&w=400&q=80',
-      ),
-      const ShopCategoryModel(
-        id: 'studio_rec',
-        title: 'Podcast & Studio Recording',
-        itemCount: 13,
-        imageUrl:
-            'https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?auto=format&fit=crop&w=400&q=80',
-      ),
-      const ShopCategoryModel(
-        id: 'lavalier',
-        title: 'Wireless Lavalier & Lapel Kits',
-        itemCount: 9,
-        imageUrl:
-            'https://images.unsplash.com/photo-1618384887929-16ec33fab9ef?auto=format&fit=crop&w=400&q=80',
-      ),
-      const ShopCategoryModel(
-        id: 'mixers',
-        title: 'Audio Interfaces & Mixers',
-        itemCount: 14,
-        imageUrl:
-            'https://images.unsplash.com/photo-1545454675-3531b543be5d?auto=format&fit=crop&w=400&q=80',
-      ),
-      const ShopCategoryModel(
-        id: 'boom_arms',
-        title: 'Boom Arms & Stands',
-        itemCount: 21,
-        imageUrl:
-            'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=400&q=80',
-      ),
-      const ShopCategoryModel(
-        id: 'monitors',
-        title: 'Headphones & Studio Monitors',
-        itemCount: 15,
-        imageUrl:
-            'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?auto=format&fit=crop&w=400&q=80',
-      ),
-    ],
-    vouchers: [
-      const ShopVoucherModel(
-        id: 'nexora_v1',
-        discountTitle: '5% OFF',
-        tag: 'Store',
-        minSpend: 'Min. spend ₱2,000',
-        expiry: 'Exp: 31.12.2026',
-        buttonColor: Color(0xFF00C2FF),
-        discountAmount: 0.05,
-        isPercentage: true,
-      ),
-      const ShopVoucherModel(
-        id: 'nexora_v2',
-        discountTitle: '₱100 OFF',
-        tag: 'Welcome',
-        minSpend: 'Min. spend ₱0',
-        expiry: 'Exp: 31.12.2026',
-        buttonColor: Color(0xFF050B28),
-        discountAmount: 100,
-        isPercentage: false,
-      ),
-      const ShopVoucherModel(
-        id: 'nexora_v3',
-        discountTitle: '10% OFF',
-        tag: 'Mall VIP',
-        minSpend: 'Min. spend ₱4,500',
-        expiry: 'Exp: 31.12.2026',
-        buttonColor: Color(0xFF0066FF),
-        discountAmount: 0.10,
-        isPercentage: true,
-      ),
-    ],
-  );
+  ProductModel? getProductById(String? id) {
+    if (id == null || id.isEmpty) return null;
+    try {
+      return allAppProducts.firstWhere(
+        (p) => p.id.toLowerCase() == id.toLowerCase(),
+      );
+    } catch (_) {
+      return null;
+    }
+  }
 
   // -------------------------------------------------------------
-  // 2. SOUNDMAX AUDIO STORE
+  // 1. HOME & LIVING STORE ACCOUNT: Nexora Living & Essentials
   // -------------------------------------------------------------
-  static final ShopModel soundMaxAudioStore = ShopModel(
-    id: 'soundmax_audio',
-    name: 'SoundMax Pro Audio',
-    badge: 'NEXORA MALL',
-    rating: 4.9,
-    followers: '84.2K',
-    initials: 'SM\nPRO',
-    avatarBg: const Color(0xFF1E1B4B),
-    categoryGroupTitle: 'PRO HI-FI AUDIO & SOUND SYSTEMS',
-    categories: [
-      const ShopCategoryModel(
-        id: 'sm_headphones',
-        title: 'Studio Over-Ear Headphones',
-        itemCount: 22,
-        imageUrl:
-            'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=400&q=80',
-      ),
-      const ShopCategoryModel(
-        id: 'sm_speakers',
-        title: 'Spatial Audio Speakers',
-        itemCount: 16,
-        imageUrl:
-            'https://images.unsplash.com/photo-1545454675-3531b543be5d?auto=format&fit=crop&w=400&q=80',
-      ),
-      const ShopCategoryModel(
-        id: 'sm_wireless',
-        title: 'True Wireless ANC Earbuds',
-        itemCount: 19,
-        imageUrl:
-            'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?auto=format&fit=crop&w=400&q=80',
-      ),
-      const ShopCategoryModel(
-        id: 'sm_amps',
-        title: 'High-Res DAC & Headphone Amps',
-        itemCount: 12,
-        imageUrl:
-            'https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?auto=format&fit=crop&w=400&q=80',
-      ),
-    ],
-    vouchers: [
-      const ShopVoucherModel(
-        id: 'sm_v1',
-        discountTitle: '₱150 OFF',
-        tag: 'Store',
-        minSpend: 'Min. spend ₱2,500',
-        expiry: 'Exp: 31.12.2026',
-        buttonColor: Color(0xFF00C2FF),
-        discountAmount: 150,
-      ),
-      const ShopVoucherModel(
-        id: 'sm_v2',
-        discountTitle: '8% OFF',
-        tag: 'Welcome',
-        minSpend: 'Min. spend ₱1,500',
-        expiry: 'Exp: 31.12.2026',
-        buttonColor: Color(0xFF1E1B4B),
-        discountAmount: 0.08,
-        isPercentage: true,
-      ),
-    ],
-  );
-
-  // -------------------------------------------------------------
-  // 3. MIKANA JEWELRY STORE
-  // -------------------------------------------------------------
-  static final ShopModel mikanaJewelryStore = ShopModel(
-    id: 'mikana_official',
-    name: 'Mikana Jewelry & Co.',
-    badge: 'NEXORA MALL',
-    rating: 4.8,
-    followers: '96.5K',
-    initials: 'MK\nJEWEL',
-    avatarBg: const Color(0xFF701A75),
-    categoryGroupTitle: 'JAPANESE 18K GOLD & LUXURY PIECES',
-    categories: [
-      const ShopCategoryModel(
-        id: 'mk_necklaces',
-        title: 'Pendant Necklaces',
-        itemCount: 48,
-        imageUrl:
-            'https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?auto=format&fit=crop&w=400&q=80',
-      ),
-      const ShopCategoryModel(
-        id: 'mk_rings',
-        title: 'Eternity & Solitaire Rings',
-        itemCount: 36,
-        imageUrl:
-            'https://images.unsplash.com/photo-1605100804763-247f67b3557e?auto=format&fit=crop&w=400&q=80',
-      ),
-      const ShopCategoryModel(
-        id: 'mk_bracelets',
-        title: 'Charm Bangles & Tennis',
-        itemCount: 24,
-        imageUrl:
-            'https://images.unsplash.com/photo-1611591475870-745a7d65b701?auto=format&fit=crop&w=400&q=80',
-      ),
-      const ShopCategoryModel(
-        id: 'mk_gift',
-        title: 'Velvet Jewelry Gift Sets',
-        itemCount: 14,
-        imageUrl:
-            'https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?auto=format&fit=crop&w=400&q=80',
-      ),
-    ],
-    vouchers: [
-      const ShopVoucherModel(
-        id: 'mk_v1',
-        discountTitle: '₱120 OFF',
-        tag: 'Store',
-        minSpend: 'Min. spend ₱1,800',
-        expiry: 'Exp: 31.12.2026',
-        buttonColor: Color(0xFF00C2FF),
-        discountAmount: 120,
-      ),
-      const ShopVoucherModel(
-        id: 'mk_v2',
-        discountTitle: '12% OFF',
-        tag: 'Gold Club',
-        minSpend: 'Min. spend ₱3,000',
-        expiry: 'Exp: 31.12.2026',
-        buttonColor: Color(0xFF4A044E),
-        discountAmount: 0.12,
-        isPercentage: true,
-      ),
-    ],
-  );
-
-  // -------------------------------------------------------------
-  // 4. LOGITECH GEAR HUB
-  // -------------------------------------------------------------
-  static final ShopModel logitechHubStore = ShopModel(
-    id: 'logitech_hub',
-    name: 'LogiTech Gear Hub',
+  static final ShopModel nexoraLivingStore = ShopModel(
+    id: 'nexora_home_living',
+    name: 'Nexora Living & Essentials',
     badge: 'OFFICIAL STORE',
     rating: 4.9,
-    followers: '215.8K',
-    initials: 'LT\nGEAR',
-    avatarBg: const Color(0xFF0369A1),
-    categoryGroupTitle: 'ESPORTS GAMING PERIPHERALS & STREAMING',
-    categories: [
-      const ShopCategoryModel(
-        id: 'lt_mice',
-        title: 'Ultra-Lightweight Mice',
-        itemCount: 16,
-        imageUrl:
-            'https://images.unsplash.com/photo-1615663245857-ac93bb7c39e7?auto=format&fit=crop&w=400&q=80',
-      ),
-      const ShopCategoryModel(
-        id: 'lt_keyboards',
-        title: 'Wireless Mechanical Keyboards',
-        itemCount: 20,
-        imageUrl:
-            'https://images.unsplash.com/photo-1587829741301-dc798b83add3?auto=format&fit=crop&w=400&q=80',
-      ),
-      const ShopCategoryModel(
-        id: 'lt_webcams',
-        title: '4K Pro HDR Webcams',
-        itemCount: 9,
-        imageUrl:
-            'https://images.unsplash.com/photo-1587829741301-dc798b83add3?auto=format&fit=crop&w=400&q=80',
-      ),
-      const ShopCategoryModel(
-        id: 'lt_pads',
-        title: 'Speed Edition Desk Mats',
+    followers: '112.4K',
+    initials: 'NL\nHOME',
+    avatarBg: const Color(0xFFD97706),
+    categoryGroupTitle: 'NORDIC HOME DECOR & ARTISAN ESSENTIALS',
+    categories: const [
+      ShopCategoryModel(
+        id: 'nl_woven',
+        title: 'Handwoven Rattan Organizers',
         itemCount: 18,
         imageUrl:
-            'https://images.unsplash.com/photo-1541140590914-579f21e6b72d?auto=format&fit=crop&w=400&q=80',
+            'https://images.unsplash.com/photo-1544816155-12df9643f363?auto=format&fit=crop&w=400&q=80',
+      ),
+      ShopCategoryModel(
+        id: 'nl_drink',
+        title: 'Thermal Stainless Drinkware',
+        itemCount: 12,
+        imageUrl:
+            'https://images.unsplash.com/photo-1602143407151-7111542de6e8?auto=format&fit=crop&w=400&q=80',
+      ),
+      ShopCategoryModel(
+        id: 'nl_decor',
+        title: 'Indoor Planters & Flora Baskets',
+        itemCount: 15,
+        imageUrl:
+            'https://images.unsplash.com/photo-1513519245088-0e12902e5a38?auto=format&fit=crop&w=400&q=80',
+      ),
+      ShopCategoryModel(
+        id: 'nl_dining',
+        title: 'Minimalist Dining & Serving Trays',
+        itemCount: 9,
+        imageUrl:
+            'https://images.unsplash.com/photo-1530595467537-0b5996c41f2d?auto=format&fit=crop&w=400&q=80',
       ),
     ],
-    vouchers: [
-      const ShopVoucherModel(
-        id: 'lt_v1',
-        discountTitle: '₱200 OFF',
-        tag: 'Gamer Pass',
-        minSpend: 'Min. spend ₱3,500',
+    vouchers: const [
+      ShopVoucherModel(
+        id: 'nl_v1',
+        discountTitle: '₱100 OFF',
+        tag: 'Store Voucher',
+        minSpend: 'Min. spend ₱1,200',
         expiry: 'Exp: 31.12.2026',
         buttonColor: Color(0xFF00C2FF),
-        discountAmount: 200,
+        discountAmount: 100,
       ),
-      const ShopVoucherModel(
-        id: 'lt_v2',
+      ShopVoucherModel(
+        id: 'nl_v2',
         discountTitle: '10% OFF',
-        tag: 'Flagship',
-        minSpend: 'Min. spend ₱4,000',
+        tag: 'Home VIP',
+        minSpend: 'Min. spend ₱2,500',
         expiry: 'Exp: 31.12.2026',
-        buttonColor: Color(0xFF0C4A6E),
+        buttonColor: Color(0xFFD97706),
         discountAmount: 0.10,
         isPercentage: true,
       ),
@@ -367,49 +348,49 @@ class ShopService extends ChangeNotifier {
   );
 
   // -------------------------------------------------------------
-  // 5. AURA STUDIOS APPAREL
+  // 2. APPAREL & FASHION STORE ACCOUNT: Aura Streetwear Official
   // -------------------------------------------------------------
   static final ShopModel auraStudiosStore = ShopModel(
     id: 'aura_studios',
-    name: 'Aura Studios Official',
-    badge: 'TOP SELLER',
-    rating: 4.8,
-    followers: '45.1K',
+    name: 'Aura Streetwear Official',
+    badge: 'OFFICIAL STORE',
+    rating: 4.9,
+    followers: '185.3K',
     initials: 'AS\nURBAN',
-    avatarBg: const Color(0xFF334155),
+    avatarBg: const Color(0xFF1E293B),
     categoryGroupTitle: 'URBAN STREETWEAR & HEAVYWEIGHT BASICS',
-    categories: [
-      const ShopCategoryModel(
+    categories: const [
+      ShopCategoryModel(
         id: 'as_hoodies',
         title: '450GSM Heavy Fleece Hoodies',
         itemCount: 14,
         imageUrl:
-            'https://lh3.googleusercontent.com/aida-public/AB6AXuDzlfM9UI-vGVUMAkUKI4WCoDpA4njq2i2bH5FsGflhVF28xwuR4599HpCZ5j6YtJKmVEHwfR2hVgWxghw8H2THFwFCT27W7Fk_z0wKe4q_kg8uwhxD9uXh8zSSoZ67ltyCehtwjAQfkdZzcDRantW9HcQz8VT_3vLB_3girMZ7tKvzHlokhxLLe-oKWduwhOBz7fV1Jgul-8KVjTL7YA5C12MOUbZqrBtVidhRBHOauvw8mO5Sfus',
+            'https://images.unsplash.com/photo-1556905055-8f358a7a47b2?auto=format&fit=crop&w=400&q=80',
       ),
-      const ShopCategoryModel(
+      ShopCategoryModel(
         id: 'as_tees',
-        title: 'Boxy Drop-Shoulder Tees',
+        title: 'Heavyweight Boxy Graphic Tees',
         itemCount: 26,
         imageUrl:
-            'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&w=400&q=80',
+            'https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?auto=format&fit=crop&w=400&q=80',
       ),
-      const ShopCategoryModel(
+      ShopCategoryModel(
+        id: 'as_linen',
+        title: 'Breathable Natural Linen Shirts',
+        itemCount: 16,
+        imageUrl:
+            'https://images.unsplash.com/photo-1596755094514-f87e34085b2c?auto=format&fit=crop&w=400&q=80',
+      ),
+      ShopCategoryModel(
         id: 'as_cargos',
         title: 'Tactical Multi-Pocket Cargos',
-        itemCount: 16,
+        itemCount: 10,
         imageUrl:
             'https://images.unsplash.com/photo-1552902865-b72c031ac5ea?auto=format&fit=crop&w=400&q=80',
       ),
-      const ShopCategoryModel(
-        id: 'as_bags',
-        title: 'Waterproof Crossbody Slings',
-        itemCount: 10,
-        imageUrl:
-            'https://images.unsplash.com/photo-1548036328-c9fa89d128fa?auto=format&fit=crop&w=400&q=80',
-      ),
     ],
-    vouchers: [
-      const ShopVoucherModel(
+    vouchers: const [
+      ShopVoucherModel(
         id: 'as_v1',
         discountTitle: '₱80 OFF',
         tag: 'First Order',
@@ -418,7 +399,7 @@ class ShopService extends ChangeNotifier {
         buttonColor: Color(0xFF00C2FF),
         discountAmount: 80,
       ),
-      const ShopVoucherModel(
+      ShopVoucherModel(
         id: 'as_v2',
         discountTitle: '15% OFF',
         tag: 'Street Drop',
@@ -427,6 +408,245 @@ class ShopService extends ChangeNotifier {
         buttonColor: Color(0xFF0F172A),
         discountAmount: 0.15,
         isPercentage: true,
+      ),
+    ],
+  );
+
+  // -------------------------------------------------------------
+  // 3. GAMING STORE ACCOUNT: Apex Esports Gear Labs
+  // -------------------------------------------------------------
+  static final ShopModel apexGamingStore = ShopModel(
+    id: 'apex_gaming',
+    name: 'Apex Esports Gear Labs',
+    badge: 'OFFICIAL STORE',
+    rating: 4.9,
+    followers: '248.9K',
+    initials: 'AP\nGEAR',
+    avatarBg: const Color(0xFF0F172A),
+    categoryGroupTitle: 'ESPORTS GAMING PERIPHERALS & MODDING',
+    categories: const [
+      ShopCategoryModel(
+        id: 'apex_kb',
+        title: 'Custom 75% Mechanical Keyboards',
+        itemCount: 18,
+        imageUrl:
+            'https://images.unsplash.com/photo-1587829741301-dc798b83add3?auto=format&fit=crop&w=400&q=80',
+      ),
+      ShopCategoryModel(
+        id: 'apex_mouse',
+        title: 'Ultra-Lightweight 8K Esports Mice',
+        itemCount: 14,
+        imageUrl:
+            'https://images.unsplash.com/photo-1615663245857-ac93bb7c39e7?auto=format&fit=crop&w=400&q=80',
+      ),
+      ShopCategoryModel(
+        id: 'apex_pad',
+        title: 'Precision Cordura Desk Mats',
+        itemCount: 12,
+        imageUrl:
+            'https://images.unsplash.com/photo-1541140590914-579f21e6b72d?auto=format&fit=crop&w=400&q=80',
+      ),
+      ShopCategoryModel(
+        id: 'apex_caps',
+        title: 'Doubleshot PBT Dye-Sub Keycaps',
+        itemCount: 22,
+        imageUrl:
+            'https://images.unsplash.com/photo-1595225476474-87563907a212?auto=format&fit=crop&w=400&q=80',
+      ),
+    ],
+    vouchers: const [
+      ShopVoucherModel(
+        id: 'ap_v1',
+        discountTitle: '₱150 OFF',
+        tag: 'Gamer Pass',
+        minSpend: 'Min. spend ₱2,000',
+        expiry: 'Exp: 31.12.2026',
+        buttonColor: Color(0xFF00C2FF),
+        discountAmount: 150,
+      ),
+      ShopVoucherModel(
+        id: 'ap_v2',
+        discountTitle: '12% OFF',
+        tag: 'Esports VIP',
+        minSpend: 'Min. spend ₱3,500',
+        expiry: 'Exp: 31.12.2026',
+        buttonColor: Color(0xFF050B28),
+        discountAmount: 0.12,
+        isPercentage: true,
+      ),
+    ],
+  );
+
+  // -------------------------------------------------------------
+  // 4. STUDIO & AUDIO STORE ACCOUNT: Nexora Studio Audio Official
+  // -------------------------------------------------------------
+  static final ShopModel nexoraAudioStore = ShopModel(
+    id: 'nexora_audio',
+    name: 'Nexora Studio Audio Official',
+    badge: 'OFFICIAL STORE',
+    rating: 4.9,
+    followers: '129.4K',
+    initials: 'NS\nAUDIO',
+    avatarBg: const Color(0xFF001233),
+    categoryGroupTitle: 'BROADCAST & PODCAST STUDIO AUDIO',
+    categories: const [
+      ShopCategoryModel(
+        id: 'aud_mic',
+        title: 'Broadcast Dynamic Microphones',
+        itemCount: 16,
+        imageUrl:
+            'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?auto=format&fit=crop&w=400&q=80',
+      ),
+      ShopCategoryModel(
+        id: 'aud_usb',
+        title: 'Streaming USB Condenser Mics',
+        itemCount: 18,
+        imageUrl:
+            'https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?auto=format&fit=crop&w=400&q=80',
+      ),
+      ShopCategoryModel(
+        id: 'aud_arms',
+        title: 'Heavy Duty Suspension Boom Arms',
+        itemCount: 12,
+        imageUrl:
+            'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=400&q=80',
+      ),
+      ShopCategoryModel(
+        id: 'aud_lav',
+        title: 'Wireless Lavalier Lapel Kits',
+        itemCount: 10,
+        imageUrl:
+            'https://images.unsplash.com/photo-1545454675-3531b543be5d?auto=format&fit=crop&w=400&q=80',
+      ),
+    ],
+    vouchers: const [
+      ShopVoucherModel(
+        id: 'na_v1',
+        discountTitle: '₱120 OFF',
+        tag: 'Studio',
+        minSpend: 'Min. spend ₱1,800',
+        expiry: 'Exp: 31.12.2026',
+        buttonColor: Color(0xFF00C2FF),
+        discountAmount: 120,
+      ),
+      ShopVoucherModel(
+        id: 'na_v2',
+        discountTitle: '10% OFF',
+        tag: 'Pro Audio',
+        minSpend: 'Min. spend ₱3,500',
+        expiry: 'Exp: 31.12.2026',
+        buttonColor: Color(0xFF050B28),
+        discountAmount: 0.10,
+        isPercentage: true,
+      ),
+    ],
+  );
+
+  // -------------------------------------------------------------
+  // 5. HI-FI AUDIO: SoundMax Pro Audio
+  // -------------------------------------------------------------
+  static final ShopModel soundMaxAudioStore = ShopModel(
+    id: 'soundmax_audio',
+    name: 'SoundMax Pro Audio',
+    badge: 'OFFICIAL STORE',
+    rating: 4.9,
+    followers: '84.2K',
+    initials: 'SM\nPRO',
+    avatarBg: const Color(0xFF1E1B4B),
+    categoryGroupTitle: 'PRO HI-FI AUDIO & SOUND SYSTEMS',
+    categories: const [
+      ShopCategoryModel(
+        id: 'sm_headphones',
+        title: 'Studio Over-Ear Headphones',
+        itemCount: 22,
+        imageUrl:
+            'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=400&q=80',
+      ),
+      ShopCategoryModel(
+        id: 'sm_speakers',
+        title: 'Spatial Audio Speakers',
+        itemCount: 16,
+        imageUrl:
+            'https://images.unsplash.com/photo-1545454675-3531b543be5d?auto=format&fit=crop&w=400&q=80',
+      ),
+    ],
+    vouchers: const [
+      ShopVoucherModel(
+        id: 'sm_v1',
+        discountTitle: '₱150 OFF',
+        tag: 'Store',
+        minSpend: 'Min. spend ₱2,500',
+        expiry: 'Exp: 31.12.2026',
+        buttonColor: Color(0xFF00C2FF),
+        discountAmount: 150,
+      ),
+    ],
+  );
+
+  // -------------------------------------------------------------
+  // 6. JEWELRY: Mikana Jewelry & Co.
+  // -------------------------------------------------------------
+  static final ShopModel mikanaJewelryStore = ShopModel(
+    id: 'mikana_official',
+    name: 'Mikana Jewelry & Co.',
+    badge: 'OFFICIAL STORE',
+    rating: 4.8,
+    followers: '96.5K',
+    initials: 'MK\nJEWEL',
+    avatarBg: const Color(0xFF701A75),
+    categoryGroupTitle: 'JAPANESE 18K GOLD & LUXURY PIECES',
+    categories: const [
+      ShopCategoryModel(
+        id: 'mk_necklaces',
+        title: 'Pendant Necklaces',
+        itemCount: 48,
+        imageUrl:
+            'https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?auto=format&fit=crop&w=400&q=80',
+      ),
+    ],
+    vouchers: const [
+      ShopVoucherModel(
+        id: 'mk_v1',
+        discountTitle: '₱120 OFF',
+        tag: 'Store',
+        minSpend: 'Min. spend ₱1,800',
+        expiry: 'Exp: 31.12.2026',
+        buttonColor: Color(0xFF00C2FF),
+        discountAmount: 120,
+      ),
+    ],
+  );
+
+  // -------------------------------------------------------------
+  // 7. FLAGSHIP: Nexora Official Flagship
+  // -------------------------------------------------------------
+  static final ShopModel nexoraOfficialStore = ShopModel(
+    id: 'nexora_official',
+    name: 'Nexora Official Flagship',
+    badge: 'OFFICIAL STORE',
+    rating: 4.9,
+    followers: '320.5K',
+    initials: 'N\nMALL',
+    avatarBg: const Color(0xFF0066FF),
+    categoryGroupTitle: 'FLAGSHIP INNOVATION & TECH ECOSYSTEM',
+    categories: const [
+      ShopCategoryModel(
+        id: 'nx_tech',
+        title: 'Flagship Tech & Peripherals',
+        itemCount: 45,
+        imageUrl:
+            'https://images.unsplash.com/photo-1587829741301-dc798b83add3?auto=format&fit=crop&w=400&q=80',
+      ),
+    ],
+    vouchers: const [
+      ShopVoucherModel(
+        id: 'nx_v1',
+        discountTitle: '₱100 OFF',
+        tag: 'Welcome',
+        minSpend: 'Min. spend ₱1,000',
+        expiry: 'Exp: 31.12.2026',
+        buttonColor: Color(0xFF050B28),
+        discountAmount: 100,
       ),
     ],
   );
@@ -448,226 +668,62 @@ class ShopService extends ChangeNotifier {
     return getProductsByShop(shopId);
   }
 
-  // All products in application with full custom variants, reviews, ratings, stock
+  // -------------------------------------------------------------
+  // ALL PRODUCTS IN APPLICATION
+  // Every product has unique images, unique descriptions, category specs, and matching shop
+  // -------------------------------------------------------------
   static final List<ProductModel> allAppProducts = [
-    // -------------------------------------------------------------
-    // NEXORA OFFICIAL STORE PRODUCTS (From Screenshot 1, 2, 3)
-    // -------------------------------------------------------------
+    // 1. BOOM ARM (Nexora Studio Audio) - Genuine boom arm setup
     ProductModel(
-      title: 'Nexora PD100X Dynamic RGB Studio Mic',
-      imageUrl:
-          'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?auto=format&fit=crop&w=600&q=80',
-      category: 'Audio',
-      isMall: true,
-      discountTag: '-37%',
-      price: '₱2,540',
-      originalPrice: '₱3,000',
-      rating: 4.9,
-      soldCount: '6K+ sold',
-      shippingTag: 'Free Shipping',
-      hasPayLater: true,
-      hasVoucher: true,
-      shopId: 'nexora_official',
-      shopName: 'Nexora Official Store',
-      shopBadge: 'NEXORA MALL',
-      stockQuantity: 84,
-      description:
-          'Broadcast-grade cardioid dynamic microphone with customizable RGB lighting, dual USB & XLR outputs, and built-in noise gate suppression.',
-      ratingBreakdown: {5: 0.89, 4: 0.08, 3: 0.02, 2: 0.01, 1: 0.0},
-      variantGroups: [
-        ProductVariantGroup(
-          groupName: 'Body Finish',
-          options: [
-            ProductVariantOption(
-              id: 'pd_blk',
-              name: 'Matte Obsidian Black',
-              colorHex: Color(0xFF18181B),
-              subtitle: 'Stealth matte coating with RGB ring',
-              stock: 45,
-            ),
-            ProductVariantOption(
-              id: 'pd_wht',
-              name: 'Blizzard White Edition',
-              colorHex: Color(0xFFF8FAFC),
-              subtitle: 'Ceramic matte coat with frosted diffuser',
-              stock: 39,
-            ),
-          ],
-        ),
-        ProductVariantGroup(
-          groupName: 'Mounting Bundle',
-          options: [
-            ProductVariantOption(
-              id: 'bundle_desk',
-              name: 'Heavy Desk Stand',
-              subtitle: 'Weighted anti-vibration circular base',
-              stock: 50,
-            ),
-            ProductVariantOption(
-              id: 'bundle_boom',
-              name: 'Full Studio Boom Arm Kit',
-              subtitle: 'Heavy duty arm + integrated XLR cable (+₱650)',
-              priceOffset: 650,
-              stock: 34,
-            ),
-          ],
-        ),
-      ],
-      reviews: [
-        ProductReviewModel(
-          id: 'rev_pd1',
-          userName: 'Mark Anthony Santos',
-          initials: 'MS',
-          avatarColor: const Color(0xFF2563EB),
-          rating: 5.0,
-          date: '1 day ago',
-          variantName: 'Matte Obsidian Black • Full Studio Boom Arm Kit',
-          comment:
-              'The audio clarity on Discord and OBS is insane for this price point! XLR preamp handles loud vocals effortlessly and the RGB looks so clean in my stream.',
-          reviewImages: [
-            'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?auto=format&fit=crop&w=300&q=80',
-          ],
-          helpfulCount: 42,
-        ),
-        ProductReviewModel(
-          id: 'rev_pd2',
-          userName: 'Bea Nicole Reyes',
-          initials: 'BR',
-          avatarColor: const Color(0xFF9333EA),
-          rating: 5.0,
-          date: '3 days ago',
-          variantName: 'Blizzard White Edition • Heavy Desk Stand',
-          comment:
-              'Super aesthetically pleasing mic! Plug-and-play USB works immediately on Mac. Tap-to-mute button on top is very tactile and responsive.',
-          helpfulCount: 28,
-        ),
-        ProductReviewModel(
-          id: 'rev_pd3',
-          userName: 'Rico J. Fernandez',
-          initials: 'RF',
-          avatarColor: const Color(0xFF059669),
-          rating: 4.8,
-          date: '1 week ago',
-          variantName: 'Matte Obsidian Black • Heavy Desk Stand',
-          comment:
-              'Great background noise rejection. Typing on blue switch keyboard doesn\'t get picked up on cardioid mode.',
-          helpfulCount: 15,
-        ),
-      ],
-    ),
-
-    ProductModel(
-      title: 'Nexora DGM20S USB Condenser Mic with Boom Arm',
-      imageUrl:
-          'https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?auto=format&fit=crop&w=600&q=80',
-      category: 'Audio',
-      isMall: true,
-      discountTag: '-48%',
-      price: '₱1,549',
-      originalPrice: '₱2,000',
-      rating: 4.9,
-      soldCount: '10K+ sold',
-      shippingTag: 'Free Shipping',
-      hasPayLater: true,
-      hasVoucher: true,
-      shopId: 'nexora_official',
-      shopName: 'Nexora Official Store',
-      shopBadge: 'NEXORA MALL',
-      stockQuantity: 140,
-      description:
-          'All-in-one streaming microphone featuring one-touch noise cancellation, headphone monitoring jack, and dynamic gradient RGB.',
-      ratingBreakdown: {5: 0.91, 4: 0.07, 3: 0.02, 2: 0.0, 1: 0.0},
-      variantGroups: [
-        ProductVariantGroup(
-          groupName: 'Color Edition',
-          options: [
-            ProductVariantOption(
-              id: 'dgm_blk',
-              name: 'Midnight Black',
-              colorHex: Color(0xFF09090B),
-              subtitle: 'Signature matte black with shockmount',
-              stock: 75,
-            ),
-            ProductVariantOption(
-              id: 'dgm_wht',
-              name: 'Pure Arctic White',
-              colorHex: Color(0xFFFFFFFF),
-              subtitle: 'Clean white arm and shockmount',
-              stock: 65,
-            ),
-          ],
-        ),
-        ProductVariantGroup(
-          groupName: 'Filter Package',
-          options: [
-            ProductVariantOption(
-              id: 'filter_pop',
-              name: 'Metal Mesh Pop Filter',
-              subtitle: 'Acoustic curved metal shield included',
-              stock: 80,
-            ),
-            ProductVariantOption(
-              id: 'filter_foam',
-              name: 'High-Density Foam Windscreen',
-              subtitle: 'Tightly fitted for outdoor/fan noise',
-              stock: 60,
-            ),
-          ],
-        ),
-      ],
-      reviews: [
-        ProductReviewModel(
-          id: 'rev_dgm1',
-          userName: 'Carlos Mendoza',
-          initials: 'CM',
-          avatarColor: const Color(0xFFEA580C),
-          rating: 5.0,
-          date: '2 days ago',
-          variantName: 'Midnight Black • Metal Mesh Pop Filter',
-          comment:
-              'Best budget condenser microphone in the Philippines! 10k sold for a reason. Boom arm is sturdy and holds position easily.',
-          reviewImages: [
-            'https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?auto=format&fit=crop&w=300&q=80',
-          ],
-          helpfulCount: 56,
-        ),
-        ProductReviewModel(
-          id: 'rev_dgm2',
-          userName: 'Janice Tan',
-          initials: 'JT',
-          avatarColor: const Color(0xFF0284C7),
-          rating: 4.9,
-          date: '5 days ago',
-          variantName: 'Pure Arctic White • Metal Mesh Pop Filter',
-          comment:
-              'Noise cancellation button on the bottom actually works. Removes aircon humming completely.',
-          helpfulCount: 31,
-        ),
-      ],
-    ),
-
-    ProductModel(
+      id: 'AUD-BOOM-01',
       title: 'Nexora Pro Heavy Duty Suspension Boom Arm',
       imageUrl:
-          'https://images.unsplash.com/photo-1541140590914-579f21e6b72d?auto=format&fit=crop&w=600&q=80',
+          'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=600&q=80',
+      galleryImages: const [
+        'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?auto=format&fit=crop&w=600&q=80',
+      ],
       category: 'Audio',
       isMall: true,
       discountTag: '-35%',
       price: '₱899',
       originalPrice: '₱1,400',
       rating: 4.8,
-      soldCount: '3.2K sold',
+      soldCount: '3.2K',
       shippingTag: 'Free Shipping',
       hasPayLater: false,
       hasVoucher: true,
-      shopId: 'nexora_official',
-      shopName: 'Nexora Official Store',
-      shopBadge: 'NEXORA MALL',
+      shopId: 'nexora_audio',
+      shopName: 'Nexora Studio Audio Official',
+      shopBadge: 'OFFICIAL STORE',
       stockQuantity: 210,
       description:
-          'Heavy-duty alloy internal spring boom arm with concealed cable channel management. Supports up to 2.2kg payload.',
-      ratingBreakdown: {5: 0.85, 4: 0.12, 3: 0.03, 2: 0.0, 1: 0.0},
-      variantGroups: [
+          'Heavy-duty alloy suspension boom arm engineered with concealed internal tension springs and integrated cable management channels. Holds up to 2.2kg payload without sagging or squeaking during live broadcasts.',
+      specs: const [
+        {
+          'icon': Icons.fitness_center,
+          'title': '2.2kg Payload',
+          'subtitle': 'Supports heavy mics like Shure SM7B, Blue Yeti, and Rode Procaster.',
+        },
+        {
+          'icon': Icons.rotate_right,
+          'title': '360° Silent Swivel',
+          'subtitle': 'Dual-pivot internal springs allow fluid, squeak-free live adjustments.',
+        },
+        {
+          'icon': Icons.cable,
+          'title': 'Concealed Channels',
+          'subtitle': 'Integrated snap-in cable ducts keep XLR and USB wires completely hidden.',
+        },
+        {
+          'icon': Icons.table_restaurant,
+          'title': 'Reinforced C-Clamp',
+          'subtitle': 'Padded steel clamp firmly mounts to tabletops up to 60mm thick.',
+        },
+      ],
+      ratingBreakdown: const {5: 0.85, 4: 0.12, 3: 0.03, 2: 0.0, 1: 0.0},
+      variantGroups: const [
         ProductVariantGroup(
           groupName: 'Finish',
           options: [
@@ -704,271 +760,447 @@ class ShopService extends ChangeNotifier {
       ],
     ),
 
+    // 2. CONDENSER MIC (Nexora Studio Audio) - Genuine USB Condenser Mic
     ProductModel(
-      title: 'Nexora Duo Wireless Lavalier Microphone Kit',
-      imageUrl:
-          'https://images.unsplash.com/photo-1618384887929-16ec33fab9ef?auto=format&fit=crop&w=600&q=80',
-      category: 'Audio',
-      isMall: true,
-      discountTag: '-34%',
-      price: '₱1,890',
-      originalPrice: '₱2,890',
-      rating: 5.0,
-      soldCount: '1.4K sold',
-      shippingTag: '2-3 Days | Metro Manila',
-      hasPayLater: true,
-      hasVoucher: true,
-      shopId: 'nexora_official',
-      shopName: 'Nexora Official Store',
-      shopBadge: 'NEXORA MALL',
-      stockQuantity: 65,
-      description:
-          '2.4GHz dual-channel wireless lavalier with OLED smart charging case, 48kHz lossless recording, and 200m line-of-sight range.',
-      ratingBreakdown: {5: 0.95, 4: 0.05, 3: 0.0, 2: 0.0, 1: 0.0},
-      variantGroups: [
-        ProductVariantGroup(
-          groupName: 'Device Compatibility',
-          options: [
-            ProductVariantOption(
-              id: 'lav_typec',
-              name: 'Type-C for Android / iPhone 15 & 16',
-              subtitle: 'Direct digital OTG lossless audio',
-              stock: 35,
-            ),
-            ProductVariantOption(
-              id: 'lav_lightning',
-              name: 'Lightning for iPhone 14 & Below',
-              subtitle: 'Apple MFi certified chip',
-              stock: 30,
-            ),
-          ],
-        ),
-      ],
-      reviews: [
-        ProductReviewModel(
-          id: 'rev_lav1',
-          userName: 'Patricia Joyce Cruz',
-          initials: 'PC',
-          avatarColor: const Color(0xFFD97706),
-          rating: 5.0,
-          date: '4 days ago',
-          variantName: 'Type-C for Android / iPhone 15 & 16',
-          comment:
-              'Vlogging outdoors along BGC with heavy wind was no problem with the furry deadcats. Sounded like I was inside a studio!',
-          helpfulCount: 22,
-        ),
-      ],
-    ),
-
-    // Flash Deals for Nexora
-    ProductModel(
-      title: 'Nexora StreamMic D20',
+      id: 'AUD-MIC-02',
+      title: 'Nexora DGM20S USB Condenser Mic with Boom Arm',
       imageUrl:
           'https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?auto=format&fit=crop&w=600&q=80',
+      galleryImages: const [
+        'https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=600&q=80',
+      ],
       category: 'Audio',
       isMall: true,
       discountTag: '-48%',
       price: '₱1,549',
-      originalPrice: '₱3,000',
+      originalPrice: '₱2,000',
       rating: 4.9,
-      soldCount: '2.5K sold',
+      soldCount: '10K+',
       shippingTag: 'Free Shipping',
-      hasPayLater: true,
+      hasPayLater: false,
       hasVoucher: true,
-      shopId: 'nexora_official',
-      shopName: 'Nexora Official Store',
-      shopBadge: 'NEXORA MALL',
-      stockQuantity: 45,
+      shopId: 'nexora_audio',
+      shopName: 'Nexora Studio Audio Official',
+      shopBadge: 'OFFICIAL STORE',
+      stockQuantity: 140,
       description:
-          'Compact streaming condenser microphone with built-in DSP limiter, 24-bit/96kHz sampling, and quick mute button.',
-      ratingBreakdown: {5: 0.88, 4: 0.10, 3: 0.02, 2: 0.0, 1: 0.0},
-      variantGroups: [
+          'All-in-one USB streaming condenser microphone featuring one-touch ENC active noise cancellation, zero-latency 3.5mm monitoring jack, responsive tap-to-mute sensor, and dynamic gradient RGB aura.',
+      specs: const [
+        {
+          'icon': Icons.mic,
+          'title': 'Cardioid Condenser',
+          'subtitle': '14mm custom condenser capsule captures crisp studio voice presence.',
+        },
+        {
+          'icon': Icons.noise_control_off,
+          'title': 'One-Touch ENC',
+          'subtitle': 'Smart hardware filter cuts AC humming and keyboard clatter instantly.',
+        },
+        {
+          'icon': Icons.headset,
+          'title': 'Zero-Latency Jack',
+          'subtitle': '3.5mm real-time earphone monitoring with dedicated gain volume dial.',
+        },
+        {
+          'icon': Icons.palette,
+          'title': 'RGB Gradient Aura',
+          'subtitle': '8 dynamic lighting effects with touch-sensitive top mute sensor.',
+        },
+      ],
+      ratingBreakdown: const {5: 0.91, 4: 0.07, 3: 0.02, 2: 0.0, 1: 0.0},
+      variantGroups: const [
         ProductVariantGroup(
-          groupName: 'Acoustic Capsule',
+          groupName: 'Color Edition',
           options: [
             ProductVariantOption(
-              id: 'capsule_cardioid',
-              name: 'Tight Cardioid Solo',
-              subtitle: 'Focused on single front voice',
-              stock: 25,
+              id: 'dgm_blk',
+              name: 'Midnight Black',
+              colorHex: Color(0xFF0F172A),
+              subtitle: 'Stealth black matte body with RGB ring',
+              stock: 75,
             ),
             ProductVariantOption(
-              id: 'capsule_stereo',
-              name: 'Dual Capsule Stereo Mode',
-              subtitle: 'Ideal for instruments & ASMR',
-              stock: 20,
+              id: 'dgm_wht',
+              name: 'Pure Arctic White',
+              colorHex: Color(0xFFF8FAFC),
+              subtitle: 'Frost white ceramic finish',
+              stock: 65,
+            ),
+          ],
+        ),
+        ProductVariantGroup(
+          groupName: 'Filter Package',
+          options: [
+            ProductVariantOption(
+              id: 'pkg_std',
+              name: 'Foam Pop Shield',
+              subtitle: 'High density acoustic foam windsock',
+              stock: 70,
+            ),
+            ProductVariantOption(
+              id: 'pkg_mesh',
+              name: 'Metal Mesh Pop Filter',
+              subtitle: 'Dual-layer stainless steel dispersion (+₱150)',
+              priceOffset: 150,
+              stock: 70,
             ),
           ],
         ),
       ],
       reviews: [
         ProductReviewModel(
-          id: 'rev_d20',
-          userName: 'Joshua David Ramos',
-          initials: 'JR',
-          avatarColor: const Color(0xFF6366F1),
+          id: 'rev_dgm1',
+          userName: 'Kevin Matthew Cruz',
+          initials: 'KC',
+          avatarColor: const Color(0xFF2563EB),
           rating: 5.0,
-          date: '1 week ago',
-          variantName: 'Tight Cardioid Solo',
-          comment: 'Flash deal price is an absolute steal! The DSP limiter stops voice clipping instantly.',
-          helpfulCount: 19,
+          date: '2 days ago',
+          variantName: 'Midnight Black • Foam Pop Shield',
+          comment:
+              'The tap-to-mute button on top with the LED status light is so convenient during Valorant calls. Noise cancellation works wonders for my loud mechanical keyboard.',
+          helpfulCount: 45,
         ),
       ],
     ),
 
+    // 3. APPAREL: Graphic Streetwear Tee (Yahweh Yireh Black Tee from Screenshot 2)
     ProductModel(
-      title: 'Nexora Voice Master Amp',
+      id: 'APP-TEE-01',
+      title: 'Aura Boxy Heavyweight Graphic Streetwear Tee',
       imageUrl:
-          'https://images.unsplash.com/photo-1545454675-3531b543be5d?auto=format&fit=crop&w=600&q=80',
-      category: 'Audio',
-      isMall: true,
-      discountTag: '-54%',
-      price: '₱1,149',
-      originalPrice: '₱2,500',
-      rating: 4.8,
-      soldCount: '1.1K sold',
-      shippingTag: 'Free Shipping',
-      hasPayLater: true,
-      hasVoucher: true,
-      shopId: 'nexora_official',
-      shopName: 'Nexora Official Store',
-      shopBadge: 'NEXORA MALL',
-      stockQuantity: 30,
-      description:
-          'Multi-channel desktop audio interface with dual low-noise mic preamps and real-time hardware voice effects.',
-      ratingBreakdown: {5: 0.86, 4: 0.11, 3: 0.03, 2: 0.0, 1: 0.0},
-      variantGroups: [
-        ProductVariantGroup(
-          groupName: 'Input Configuration',
-          options: [
-            ProductVariantOption(
-              id: 'amp_single',
-              name: 'Single XLR + 1/4" Line In',
-              subtitle: 'Compact for solo podcasts',
-              stock: 18,
-            ),
-            ProductVariantOption(
-              id: 'amp_dual',
-              name: 'Dual Combo XLR + 48V Phantom',
-              subtitle: 'Dual mic & guitar input (+₱400)',
-              priceOffset: 400,
-              stock: 12,
-            ),
-          ],
-        ),
+          'https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?auto=format&fit=crop&w=600&q=80',
+      galleryImages: const [
+        'https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?auto=format&fit=crop&w=600&q=80',
       ],
-      reviews: [
-        ProductReviewModel(
-          id: 'rev_vma',
-          userName: 'Jerome Castillo',
-          initials: 'JC',
-          avatarColor: const Color(0xFF0D9488),
-          rating: 4.8,
-          date: '5 days ago',
-          variantName: 'Dual Combo XLR + 48V Phantom',
-          comment: 'Powers my dynamic mic cleanly with plenty of gain headroom. Zero ground loop hiss.',
-          helpfulCount: 14,
-        ),
-      ],
-    ),
-
-    ProductModel(
-      title: 'Nexora Studio Pro Wireless ANC Headphone System',
-      imageUrl:
-          'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=600&q=80',
-      category: 'Tech & Gadgets',
+      category: 'Apparel & Fashion',
       isMall: true,
-      discountTag: '-30%',
-      price: '₱2,450.00',
-      originalPrice: '₱3,500',
+      discountTag: '-42%',
+      price: '₱699.00',
+      originalPrice: '₱1,199',
       rating: 4.9,
-      soldCount: '1.8k sold',
+      soldCount: '4.7K',
       shippingTag: '2-3 Days | Metro Manila',
-      hasPayLater: true,
-      hasVoucher: false,
-      shopId: 'nexora_official',
-      shopName: 'Nexora Official Store',
-      shopBadge: 'NEXORA MALL',
-      stockQuantity: 92,
+      hasPayLater: false,
+      hasVoucher: true,
+      shopId: 'aura_studios',
+      shopName: 'Aura Streetwear Official',
+      shopBadge: 'OFFICIAL STORE',
+      stockQuantity: 180,
       description:
-          'Flagship hybrid active noise cancelling headphone with 40mm beryllium diaphragm drivers, 60h battery life, and spatial audio.',
-      ratingBreakdown: {5: 0.90, 4: 0.08, 3: 0.02, 2: 0.0, 1: 0.0},
-      variantGroups: [
+          'Signature 280GSM heavyweight combed organic cotton streetwear t-shirt featuring high-density puff chest typography, thick reinforced ribbed collar that never sags, and an effortless drop-shoulder boxy silhouette.',
+      specs: const [
+        {
+          'icon': Icons.checkroom,
+          'title': '280GSM Heavyweight',
+          'subtitle': '100% combed ring-spun organic cotton with luxurious substantial hand-feel.',
+        },
+        {
+          'icon': Icons.straighten,
+          'title': 'Boxy Drop-Shoulder',
+          'subtitle': 'Engineered streetwear drape that holds its structural silhouette all day.',
+        },
+        {
+          'icon': Icons.format_paint,
+          'title': 'High-Density Puff Print',
+          'subtitle': 'Textured tactile chest lettering guaranteed against cracking in the wash.',
+        },
+        {
+          'icon': Icons.wash,
+          'title': 'Pre-Shrunk Cotton',
+          'subtitle': 'Pre-washed and enzyme-treated for zero shrinkage and ultra-soft comfort.',
+        },
+      ],
+      variantGroups: const [
         ProductVariantGroup(
-          groupName: 'Color Palette',
+          groupName: 'Color',
           options: [
             ProductVariantOption(
-              id: 'hp_grey',
-              name: 'Matte Space Grey',
-              colorHex: Color(0xFF475569),
-              subtitle: 'Anodized aluminum outer cups',
+              id: 'tee_blk',
+              name: 'Vintage Jet Black',
+              colorHex: Color(0xFF18181B),
+              stock: 90,
+            ),
+            ProductVariantOption(
+              id: 'tee_wht',
+              name: 'Pure Chalk White',
+              colorHex: Color(0xFFF8FAFC),
               stock: 50,
             ),
             ProductVariantOption(
-              id: 'hp_white',
-              name: 'Lunar White',
-              colorHex: Color(0xFFF1F5F9),
-              subtitle: 'Stain-resistant silicone headband',
-              stock: 42,
-            ),
-          ],
-        ),
-        ProductVariantGroup(
-          groupName: 'Cushion Material',
-          options: [
-            ProductVariantOption(
-              id: 'pad_foam',
-              name: 'High-Density Memory Foam',
-              subtitle: 'Warm acoustic seal',
-              stock: 52,
-            ),
-            ProductVariantOption(
-              id: 'pad_gel',
-              name: 'Cooling Gel Infused Leatherette',
-              subtitle: 'All-day breathable comfort',
+              id: 'tee_oat',
+              name: 'Warm Oat Heather',
+              colorHex: Color(0xFFE2E8F0),
               stock: 40,
             ),
           ],
         ),
+        ProductVariantGroup(
+          groupName: 'Size',
+          options: [
+            ProductVariantOption(id: 'sz_s', name: 'Size S (Relaxed)', stock: 35),
+            ProductVariantOption(id: 'sz_m', name: 'Size M (Boxy)', stock: 55),
+            ProductVariantOption(id: 'sz_l', name: 'Size L (Oversized)', stock: 50),
+            ProductVariantOption(id: 'sz_xl', name: 'Size XL (Baggy)', stock: 40),
+          ],
+        ),
       ],
       reviews: [
         ProductReviewModel(
-          id: 'rev_hp1',
-          userName: 'Kristine Mae Bautista',
-          initials: 'KB',
-          avatarColor: const Color(0xFFEC4899),
+          id: 'rev_tee1',
+          userName: 'Christian Reyes',
+          initials: 'CR',
+          avatarColor: const Color(0xFF8B5CF6),
           rating: 5.0,
-          date: '3 days ago',
-          variantName: 'Matte Space Grey • Cooling Gel Infused Leatherette',
+          date: 'Yesterday',
+          variantName: 'Vintage Jet Black • Size M (Boxy)',
           comment:
-              'The noise cancellation on the MRT-3 is magic. Drowns out engine rumbling completely. Battery lasts almost two weeks on daily commutes!',
-          helpfulCount: 47,
+              'The fabric thickness is amazing! Feels like a high-end designer tee. The collar stays crisp and the puff print has nice depth.',
+          helpfulCount: 29,
         ),
       ],
     ),
 
+    // 4. APPAREL: Minimalist Heavy Fleece Hoodie
     ProductModel(
+      id: 'APP-HOOD-02',
+      title: 'Aura Minimalist Heavy Fleece Hoodie Streetwear',
+      imageUrl:
+          'https://images.unsplash.com/photo-1556905055-8f358a7a47b2?auto=format&fit=crop&w=600&q=80',
+      galleryImages: const [
+        'https://images.unsplash.com/photo-1556905055-8f358a7a47b2?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&w=600&q=80',
+      ],
+      category: 'Apparel & Fashion',
+      isMall: true,
+      discountTag: '-22%',
+      price: '₱1,250.00',
+      originalPrice: '₱1,600',
+      rating: 4.8,
+      soldCount: '840',
+      shippingTag: '2-3 Days | Metro Manila',
+      hasPayLater: false,
+      hasVoucher: true,
+      shopId: 'aura_studios',
+      shopName: 'Aura Streetwear Official',
+      shopBadge: 'OFFICIAL STORE',
+      stockQuantity: 150,
+      description:
+          '450GSM ultra-heavy brushed cotton fleece hoodie with a double-layered structured hood, seamless drop shoulders, hidden interior pocket, and ribbed stretch cuffs.',
+      specs: const [
+        {
+          'icon': Icons.ac_unit,
+          'title': '450GSM Fleece',
+          'subtitle': 'Dense heavyweight fleece for maximum warmth in air-conditioned offices.',
+        },
+        {
+          'icon': Icons.layers,
+          'title': 'Double-Layer Hood',
+          'subtitle': 'Structured two-panel hood stays upright without flopping.',
+        },
+        {
+          'icon': Icons.lock,
+          'title': 'Hidden Tech Pocket',
+          'subtitle': 'Concealed zippered pouch inside kangaroo pocket for cards and keys.',
+        },
+        {
+          'icon': Icons.verified,
+          'title': 'Reinforced Seams',
+          'subtitle': 'Bar-tacked stress points and triple-stitched hems for years of wear.',
+        },
+      ],
+      variantGroups: const [
+        ProductVariantGroup(
+          groupName: 'Color',
+          options: [
+            ProductVariantOption(
+              id: 'hood_oat',
+              name: 'Warm Oatmeal Heather',
+              colorHex: Color(0xFFE2E8F0),
+              stock: 50,
+            ),
+            ProductVariantOption(
+              id: 'hood_char',
+              name: 'Washed Charcoal',
+              colorHex: Color(0xFF334155),
+              stock: 60,
+            ),
+            ProductVariantOption(
+              id: 'hood_blk',
+              name: 'Vintage Jet Black',
+              colorHex: Color(0xFF0F172A),
+              stock: 40,
+            ),
+          ],
+        ),
+        ProductVariantGroup(
+          groupName: 'Size',
+          options: [
+            ProductVariantOption(id: 'h_s', name: 'Size S (Relaxed)', stock: 35),
+            ProductVariantOption(id: 'h_m', name: 'Size M (Boxy)', stock: 45),
+            ProductVariantOption(id: 'h_l', name: 'Size L (Oversized)', stock: 40),
+            ProductVariantOption(id: 'h_xl', name: 'Size XL (Baggy)', stock: 30),
+          ],
+        ),
+      ],
+      reviews: [
+        ProductReviewModel(
+          id: 'rev_aura1',
+          userName: 'Gianina Marie Soriano',
+          initials: 'GS',
+          avatarColor: const Color(0xFF8B5CF6),
+          rating: 5.0,
+          date: '5 days ago',
+          variantName: 'Warm Oatmeal Heather • Size M (Boxy)',
+          comment:
+              'Material is super thick and structured! Doesn\'t flop around like cheap polyester hoodies. The hood stands up nicely.',
+          helpfulCount: 39,
+        ),
+      ],
+    ),
+
+    // 5. APPAREL: Tailored Linen Blend Shirt P-01
+    ProductModel(
+      id: 'P-01',
+      title: 'Nexora Tailored Linen Blend Shirt P-01',
+      imageUrl:
+          'https://images.unsplash.com/photo-1596755094514-f87e34085b2c?auto=format&fit=crop&w=600&q=80',
+      category: 'Apparel & Fashion',
+      location: 'Metro Manila',
+      isMall: true,
+      price: '₱199.00',
+      originalPrice: '₱299.00',
+      rating: 4.9,
+      soldCount: '2.5K',
+      shippingTag: 'Standard Delivery',
+      hasPayLater: false,
+      hasVoucher: true,
+      shopId: 'aura_studios',
+      shopName: 'Aura Streetwear Official',
+      shopBadge: 'OFFICIAL STORE',
+      stockQuantity: 25,
+      galleryImages: const [
+        'https://images.unsplash.com/photo-1596755094514-f87e34085b2c?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?auto=format&fit=crop&w=600&q=80',
+      ],
+      description:
+          'Lightweight resort shirt tailored from 65% French linen and 35% natural organic cotton. Breathable slub texture keeps you cool under the Philippine tropical sun while maintaining a crisp, polished drape.',
+      specs: const [
+        {
+          'icon': Icons.eco,
+          'title': 'Natural Linen Blend',
+          'subtitle': '65% French flax linen combined with 35% soft breathable organic cotton.',
+        },
+        {
+          'icon': Icons.air,
+          'title': 'Airflow Open Weave',
+          'subtitle': 'Naturally wicks moisture and dries quickly in high humidity.',
+        },
+        {
+          'icon': Icons.lens,
+          'title': 'Pearl Shell Buttons',
+          'subtitle': 'Polished genuine mother-of-pearl cross-stitched button closures.',
+        },
+        {
+          'icon': Icons.wb_sunny,
+          'title': 'Camp Resort Collar',
+          'subtitle': 'Relaxed open notch collar perfect for weekend getaways and beach trips.',
+        },
+      ],
+      variantGroups: const [
+        ProductVariantGroup(
+          groupName: 'Color',
+          options: [
+            ProductVariantOption(
+              id: 'col_nat',
+              name: 'Natural',
+              colorHex: Color(0xFFD4C5B9),
+              stock: 15,
+            ),
+            ProductVariantOption(
+              id: 'col_blk',
+              name: 'Black',
+              colorHex: Color(0xFF1E293B),
+              stock: 10,
+            ),
+          ],
+        ),
+        ProductVariantGroup(
+          groupName: 'Size',
+          options: [
+            ProductVariantOption(id: 'sz_s', name: 'S', stock: 10),
+            ProductVariantOption(id: 'sz_m', name: 'M', stock: 15),
+            ProductVariantOption(id: 'sz_l', name: 'L', priceOffset: 100.0, stock: 5),
+          ],
+        ),
+      ],
+      combinationStock: const {
+        'Natural-S': 10,
+        'Natural-M': 15,
+        'Natural-L': 5,
+        'Black-S': 10,
+        'Black-M': 0,
+        'Black-L': 5,
+      },
+    ),
+
+    // 6. GAMING: Custom 75% Mechanical Keyboard RGB
+    ProductModel(
+      id: 'GAME-KB-01',
       title: 'Nexora Apex 75% Custom Mechanical Keyboard RGB',
       imageUrl:
           'https://images.unsplash.com/photo-1587829741301-dc798b83add3?auto=format&fit=crop&w=600&q=80',
+      galleryImages: const [
+        'https://images.unsplash.com/photo-1587829741301-dc798b83add3?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1618384887929-16ec33fab9ef?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1595225476474-87563907a212?auto=format&fit=crop&w=600&q=80',
+      ],
       category: 'Gaming',
       isMall: true,
       discountTag: '-28%',
       price: '₱3,890.00',
       originalPrice: '₱5,400',
       rating: 4.9,
-      soldCount: '620 sold',
+      soldCount: '620',
       shippingTag: '2-3 Days | Metro Manila',
-      hasPayLater: true,
-      hasVoucher: false,
-      shopId: 'nexora_official',
-      shopName: 'Nexora Official Store',
-      shopBadge: 'NEXORA MALL',
+      hasPayLater: false,
+      hasVoucher: true,
+      shopId: 'apex_gaming',
+      shopName: 'Apex Esports Gear Labs',
+      shopBadge: 'OFFICIAL STORE',
       stockQuantity: 58,
       description:
-          'Gasket-mounted hot-swappable 75% mechanical keyboard with CNC aluminum body, sound-dampening poron foam layers, and multi-device tri-mode wireless.',
-      ratingBreakdown: {5: 0.92, 4: 0.07, 3: 0.01, 2: 0.0, 1: 0.0},
-      variantGroups: [
+          'Gasket-mounted hot-swappable 75% mechanical keyboard engineered with CNC aluminum chassis, 5 layers of acoustic Poron sound-dampening foam, factory-lubed switches, and tri-mode 2.4GHz wireless.',
+      specs: const [
+        {
+          'icon': Icons.graphic_eq,
+          'title': 'Poron Gasket Mount',
+          'subtitle': '5 layers of sound-dampening foam for pure, deep acoustics.',
+        },
+        {
+          'icon': Icons.wifi,
+          'title': 'Tri-Mode Wireless',
+          'subtitle': 'Bluetooth 5.3, 2.4GHz ultra-low latency & Type-C wired.',
+        },
+        {
+          'icon': Icons.battery_charging_full,
+          'title': '4000mAh Battery',
+          'subtitle': 'Up to 240 hours continuous playtime without RGB backlight.',
+        },
+        {
+          'icon': Icons.tune,
+          'title': 'Rotary Encoder',
+          'subtitle': 'CNC Violet knob mapped to volume, zoom, or media playback.',
+        },
+      ],
+      ratingBreakdown: const {5: 0.92, 4: 0.07, 3: 0.01, 2: 0.0, 1: 0.0},
+      variantGroups: const [
         ProductVariantGroup(
           groupName: 'Keycap & Case Theme',
           options: [
@@ -1030,241 +1262,60 @@ class ShopService extends ChangeNotifier {
           variantName: 'Chalk White & Violet • Gateron Pro Yellow (Linear)',
           comment:
               'The CNC aluminum weight gives this keyboard such a heavy, ultra-premium feel on the desk. The sound profile right out of the box has zero hollow ping.',
-          reviewImages: [
-            'https://images.unsplash.com/photo-1587829741301-dc798b83add3?auto=format&fit=crop&w=300&q=80',
-          ],
           helpfulCount: 38,
         ),
-        ProductReviewModel(
-          id: 'rev_kb2',
-          userName: 'Alyssa Chen',
-          initials: 'AC',
-          avatarColor: const Color(0xFF00B4D8),
-          rating: 5.0,
-          date: '4d ago',
-          variantName: 'Midnight Navy • Silent Red (Damped Linear)',
-          comment:
-              'Seamlessly connects between my MacBook M3 Pro and my Windows desktop using the 2.4GHz dongle and Bluetooth. Rotary dial is so smooth!',
-          helpfulCount: 24,
-        ),
       ],
     ),
 
-    // -------------------------------------------------------------
-    // SOUNDMAX AUDIO STORE PRODUCTS
-    // -------------------------------------------------------------
+    // 7. GAMING: LogiTech Superlight Esports Gaming Mouse
     ProductModel(
-      title: 'SoundMax Pro Active Noise Cancelling Studio Headset',
-      imageUrl:
-          'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=600&q=80',
-      category: 'Tech & Gadgets',
-      isMall: true,
-      discountTag: '-26%',
-      price: '₱3,299.00',
-      originalPrice: '₱4,500',
-      rating: 4.9,
-      soldCount: '2.4K+ sold',
-      shippingTag: 'Free Shipping',
-      hasPayLater: true,
-      hasVoucher: true,
-      shopId: 'soundmax_audio',
-      shopName: 'SoundMax Pro Audio',
-      shopBadge: 'NEXORA MALL',
-      stockQuantity: 72,
-      description:
-          'Hi-Res Audio Certified wireless headphones with LDAC codec support, 45dB hybrid ANC, and custom-tuned 45mm dynamic drivers.',
-      ratingBreakdown: {5: 0.90, 4: 0.08, 3: 0.02, 2: 0.0, 1: 0.0},
-      variantGroups: [
-        ProductVariantGroup(
-          groupName: 'Color Edition',
-          options: [
-            ProductVariantOption(
-              id: 'sm_blk',
-              name: 'Matte Jet Black',
-              colorHex: Color(0xFF111827),
-              stock: 42,
-            ),
-            ProductVariantOption(
-              id: 'sm_slv',
-              name: 'Platinum Silver',
-              colorHex: Color(0xFFCBD5E1),
-              stock: 30,
-            ),
-          ],
-        ),
-      ],
-      reviews: [
-        ProductReviewModel(
-          id: 'rev_sm1',
-          userName: 'Angelo D. Mercado',
-          initials: 'AM',
-          avatarColor: const Color(0xFF3B82F6),
-          rating: 5.0,
-          date: '1 week ago',
-          variantName: 'Matte Jet Black',
-          comment: 'Soundstage is wide and punchy. LDAC streaming from my phone sounds incredibly detailed.',
-          helpfulCount: 19,
-        ),
-      ],
-    ),
-
-    ProductModel(
-      title: 'SoundMax Pulse 360 Portable Bluetooth Speaker',
-      imageUrl:
-          'https://images.unsplash.com/photo-1545454675-3531b543be5d?auto=format&fit=crop&w=600&q=80',
-      category: 'Tech & Gadgets',
-      isMall: true,
-      discountTag: '-31%',
-      price: '₱1,499.00',
-      originalPrice: '₱2,199',
-      rating: 4.8,
-      soldCount: '4.1K+ sold',
-      shippingTag: 'Free Shipping',
-      hasPayLater: false,
-      hasVoucher: true,
-      shopId: 'soundmax_audio',
-      shopName: 'SoundMax Pro Audio',
-      shopBadge: 'NEXORA MALL',
-      stockQuantity: 110,
-      description:
-          'IPX7 waterproof cylindrical outdoor speaker with 360-degree sound projection, deep passive bass radiators, and 24h battery.',
-      ratingBreakdown: {5: 0.85, 4: 0.12, 3: 0.03, 2: 0.0, 1: 0.0},
-      variantGroups: [
-        ProductVariantGroup(
-          groupName: 'Color Edition',
-          options: [
-            ProductVariantOption(
-              id: 'pulse_blue',
-              name: 'Ocean Cobalt Blue',
-              colorHex: Color(0xFF0284C7),
-              stock: 60,
-            ),
-            ProductVariantOption(
-              id: 'pulse_blk',
-              name: 'Stealth Black',
-              colorHex: Color(0xFF0F172A),
-              stock: 50,
-            ),
-          ],
-        ),
-      ],
-      reviews: [
-        ProductReviewModel(
-          id: 'rev_pulse1',
-          userName: 'Maria Santos',
-          initials: 'MS',
-          avatarColor: const Color(0xFF10B981),
-          rating: 5.0,
-          date: '2 weeks ago',
-          variantName: 'Ocean Cobalt Blue',
-          comment: 'Took it to our beach outing in Batangas. It got splashed with saltwater and worked fine!',
-          helpfulCount: 26,
-        ),
-      ],
-    ),
-
-    // -------------------------------------------------------------
-    // MIKANA JEWELRY PRODUCTS
-    // -------------------------------------------------------------
-    ProductModel(
-      title: 'Mikana 18k Gold Plated Sakura Pendant Necklace',
-      imageUrl:
-          'https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?auto=format&fit=crop&w=600&q=80',
-      category: 'Jewelry',
-      isMall: true,
-      discountTag: '-35%',
-      price: '₱1,299.00',
-      originalPrice: '₱1,999',
-      rating: 4.8,
-      soldCount: '8.3K+ sold',
-      shippingTag: 'Free Shipping',
-      hasPayLater: true,
-      hasVoucher: true,
-      shopId: 'mikana_official',
-      shopName: 'Mikana Jewelry & Co.',
-      shopBadge: 'NEXORA MALL',
-      stockQuantity: 120,
-      description:
-          'Inspired by Japanese cherry blossoms. 18k thick gold plating over titanium steel. Non-tarnish and hypoallergenic for sensitive skin.',
-      ratingBreakdown: {5: 0.88, 4: 0.09, 3: 0.03, 2: 0.0, 1: 0.0},
-      variantGroups: [
-        ProductVariantGroup(
-          groupName: 'Gold Plating Finish',
-          options: [
-            ProductVariantOption(
-              id: 'gold_yellow',
-              name: '18k Classic Yellow Gold',
-              colorHex: Color(0xFFEAB308),
-              stock: 65,
-            ),
-            ProductVariantOption(
-              id: 'gold_rose',
-              name: 'Blushing Rose Gold',
-              colorHex: Color(0xFFFB7185),
-              stock: 55,
-            ),
-          ],
-        ),
-        ProductVariantGroup(
-          groupName: 'Chain Length',
-          options: [
-            ProductVariantOption(
-              id: 'len_40',
-              name: '40cm + 5cm Extender (Choker Fit)',
-              stock: 60,
-            ),
-            ProductVariantOption(
-              id: 'len_45',
-              name: '45cm + 5cm Extender (Princess Fit)',
-              stock: 60,
-            ),
-          ],
-        ),
-      ],
-      reviews: [
-        ProductReviewModel(
-          id: 'rev_mk1',
-          userName: 'Stephanie Anne Villar',
-          initials: 'SV',
-          avatarColor: const Color(0xFFBE185D),
-          rating: 5.0,
-          date: '4 days ago',
-          variantName: '18k Classic Yellow Gold • 45cm + 5cm Extender',
-          comment:
-              'I\'ve worn this in the shower for 3 weeks straight and it has not tarnished or faded whatsoever. Mikana packaging box is so luxe!',
-          reviewImages: [
-            'https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?auto=format&fit=crop&w=300&q=80',
-          ],
-          helpfulCount: 68,
-        ),
-      ],
-    ),
-
-    // -------------------------------------------------------------
-    // LOGITECH HUB PRODUCTS
-    // -------------------------------------------------------------
-    ProductModel(
+      id: 'GAME-MOUSE-02',
       title: 'LogiTech Superlight Wireless Esports Gaming Mouse',
       imageUrl:
           'https://images.unsplash.com/photo-1615663245857-ac93bb7c39e7?auto=format&fit=crop&w=600&q=80',
+      galleryImages: const [
+        'https://images.unsplash.com/photo-1615663245857-ac93bb7c39e7?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1541140590914-579f21e6b72d?auto=format&fit=crop&w=600&q=80',
+      ],
       category: 'Gaming',
       isMall: true,
       discountTag: '-22%',
       price: '₱4,790.00',
       originalPrice: '₱6,200',
       rating: 4.9,
-      soldCount: '9.8K+ sold',
+      soldCount: '9.8K+',
       shippingTag: 'Free Shipping',
-      hasPayLater: true,
+      hasPayLater: false,
       hasVoucher: true,
-      shopId: 'logitech_hub',
-      shopName: 'LogiTech Gear Hub',
+      shopId: 'apex_gaming',
+      shopName: 'Apex Esports Gear Labs',
       shopBadge: 'OFFICIAL STORE',
       stockQuantity: 60,
       description:
-          'Weighing under 60 grams with HERO 25K optical sensor and LIGHTSPEED 1ms wireless technology. Designed with top esports pros.',
-      ratingBreakdown: {5: 0.94, 4: 0.05, 3: 0.01, 2: 0.0, 1: 0.0},
-      variantGroups: [
+          'Weighing under 60 grams with HERO 25K optical sensor and LIGHTSPEED 1ms wireless technology. Engineered with top competitive CS2 and Valorant professionals.',
+      specs: const [
+        {
+          'icon': Icons.speed,
+          'title': 'Sub-60g Weight',
+          'subtitle': 'Featherlight aerodynamic shell with hyper-responsive flick control.',
+        },
+        {
+          'icon': Icons.gps_fixed,
+          'title': 'HERO 25K Sensor',
+          'subtitle': 'Pixel-precise tracking up to 25,600 DPI with zero smoothing.',
+        },
+        {
+          'icon': Icons.bolt,
+          'title': 'LIGHTSPEED 1ms',
+          'subtitle': 'Tournament-grade 1000Hz polling rate wireless connectivity.',
+        },
+        {
+          'icon': Icons.swipe,
+          'title': 'Pure PTFE Skates',
+          'subtitle': 'Virgin-grade oversized glide feet for frictionless motion on cloth.',
+        },
+      ],
+      variantGroups: const [
         ProductVariantGroup(
           groupName: 'Esports Shell Color',
           options: [
@@ -1298,84 +1349,386 @@ class ShopService extends ChangeNotifier {
           rating: 5.0,
           date: '2 days ago',
           variantName: 'Ghost White',
-          comment: 'Tracking and flicking feel effortless at under 60 grams. Battery lasts well over a month with daily ranked games.',
+          comment:
+              'Tracking and flicking feel effortless at under 60 grams. Battery lasts well over a month with daily ranked games.',
           helpfulCount: 52,
         ),
       ],
     ),
 
-    // -------------------------------------------------------------
-    // AURA STUDIOS APPAREL PRODUCTS
-    // -------------------------------------------------------------
+    // 8. HOME & LIVING: Handwoven Rattan Fruit Basket P-02
     ProductModel(
-      title: 'Aura Minimalist Heavy Fleece Hoodie Streetwear',
+      id: 'P-02',
+      title: 'Rattan Fruit Basket Handwoven Organizer P-02',
       imageUrl:
-          'https://lh3.googleusercontent.com/aida-public/AB6AXuDzlfM9UI-vGVUMAkUKI4WCoDpA4njq2i2bH5FsGflhVF28xwuR4599HpCZ5j6YtJKmVEHwfR2hVgWxghw8H2THFwFCT27W7Fk_z0wKe4q_kg8uwhxD9uXh8zSSoZ67ltyCehtwjAQfkdZzcDRantW9HcQz8VT_3vLB_3girMZ7tKvzHlokhxLLe-oKWduwhOBz7fV1Jgul-8KVjTL7YA5C12MOUbZqrBtVidhRBHOauvw8mO5Sfus',
-      category: 'Fashion',
+          'https://images.unsplash.com/photo-1544816155-12df9643f363?auto=format&fit=crop&w=600&q=80',
+      galleryImages: const [
+        'https://images.unsplash.com/photo-1544816155-12df9643f363?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1513519245088-0e12902e5a38?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1530595467537-0b5996c41f2d?auto=format&fit=crop&w=600&q=80',
+      ],
+      category: 'Home & Living',
+      location: 'Luzon',
       isMall: true,
-      discountTag: '-22%',
-      price: '₱1,250.00',
-      originalPrice: '₱1,600',
+      discountTag: '-33%',
+      price: '₱299.00',
+      originalPrice: '₱450.00',
       rating: 4.8,
-      soldCount: '840 sold',
-      shippingTag: '2-3 Days | Metro Manila',
+      soldCount: '1.2K',
+      shippingTag: 'Standard Delivery | Luzon',
       hasPayLater: false,
       hasVoucher: true,
-      shopId: 'aura_studios',
-      shopName: 'Aura Studios Official',
-      shopBadge: 'TOP SELLER',
-      stockQuantity: 150,
+      isFlashSale: true,
+      flashSalePrice: '₱299.00',
+      flashSaleStockRemaining: 8,
+      flashSaleTotalStock: 20,
+      flashSaleTimeRemaining: const Duration(hours: 4, minutes: 23),
+      shopId: 'nexora_home_living',
+      shopName: 'Nexora Living & Essentials',
+      shopBadge: 'OFFICIAL STORE',
+      stockQuantity: 20,
       description:
-          '450GSM heavy brushed cotton fleece hoodie with double-layer oversized hood, drop-shoulder silhouette, and hidden phone pocket.',
-      ratingBreakdown: {5: 0.87, 4: 0.10, 3: 0.03, 2: 0.0, 1: 0.0},
-      variantGroups: [
-        ProductVariantGroup(
-          groupName: 'Streetwear Wash',
-          options: [
-            ProductVariantOption(
-              id: 'hood_oat',
-              name: 'Warm Oatmeal Heather',
-              colorHex: Color(0xFFE2E8F0),
-              stock: 50,
-            ),
-            ProductVariantOption(
-              id: 'hood_char',
-              name: 'Washed Charcoal',
-              colorHex: Color(0xFF334155),
-              stock: 60,
-            ),
-            ProductVariantOption(
-              id: 'hood_blk',
-              name: 'Vintage Jet Black',
-              colorHex: Color(0xFF0F172A),
-              stock: 40,
-            ),
-          ],
-        ),
-        ProductVariantGroup(
-          groupName: 'Oversized Size',
-          options: [
-            ProductVariantOption(id: 'sz_s', name: 'Size S (Relaxed)', stock: 35),
-            ProductVariantOption(id: 'sz_m', name: 'Size M (Boxy)', stock: 45),
-            ProductVariantOption(id: 'sz_l', name: 'Size L (Oversized)', stock: 40),
-            ProductVariantOption(id: 'sz_xl', name: 'Size XL (Baggy)', stock: 30),
-          ],
+          'Eco-friendly handwoven natural rattan fruit and bread serving basket. Artisanal quality crafted by heritage weavers in Luzon with smooth natural beeswax sealant.',
+      specs: const [
+        {
+          'icon': Icons.park,
+          'title': '100% Wild Rattan',
+          'subtitle': 'Sustainably harvested natural wild rattan fibers from local forests.',
+        },
+        {
+          'icon': Icons.handyman,
+          'title': 'Artisan Handwoven',
+          'subtitle': 'Meticulously crafted tight spiral weave with reinforced outer rim.',
+        },
+        {
+          'icon': Icons.soup_kitchen,
+          'title': 'Food-Grade Sealant',
+          'subtitle': 'Treated with organic beeswax coating safe for fruits and bread.',
+        },
+        {
+          'icon': Icons.cleaning_services,
+          'title': 'Easy Maintenance',
+          'subtitle': 'Wipes clean effortlessly with a soft damp cloth in seconds.',
+        },
+      ],
+      claimableVouchers: const [
+        ShopVoucherModel(
+          id: 'MCH50',
+          discountTitle: '₱50 OFF',
+          tag: 'VOUCHER',
+          minSpend: 'Min. spend ₱200',
+          expiry: 'Exp: Today',
+          buttonColor: Color(0xFF0066FF),
+          discountAmount: 50,
         ),
       ],
       reviews: [
         ProductReviewModel(
-          id: 'rev_aura1',
-          userName: 'Gianina Marie Soriano',
-          initials: 'GS',
-          avatarColor: const Color(0xFF8B5CF6),
+          id: 'rev_rattan1',
+          userName: 'Maria Theresa Santos',
+          initials: 'MS',
+          avatarColor: const Color(0xFFD97706),
           rating: 5.0,
-          date: '5 days ago',
-          variantName: 'Warm Oatmeal Heather • Size M (Boxy)',
+          date: '4 days ago',
+          variantName: 'Medium (24cm Round)',
           comment:
-              'Material is super thick and structured! Doesn\'t flop around like cheap polyester hoodies. The hood stands up nicely.',
-          helpfulCount: 39,
+              'Looks so aesthetic on our kitchen island! Very smooth finish with no splintering. Packed carefully with bubble wrap.',
+          helpfulCount: 21,
         ),
       ],
+    ),
+
+    // 9. HOME & LIVING: Eco Thermos Bottle P-07
+    ProductModel(
+      id: 'P-07',
+      title: 'Limited Edition Eco Thermos Bottle P-07',
+      imageUrl:
+          'https://images.unsplash.com/photo-1602143407151-7111542de6e8?auto=format&fit=crop&w=600&q=80',
+      galleryImages: const [
+        'https://images.unsplash.com/photo-1602143407151-7111542de6e8?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1544816155-12df9643f363?auto=format&fit=crop&w=600&q=80',
+      ],
+      category: 'Home & Living',
+      price: '₱599.00',
+      originalPrice: '₱899.00',
+      rating: 4.9,
+      soldCount: '150',
+      shippingTag: 'Standard Delivery',
+      hasPayLater: false,
+      hasVoucher: true,
+      isFlashSale: true,
+      flashSalePrice: '₱299.00',
+      flashSaleStockRemaining: 8,
+      flashSaleTotalStock: 20,
+      flashSaleTimeRemaining: const Duration(hours: 4, minutes: 23),
+      shopId: 'nexora_home_living',
+      shopName: 'Nexora Living & Essentials',
+      shopBadge: 'OFFICIAL STORE',
+      stockQuantity: 50,
+      perBuyerLimit: 2,
+      description:
+          'Double-wall vacuum insulated 18/8 food-grade stainless steel thermal flask. Keeps iced coffee ice-cold for 24 hours or herbal tea steaming hot for 12 hours with zero sweat condensation.',
+      specs: const [
+        {
+          'icon': Icons.shield,
+          'title': '18/8 Pro Stainless',
+          'subtitle': 'Food-grade stainless steel with BPA-free powder coat exterior.',
+        },
+        {
+          'icon': Icons.thermostat,
+          'title': '24h Cold / 12h Hot',
+          'subtitle': 'Advanced copper vacuum chamber eliminates temperature transfer.',
+        },
+        {
+          'icon': Icons.lock,
+          'title': '100% Leak-Proof',
+          'subtitle': 'Silicone gasket magnetic flip lid with integrated comfort carry loop.',
+        },
+        {
+          'icon': Icons.opacity,
+          'title': 'Zero Condensation',
+          'subtitle': 'Sweat-free outer wall keeps bags, desks, and car cup holders dry.',
+        },
+      ],
+    ),
+
+    // 10. HOME & LIVING: Handwoven Plant Basket
+    ProductModel(
+      id: 'P-PLANT-08',
+      title: 'Green Tropics Handwoven Plant Basket',
+      imageUrl:
+          'https://images.unsplash.com/photo-1513519245088-0e12902e5a38?auto=format&fit=crop&w=600&q=80',
+      galleryImages: const [
+        'https://images.unsplash.com/photo-1513519245088-0e12902e5a38?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1544816155-12df9643f363?auto=format&fit=crop&w=600&q=80',
+      ],
+      category: 'Home & Living',
+      price: '₱520.00',
+      originalPrice: '₱750.00',
+      rating: 4.7,
+      soldCount: '580',
+      shippingTag: 'Standard Delivery',
+      hasPayLater: false,
+      hasVoucher: true,
+      isFlashSale: true,
+      flashSalePrice: '₱299.00',
+      flashSaleStockRemaining: 8,
+      flashSaleTotalStock: 20,
+      flashSaleTimeRemaining: const Duration(hours: 4, minutes: 23),
+      shopId: 'nexora_home_living',
+      shopName: 'Nexora Living & Essentials',
+      shopBadge: 'OFFICIAL STORE',
+      stockQuantity: 40,
+      description:
+          'Bespoke handwoven seagrass plant pot basket fitted with an inner waterproof protective membrane and sturdy folded rope handles to display indoor monsteras and snake plants.',
+      specs: const [
+        {
+          'icon': Icons.eco,
+          'title': 'Natural Seagrass',
+          'subtitle': 'Eco-friendly harvested dried seagrass tightly braided for durability.',
+        },
+        {
+          'icon': Icons.water_drop,
+          'title': 'Waterproof Liner',
+          'subtitle': 'Interior heat-sealed vinyl liner prevents soil and water leaking.',
+        },
+        {
+          'icon': Icons.pan_tool,
+          'title': 'Braided Handles',
+          'subtitle': 'Stout side handles make moving heavy potted indoor plants simple.',
+        },
+        {
+          'icon': Icons.home,
+          'title': 'Boho Aesthetic',
+          'subtitle': 'Adds warm organic texture to Scandinavian and minimalist rooms.',
+        },
+      ],
+      variantGroups: const [
+        ProductVariantGroup(
+          groupName: 'Diameter Size',
+          options: [
+            ProductVariantOption(
+              id: 'plt_8in',
+              name: '8-Inch Diameter Pot',
+              stock: 25,
+            ),
+            ProductVariantOption(
+              id: 'plt_10in',
+              name: '10-Inch Diameter Pot',
+              priceOffset: 80,
+              stock: 15,
+            ),
+          ],
+        ),
+      ],
+    ),
+
+    // 11. AUDIO: Studio Pro Wireless ANC Headphone System
+    ProductModel(
+      id: 'AUD-HEAD-03',
+      title: 'Nexora Studio Pro Wireless ANC Headphone System',
+      imageUrl:
+          'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=600&q=80',
+      galleryImages: const [
+        'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1545454675-3531b543be5d?auto=format&fit=crop&w=600&q=80',
+      ],
+      category: 'Tech & Gadgets',
+      isMall: true,
+      discountTag: '-30%',
+      price: '₱2,450.00',
+      originalPrice: '₱3,500',
+      rating: 4.9,
+      soldCount: '1.8k',
+      shippingTag: '2-3 Days | Metro Manila',
+      hasPayLater: false,
+      hasVoucher: false,
+      shopId: 'nexora_audio',
+      shopName: 'Nexora Studio Audio Official',
+      shopBadge: 'OFFICIAL STORE',
+      stockQuantity: 92,
+      description:
+          'Flagship hybrid active noise cancelling over-ear headphones with custom 40mm beryllium diaphragm drivers, 60-hour playtime, low-latency gaming mode, and cooling memory foam ear cushions.',
+      specs: const [
+        {
+          'icon': Icons.headset,
+          'title': '40mm Beryllium Drivers',
+          'subtitle': 'Delivers rich deep sub-bass and ultra-detailed acoustic resolution.',
+        },
+        {
+          'icon': Icons.hearing,
+          'title': '42dB Hybrid ANC',
+          'subtitle': 'Feed-forward and feedback mics cancel MRT and airplane cabin noise.',
+        },
+        {
+          'icon': Icons.battery_charging_full,
+          'title': '60h Battery Life',
+          'subtitle': 'Fast-charge provides 5 hours of playback from just a 10-minute USB-C plug.',
+        },
+        {
+          'icon': Icons.phone_android,
+          'title': 'Multipoint Connect',
+          'subtitle': 'Seamlessly transition audio between your laptop and smartphone.',
+        },
+      ],
+      variantGroups: const [
+        ProductVariantGroup(
+          groupName: 'Color Palette',
+          options: [
+            ProductVariantOption(
+              id: 'hp_grey',
+              name: 'Matte Space Grey',
+              colorHex: Color(0xFF475569),
+              stock: 50,
+            ),
+            ProductVariantOption(
+              id: 'hp_white',
+              name: 'Lunar White',
+              colorHex: Color(0xFFF1F5F9),
+              stock: 42,
+            ),
+          ],
+        ),
+      ],
+    ),
+
+    // 12. JEWELRY: Mikana Sakura Pendant
+    ProductModel(
+      id: 'JWL-MIK-01',
+      title: 'Mikana 18k Gold Plated Sakura Pendant Necklace',
+      imageUrl:
+          'https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?auto=format&fit=crop&w=600&q=80',
+      galleryImages: const [
+        'https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?auto=format&fit=crop&w=600&q=80',
+        'https://images.unsplash.com/photo-1605100804763-247f67b3557e?auto=format&fit=crop&w=600&q=80',
+      ],
+      category: 'Jewelry',
+      isMall: true,
+      discountTag: '-35%',
+      price: '₱1,299.00',
+      originalPrice: '₱1,999',
+      rating: 4.8,
+      soldCount: '8.3K+',
+      shippingTag: 'Free Shipping',
+      hasPayLater: false,
+      hasVoucher: true,
+      shopId: 'mikana_official',
+      shopName: 'Mikana Jewelry & Co.',
+      shopBadge: 'OFFICIAL STORE',
+      stockQuantity: 120,
+      description:
+          'Hand-finished Japanese cherry blossom pendant dipped in 18k thick vacuum gold plating over medical-grade titanium steel. 100% hypoallergenic, non-tarnish, and waterproof for daily elegance.',
+      specs: const [
+        {
+          'icon': Icons.diamond,
+          'title': '18k Gold PVD Dip',
+          'subtitle': 'Vacuum ionized gold plating that will not flake or discolor over time.',
+        },
+        {
+          'icon': Icons.health_and_safety,
+          'title': '100% Hypoallergenic',
+          'subtitle': 'Nickel-free and lead-free medical-grade titanium base safe for sensitive skin.',
+        },
+        {
+          'icon': Icons.shower,
+          'title': 'Shower & Water Safe',
+          'subtitle': 'Wear in the gym or shower without worrying about tarnishing.',
+        },
+        {
+          'icon': Icons.card_giftcard,
+          'title': 'Velvet Gift Box',
+          'subtitle': 'Includes signature Mikana embossed satin pouch and authentication certificate.',
+        },
+      ],
+      variantGroups: const [
+        ProductVariantGroup(
+          groupName: 'Gold Finish',
+          options: [
+            ProductVariantOption(
+              id: 'gold_yellow',
+              name: '18k Classic Yellow Gold',
+              colorHex: Color(0xFFEAB308),
+              stock: 65,
+            ),
+            ProductVariantOption(
+              id: 'gold_rose',
+              name: 'Blushing Rose Gold',
+              colorHex: Color(0xFFFB7185),
+              stock: 55,
+            ),
+          ],
+        ),
+      ],
+    ),
+    // 11. P-05: Essential Desk Mat
+    const ProductModel(
+      id: 'P-05',
+      title: 'Nexora Essential Desk Mat P-05',
+      imageUrl:
+          'https://images.unsplash.com/photo-1527864550417-7fd91fc51a46?auto=format&fit=crop&w=600&q=80',
+      category: 'Accessories',
+      price: '₱490.00',
+      originalPrice: '₱490.00',
+      rating: 4.8,
+      soldCount: '800',
+      shippingTag: 'Standard Delivery',
+      shopId: 'nexora_tech',
+      shopName: 'Accessories Hub',
+      shopBadge: 'PREFERRED',
+      stockQuantity: 40,
+    ),
+    // 12. P-VACATION: Vacation Mode Product
+    const ProductModel(
+      id: 'P-VACATION',
+      title: 'Nexora Vacation Store Special Item',
+      imageUrl:
+          'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=600&q=80',
+      category: 'Lifestyle',
+      price: '₱350.00',
+      rating: 4.7,
+      soldCount: '500',
+      shippingTag: 'Standard Delivery',
+      isOnVacation: true,
     ),
   ];
 }

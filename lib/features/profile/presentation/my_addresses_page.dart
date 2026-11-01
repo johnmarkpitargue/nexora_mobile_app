@@ -13,6 +13,15 @@ class _MyAddressesPageState extends State<MyAddressesPage> {
   final _addressService = AddressService.instance;
 
   void _openAddAddress() {
+    if (!_addressService.canAddAddress) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Address limit reached. You can only save up to 10 addresses.'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
+    }
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -277,6 +286,35 @@ class _MyAddressesPageState extends State<MyAddressesPage> {
                                             ),
                                           ),
                                         ),
+                                        if (item.latitude != null && item.longitude != null) ...[
+                                          const SizedBox(width: 8),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFFEFF6FF),
+                                              borderRadius: BorderRadius.circular(4),
+                                              border: Border.all(
+                                                color: const Color(0xFFBFDBFE),
+                                                width: 0.8,
+                                              ),
+                                            ),
+                                            child: const Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Icon(Icons.location_on_rounded, size: 11, color: Color(0xFF0066FF)),
+                                                SizedBox(width: 3),
+                                                Text(
+                                                  'Pinpoint Set',
+                                                  style: TextStyle(
+                                                    color: Color(0xFF0066FF),
+                                                    fontSize: 10.5,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
                                       ],
                                     ),
                                   ],

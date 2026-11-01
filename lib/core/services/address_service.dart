@@ -1,51 +1,84 @@
 import 'package:flutter/material.dart';
+import 'buyer_account_service.dart';
 import 'profile_service.dart';
 
 class AddressModel {
   final String id;
   final String fullName;
   final String phone;
+  final String region;
+  final String province;
+  final String city;
+  final String barangay;
   final String regionCity;
   final String postalCode;
   final String streetBuilding;
   final String label; // 'Home' or 'Work'
   final bool isDefault;
+  final double? latitude;
+  final double? longitude;
 
   AddressModel({
     required this.id,
     required this.fullName,
     required this.phone,
+    this.region = '',
+    this.province = '',
+    this.city = '',
+    this.barangay = '',
     required this.regionCity,
     required this.postalCode,
     required this.streetBuilding,
     required this.label,
     this.isDefault = false,
+    this.latitude,
+    this.longitude,
   });
 
+  String get streetAddress => streetBuilding;
+
   String get fullAddress {
-    final parts = [streetBuilding, regionCity, postalCode].where((s) => s.trim().isNotEmpty).toList();
-    return parts.join(', ');
+    final locationParts = [
+      streetBuilding,
+      barangay,
+      city,
+      regionCity.isNotEmpty && !regionCity.contains(city) ? regionCity : '',
+      postalCode,
+    ].where((s) => s.trim().isNotEmpty).toSet().toList();
+    return locationParts.join(', ');
   }
 
   AddressModel copyWith({
     String? id,
     String? fullName,
     String? phone,
+    String? region,
+    String? province,
+    String? city,
+    String? barangay,
     String? regionCity,
     String? postalCode,
     String? streetBuilding,
     String? label,
     bool? isDefault,
+    double? latitude,
+    double? longitude,
   }) {
     return AddressModel(
       id: id ?? this.id,
       fullName: fullName ?? this.fullName,
       phone: phone ?? this.phone,
+      region: region ?? this.region,
+      province: province ?? this.province,
+      city: city ?? this.city,
+      barangay: barangay ?? this.barangay,
       regionCity: regionCity ?? this.regionCity,
       postalCode: postalCode ?? this.postalCode,
       streetBuilding: streetBuilding ?? this.streetBuilding,
       label: label ?? this.label,
       isDefault: isDefault ?? this.isDefault,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
     );
   }
 }
@@ -54,88 +87,248 @@ class AddressService extends ChangeNotifier {
   static final AddressService instance = AddressService._internal();
 
   AddressService._internal() {
+    BuyerAccountService.instance.addListener(_onBuyerChanged);
     _syncDefaultWithProfile();
   }
 
-  final List<AddressModel> _addresses = [
-    AddressModel(
-      id: 'addr_1',
-      fullName: 'John Mark Pitargue',
-      phone: '(+63) 975 963 2035',
-      streetBuilding: '192 Tuy-Baanan',
-      regionCity: 'Liliw, Laguna, South Luzon',
-      postalCode: '4004',
-      label: 'Home',
-      isDefault: true,
-    ),
-    AddressModel(
-      id: 'addr_2',
-      fullName: 'Ma. Sofia Ballescas',
-      phone: '(+63) 949 692 3307',
-      streetBuilding: '355 Sta Catalina, Holy Spirit',
-      regionCity: 'Quezon City, Metro Manila',
-      postalCode: '1127',
-      label: 'Work',
-      isDefault: false,
-    ),
-  ];
+  void _onBuyerChanged() {
+    _syncDefaultWithProfile();
+    notifyListeners();
+  }
 
-  List<AddressModel> get addresses => List.unmodifiable(_addresses);
+  static const int maxAddresses = 10;
+
+  // Cascading Philippine Geographical Data (BUY-ADDR-001, BUY-ADDR-002, BUY-ADDR-003)
+  static const Map<String, Map<String, List<String>>> locationHierarchy = {
+    'National Capital Region (NCR)': {
+      'Makati City': ['Bel-Air', 'Poblacion', 'San Lorenzo', 'Pio del Pilar', 'San Antonio'],
+      'Quezon City': ['Holy Spirit', 'Batasan Hills', 'Diliman', 'Commonwealth', 'Cubao'],
+      'Taguig City (BGC)': ['Fort Bonifacio', 'Western Bicutan', 'Ususan', 'Pinagsama'],
+      'City of Manila': ['Malate', 'Ermita', 'Intramuros', 'Sampaloc', 'Binondo'],
+      'Pasig City': ['San Antonio', 'Kapitolyo', 'Ortigas Center', 'Ugong'],
+      'Mandaluyong City': ['Highway Hills', 'Wack-Wack', 'Plainview', 'Barangka'],
+    },
+    'Region IV-A (CALABARZON)': {
+      'Liliw, Laguna': ['Tuy-Baanan', 'Rizal', 'Bongkol', 'San Roque', 'Ilayang Sungi', 'Poblacion'],
+      'Calamba City, Laguna': ['Real', 'Halang', 'Bucal', 'Canlubang', 'Pansol', 'Turbina'],
+      'Santa Rosa, Laguna': ['Balibago', 'Don Jose', 'Tagapo', 'Macabling', 'Dita'],
+      'Biñan City, Laguna': ['San Antonio', 'Canlalay', 'San Vicente', 'Malaban'],
+      'Cabuyao City, Laguna': ['Sala', 'Banlic', 'Pulo', 'Mamatid'],
+      'San Pedro City, Laguna': ['Poblacion', 'San Vicente', 'Pacita Complex', 'Landayan'],
+      'San Pablo City, Laguna': ['Poblacion', 'San Jose', 'Concepcion', 'Del Remedio'],
+      'Los Baños, Laguna': ['Batong Malake', 'College', 'Mayondon', 'Bayog'],
+      'Santa Cruz, Laguna': ['Poblacion', 'Pagsawitan', 'Bubukal', 'Gatid'],
+      'Pagsanjan, Laguna': ['Poblacion I', 'Poblacion II', 'Sampaloc', 'Maulawin'],
+      'Nagcarlan, Laguna': ['Poblacion I', 'Poblacion II', 'Taytay', 'Oples'],
+      'Antipolo, Rizal': ['San Roque', 'Dela Paz', 'Mayamot', 'Cupang'],
+      'Imus, Cavite': ['Bucandala', 'Malagasang', 'Poblacion', 'Anabu'],
+    },
+    'Region VII (Central Visayas)': {
+      'Cebu City': ['Lahug', 'Mabolo', 'Banilad', 'Guadalupe', 'Kasambagan'],
+      'Mandaue City': ['Subangdaku', 'Tipolo', 'Bakilid', 'Centro'],
+      'Lapu-Lapu City': ['Mactan', 'Maribago', 'Pusok', 'Basak'],
+    },
+    'Region XI (Davao Region)': {
+      'Davao City': ['Poblacion', 'Buhangin', 'Talomo', 'Matina', 'Toril'],
+    },
+    'Region VI (Western Visayas)': {
+      'Bacolod City': ['Mandalagan', 'Villamonte', 'Bata', 'Singcang'],
+      'Iloilo City': ['Mandurriao', 'Jaro', 'Molo', 'City Proper'],
+    },
+    'Region III (Central Luzon)': {
+      'San Fernando, Pampanga': ['Dolores', 'San Jose', 'Sindalan', 'San Agustin'],
+    },
+    'Region X (Northern Mindanao)': {
+      'Cagayan de Oro': ['Carmen', 'Macasandig', 'Nazareth', 'Lapasan'],
+    },
+  };
+
+  static List<String> get regions => locationHierarchy.keys.toList();
+
+  static List<String> getCities(String region) {
+    return locationHierarchy[region]?.keys.toList() ?? [];
+  }
+
+  static List<String> getBarangays(String region, String city) {
+    return locationHierarchy[region]?[city] ?? [];
+  }
+
+  static String getDefaultPostalCode(String city) {
+    if (city.contains('Liliw')) return '4004';
+    if (city.contains('Calamba')) return '4027';
+    if (city.contains('Santa Rosa')) return '4026';
+    if (city.contains('Biñan')) return '4024';
+    if (city.contains('Cabuyao')) return '4025';
+    if (city.contains('San Pedro')) return '4023';
+    if (city.contains('San Pablo')) return '4000';
+    if (city.contains('Los Baños')) return '4030';
+    if (city.contains('Santa Cruz')) return '4009';
+    if (city.contains('Pagsanjan')) return '4008';
+    if (city.contains('Nagcarlan')) return '4002';
+    if (city.contains('Quezon City')) return '1127';
+    if (city.contains('Makati')) return '1209';
+    if (city.contains('Taguig') || city.contains('BGC')) return '1634';
+    if (city.contains('Manila')) return '1000';
+    if (city.contains('Pasig')) return '1605';
+    if (city.contains('Mandaluyong')) return '1550';
+    if (city.contains('Cebu')) return '6000';
+    if (city.contains('Mandaue')) return '6014';
+    if (city.contains('Lapu-Lapu')) return '6015';
+    if (city.contains('Davao')) return '8000';
+    if (city.contains('Bacolod')) return '6100';
+    if (city.contains('Iloilo')) return '5000';
+    if (city.contains('Antipolo')) return '1870';
+    if (city.contains('Imus')) return '4103';
+    if (city.contains('San Fernando')) return '2000';
+    if (city.contains('Cagayan de Oro')) return '9000';
+    return '1000';
+  }
+
+  final Map<String, List<AddressModel>> _userAddresses = {};
+
+  String get _currentUserKey {
+    final b = BuyerAccountService.instance.currentBuyer ??
+        BuyerAccountService.instance.currentUnverifiedBuyer;
+    return (b != null && b.email.isNotEmpty)
+        ? b.email.toLowerCase().trim()
+        : 'guest';
+  }
+
+  List<AddressModel> get _currentAddresses {
+    return _userAddresses.putIfAbsent(
+      _currentUserKey,
+      () => _createInitialAddressesForUser(_currentUserKey),
+    );
+  }
+
+  static List<AddressModel> _createDemoAddresses() {
+    return [
+      AddressModel(
+        id: 'addr_1',
+        fullName: 'John Mark Pitargue',
+        phone: '(+63) 9759632035',
+        region: 'South Luzon',
+        province: 'Laguna',
+        city: 'Liliw',
+        barangay: 'Tuy-Baanan',
+        streetBuilding: '192',
+        regionCity: 'South Luzon, Laguna, Liliw, Tuy-Baanan',
+        postalCode: '4004',
+        label: 'Home',
+        isDefault: true,
+        latitude: 14.1332,
+        longitude: 121.4367,
+      ),
+      AddressModel(
+        id: 'addr_2',
+        fullName: 'Ma. Sofia Ballescas',
+        phone: '09496923307',
+        region: 'National Capital Region (NCR)',
+        city: 'Quezon City',
+        barangay: 'Holy Spirit',
+        streetBuilding: '355 Sta Catalina, Holy Spirit',
+        regionCity: 'Quezon City, Metro Manila',
+        postalCode: '1127',
+        label: 'Work',
+        isDefault: false,
+        latitude: 14.6836,
+        longitude: 121.0772,
+      ),
+    ];
+  }
+
+  List<AddressModel> _createInitialAddressesForUser(String key) {
+    // Only pre-seeded demo accounts have pre-filled addresses.
+    // Real newcomers, newly registered accounts, and new guest sessions start with 0 addresses!
+    if (key == 'alex.rivera@nexora.io' || key == 'juanmiguel.delacruz@example.com') {
+      return _createDemoAddresses();
+    }
+    return [];
+  }
+
+  List<AddressModel> get addresses => List.unmodifiable(_currentAddresses);
+  bool get canAddAddress => _currentAddresses.length < maxAddresses;
 
   AddressModel? get defaultAddress {
+    final list = _currentAddresses;
     try {
-      return _addresses.firstWhere((a) => a.isDefault);
+      return list.firstWhere((a) => a.isDefault);
     } catch (_) {
-      return _addresses.isNotEmpty ? _addresses.first : null;
+      return list.isNotEmpty ? list.first : null;
     }
   }
 
   void setDefaultAddress(String id) {
-    for (int i = 0; i < _addresses.length; i++) {
-      final a = _addresses[i];
-      _addresses[i] = a.copyWith(isDefault: a.id == id);
+    final list = _currentAddresses;
+    for (int i = 0; i < list.length; i++) {
+      final a = list[i];
+      list[i] = a.copyWith(isDefault: a.id == id);
     }
     _syncDefaultWithProfile();
     notifyListeners();
   }
 
-  void addAddress(AddressModel newAddress) {
-    if (newAddress.isDefault || _addresses.isEmpty) {
-      for (int i = 0; i < _addresses.length; i++) {
-        _addresses[i] = _addresses[i].copyWith(isDefault: false);
+  BuyerOpResult addAddress(AddressModel newAddress) {
+    final list = _currentAddresses;
+    // 10-address limit enforcement (BUY-ADDR-005)
+    if (list.length >= maxAddresses) {
+      return BuyerOpResult.fail('Address limit reached. You can only save up to 10 addresses.');
+    }
+
+    if (newAddress.isDefault || list.isEmpty) {
+      for (int i = 0; i < list.length; i++) {
+        list[i] = list[i].copyWith(isDefault: false);
       }
-      _addresses.insert(0, newAddress.copyWith(isDefault: true));
+      list.insert(0, newAddress.copyWith(isDefault: true));
     } else {
-      _addresses.add(newAddress);
+      list.add(newAddress);
     }
     _syncDefaultWithProfile();
     notifyListeners();
+    return BuyerOpResult.ok(message: 'Address saved successfully');
   }
 
-  void updateAddress(AddressModel updatedAddress) {
-    final index = _addresses.indexWhere((a) => a.id == updatedAddress.id);
+  BuyerOpResult updateAddress(AddressModel updatedAddress) {
+    final list = _currentAddresses;
+    final index = list.indexWhere((a) => a.id == updatedAddress.id);
     if (index != -1) {
       if (updatedAddress.isDefault) {
-        for (int i = 0; i < _addresses.length; i++) {
+        for (int i = 0; i < list.length; i++) {
           if (i != index) {
-            _addresses[i] = _addresses[i].copyWith(isDefault: false);
+            list[i] = list[i].copyWith(isDefault: false);
           }
         }
       }
-      _addresses[index] = updatedAddress;
+      list[index] = updatedAddress;
       _syncDefaultWithProfile();
       notifyListeners();
+      return BuyerOpResult.ok(message: 'Address updated successfully');
     }
+    return BuyerOpResult.fail('Address not found.');
   }
 
-  void deleteAddress(String id) {
-    final wasDefault = _addresses.firstWhere((a) => a.id == id, orElse: () => _addresses.first).isDefault;
-    _addresses.removeWhere((a) => a.id == id);
-    if (wasDefault && _addresses.isNotEmpty) {
-      _addresses[0] = _addresses[0].copyWith(isDefault: true);
+  BuyerOpResult deleteAddress(String id) {
+    final list = _currentAddresses;
+    final index = list.indexWhere((a) => a.id == id);
+    if (index == -1) {
+      return BuyerOpResult.fail('Address not found.');
+    }
+
+    final target = list[index];
+    // Cannot delete default address without setting another default first (BUY-ADDR-006, BUY-ADDR-007)
+    if (target.isDefault && list.length > 1) {
+      return BuyerOpResult.fail(
+        'Cannot delete default delivery address. Please set another address as default first.',
+      );
+    }
+
+    list.removeAt(index);
+    if (list.isNotEmpty && !list.any((a) => a.isDefault)) {
+      list[0] = list[0].copyWith(isDefault: true);
     }
     _syncDefaultWithProfile();
     notifyListeners();
+    return BuyerOpResult.ok(message: 'Address deleted successfully.');
   }
 
   void _syncDefaultWithProfile() {
@@ -146,6 +339,63 @@ class AddressService extends ChangeNotifier {
         phone: def.phone,
         address: def.fullAddress,
       );
+    } else {
+      final buyer = BuyerAccountService.instance.currentBuyer;
+      ProfileService.instance.updateProfile(
+        name: buyer?.fullName,
+        phone: buyer?.mobileNumber,
+        address: '',
+      );
     }
+  }
+
+  /// Reset address state for clean tests
+  void resetState() {
+    _userAddresses.clear();
+    _userAddresses[_currentUserKey] = _createDemoAddresses();
+    _syncDefaultWithProfile();
+    notifyListeners();
+  }
+
+  void resetToDefaults() => resetState();
+
+  AddressModel? getDefaultAddress() => defaultAddress;
+
+  Map<String, String> getMockGpsLocation() {
+    return {
+      'region': 'NCR',
+      'city': 'Makati City',
+      'barangay': 'Poblacion',
+      'postalCode': '1210',
+      'streetAddress': '6789 Ayala Ave, Tower 1',
+    };
+  }
+
+  List<String> getCitiesForRegion(String regionQuery) {
+    for (final reg in locationHierarchy.keys) {
+      if (reg.toLowerCase().contains(regionQuery.toLowerCase())) {
+        return locationHierarchy[reg]?.keys.toList() ?? [];
+      }
+    }
+    return [];
+  }
+
+  List<String> getBarangaysForCity(String cityQuery) {
+    for (final reg in locationHierarchy.values) {
+      for (final entry in reg.entries) {
+        if (entry.key.toLowerCase().contains(cityQuery.toLowerCase())) {
+          return entry.value;
+        }
+      }
+    }
+    return [];
+  }
+
+  String lookupPostalCode(String city) {
+    if (city.toLowerCase().contains('makati')) return '1200';
+    if (city.toLowerCase().contains('quezon')) return '1100';
+    if (city.toLowerCase().contains('cebu')) return '6000';
+    if (city.toLowerCase().contains('davao')) return '8000';
+    return getDefaultPostalCode(city);
   }
 }

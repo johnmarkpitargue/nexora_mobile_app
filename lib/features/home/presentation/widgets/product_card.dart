@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import '../../../../app/routes/app_routes.dart';
+import '../../../../app/theme/nexora_theme.dart';
 import '../../../../core/services/wishlist_service.dart';
 import '../../../../core/models/shop_models.dart';
 
 class ProductModel {
+  final String id;
   final String title;
   final String imageUrl;
   final String category;
@@ -26,8 +28,21 @@ class ProductModel {
   final List<String>? galleryImages;
   final List<Map<String, dynamic>>? specs;
   final String? description;
+  final bool isActive;
+  final bool isOnVacation;
+  final String location;
+  final int? perBuyerLimit;
+  final bool isFlashSale;
+  final String? flashSalePrice;
+  final int flashSaleStockRemaining;
+  final int flashSaleTotalStock;
+  final Duration? flashSaleTimeRemaining;
+  final List<ShopVoucherModel>? claimableVouchers;
+  final Map<String, int>? combinationStock;
+  final bool isDeleted;
 
   const ProductModel({
+    this.id = '',
     required this.title,
     required this.imageUrl,
     required this.category,
@@ -50,6 +65,18 @@ class ProductModel {
     this.galleryImages,
     this.specs,
     this.description,
+    this.isActive = true,
+    this.isOnVacation = false,
+    this.location = 'Metro Manila',
+    this.perBuyerLimit,
+    this.isFlashSale = false,
+    this.flashSalePrice,
+    this.flashSaleStockRemaining = 0,
+    this.flashSaleTotalStock = 0,
+    this.flashSaleTimeRemaining,
+    this.claimableVouchers,
+    this.combinationStock,
+    this.isDeleted = false,
   });
 }
 
@@ -136,7 +163,7 @@ class _ProductCardState extends State<ProductCard> {
                                 horizontal: 6, vertical: 2),
                             margin: const EdgeInsets.only(bottom: 3),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFDC2626), // Vivid red Mall tag
+                              color: const Color(0xFF0066FF), // Nexora Brand Theme Electric Blue
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: const Text(
@@ -154,7 +181,9 @@ class _ProductCardState extends State<ProductCard> {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF06B6D4), // Teal discount tag
+                              color: product.isMall
+                                  ? const Color(0xFF050B28) // Dark Navy accent when paired with Mall badge
+                                  : const Color(0xFF0066FF), // Nexora Electric Blue discount tag
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
@@ -181,6 +210,7 @@ class _ProductCardState extends State<ProductCard> {
                         return GestureDetector(
                           onTap: () {
                             WishlistService.instance.toggleWishlist(product);
+                            if (!context.mounted) return;
                             ScaffoldMessenger.of(context).hideCurrentSnackBar();
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
@@ -225,174 +255,160 @@ class _ProductCardState extends State<ProductCard> {
             // Content Details Area
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.all(8.0),
+                padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 5.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Tags Row: Sulit Deal & PayLater / Voucher
-                        SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 5, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFE0F2FE),
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: const Text(
-                                  'Sulit Deal',
-                                  style: TextStyle(
-                                    color: Color(0xFF0284C7),
-                                    fontSize: 8.5,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 4),
-                              if (product.hasPayLater)
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 5, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFE0F2FE),
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: const Text(
-                                    '0% PayLater',
-                                    style: TextStyle(
-                                      color: Color(0xFF0284C7),
-                                      fontSize: 8.5,
-                                      fontWeight: FontWeight.w700,
+                    Flexible(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Tags Row: Clean Voucher or Category Highlight
+                          if (product.hasVoucher)
+                            SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 5, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFEFF6FF),
+                                      borderRadius: BorderRadius.circular(4),
+                                      border: Border.all(color: const Color(0xFFDBEAFE)),
+                                    ),
+                                    child: const Text(
+                                      'Voucher Available',
+                                      style: TextStyle(
+                                        color: Color(0xFF0066FF),
+                                        fontSize: 8.5,
+                                        fontWeight: FontWeight.w700,
+                                      ),
                                     ),
                                   ),
-                                ),
-                              if (product.hasVoucher)
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 5, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFFFE4E6),
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: const Text(
-                                    'Voucher',
-                                    style: TextStyle(
-                                      color: Color(0xFFE11D48),
-                                      fontSize: 8.5,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-
-                        const SizedBox(height: 4),
-
-                        // Title with [Mall] Prefix
-                        RichText(
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          text: TextSpan(
-                            children: [
-                              if (product.isMall)
-                                const TextSpan(
-                                  text: '[Mall] ',
-                                  style: TextStyle(
-                                    color: Color(0xFF0284C7),
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: 11.5,
-                                  ),
-                                ),
-                              TextSpan(
-                                text: product.title,
-                                style: const TextStyle(
-                                  color: Color(0xFF0F172A),
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 11.5,
-                                  height: 1.25,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-
-                        const SizedBox(height: 6),
-
-                        // Price Row
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.baseline,
-                          textBaseline: TextBaseline.alphabetic,
-                          children: [
-                            Text(
-                              product.price,
-                              style: const TextStyle(
-                                color: Color(0xFFB91C1C), // Rich Shopee style dark red
-                                fontWeight: FontWeight.w900,
-                                fontSize: 14.5,
+                                ],
                               ),
                             ),
-                            if (product.originalPrice != null) ...[
-                              const SizedBox(width: 4),
+
+                          const SizedBox(height: 3),
+
+                          // Title with [Mall] Prefix
+                          Flexible(
+                            child: RichText(
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              text: TextSpan(
+                                children: [
+                                  if (product.isMall)
+                                    const TextSpan(
+                                      text: '[Mall] ',
+                                      style: TextStyle(
+                                        color: Color(0xFF0066FF),
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 11.5,
+                                      ),
+                                    ),
+                                  TextSpan(
+                                    text: product.title,
+                                    style: const TextStyle(
+                                      color: Color(0xFF0F172A),
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 11.5,
+                                      height: 1.25,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+
+                          const SizedBox(height: 4),
+
+                          // Price Row
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.baseline,
+                            textBaseline: TextBaseline.alphabetic,
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  product.price,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: NexoraTheme.price,
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 14.5,
+                                  ),
+                                ),
+                              ),
+                              if (product.originalPrice != null) ...[
+                                const SizedBox(width: 4),
+                                Flexible(
+                                  child: Text(
+                                    product.originalPrice!,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: Color(0xFF94A3B8),
+                                      decoration: TextDecoration.lineThrough,
+                                      fontSize: 9.5,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+
+                          const SizedBox(height: 2),
+
+                          // Rating & Sold Count
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.star,
+                                size: 11,
+                                color: Color(0xFFF59E0B),
+                              ),
+                              const SizedBox(width: 2),
                               Text(
-                                product.originalPrice!,
+                                '${product.rating}',
                                 style: const TextStyle(
-                                  color: Color(0xFF94A3B8),
-                                  decoration: TextDecoration.lineThrough,
-                                  fontSize: 9.5,
+                                  color: Color(0xFFD97706),
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 10,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Flexible(
+                                child: Text(
+                                  product.soldCount.toLowerCase().contains('sold')
+                                      ? product.soldCount
+                                      : '${product.soldCount} sold',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: Color(0xFF64748B),
+                                    fontSize: 9.5,
+                                  ),
                                 ),
                               ),
                             ],
-                          ],
-                        ),
-
-                        const SizedBox(height: 3),
-
-                        // Rating & Sold Count
-                        Row(
-                          children: [
-                            const Icon(
-                              Icons.star,
-                              size: 11,
-                              color: Color(0xFFF59E0B),
-                            ),
-                            const SizedBox(width: 2),
-                            Text(
-                              '${product.rating}',
-                              style: const TextStyle(
-                                color: Color(0xFFD97706),
-                                fontWeight: FontWeight.w700,
-                                fontSize: 10,
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              '${product.soldCount} sold',
-                              style: const TextStyle(
-                                color: Color(0xFF64748B),
-                                fontSize: 9.5,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
+                          ),
+                        ],
+                      ),
                     ),
 
                     // Shipping Tag Footer
                     Padding(
-                      padding: const EdgeInsets.only(top: 4.0),
+                      padding: const EdgeInsets.only(top: 2.0),
                       child: Row(
                         children: [
                           const Icon(
                             Icons.local_shipping_outlined,
                             size: 11,
-                            color: Color(0xFF0284C7),
+                            color: Color(0xFF0066FF),
                           ),
                           const SizedBox(width: 3),
                           Expanded(

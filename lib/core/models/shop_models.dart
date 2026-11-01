@@ -8,6 +8,7 @@ class ProductVariantOption {
   final String? subtitle;
   final double priceOffset;
   final int stock;
+  final String? imageUrl;
 
   const ProductVariantOption({
     required this.id,
@@ -16,6 +17,7 @@ class ProductVariantOption {
     this.subtitle,
     this.priceOffset = 0.0,
     this.stock = 50,
+    this.imageUrl,
   });
 }
 

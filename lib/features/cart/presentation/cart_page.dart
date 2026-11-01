@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../../app/routes/app_routes.dart';
+import '../../../core/services/buyer_account_service.dart';
 import '../../../core/services/cart_service.dart';
+import '../../../core/utils/guest_auth_guard.dart';
 
 class CartPage extends StatefulWidget {
   const CartPage({super.key});
@@ -11,7 +13,6 @@ class CartPage extends StatefulWidget {
 
 class _CartPageState extends State<CartPage> {
   bool _isEditMode = false;
-  bool _useCoins = false;
   final CartService _cartService = CartService.instance;
 
   // Dynamic Real-time Calculations
@@ -24,16 +25,15 @@ class _CartPageState extends State<CartPage> {
   double get _originalSubtotal => _cartService.originalSubtotal;
 
   double get _voucherDiscount => _checkedCount > 0 ? 150.0 : 0.0;
-  double get _coinsDiscount => (_useCoins && _checkedCount > 0) ? 50.0 : 0.0;
 
   double get _totalSaved {
     if (_checkedCount == 0) return 0.0;
-    return (_originalSubtotal - _subtotal) + _voucherDiscount + _coinsDiscount;
+    return (_originalSubtotal - _subtotal) + _voucherDiscount;
   }
 
   double get _finalTotal {
     if (_checkedCount == 0) return 0.0;
-    final total = _subtotal - _voucherDiscount - _coinsDiscount;
+    final total = _subtotal - _voucherDiscount;
     return total < 0 ? 0.0 : total;
   }
 
@@ -254,8 +254,8 @@ class _CartPageState extends State<CartPage> {
 
                           const SizedBox(height: 10),
 
-                          // Platform Voucher & Coins Card
-                          _buildVoucherAndCoinsCard(),
+                          // Platform Voucher Card
+                          _buildVoucherCard(),
 
                           const SizedBox(height: 24),
 
@@ -388,55 +388,56 @@ class _CartPageState extends State<CartPage> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: firstItem.storeBadge == 'MALL'
-                        ? const Color(0xFF004080)
-                        : const Color(0xFFCFFAFE),
-                    borderRadius: BorderRadius.circular(6),
+                    color: const Color(0xFF0066FF),
+                    borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
                     firstItem.storeBadge,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 9,
                       fontWeight: FontWeight.w900,
-                      color: firstItem.storeBadge == 'MALL'
-                          ? Colors.white
-                          : const Color(0xFF0891B2),
+                      color: Colors.white,
                     ),
                   ),
                 ),
                 const SizedBox(width: 6),
               ],
-              GestureDetector(
-                onTap: () {
-                  final lower = storeName.toLowerCase();
-                  final shopId = lower.contains('soundmax')
-                      ? 'soundmax_audio'
-                      : lower.contains('mikana')
-                          ? 'mikana_official'
-                          : lower.contains('logitech')
-                              ? 'logitech_hub'
-                              : lower.contains('aura')
-                                  ? 'aura_studios'
-                                  : 'nexora_official';
-                  Navigator.pushNamed(context, AppRoutes.shop, arguments: shopId);
-                },
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      storeName,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 13.5,
-                        color: Color(0xFF0F172A),
+              Expanded(
+                child: GestureDetector(
+                  onTap: () {
+                    final lower = storeName.toLowerCase();
+                    final shopId = lower.contains('soundmax')
+                        ? 'soundmax_audio'
+                        : lower.contains('mikana')
+                            ? 'mikana_official'
+                            : lower.contains('logitech')
+                                ? 'logitech_hub'
+                                : lower.contains('aura')
+                                    ? 'aura_studios'
+                                    : 'nexora_official';
+                    Navigator.pushNamed(context, AppRoutes.shop, arguments: shopId);
+                  },
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          storeName,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 13.5,
+                            color: Color(0xFF0F172A),
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 4),
-                    const Icon(Icons.chevron_right, size: 16, color: Color(0xFF94A3B8)),
-                  ],
+                      const SizedBox(width: 4),
+                      const Icon(Icons.chevron_right, size: 16, color: Color(0xFF94A3B8)),
+                    ],
+                  ),
                 ),
               ),
-              const Spacer(),
+              const SizedBox(width: 8),
               GestureDetector(
                 onTap: () {
                   Navigator.pushNamed(context, AppRoutes.chat);
@@ -672,12 +673,16 @@ class _CartPageState extends State<CartPage> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        item.variant,
-                        style: const TextStyle(
-                          fontSize: 10.5,
-                          color: Color(0xFF64748B),
-                          fontWeight: FontWeight.w600,
+                      Flexible(
+                        child: Text(
+                          item.variant,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 10.5,
+                            color: Color(0xFF64748B),
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 4),
@@ -701,7 +706,7 @@ class _CartPageState extends State<CartPage> {
                           style: const TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w900,
-                            color: Color(0xFF0066FF),
+                            color: Color(0xFF0F172A),
                           ),
                         ),
                         if (item.discountTag != null) ...[
@@ -807,7 +812,7 @@ class _CartPageState extends State<CartPage> {
     );
   }
 
-  Widget _buildVoucherAndCoinsCard() {
+  Widget _buildVoucherCard() {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -821,118 +826,61 @@ class _CartPageState extends State<CartPage> {
           ),
         ],
       ),
-      child: Column(
+      child: Row(
         children: [
-          // Nexora Platform Voucher Row
-          Row(
-            children: [
-              Container(
-                width: 32,
-                height: 32,
-                decoration: const BoxDecoration(
-                  color: Color(0xFFEEF2FF),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.confirmation_number_outlined,
-                    color: Color(0xFF0066FF), size: 16),
-              ),
-              const SizedBox(width: 10),
-              const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Nexora Platform Voucher',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 13,
-                        color: Color(0xFF0F172A),
-                      ),
-                    ),
-                    Text(
-                      '₱150 OFF Applied (9.9 Mega Fest)',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: Color(0xFF0066FF),
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              GestureDetector(
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Select Platform Voucher Code')),
-                  );
-                },
-                child: const Row(
-                  children: [
-                    Text(
-                      'Select Code',
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF0066FF),
-                      ),
-                    ),
-                    Icon(Icons.chevron_right, size: 16, color: Color(0xFF0066FF)),
-                  ],
-                ),
-              ),
-            ],
+          Container(
+            width: 32,
+            height: 32,
+            decoration: const BoxDecoration(
+              color: Color(0xFFEEF2FF),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.confirmation_number_outlined,
+                color: Color(0xFF0066FF), size: 16),
           ),
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 10),
-            child: Divider(height: 1, color: Color(0xFFF1F5F9)),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Nexora Platform Voucher',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 13,
+                    color: Color(0xFF0F172A),
+                  ),
+                ),
+                Text(
+                  '₱150 OFF Applied (9.9 Mega Fest)',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF0066FF),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
           ),
-
-          // Nexora Coins Interactive Switch Row
-          Row(
-            children: [
-              Container(
-                width: 32,
-                height: 32,
-                decoration: const BoxDecoration(
-                  color: Color(0xFFE0F7FA),
-                  shape: BoxShape.circle,
+          GestureDetector(
+            onTap: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Select Platform Voucher Code')),
+              );
+            },
+            child: const Row(
+              children: [
+                Text(
+                  'Select Code',
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF0066FF),
+                  ),
                 ),
-                child: const Icon(Icons.monetization_on_outlined,
-                    color: Color(0xFF00B4D8), size: 16),
-              ),
-              const SizedBox(width: 10),
-              const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Nexora Coins',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 13,
-                        color: Color(0xFF0F172A),
-                      ),
-                    ),
-                    Text(
-                      'Redeem 50 Coins to save ₱50.00',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: Color(0xFF64748B),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Switch(
-                value: _useCoins,
-                activeTrackColor: const Color(0xFF00D2FF),
-                onChanged: (val) {
-                  setState(() {
-                    _useCoins = val;
-                  });
-                },
-              ),
-            ],
+                Icon(Icons.chevron_right, size: 16, color: Color(0xFF0066FF)),
+              ],
+            ),
           ),
         ],
       ),
@@ -1045,7 +993,7 @@ class _CartPageState extends State<CartPage> {
                           style: const TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w900,
-                            color: Color(0xFF0066FF),
+                            color: Color(0xFF0F172A),
                           ),
                         ),
                         Container(
@@ -1206,7 +1154,7 @@ class _CartPageState extends State<CartPage> {
                             style: const TextStyle(
                               fontSize: 17,
                               fontWeight: FontWeight.w900,
-                              color: Color(0xFF0066FF),
+                              color: Color(0xFF0F172A),
                             ),
                           ),
                         ],
@@ -1253,7 +1201,16 @@ class _CartPageState extends State<CartPage> {
                     child: ElevatedButton(
                       onPressed: _checkedCount == 0
                           ? null
-                          : () {
+                          : () async {
+                              // Require login if in guest mode before proceeding to checkout
+                              if (!BuyerAccountService.instance.isLoggedIn) {
+                                final loggedIn = await GuestAuthGuard.requireLogin(
+                                  context,
+                                  title: 'Sign In to Proceed to Checkout',
+                                  message: 'Please sign in or create an account to finalize your order, apply vouchers, and track delivery.',
+                                );
+                                if (!loggedIn || !mounted) return;
+                              }
                               Navigator.pushNamed(context, AppRoutes.checkout);
                             },
                       style: ElevatedButton.styleFrom(

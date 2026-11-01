@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'buyer_account_service.dart';
 
 class CartItemModel {
   final String id;
@@ -36,71 +37,75 @@ class CartItemModel {
     this.quantity = 1,
     this.isChecked = true,
   });
+
+  CartItemModel copyWith({
+    String? id,
+    String? storeName,
+    String? storeBadge,
+    String? title,
+    String? variant,
+    String? imageUrl,
+    double? price,
+    double? originalPrice,
+    String? discountTag,
+    String? subBadge,
+    String? topPickBadge,
+    String? shopVoucherText,
+    String? storePromoBanner,
+    String? freeShippingBadge,
+    int? quantity,
+    bool? isChecked,
+  }) {
+    return CartItemModel(
+      id: id ?? this.id,
+      storeName: storeName ?? this.storeName,
+      storeBadge: storeBadge ?? this.storeBadge,
+      title: title ?? this.title,
+      variant: variant ?? this.variant,
+      imageUrl: imageUrl ?? this.imageUrl,
+      price: price ?? this.price,
+      originalPrice: originalPrice ?? this.originalPrice,
+      discountTag: discountTag ?? this.discountTag,
+      subBadge: subBadge ?? this.subBadge,
+      topPickBadge: topPickBadge ?? this.topPickBadge,
+      shopVoucherText: shopVoucherText ?? this.shopVoucherText,
+      storePromoBanner: storePromoBanner ?? this.storePromoBanner,
+      freeShippingBadge: freeShippingBadge ?? this.freeShippingBadge,
+      quantity: quantity ?? this.quantity,
+      isChecked: isChecked ?? this.isChecked,
+    );
+  }
 }
 
 class CartService extends ChangeNotifier {
   static final CartService instance = CartService._internal();
-  CartService._internal();
+  CartService._internal() {
+    BuyerAccountService.instance.addListener(_onBuyerChanged);
+  }
 
-  final List<CartItemModel> _items = [
-    CartItemModel(
-      id: 'c1',
-      storeName: 'Nexora Official Flagship',
-      storeBadge: 'MALL',
-      freeShippingBadge: 'Free Shipping min. spend ₱0',
-      title: 'Nexora Studio Pro Wireless Noise Cancelling Headphone',
-      variant: 'Matte Space Grey, Wireless',
-      imageUrl:
-          'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=300&q=80',
-      price: 2450.00,
-      originalPrice: 3200.00,
-      discountTag: '-23%',
-      topPickBadge: 'Top Pick',
-      subBadge: '🛡️ 15 Days Free Return Guarantee',
-      quantity: 1,
-      isChecked: true,
-    ),
-    CartItemModel(
-      id: 'c2',
-      storeName: 'Nexora Official Flagship',
-      storeBadge: 'MALL',
-      title: 'Nexora Aura Mechanical Keyboard RGB - Chalk White',
-      variant: 'Chalk White, Red Switch',
-      imageUrl:
-          'https://images.unsplash.com/photo-1587829741301-dc798b83add3?auto=format&fit=crop&w=300&q=80',
-      price: 3200.00,
-      shopVoucherText: 'Claim ₱100 OFF coupon',
-      quantity: 1,
-      isChecked: true,
-    ),
-    CartItemModel(
-      id: 'c3',
-      storeName: 'Urban Minimalist Studio',
-      storeBadge: 'PREFERRED+',
-      storePromoBanner: 'Buy 2 get 5% OFF on select garments',
-      title: 'Aura Minimalist Fleece Oversized Hoodie - Warm...',
-      variant: 'Warm Stone, Size L',
-      imageUrl:
-          'https://images.unsplash.com/photo-1556905055-8f358a7a47b2?auto=format&fit=crop&w=300&q=80',
-      price: 1250.00,
-      originalPrice: 1800.00,
-      discountTag: '-30%',
-      quantity: 1,
-      isChecked: true,
-    ),
-    CartItemModel(
-      id: 'c4',
-      storeName: 'Nordic Lifestyle Essentials',
-      storeBadge: '',
-      title: 'Minimalist Canvas Commuter Tote & Insulated Water Bottle...',
-      variant: 'Sandstone Beige',
-      imageUrl:
-          'https://images.unsplash.com/photo-1544816155-12df9643f363?auto=format&fit=crop&w=300&q=80',
-      price: 1420.00,
-      quantity: 1,
-      isChecked: false,
-    ),
-  ];
+  void _onBuyerChanged() {
+    _directBuyItem = null;
+    notifyListeners();
+  }
+
+  final Map<String, List<CartItemModel>> _userItems = {};
+  final Map<String, Map<String, int>> _userPurchaseHistory = {};
+
+  String get _currentUserKey {
+    final b = BuyerAccountService.instance.currentBuyer ??
+        BuyerAccountService.instance.currentUnverifiedBuyer;
+    return (b != null && b.email.isNotEmpty)
+        ? b.email.toLowerCase().trim()
+        : 'guest';
+  }
+
+  List<CartItemModel> get _items {
+    return _userItems.putIfAbsent(_currentUserKey, () => <CartItemModel>[]);
+  }
+
+  Map<String, int> get _buyerPurchaseHistory {
+    return _userPurchaseHistory.putIfAbsent(_currentUserKey, () => <String, int>{});
+  }
 
   List<CartItemModel> get items => List.unmodifiable(_items);
 
@@ -160,37 +165,6 @@ class CartService extends ChangeNotifier {
     notifyListeners();
   }
 
-  void buyNow({
-    required String title,
-    required String variant,
-    required double price,
-    required String imageUrl,
-    String storeName = 'Nexora Official Flagship',
-    String storeBadge = 'MALL',
-    double? originalPrice,
-    String? discountTag,
-    int quantity = 1,
-  }) {
-    for (var i in _items) {
-      i.isChecked = false;
-    }
-    final item = CartItemModel(
-      id: 'bn_${DateTime.now().millisecondsSinceEpoch}',
-      storeName: storeName,
-      storeBadge: storeBadge,
-      title: title,
-      variant: variant,
-      imageUrl: imageUrl,
-      price: price,
-      originalPrice: originalPrice,
-      discountTag: discountTag,
-      quantity: quantity,
-      isChecked: true,
-    );
-    _items.insert(0, item);
-    notifyListeners();
-  }
-
   void removeItem(String id) {
     _items.removeWhere((i) => i.id == id);
     notifyListeners();
@@ -246,4 +220,91 @@ class CartService extends ChangeNotifier {
     notifyListeners();
     return selected;
   }
+
+  // --- Buy Now Direct Checkout Isolation (BUY-PDP-007) ---
+  CartItemModel? _directBuyItem;
+  CartItemModel? get directBuyItem => _directBuyItem;
+
+  List<CartItemModel> get checkoutItems =>
+      _directBuyItem != null ? [_directBuyItem!] : _items.where((i) => i.isChecked).toList();
+
+  int get cartItemCount => itemCount;
+
+  void buyNow({
+    required String title,
+    required String variant,
+    required double price,
+    required String imageUrl,
+    String storeName = 'Nexora Official Flagship',
+    String storeBadge = 'MALL',
+    double? originalPrice,
+    String? discountTag,
+    int quantity = 1,
+  }) {
+    _directBuyItem = CartItemModel(
+      id: 'direct_${DateTime.now().millisecondsSinceEpoch}',
+      storeName: storeName,
+      storeBadge: storeBadge,
+      title: title,
+      variant: variant,
+      imageUrl: imageUrl,
+      price: price,
+      originalPrice: originalPrice,
+      discountTag: discountTag,
+      quantity: quantity,
+      isChecked: true,
+    );
+    notifyListeners();
+  }
+
+  void addToCart({
+    required String title,
+    required String variant,
+    required double price,
+    required String imageUrl,
+    String storeName = 'Nexora Official Flagship',
+    String storeBadge = 'MALL',
+    double? originalPrice,
+    String? discountTag,
+    int quantity = 1,
+  }) {
+    addItem(
+      title: title,
+      variant: variant,
+      price: price,
+      imageUrl: imageUrl,
+      storeName: storeName,
+      storeBadge: storeBadge,
+      originalPrice: originalPrice,
+      discountTag: discountTag,
+      quantity: quantity,
+    );
+  }
+
+  void clearDirectBuy() {
+    _directBuyItem = null;
+    notifyListeners();
+  }
+
+  void clearCart() {
+    _items.clear();
+    _directBuyItem = null;
+    notifyListeners();
+  }
+
+  int getPurchasedCount(String productIdOrTitle) {
+    return _buyerPurchaseHistory[productIdOrTitle] ?? 0;
+  }
+
+  void recordPurchase(String productIdOrTitle, int quantity) {
+    _buyerPurchaseHistory[productIdOrTitle] =
+        (_buyerPurchaseHistory[productIdOrTitle] ?? 0) + quantity;
+    notifyListeners();
+  }
+
+  void resetPurchaseHistory() {
+    _buyerPurchaseHistory.clear();
+    notifyListeners();
+  }
 }
+

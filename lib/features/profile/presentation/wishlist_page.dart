@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../app/routes/app_routes.dart';
 import '../../../core/services/cart_service.dart';
 import '../../../core/services/wishlist_service.dart';
+import '../../../core/widgets/added_to_cart_hud.dart';
 import '../../home/presentation/widgets/product_card.dart';
 
 class WishlistPage extends StatefulWidget {
@@ -91,7 +92,7 @@ class _WishlistPageState extends State<WishlistPage> {
                               child: Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
                                 decoration: BoxDecoration(
-                                  color: isSelected ? const Color(0xFF00C1D4) : const Color(0xFFF1F5F9),
+                                  color: isSelected ? const Color(0xFF0066FF) : const Color(0xFFF1F5F9),
                                   borderRadius: BorderRadius.circular(20),
                                 ),
                                 alignment: Alignment.center,
@@ -182,7 +183,7 @@ class _WishlistPageState extends State<WishlistPage> {
                 Navigator.pop(context);
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF00C1D4),
+                backgroundColor: const Color(0xFF0066FF),
                 foregroundColor: Colors.white,
                 elevation: 0,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
@@ -245,7 +246,7 @@ class _WishlistPageState extends State<WishlistPage> {
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFE11D48),
+                              color: const Color(0xFF0066FF),
                               borderRadius: BorderRadius.circular(3),
                             ),
                             child: const Text(
@@ -361,7 +362,7 @@ class _WishlistPageState extends State<WishlistPage> {
                                 style: const TextStyle(
                                   fontSize: 15,
                                   fontWeight: FontWeight.w800,
-                                  color: Color(0xFF00C1D4),
+                                  color: Color(0xFF0F172A),
                                 ),
                               ),
                               if (product.originalPrice != null)
@@ -396,24 +397,7 @@ class _WishlistPageState extends State<WishlistPage> {
                                 storeBadge: product.isMall ? 'MALL' : '',
                               );
 
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Row(
-                                    children: [
-                                      const Icon(Icons.check_circle, color: Color(0xFF00C1D4)),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: Text(
-                                          'Added ${product.title} to cart!',
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  duration: const Duration(seconds: 1),
-                                ),
-                              );
+                              AddedToCartHUD.show(context);
                             },
                             icon: const Icon(Icons.shopping_bag_outlined, size: 14),
                             label: const Text('Add to Cart', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),

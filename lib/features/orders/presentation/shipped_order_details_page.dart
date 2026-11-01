@@ -1,10 +1,13 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:nexora_flutter_app/app/routes/app_routes.dart';
 import 'package:nexora_flutter_app/core/services/cart_service.dart';
 import 'package:nexora_flutter_app/core/services/order_service.dart';
 import 'package:nexora_flutter_app/core/services/profile_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-class ShippedOrderDetailsPage extends StatelessWidget {
+class ShippedOrderDetailsPage extends StatefulWidget {
   final OrderItemModel? order;
 
   const ShippedOrderDetailsPage({
@@ -13,67 +16,211 @@ class ShippedOrderDetailsPage extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    final currentOrder = order;
-    // Fallback data if navigated without arguments (matching the reference design)
-    final orderId = currentOrder?.orderId ?? 'NX-20240809-771890';
-    final items = currentOrder?.items ?? [
-      CartItemModel(
-        id: '1',
-        title: '10pcs Universal Cable Clips',
-        variant: 'Cable Clip 28*10mm',
-        price: 37.0,
-        originalPrice: 199.0,
-        imageUrl: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=200&q=80',
-        quantity: 1,
-        storeName: 'PixiePH',
-        storeBadge: 'MALL',
-      ),
-      CartItemModel(
-        id: '2',
-        title: '3MP CCTV Camera Pro HD',
-        variant: 'Q6 Pro 3MP + SD 32GB',
-        price: 969.0,
-        originalPrice: 2999.0,
-        imageUrl: 'https://images.unsplash.com/photo-1557597774-9d273605dfa9?auto=format&fit=crop&w=200&q=80',
-        quantity: 1,
-        storeName: 'PixiePH',
-        storeBadge: 'MALL',
-      ),
-    ];
+  State<ShippedOrderDetailsPage> createState() => _ShippedOrderDetailsPageState();
+}
 
-    final storeName = items.isNotEmpty ? items.first.storeName : 'PixiePH';
+class _ShippedOrderDetailsPageState extends State<ShippedOrderDetailsPage> {
+  OrderItemModel? _currentOrder;
+  StreamSubscription? _orderStreamSub;
+  bool _initializedArgs = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentOrder = widget.order;
+    OrderService.instance.addListener(_onOrderServiceChanged);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_initializedArgs) {
+      _initializedArgs = true;
+      final args = ModalRoute.of(context)?.settings.arguments;
+      if (args is OrderItemModel) {
+        _currentOrder = args;
+      }
+      _findLatestFromOrderService();
+      _initSupabaseStream();
+      OrderService.instance.refreshOrdersFromSupabase();
+    }
+  }
+
+  @override
+  void dispose() {
+    OrderService.instance.removeListener(_onOrderServiceChanged);
+    _orderStreamSub?.cancel();
+    super.dispose();
+  }
+
+  void _findLatestFromOrderService() {
+    final orderId = _currentOrder?.orderId.replaceAll('#', '').trim().toLowerCase();
+    if (orderId == null || orderId.isEmpty) {
+      final latest = OrderService.instance.latestActiveOrder ??
+          (OrderService.instance.activeOrders.isNotEmpty ? OrderService.instance.activeOrders.first : null) ??
+          (OrderService.instance.pastOrders.isNotEmpty ? OrderService.instance.pastOrders.first : null);
+      if (latest != null && mounted) {
+        setState(() {
+          _currentOrder = latest;
+        });
+      }
+      return;
+    }
+
+    final inActive = OrderService.instance.activeOrders.where(
+      (o) => o.orderId.replaceAll('#', '').trim().toLowerCase() == orderId,
+    );
+    if (inActive.isNotEmpty) {
+      if (mounted) {
+        setState(() {
+          _currentOrder = inActive.first;
+        });
+      }
+      return;
+    }
+
+    final inPast = OrderService.instance.pastOrders.where(
+      (o) => o.orderId.replaceAll('#', '').trim().toLowerCase() == orderId,
+    );
+    if (inPast.isNotEmpty) {
+      if (mounted) {
+        setState(() {
+          _currentOrder = inPast.first;
+        });
+      }
+      return;
+    }
+  }
+
+  void _onOrderServiceChanged() {
+    if (!mounted) return;
+    _findLatestFromOrderService();
+  }
+
+  void _initSupabaseStream() {
+    final rawId = _currentOrder?.orderId.replaceAll('#', '').trim();
+    if (rawId == null || rawId.isEmpty) return;
+
+    try {
+      _orderStreamSub?.cancel();
+      final isNumeric = int.tryParse(rawId) != null;
+      final query = Supabase.instance.client.from('orders').stream(primaryKey: ['id']);
+      _orderStreamSub = (isNumeric ? query.eq('id', int.parse(rawId)) : query.eq('order_id', rawId))
+          .listen(
+        (rows) {
+          if (!mounted || rows.isEmpty) return;
+          final row = rows.first;
+          final status = (row['status'] ?? '').toString().toLowerCase().trim();
+          _applyStatusUpdate(status);
+        },
+        onError: (err, stack) {
+          debugPrint('📡 ShippedOrderDetails Supabase stream notice (offline/reconnecting): $err');
+        },
+        cancelOnError: false,
+      );
+    } catch (e) {
+      debugPrint('⚠️ ShippedOrderDetails Supabase stream note: $e');
+    }
+  }
+
+  void _applyStatusUpdate(String rawStatus) {
+    if (_currentOrder == null || !mounted) return;
+    final status = OrderService.normalizeRemoteStatus(rawStatus);
+    OrderService.instance.syncOrderFromRemoteStatus(
+      _currentOrder!.orderId,
+      status,
+    );
+    _findLatestFromOrderService();
+  }
+
+  int _calculateStep(OrderItemModel? order) {
+    if (order == null) return 0;
+    final status = order.statusText.toLowerCase().trim();
+    final eta = order.etaText.toLowerCase().trim();
+    if (status.contains('complete') || status.contains('delivered') || order.progress >= 1.0) {
+      return 3;
+    }
+    if (status.contains('receive') ||
+        status.contains('delivery') ||
+        status.contains('to_deliver') ||
+        status.contains('road') ||
+        status.contains('transit') ||
+        status.contains('out for delivery') ||
+        eta.contains('picked up') ||
+        eta.contains('out for delivery') ||
+        order.progress >= 0.7) {
+      return 2;
+    }
+    if (order.isRiderAccepted ||
+        order.progress >= 0.45 ||
+        eta.contains('accepted') ||
+        eta.contains('arrived at') ||
+        eta.contains('scanning') ||
+        eta.contains('packing')) {
+      return 1;
+    }
+    return 0;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    OrderItemModel? currentOrder = _currentOrder;
+    currentOrder ??= OrderService.instance.latestActiveOrder ??
+        (OrderService.instance.activeOrders.isNotEmpty ? OrderService.instance.activeOrders.first : null) ??
+        (OrderService.instance.pastOrders.isNotEmpty ? OrderService.instance.pastOrders.first : null);
+
+    final rawOrderId = currentOrder?.orderId ?? 'NX-48786';
+    final orderId = rawOrderId.startsWith('#') ? rawOrderId : '#$rawOrderId';
+
+    final items = (currentOrder != null && currentOrder.items.isNotEmpty)
+        ? currentOrder.items
+        : [
+            CartItemModel(
+              id: '1',
+              title: 'Nexora Pro Heavy Duty Suspension Boom Arm',
+              variant: 'Standard Edition',
+              price: 311.0,
+              originalPrice: 450.0,
+              imageUrl:
+                  'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?auto=format&fit=crop&w=300&q=80',
+              quantity: 1,
+              storeName: 'Nexora Official Flagship',
+              storeBadge: 'MALL',
+            ),
+          ];
+
+    final storeName = items.isNotEmpty ? items.first.storeName : 'Nexora Official Flagship';
     final storeBadge = items.isNotEmpty ? items.first.storeBadge : 'MALL';
-    final totalOrderPrice = currentOrder?.totalPrice ?? 926.0;
-    final totalItemsCount = items.length;
+    final totalOrderPrice = currentOrder?.totalPrice ?? 311.0;
+    final totalItemsCount = items.fold<int>(0, (sum, it) => sum + it.quantity);
 
     final userProfile = ProfileService.instance;
     final recipientName = (currentOrder != null && currentOrder.recipientName.isNotEmpty)
         ? currentOrder.recipientName
-        : (userProfile.name.isNotEmpty ? userProfile.name : 'Alex Rivera');
+        : (userProfile.name.isNotEmpty ? userProfile.name : 'John Mark Pitargue');
     final recipientPhone = (currentOrder != null && currentOrder.recipientPhone.isNotEmpty)
         ? currentOrder.recipientPhone
-        : (userProfile.phone.isNotEmpty ? userProfile.phone : '(+63) 917 123 4567');
+        : (userProfile.phone.isNotEmpty ? userProfile.phone : '(+63) 9759632035');
     final recipientAddress = (currentOrder != null && currentOrder.shippingAddress.isNotEmpty)
         ? currentOrder.shippingAddress
         : (userProfile.address.isNotEmpty
             ? userProfile.address
-            : 'Unit 402, Lumina Heights Tower 2, Makati, Metro Manila');
+            : '192, Tuy-Baanan, Liliw, 4004');
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF1F5F9), // Light background
+      backgroundColor: const Color(0xFFF6F8FC),
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black87),
+          icon: const Icon(Icons.arrow_back, color: Color(0xFF0F172A)),
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
           'Order Details',
           style: TextStyle(
-            color: Colors.black87,
-            fontSize: 18,
+            color: Color(0xFF0F172A),
+            fontSize: 17,
             fontWeight: FontWeight.w700,
           ),
         ),
@@ -81,23 +228,23 @@ class ShippedOrderDetailsPage extends StatelessWidget {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // Dark Header Banner
-            _buildDeliveryEstimateBanner(currentOrder),
+            // 1. Top Estimated Delivery Banner (Dark Navy)
+            _buildEstimatedDeliveryBanner(currentOrder),
 
-            // Guaranteed On-Time Delivery Card
-            _buildGuaranteedDeliveryCard(),
+            // 2. Guaranteed On-Time Delivery Card
+            _buildGuaranteedDeliveryCard(context),
 
-            // Shipping Information Card
+            // 3. Shipping Information Card (Rider Info + Stepper + Live GPS)
             _buildShippingInfoCard(context, currentOrder),
 
-            // Delivery Information Card
+            // 4. Delivery Information Card
             _buildDeliveryInfoCard(recipientName, recipientPhone, recipientAddress),
 
-            // Product & Store Card
-            _buildProductSectionCard(storeBadge, storeName, items, totalItemsCount, totalOrderPrice),
+            // 5. Product & Store Card
+            _buildProductSectionCard(context, storeBadge, storeName, items, totalItemsCount, totalOrderPrice),
 
-            // Payment & Order Details Card
-            _buildPaymentAndOrderDetailsCard(currentOrder, orderId),
+            // 6. Payment & Order Details Card
+            _buildPaymentAndOrderDetailsCard(context, currentOrder, orderId),
 
             const SizedBox(height: 24),
           ],
@@ -107,33 +254,75 @@ class ShippedOrderDetailsPage extends StatelessWidget {
     );
   }
 
-  Widget _buildDeliveryEstimateBanner(OrderItemModel? order) {
-    final current = order;
-    final etaText = (current != null && current.etaTime.isNotEmpty)
-        ? current.etaTime
-        : '09 Aug – 12 Aug';
+  Widget _buildEstimatedDeliveryBanner(OrderItemModel? order) {
+    final step = _calculateStep(order);
+    final status = order?.statusText.toLowerCase() ?? '';
+    final isCancelled = status.contains('cancel');
+    final isDelivered = step >= 3 || status.contains('delivered') || status.contains('complete');
+    final isOutForDelivery = step == 2 || status.contains('out for delivery') || status.contains('receive');
+
+    String title;
+    String subtitle;
+    Color bgColor = const Color(0xFF0F172A);
+
+    if (isCancelled) {
+      title = 'Order Cancelled';
+      subtitle = 'This order was cancelled';
+      bgColor = const Color(0xFF7F1D1D);
+    } else if (isDelivered) {
+      title = 'Delivered Successfully';
+      subtitle = 'Package was received safely by recipient';
+      bgColor = const Color(0xFF064E3B);
+    } else if (isOutForDelivery) {
+      title = 'Out for Delivery • Expected: Today';
+      subtitle = 'SPX Express courier is on the road with your package';
+      bgColor = const Color(0xFF0F1E2E);
+    } else {
+      final etaText = (order != null && order.etaTime.isNotEmpty) ? order.etaTime : 'Tomorrow';
+      title = 'Estimated delivery date: $etaText';
+      subtitle = (order?.etaText.isNotEmpty == true)
+          ? order!.etaText
+          : 'Order Placed • Merchant is preparing your package';
+    }
+
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.fromLTRB(12, 12, 12, 6),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      margin: const EdgeInsets.fromLTRB(12, 10, 12, 6),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: const Color(0xFF0F1E2E), // Deep dark navy
+        color: bgColor,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Estimated delivery date: $etaText',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 15,
-              fontWeight: FontWeight.bold,
-            ),
+          Row(
+            children: [
+              if (isCancelled) ...[
+                const Icon(Icons.cancel_rounded, color: Color(0xFFF87171), size: 20),
+                const SizedBox(width: 8),
+              ] else if (isDelivered) ...[
+                const Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 20),
+                const SizedBox(width: 8),
+              ] else if (isOutForDelivery) ...[
+                const Icon(Icons.two_wheeler_rounded, color: Color(0xFF0066FF), size: 20),
+                const SizedBox(width: 8),
+              ],
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 5),
           Text(
-            order?.etaText ?? 'Seller will arrange your order shortly',
+            subtitle,
             style: const TextStyle(
               color: Color(0xFF94A3B8),
               fontSize: 12,
@@ -144,7 +333,7 @@ class ShippedOrderDetailsPage extends StatelessWidget {
     );
   }
 
-  Widget _buildGuaranteedDeliveryCard() {
+  Widget _buildGuaranteedDeliveryCard(BuildContext context) {
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -156,7 +345,7 @@ class ShippedOrderDetailsPage extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.access_time, color: Color(0xFF00C1D4), size: 18),
+          const Icon(Icons.access_time_rounded, color: Color(0xFF0066FF), size: 20),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -177,14 +366,21 @@ class ShippedOrderDetailsPage extends StatelessWidget {
                     ],
                   ),
                 ),
-                const SizedBox(height: 4),
-                const Text(
-                  'View More',
-                  style: TextStyle(
-                    color: Color(0xFF00C1D4),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    decoration: TextDecoration.underline,
+                const SizedBox(height: 6),
+                InkWell(
+                  onTap: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Nexora Guaranteed On-Time Delivery: ₱50 credit if delayed.')),
+                    );
+                  },
+                  child: const Text(
+                    'View More',
+                    style: TextStyle(
+                      color: Color(0xFF0066FF),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      decoration: TextDecoration.underline,
+                    ),
                   ),
                 ),
               ],
@@ -197,6 +393,17 @@ class ShippedOrderDetailsPage extends StatelessWidget {
 
   Widget _buildShippingInfoCard(BuildContext context, OrderItemModel? order) {
     final shippingOption = order?.shippingOption ?? 'Standard Local Delivery';
+    final courierName = (order?.courierName.isNotEmpty == true) ? order!.courierName : 'Pedro Jose Garcia';
+    final step = _calculateStep(order);
+    final isRiderAccepted = order?.isRiderAccepted == true || step >= 1;
+
+    final steps = [
+      {'title': 'Placed', 'icon': Icons.check},
+      {'title': 'Packed', 'icon': Icons.inventory_2_outlined},
+      {'title': 'Out for\nDelivery', 'icon': Icons.two_wheeler_rounded},
+      {'title': 'Delivered', 'icon': Icons.done_all_rounded},
+    ];
+
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -229,30 +436,108 @@ class ShippedOrderDetailsPage extends StatelessWidget {
                 ),
                 child: const Icon(Icons.inventory_2_outlined, color: Color(0xFF475569), size: 20),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Nexora Express – SPX',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                        color: Colors.black87,
-                      ),
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            'Rider: $courierName',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                              color: Colors.black87,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFEF3C7),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.star_rounded, size: 11, color: Color(0xFFF59E0B)),
+                              const SizedBox(width: 2),
+                              Text(
+                                OrderService.instance
+                                    .getLiveCourierRating(
+                                      courierName,
+                                      fallback: order?.courierRating ?? 4.96,
+                                    )
+                                    .toStringAsFixed(2),
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w800,
+                                  color: Color(0xFFB45309),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      shippingOption,
-                      style: const TextStyle(
-                        color: Colors.black54,
-                        fontSize: 11,
-                      ),
+                    const SizedBox(height: 3),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                          decoration: BoxDecoration(
+                            color: isRiderAccepted
+                                ? const Color(0xFFECFDF5)
+                                : const Color(0xFFFFFBEB),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            isRiderAccepted
+                                ? '✓ Rider Accepted'
+                                : 'Awaiting Rider Acceptance',
+                            style: TextStyle(
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w700,
+                              color: isRiderAccepted
+                                  ? const Color(0xFF047857)
+                                  : const Color(0xFFB45309),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            shippingOption,
+                            style: const TextStyle(
+                              color: Colors.black54,
+                              fontSize: 10.5,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ),
+              const SizedBox(width: 8),
+              OutlinedButton.icon(
+                onPressed: () => Navigator.pushNamed(context, AppRoutes.chat),
+                icon: const Icon(Icons.chat_bubble_outline_rounded, size: 13),
+                label: const Text('Chat', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF0066FF),
+                  side: const BorderSide(color: Color(0xFF0066FF)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  minimumSize: const Size(0, 32),
+                ),
+              ),
+              const SizedBox(width: 6),
               OutlinedButton(
                 onPressed: () {
                   Navigator.pushNamed(
@@ -266,7 +551,7 @@ class ShippedOrderDetailsPage extends StatelessWidget {
                   side: const BorderSide(color: Color(0xFFCBD5E1)),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  minimumSize: const Size(0, 30),
+                  minimumSize: const Size(0, 32),
                 ),
                 child: const Text('Track', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
               ),
@@ -274,135 +559,112 @@ class ShippedOrderDetailsPage extends StatelessWidget {
           ),
           const SizedBox(height: 14),
           const Divider(height: 1, color: Color(0xFFF1F5F9)),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
 
-          // Miniature 4-Step Stepper
-          _buildMiniStepper(context, order),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMiniStepper(BuildContext context, OrderItemModel? order) {
-    final status = order?.statusText.toLowerCase() ?? 'to receive';
-    int currentStep = 2;
-    if (status.contains('complete') || status.contains('delivered')) {
-      currentStep = 3;
-    } else if (status.contains('receive') ||
-        status.contains('delivery') ||
-        status.contains('transit') ||
-        status.contains('shipping') ||
-        status.contains('shipped')) {
-      currentStep = 2;
-    } else if (status.contains('ship') || status.contains('process')) {
-      currentStep = 1;
-    } else if (status.contains('pay')) {
-      currentStep = 0;
-    }
-
-    final steps = [
-      {'title': 'Placed', 'icon': Icons.check},
-      {'title': 'Packed', 'icon': Icons.inventory_2_outlined},
-      {'title': 'Out for Delivery', 'icon': Icons.two_wheeler_rounded},
-      {'title': 'Delivered', 'icon': Icons.done_all_rounded},
-    ];
-
-    return InkWell(
-      onTap: () {
-        Navigator.pushNamed(
-          context,
-          AppRoutes.orderTracking,
-          arguments: order,
-        );
-      },
-      borderRadius: BorderRadius.circular(10),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 6),
-        child: Column(
-          children: [
-            Row(
-              children: List.generate(steps.length * 2 - 1, (index) {
-                if (index.isOdd) {
-                  final lineIndex = index ~/ 2;
-                  final isPassed = currentStep > lineIndex;
-                  return Expanded(
-                    child: Container(
-                      height: 2.5,
-                      color: isPassed ? const Color(0xFF10B981) : const Color(0xFFE2E8F0),
-                    ),
-                  );
-                }
-
-                final stepIndex = index ~/ 2;
-                final isPassed = currentStep > stepIndex;
-                final isCurrent = currentStep == stepIndex;
-
-                return Container(
-                  width: 24,
-                  height: 24,
-                  decoration: BoxDecoration(
-                    color: isPassed
-                        ? const Color(0xFF10B981)
-                        : (isCurrent ? const Color(0xFF0066FF) : const Color(0xFFF1F5F9)),
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: isCurrent
-                          ? const Color(0xFF0066FF)
-                          : (isPassed ? const Color(0xFF10B981) : const Color(0xFFCBD5E1)),
-                      width: 2,
-                    ),
-                  ),
-                  child: Center(
-                    child: isPassed
-                        ? const Icon(Icons.check, size: 13, color: Colors.white)
-                        : (isCurrent
-                            ? const Icon(Icons.two_wheeler, size: 12, color: Colors.white)
-                            : Text(
-                                '${stepIndex + 1}',
-                                style: const TextStyle(fontSize: 10, color: Color(0xFF94A3B8), fontWeight: FontWeight.bold),
-                              )),
+          // Stepper
+          Row(
+            children: List.generate(steps.length * 2 - 1, (index) {
+              if (index.isOdd) {
+                final lineIndex = index ~/ 2;
+                final isPassed = step > lineIndex;
+                return Expanded(
+                  child: Container(
+                    height: 2.5,
+                    color: isPassed ? const Color(0xFF0066FF) : const Color(0xFFE2E8F0),
                   ),
                 );
-              }),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: steps.map((s) {
-                final idx = steps.indexOf(s);
-                final isCurrent = currentStep == idx;
-                return SizedBox(
-                  width: 68,
-                  child: Text(
-                    s['title'] as String,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: isCurrent ? FontWeight.w800 : FontWeight.w600,
-                      color: isCurrent ? const Color(0xFF0066FF) : const Color(0xFF64748B),
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 10),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: const [
-                Text(
-                  'Tap to view live GPS & Courier tracking',
-                  style: TextStyle(
-                    color: Color(0xFF00C1D4),
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w700,
+              }
+
+              final stepIndex = index ~/ 2;
+              final isPassed = step > stepIndex;
+              final isCurrent = step == stepIndex;
+
+              return Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: (isPassed || isCurrent)
+                      ? const Color(0xFF0066FF)
+                      : Colors.white,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: (isPassed || isCurrent)
+                        ? const Color(0xFF0066FF)
+                        : const Color(0xFFCBD5E1),
+                    width: 2,
                   ),
                 ),
-                SizedBox(width: 4),
-                Icon(Icons.chevron_right, size: 16, color: Color(0xFF00C1D4)),
-              ],
+                child: Center(
+                  child: isPassed
+                      ? const Icon(Icons.check, size: 15, color: Colors.white)
+                      : (isCurrent
+                          ? Icon(steps[stepIndex]['icon'] as IconData, size: 14, color: Colors.white)
+                          : Text(
+                              '${stepIndex + 1}',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: Color(0xFF94A3B8),
+                                fontWeight: FontWeight.bold,
+                              ),
+                            )),
+                ),
+              );
+            }),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: steps.map((s) {
+              final idx = steps.indexOf(s);
+              final isCurrent = step == idx;
+              final isPassed = step > idx;
+              return SizedBox(
+                width: 68,
+                child: Text(
+                  s['title'] as String,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: (isCurrent || isPassed) ? FontWeight.w800 : FontWeight.w600,
+                    color: (isCurrent || isPassed)
+                        ? const Color(0xFF0066FF)
+                        : const Color(0xFF64748B),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 14),
+          InkWell(
+            onTap: () {
+              Navigator.pushNamed(
+                context,
+                AppRoutes.orderTracking,
+                arguments: order,
+              );
+            },
+            borderRadius: BorderRadius.circular(6),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: const [
+                  Text(
+                    'Tap to view live GPS & Courier tracking',
+                    style: TextStyle(
+                      color: Color(0xFF0066FF),
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  SizedBox(width: 4),
+                  Icon(Icons.chevron_right, size: 16, color: Color(0xFF0066FF)),
+                ],
+              ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -436,10 +698,10 @@ class ShippedOrderDetailsPage extends StatelessWidget {
                 width: 36,
                 height: 36,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFE5F8FC),
+                  color: const Color(0xFFEEF2FF),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(Icons.location_on_outlined, color: Color(0xFF00C1D4), size: 20),
+                child: const Icon(Icons.location_on_outlined, color: Color(0xFF0066FF), size: 20),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -477,6 +739,7 @@ class ShippedOrderDetailsPage extends StatelessWidget {
   }
 
   Widget _buildProductSectionCard(
+    BuildContext context,
     String storeBadge,
     String storeName,
     List<CartItemModel> items,
@@ -517,9 +780,7 @@ class ShippedOrderDetailsPage extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: currentStoreBadge.toUpperCase() == 'MALL'
-                            ? const Color(0xFF0F172A)
-                            : const Color(0xFF00C1D4),
+                        color: const Color(0xFF0066FF),
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
@@ -543,16 +804,23 @@ class ShippedOrderDetailsPage extends StatelessWidget {
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Container(
-                            width: 64,
-                            height: 64,
-                            decoration: BoxDecoration(
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: Container(
+                              width: 64,
+                              height: 64,
                               color: const Color(0xFFF8FAFC),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: const Color(0xFFE2E8F0)),
-                              image: DecorationImage(
-                                image: NetworkImage(item.imageUrl),
+                              child: Image.network(
+                                item.imageUrl,
                                 fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) => Container(
+                                  color: const Color(0xFFF1F5F9),
+                                  child: const Icon(
+                                    Icons.headset_rounded,
+                                    color: Color(0xFF0F172A),
+                                    size: 32,
+                                  ),
+                                ),
                               ),
                             ),
                           ),
@@ -588,13 +856,13 @@ class ShippedOrderDetailsPage extends StatelessWidget {
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFFE5F8FC),
+                                    color: const Color(0xFFEEF2FF),
                                     borderRadius: BorderRadius.circular(4),
-                                    border: Border.all(color: const Color(0xFFBAE6FD)),
+                                    border: Border.all(color: const Color(0xFFC7D2FE)),
                                   ),
                                   child: const Text(
                                     'Change of Mind Returns',
-                                    style: TextStyle(color: Color(0xFF0090A8), fontSize: 9, fontWeight: FontWeight.w600),
+                                    style: TextStyle(color: Color(0xFF0066FF), fontSize: 9, fontWeight: FontWeight.w600),
                                   ),
                                 ),
                                 const SizedBox(height: 6),
@@ -614,7 +882,7 @@ class ShippedOrderDetailsPage extends StatelessWidget {
                                     ],
                                     Text(
                                       '₱${item.price.toStringAsFixed(0)}',
-                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.black87),
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF0F172A)),
                                     ),
                                   ],
                                 ),
@@ -640,7 +908,7 @@ class ShippedOrderDetailsPage extends StatelessWidget {
               ),
               Text(
                 '₱${totalPrice.toStringAsFixed(0)}',
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.black87),
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF0F172A)),
               ),
             ],
           ),
@@ -649,11 +917,11 @@ class ShippedOrderDetailsPage extends StatelessWidget {
     );
   }
 
-  Widget _buildPaymentAndOrderDetailsCard(OrderItemModel? order, String orderId) {
+  Widget _buildPaymentAndOrderDetailsCard(BuildContext context, OrderItemModel? order, String orderId) {
     final paymentMethod = order?.paymentMethod ?? 'Cash on Delivery';
-    final placedDate = order?.orderDateTimeText ?? 'Today';
-    final subtotal = order?.subtotal ?? (order?.totalPrice ?? 926.0);
-    final shippingFee = order?.shippingFee ?? 38.0;
+    final placedDate = (order?.orderDateTimeText.isNotEmpty == true) ? order!.orderDateTimeText : 'Today, 18:57';
+    final subtotal = order?.subtotal ?? (order?.totalPrice ?? 311.0);
+    final shippingFee = order?.shippingFee ?? 0.0;
     final discount = order?.discount ?? 0.0;
     final total = order?.totalPrice ?? (subtotal + shippingFee - discount);
 
@@ -713,13 +981,22 @@ class ShippedOrderDetailsPage extends StatelessWidget {
                 style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black87),
               ),
               const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE5F8FC),
-                  borderRadius: BorderRadius.circular(4),
+              InkWell(
+                onTap: () {
+                  Clipboard.setData(ClipboardData(text: orderId.replaceAll('#', '')));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Order ID copied to clipboard')),
+                  );
+                },
+                borderRadius: BorderRadius.circular(4),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEEF2FF),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: const Text('COPY', style: TextStyle(color: Color(0xFF0066FF), fontSize: 9, fontWeight: FontWeight.bold)),
                 ),
-                child: const Text('COPY', style: TextStyle(color: Color(0xFF00C1D4), fontSize: 9, fontWeight: FontWeight.bold)),
               ),
             ],
           ),
@@ -775,7 +1052,7 @@ class ShippedOrderDetailsPage extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text('Total Payment', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF0F172A))),
-              Text('₱${total.toStringAsFixed(2)}', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Color(0xFF00C1D4))),
+              Text('₱${total.toStringAsFixed(2)}', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Color(0xFF0F172A))),
             ],
           ),
         ],
@@ -784,10 +1061,13 @@ class ShippedOrderDetailsPage extends StatelessWidget {
   }
 
   Widget _buildBottomActionBar(BuildContext context, OrderItemModel? order, String orderId) {
-    final isToReceive = order?.statusText == 'To Receive' || order?.statusText == 'OUT FOR DELIVERY';
+    final step = _calculateStep(order);
+    final isCancelled = (order?.statusText.toLowerCase().contains('cancel') ?? false);
+    final isDelivered = step >= 3 || (order?.statusText.toLowerCase().contains('complete') ?? false) || (order?.statusText.toLowerCase().contains('delivered') ?? false);
+    final isOutForDelivery = !isCancelled && (step == 2 || (order?.statusText.toLowerCase().contains('out for delivery') ?? false));
 
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [
@@ -804,7 +1084,9 @@ class ShippedOrderDetailsPage extends StatelessWidget {
             Expanded(
               child: OutlinedButton(
                 onPressed: () {
-                  if (isToReceive) {
+                  if (isCancelled || isDelivered) {
+                    Navigator.pushNamed(context, AppRoutes.home);
+                  } else if (isOutForDelivery) {
                     Navigator.pushNamed(context, AppRoutes.chat);
                   } else {
                     OrderService.instance.cancelOrder(orderId);
@@ -821,7 +1103,7 @@ class ShippedOrderDetailsPage extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(vertical: 14),
                 ),
                 child: Text(
-                  isToReceive ? 'Contact Courier' : 'Cancel Order',
+                  (isCancelled || isDelivered) ? 'Buy Again' : (isOutForDelivery ? 'Contact Courier' : 'Cancel Order'),
                   style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
                 ),
               ),
@@ -830,7 +1112,15 @@ class ShippedOrderDetailsPage extends StatelessWidget {
             Expanded(
               child: ElevatedButton(
                 onPressed: () {
-                  if (isToReceive) {
+                  if (isCancelled) {
+                    Navigator.pushNamed(context, AppRoutes.chat);
+                  } else if (isDelivered) {
+                    Navigator.pushNamed(
+                      context,
+                      AppRoutes.rateProduct,
+                      arguments: order,
+                    );
+                  } else if (isOutForDelivery) {
                     showDialog(
                       context: context,
                       builder: (dialogCtx) => AlertDialog(
@@ -855,10 +1145,9 @@ class ShippedOrderDetailsPage extends StatelessWidget {
                                   backgroundColor: Color(0xFF10B981),
                                 ),
                               );
-                              Navigator.pop(context);
                             },
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF00C1D4),
+                              backgroundColor: const Color(0xFF0066FF),
                               foregroundColor: Colors.white,
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                             ),
@@ -872,7 +1161,7 @@ class ShippedOrderDetailsPage extends StatelessWidget {
                   }
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF00C1D4),
+                  backgroundColor: isDelivered ? const Color(0xFF10B981) : const Color(0xFF0066FF),
                   foregroundColor: Colors.white,
                   elevation: 0,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -881,14 +1170,33 @@ class ShippedOrderDetailsPage extends StatelessWidget {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    if (isToReceive) ...[
+                    if (isCancelled) ...[
+                      const Text(
+                        'Contact Support',
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                      ),
+                    ] else if (isDelivered) ...[
+                      const Icon(Icons.star_rounded, size: 18),
+                      const SizedBox(width: 6),
+                      Text(
+                        order?.isRated == true
+                            ? 'Rated (${order?.buyerDriverRating ?? 5}★)'
+                            : 'Rate',
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                      ),
+                    ] else if (isOutForDelivery) ...[
                       const Icon(Icons.check_circle_outline, size: 16),
                       const SizedBox(width: 6),
+                      const Text(
+                        'Order Received',
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                      ),
+                    ] else ...[
+                      const Text(
+                        'Contact Seller',
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                      ),
                     ],
-                    Text(
-                      isToReceive ? 'Order Received' : 'Contact Seller',
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-                    ),
                   ],
                 ),
               ),

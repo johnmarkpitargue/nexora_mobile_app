@@ -28,50 +28,50 @@ class CategorySection extends StatelessWidget {
     CategoryItemData(
       label: 'Tech & Gadgets',
       icon: Icons.devices_outlined,
-      bgColor: Color(0xFFE0F7FA),
-      iconColor: Color(0xFF0891B2),
+      bgColor: Color(0xFFEFF6FF),
+      iconColor: Color(0xFF0066FF),
     ),
     CategoryItemData(
       label: 'Fashion',
       icon: Icons.checkroom_outlined,
-      bgColor: Color(0xFFFFE4E6),
-      iconColor: Color(0xFFE11D48),
+      bgColor: Color(0xFFEFF6FF),
+      iconColor: Color(0xFF0066FF),
     ),
     CategoryItemData(
       label: 'Home',
       icon: Icons.chair_outlined,
-      bgColor: Color(0xFFEEF2FF),
+      bgColor: Color(0xFFEFF6FF),
       iconColor: Color(0xFF0066FF),
     ),
     CategoryItemData(
       label: 'Beauty',
       icon: Icons.auto_awesome_outlined,
-      bgColor: Color(0xFFE0F2F1),
-      iconColor: Color(0xFF0D9488),
+      bgColor: Color(0xFFEFF6FF),
+      iconColor: Color(0xFF0066FF),
     ),
     CategoryItemData(
       label: 'Sports',
       icon: Icons.sports_basketball_outlined,
-      bgColor: Color(0xFFE0E7FF),
-      iconColor: Color(0xFF059669),
+      bgColor: Color(0xFFEFF6FF),
+      iconColor: Color(0xFF0066FF),
     ),
     CategoryItemData(
       label: 'Gaming',
       icon: Icons.headphones_outlined,
-      bgColor: Color(0xFFE0F2FE),
-      iconColor: Color(0xFF0284C7),
+      bgColor: Color(0xFFEFF6FF),
+      iconColor: Color(0xFF0066FF),
     ),
     CategoryItemData(
       label: 'Mall',
       icon: Icons.verified_outlined,
-      bgColor: Color(0xFFFFE4E6),
-      iconColor: Color(0xFFDC2626),
+      bgColor: Color(0xFFEFF6FF),
+      iconColor: Color(0xFF0066FF),
     ),
     CategoryItemData(
       label: 'Vouchers',
       icon: Icons.confirmation_number_outlined,
-      bgColor: Color(0xFFDCFCE7),
-      iconColor: Color(0xFF16A34A),
+      bgColor: Color(0xFFEFF6FF),
+      iconColor: Color(0xFF0066FF),
     ),
   ];
 
@@ -175,15 +175,16 @@ class CategorySection extends StatelessWidget {
               width: 52,
               height: 52,
               decoration: BoxDecoration(
-                color: cat.bgColor,
+                color: isSelected ? const Color(0xFF0066FF) : const Color(0xFFEFF6FF),
                 shape: BoxShape.circle,
-                border: isSelected
-                    ? Border.all(color: cat.iconColor, width: 2.5)
-                    : Border.all(color: Colors.transparent, width: 1),
+                border: Border.all(
+                  color: isSelected ? const Color(0xFF0066FF) : const Color(0xFFDBEAFE),
+                  width: isSelected ? 2 : 1,
+                ),
                 boxShadow: isSelected
                     ? [
                         BoxShadow(
-                          color: cat.iconColor.withValues(alpha: 0.3),
+                          color: const Color(0xFF0066FF).withValues(alpha: 0.3),
                           blurRadius: 8,
                           offset: const Offset(0, 3),
                         ),
@@ -193,7 +194,7 @@ class CategorySection extends StatelessWidget {
               child: Icon(
                 cat.icon,
                 size: 24,
-                color: cat.iconColor,
+                color: isSelected ? Colors.white : const Color(0xFF0066FF),
               ),
             ),
             const SizedBox(height: 6),
@@ -205,7 +206,7 @@ class CategorySection extends StatelessWidget {
               style: TextStyle(
                 fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
                 fontSize: 11,
-                color: isSelected ? cat.iconColor : const Color(0xFF334155),
+                color: isSelected ? const Color(0xFF0066FF) : const Color(0xFF0F172A),
               ),
             ),
           ],

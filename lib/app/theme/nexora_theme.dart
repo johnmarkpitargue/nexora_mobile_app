@@ -8,6 +8,10 @@ class NexoraTheme {
   static const Color onPrimary = Color(0xFFFFFFFF);
   static const Color onPrimaryContainer = Color(0xFF0052FF);
 
+  /// Unified consistent color for pricing throughout all product cards, lists, cart, and orders
+  static const Color price = Color(0xFF0F172A);
+  static const Color priceColor = Color(0xFF0F172A);
+
   static const Color secondary = Color(0xFF00D2FF);
   static const Color secondaryContainer = Color(0xFFE0F7FA);
   static const Color onSecondaryContainer = Color(0xFF0891B2);
@@ -35,11 +39,19 @@ class NexoraTheme {
   static const Color errorContainer = Color(0xFFFFDAD6);
 
   static const String fontFamily = 'Plus Jakarta Sans';
+  static const List<String> fontFamilyFallback = [
+    'Noto Sans',
+    'Segoe UI Emoji',
+    'Apple Color Emoji',
+    'Noto Color Emoji',
+    'sans-serif',
+  ];
 
   static ThemeData get lightTheme {
     return ThemeData(
       useMaterial3: true,
       fontFamily: fontFamily,
+      fontFamilyFallback: fontFamilyFallback,
       scaffoldBackgroundColor: surface,
       colorScheme: const ColorScheme(
         brightness: Brightness.light,
@@ -126,6 +138,9 @@ class NexoraTheme {
           fontWeight: FontWeight.w700,
           color: onSurface,
         ),
+      ).apply(
+        fontFamily: fontFamily,
+        fontFamilyFallback: fontFamilyFallback,
       ),
       appBarTheme: const AppBarTheme(
         backgroundColor: Colors.transparent,

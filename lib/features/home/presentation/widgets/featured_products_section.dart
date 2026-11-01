@@ -28,7 +28,7 @@ class DailyDiscoverSection extends StatelessWidget {
       rating: 4.9,
       soldCount: '1.8k',
       shippingTag: '2-3 Days | Metro Manila',
-      hasPayLater: true,
+      hasPayLater: false,
       hasVoucher: false,
     ),
     // Fashion / Mall
@@ -60,7 +60,7 @@ class DailyDiscoverSection extends StatelessWidget {
       rating: 4.9,
       soldCount: '620',
       shippingTag: '2-3 Days | Metro Manila',
-      hasPayLater: true,
+      hasPayLater: false,
       hasVoucher: false,
     ),
     // Sports / Tech
@@ -92,7 +92,7 @@ class DailyDiscoverSection extends StatelessWidget {
       rating: 4.9,
       soldCount: '2.1k',
       shippingTag: 'Next Day Delivery | Makati City',
-      hasPayLater: true,
+      hasPayLater: false,
       hasVoucher: false,
     ),
     // Home
@@ -124,7 +124,7 @@ class DailyDiscoverSection extends StatelessWidget {
       rating: 4.9,
       soldCount: '950',
       shippingTag: '2-3 Days | Quezon City',
-      hasPayLater: true,
+      hasPayLater: false,
       hasVoucher: true,
     ),
     // Vouchers
@@ -177,23 +177,6 @@ class DailyDiscoverSection extends StatelessWidget {
                           fontSize: 15,
                           letterSpacing: 0.3,
                           color: Color(0xFF0F172A),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Container(
-                      padding:
-                          const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFFE4E6),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: const Text(
-                        'Sulit Deals',
-                        style: TextStyle(
-                          color: Color(0xFFE11D48),
-                          fontWeight: FontWeight.w800,
-                          fontSize: 9.5,
                         ),
                       ),
                     ),

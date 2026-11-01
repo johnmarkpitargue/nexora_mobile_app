@@ -2,7 +2,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../app/routes/app_routes.dart';
 import '../../../core/models/shop_models.dart';
+import '../../../core/services/chat_service.dart';
 import '../../../core/services/shop_service.dart';
+import '../../chat/presentation/chat_detail_page.dart';
 import '../../home/presentation/widgets/product_card.dart';
 
 class ShopPage extends StatefulWidget {
@@ -158,7 +160,25 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
     await _chatAnimController.reverse();
     await _chatAnimController.forward();
     if (!mounted) return;
-    Navigator.pushNamed(context, AppRoutes.chat);
+    final conv = ChatService.instance.getOrCreateShopConversation(
+      shopId: _shop.id,
+      shopName: _shop.name,
+      shopBadge: _shop.badge,
+      avatarBg: _shop.avatarBg,
+    );
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ChatDetailPage(
+          conversationId: conv.id,
+          title: conv.title,
+          subtitle: _shop.badge,
+          avatarIcon: conv.avatarIcon,
+          avatarBgColor: conv.avatarBg,
+          initialMessages: conv.messages.map((m) => m.toMap()).toList(),
+        ),
+      ),
+    );
   }
 
   void _handleClaimVoucher(ShopVoucherModel voucher) async {
@@ -229,10 +249,10 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
               delegate: _ShopTabBarDelegate(
                 TabBar(
                   controller: _tabController,
-                  indicatorColor: const Color(0xFF00C1D4),
+                  indicatorColor: const Color(0xFF0066FF),
                   indicatorWeight: 3.5,
                   indicatorSize: TabBarIndicatorSize.tab,
-                  labelColor: const Color(0xFF00C1D4),
+                  labelColor: const Color(0xFF0066FF),
                   unselectedLabelColor: const Color(0xFF475569),
                   labelStyle: const TextStyle(
                     fontWeight: FontWeight.w800,
@@ -354,10 +374,10 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: _shop.avatarBg,
-                  border: Border.all(color: const Color(0xFF00C1D4), width: 2),
+                  border: Border.all(color: const Color(0xFF0066FF), width: 2),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF00C1D4).withValues(alpha: 0.35),
+                      color: const Color(0xFF0066FF).withValues(alpha: 0.35),
                       blurRadius: 10,
                       spreadRadius: 1,
                     ),
@@ -409,7 +429,7 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
                         color: const Color(0xFF0284C7).withValues(alpha: 0.3),
                         borderRadius: BorderRadius.circular(6),
                         border: Border.all(
-                          color: const Color(0xFF00C1D4).withValues(alpha: 0.7),
+                          color: const Color(0xFF0066FF).withValues(alpha: 0.7),
                           width: 1,
                         ),
                       ),
@@ -436,12 +456,15 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
                             fontSize: 12,
                           ),
                         ),
-                        Text(
-                          '  |  ${_shop.followers} Followers',
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.8),
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
+                        Flexible(
+                          child: Text(
+                            '  |  ${_shop.followers} Followers',
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.8),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                         ),
                       ],
@@ -472,7 +495,7 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
                               color: isFollowing
-                                  ? const Color(0xFF00C1D4)
+                                  ? const Color(0xFF0066FF)
                                   : const Color(0xFF0075FF),
                               width: 1.3,
                             ),
@@ -492,7 +515,7 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
                             children: [
                               Icon(
                                 isFollowing ? Icons.check : Icons.add,
-                                color: isFollowing ? const Color(0xFF00C1D4) : const Color(0xFF00B4D8),
+                                color: isFollowing ? const Color(0xFF0066FF) : const Color(0xFF00B4D8),
                                 size: 14,
                               ),
                               const SizedBox(width: 4),
@@ -500,7 +523,7 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
                                 isFollowing ? 'Following' : 'Follow',
                                 style: TextStyle(
                                   color: isFollowing
-                                      ? const Color(0xFF00C1D4)
+                                      ? const Color(0xFF0066FF)
                                       : const Color(0xFF00B4D8),
                                   fontWeight: FontWeight.w800,
                                   fontSize: 12,
@@ -596,7 +619,7 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
               width: 8,
               height: 8,
               decoration: const BoxDecoration(
-                color: Color(0xFF00C1D4),
+                color: Color(0xFF0066FF),
                 shape: BoxShape.circle,
               ),
             ),
@@ -755,7 +778,7 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
                             borderRadius: BorderRadius.circular(16),
                             border: Border.all(
                               color: isSel
-                                  ? const Color(0xFF00C1D4)
+                                  ? const Color(0xFF0066FF)
                                   : const Color(0xFFE2E8F0),
                               width: isSel ? 1.5 : 1,
                             ),
@@ -822,28 +845,34 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Row(
-              children: [
-                Container(
-                  width: 4,
-                  height: 15,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF00C1D4),
-                    borderRadius: BorderRadius.circular(2),
+            Expanded(
+              child: Row(
+                children: [
+                  Container(
+                    width: 4,
+                    height: 15,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0066FF),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  _shop.categoryGroupTitle,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w900,
-                    fontSize: 13.5,
-                    color: Color(0xFF0F172A),
-                    letterSpacing: 0.3,
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      _shop.categoryGroupTitle,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 13.5,
+                        color: Color(0xFF0F172A),
+                        letterSpacing: 0.3,
+                      ),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
+            const SizedBox(width: 8),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
@@ -899,7 +928,7 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.verified_user_outlined, color: Color(0xFF00C1D4), size: 18),
+              const Icon(Icons.verified_user_outlined, color: Color(0xFF0066FF), size: 18),
               const SizedBox(width: 8),
               Flexible(
                 child: Text(
@@ -941,7 +970,7 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
     final isClaiming = _claimingVouchers.contains(voucher.id);
 
     return Container(
-      width: 172,
+      width: 196,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -966,14 +995,19 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                voucher.discountTitle,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w900,
-                  fontSize: 16,
-                  color: Color(0xFF0284C7),
+              Expanded(
+                child: Text(
+                  voucher.discountTitle,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 15.5,
+                    color: Color(0xFF0284C7),
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
+              const SizedBox(width: 6),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
@@ -994,6 +1028,8 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
           const SizedBox(height: 4),
           Text(
             voucher.minSpend,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w600,
@@ -1002,6 +1038,8 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
           ),
           Text(
             voucher.expiry,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               fontSize: 9.5,
               color: Color(0xFF94A3B8),
@@ -1135,7 +1173,7 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF00C1D4),
+                      color: const Color(0xFF0066FF),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
@@ -1173,7 +1211,7 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
                       Text(
                         product.price,
                         style: const TextStyle(
-                          color: Color(0xFF0066FF),
+                          color: Color(0xFF0F172A),
                           fontWeight: FontWeight.w900,
                           fontSize: 13.5,
                         ),
@@ -1198,7 +1236,7 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
                     child: LinearProgressIndicator(
                       value: progressValue,
                       backgroundColor: const Color(0xFFE2E8F0),
-                      valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF00C1D4)),
+                      valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF0066FF)),
                       minHeight: 6,
                     ),
                   ),
@@ -1253,21 +1291,21 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
           duration: const Duration(milliseconds: 200),
           curve: Curves.easeOutCubic,
           transform: isHovered
-              ? (Matrix4.identity()..translate(0, -4, 0)..scale(1.03))
+              ? (Matrix4.translationValues(0.0, -4.0, 0.0)..scaleByDouble(1.03, 1.03, 1.0, 1.0))
               : Matrix4.identity(),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: isHovered
-                  ? const Color(0xFF00C1D4)
+                  ? const Color(0xFF0066FF)
                   : const Color(0xFFE2E8F0),
               width: isHovered ? 1.5 : 1,
             ),
             boxShadow: [
               BoxShadow(
                 color: isHovered
-                    ? const Color(0xFF00C1D4).withValues(alpha: 0.22)
+                    ? const Color(0xFF0066FF).withValues(alpha: 0.22)
                     : Colors.black.withValues(alpha: 0.03),
                 blurRadius: isHovered ? 14 : 6,
                 offset: Offset(0, isHovered ? 6 : 2),
@@ -1329,7 +1367,7 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
                           Icons.chevron_right,
                           size: 15,
                           color: isHovered
-                              ? const Color(0xFF00C1D4)
+                              ? const Color(0xFF0066FF)
                               : const Color(0xFF94A3B8),
                         ),
                       ],
@@ -1356,7 +1394,7 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
         crossAxisCount: 2,
         crossAxisSpacing: 10,
         mainAxisSpacing: 12,
-        childAspectRatio: 0.62,
+        childAspectRatio: 0.53,
       ),
       itemBuilder: (context, index) {
         final p = products[index];
