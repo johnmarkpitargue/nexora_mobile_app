@@ -25,15 +25,18 @@ class _ChatPageState extends State<ChatPage> {
     super.initState();
     ChatService.instance.addListener(_onChatServiceChanged);
     OrderChatService.instance.addListener(_onChatServiceChanged);
+    OrderService.instance.addListener(_onChatServiceChanged);
     final activeOrders = OrderService.instance.activeOrders;
-    final orderId = activeOrders.isNotEmpty ? activeOrders.first.orderId : 'NX-8942-ORD';
-    OrderChatService.instance.subscribeToOrder(orderId);
+    for (final order in activeOrders) {
+      OrderChatService.instance.subscribeToOrder(order.orderId);
+    }
   }
 
   @override
   void dispose() {
     ChatService.instance.removeListener(_onChatServiceChanged);
     OrderChatService.instance.removeListener(_onChatServiceChanged);
+    OrderService.instance.removeListener(_onChatServiceChanged);
     _searchController.dispose();
     _searchFocusNode.dispose();
     super.dispose();
@@ -48,13 +51,14 @@ class _ChatPageState extends State<ChatPage> {
     final hidden = ChatService.instance.hiddenConversations;
     final officialCount = active.where((c) => c.category == 'Official Stores').length;
     final supportCount = active.where((c) => c.category == 'Support').length;
+    final activeCouriersCount = OrderService.instance.activeOrders.length;
 
     return [
-      {'label': 'All Chats', 'count': active.length},
-      {'label': 'Couriers', 'count': 1, 'dotColor': const Color(0xFF06B6D4)},
+      {'label': 'All Chats', 'count': active.length + (activeCouriersCount > 0 ? 1 : 0)},
+      {'label': 'Couriers', 'count': activeCouriersCount, 'dotColor': const Color(0xFF06B6D4)},
       {'label': 'Official Stores', 'count': officialCount},
       {'label': 'Support', 'count': supportCount},
-      {'label': 'Hidden', 'count': hidden.length, 'icon': Icons.visibility_off_outlined},
+      {'label': 'Hidden', 'count': hidden.length},
     ];
   }
 
@@ -251,9 +255,16 @@ class _ChatPageState extends State<ChatPage> {
                   _buildFilterPills(),
                   const SizedBox(height: 20),
 
-                  // Live Dispatch Connected Card (Pedro Jose Garcia Courier)
-                  if (_selectedFilterIndex == 0 || _selectedFilterIndex == 1) ...[
+                  // Live Dispatch Connected Card (Shown when an active delivery exists)
+                  if (_selectedFilterIndex == 0 && OrderService.instance.activeOrders.isNotEmpty) ...[
                     _buildLiveDispatchCard(context),
+                    const SizedBox(height: 22),
+                  ],
+                  if (_selectedFilterIndex == 1) ...[
+                    if (OrderService.instance.activeOrders.isNotEmpty)
+                      _buildLiveDispatchCard(context)
+                    else
+                      _buildEmptyCouriersState(),
                     const SizedBox(height: 22),
                   ],
 
@@ -304,30 +315,6 @@ class _ChatPageState extends State<ChatPage> {
           ),
         ),
         const Spacer(),
-        IconButton(
-          onPressed: () {
-            _searchFocusNode.requestFocus();
-          },
-          icon: const Icon(
-            Icons.search_rounded,
-            color: Color(0xFF0F172A),
-            size: 22,
-          ),
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-        ),
-        IconButton(
-          onPressed: () {
-            _showFilterOptionsModal(context);
-          },
-          icon: const Icon(
-            Icons.tune_rounded,
-            color: Color(0xFF0F172A),
-            size: 20,
-          ),
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-        ),
         IconButton(
           onPressed: () {
             _showSettingsModal(context);
@@ -442,14 +429,21 @@ class _ChatPageState extends State<ChatPage> {
             color: Colors.grey.shade500,
             size: 20,
           ),
-          suffixIcon: IconButton(
-            icon: Icon(
-              Icons.tune_rounded,
-              color: Colors.grey.shade600,
-              size: 18,
-            ),
-            onPressed: () => _showFilterOptionsModal(context),
-          ),
+          suffixIcon: _searchQuery.isNotEmpty
+              ? IconButton(
+                  icon: const Icon(
+                    Icons.close_rounded,
+                    color: Color(0xFF64748B),
+                    size: 18,
+                  ),
+                  onPressed: () {
+                    _searchController.clear();
+                    setState(() {
+                      _searchQuery = '';
+                    });
+                  },
+                )
+              : null,
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(vertical: 12),
         ),
@@ -1288,50 +1282,7 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
-  void _showFilterOptionsModal(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (context) => Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Filter Conversations',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
-            ),
-            const SizedBox(height: 16),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: List.generate(_filters.length, (index) {
-                final isSelected = _selectedFilterIndex == index;
-                return ChoiceChip(
-                  label: Text(_filters[index]['label']),
-                  selected: isSelected,
-                  selectedColor: const Color(0xFF0284C7),
-                  labelStyle: TextStyle(
-                    color: isSelected ? Colors.white : const Color(0xFF0F172A),
-                    fontWeight: FontWeight.bold,
-                  ),
-                  onSelected: (selected) {
-                    setState(() {
-                      _selectedFilterIndex = index;
-                    });
-                    Navigator.pop(context);
-                  },
-                );
-              }),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+
 
   void _showSettingsModal(BuildContext context) {
     showModalBottomSheet(
@@ -1420,6 +1371,49 @@ class _ChatPageState extends State<ChatPage> {
               foregroundColor: Colors.white,
             ),
             label: const Text('Track Live on Map'),
+          ),
+        ],
+      ),
+    );
+  }
+  Widget _buildEmptyCouriersState() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              color: const Color(0xFF06B6D4).withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.two_wheeler_rounded, color: Color(0xFF06B6D4), size: 28),
+          ),
+          const SizedBox(height: 14),
+          const Text(
+            'No Active Deliveries',
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF0F172A),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'When an order is assigned to a courier, live tracking updates and real-time courier chat will appear here.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 12.5,
+              color: Colors.grey.shade600,
+              height: 1.4,
+            ),
           ),
         ],
       ),

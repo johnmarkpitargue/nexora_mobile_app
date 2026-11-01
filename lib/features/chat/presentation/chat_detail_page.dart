@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../core/services/chat_service.dart';
+import '../../../core/services/buyer_account_service.dart';
+import '../../../core/services/profile_service.dart';
 import '../../../core/services/order_chat_service.dart';
 import '../../../core/services/order_service.dart';
 import '../../../core/services/profanity_filter_service.dart';
@@ -578,8 +580,16 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
     HapticFeedback.lightImpact();
 
     if (_isCourierChat) {
+      final buyer = BuyerAccountService.instance.currentBuyer;
+      final customerName = (buyer != null && buyer.fullName.isNotEmpty)
+          ? buyer.fullName
+          : (ProfileService.instance.name.isNotEmpty ? ProfileService.instance.name : 'Customer');
       // Real-time Supabase Broadcast communication with the rider
-      OrderChatService.instance.sendMessage(_effectiveOrderId, trimmed);
+      OrderChatService.instance.sendMessage(
+        _effectiveOrderId,
+        trimmed,
+        customerName: customerName,
+      );
       _messageController.clear();
       _isLocallyTyping = false;
       _typingDebounce?.cancel();

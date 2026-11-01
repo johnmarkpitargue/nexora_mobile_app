@@ -2,7 +2,9 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'buyer_account_service.dart';
 import 'chat_service.dart';
+import 'profile_service.dart';
 import 'in_app_notification_service.dart';
 import '../../features/chat/presentation/chat_detail_page.dart';
 
@@ -382,10 +384,20 @@ class OrderChatService extends ChangeNotifier {
   }
 
   /// Sends a real-time message from the buyer to the rider
+  String get _currentBuyerName {
+    final buyer = BuyerAccountService.instance.currentBuyer;
+    if (buyer != null && buyer.fullName.trim().isNotEmpty) {
+      return buyer.fullName.trim();
+    }
+    final prof = ProfileService.instance.name.trim();
+    if (prof.isNotEmpty) return prof;
+    return 'Customer';
+  }
+
   Future<void> sendMessage(
     String orderId,
     String text, {
-    String customerName = 'Alex Rivera',
+    String? customerName,
     String? attachmentData,
     String? attachmentName,
     int? attachmentSize,
@@ -394,6 +406,9 @@ class OrderChatService extends ChangeNotifier {
     final trimmed = text.trim();
     if (trimmed.isEmpty && (attachmentData == null || attachmentData.isEmpty)) return;
 
+    final effectiveCustomerName = (customerName != null && customerName.isNotEmpty && customerName != 'Alex Rivera')
+        ? customerName
+        : _currentBuyerName;
     final clean = normalizeOrderId(orderId);
     final id = 'msg_c_${DateTime.now().millisecondsSinceEpoch}_${(1000 + (DateTime.now().microsecond % 9000))}';
     final timeStr = _getCurrentTime();
@@ -403,7 +418,7 @@ class OrderChatService extends ChangeNotifier {
       'id': id,
       'orderId': clean,
       'sender': 'user', // current buyer
-      'senderName': customerName,
+      'senderName': effectiveCustomerName,
       'text': trimmed,
       'time': timeStr,
       'timestamp': nowIso,
@@ -444,8 +459,8 @@ class OrderChatService extends ChangeNotifier {
             'order_id': clean,
             'orderId': clean,
             'sender': 'customer',
-            'sender_name': customerName,
-            'senderName': customerName,
+            'sender_name': effectiveCustomerName,
+            'senderName': effectiveCustomerName,
             'text': trimmed,
             'timestamp': DateTime.now().toIso8601String(),
             'attachment_data': attachmentData,
@@ -469,8 +484,8 @@ class OrderChatService extends ChangeNotifier {
           'order_id': clean,
           'orderId': clean,
           'sender': 'customer',
-          'sender_name': customerName,
-          'senderName': customerName,
+          'sender_name': effectiveCustomerName,
+          'senderName': effectiveCustomerName,
           'text': trimmed,
           'timestamp': DateTime.now().toIso8601String(),
           'attachment_data': attachmentData,
@@ -487,8 +502,8 @@ class OrderChatService extends ChangeNotifier {
       'order_id': clean,
       'orderId': clean,
       'sender': 'customer',
-      'sender_name': customerName,
-      'senderName': customerName,
+      'sender_name': effectiveCustomerName,
+      'senderName': effectiveCustomerName,
       'text': trimmed,
       'timestamp': nowIso,
       'attachment_data': attachmentData,
