@@ -214,7 +214,7 @@ class _ProofOfDeliverySheetState extends State<ProofOfDeliverySheet> {
                         fontWeight: FontWeight.w800,
                         fontSize: 14,
                         color: _photoAttached
-                            ? const Color(0xFF047857)
+                            ? const Color(0xFF10B981)
                             : RiderTheme.textDark,
                       ),
                     ),

@@ -190,16 +190,16 @@ class _RiderLiveNavigationMapState extends State<RiderLiveNavigationMap>
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF00C4FF).withValues(alpha: 0.18),
+                              color: const Color(0xFF0066FF).withValues(alpha: 0.18),
                               borderRadius: BorderRadius.circular(10),
                               border: Border.all(
-                                color: const Color(0xFF00C4FF).withValues(alpha: 0.6),
+                                color: const Color(0xFF0066FF).withValues(alpha: 0.6),
                                 width: 1.2,
                               ),
                             ),
                             child: Row(
                               children: [
-                                const Icon(Icons.speed_rounded, size: 16, color: Color(0xFF00C4FF)),
+                                const Icon(Icons.speed_rounded, size: 16, color: Color(0xFF0066FF)),
                                 const SizedBox(width: 6),
                                 Text(
                                   '${speedKmh.round()}',
@@ -215,7 +215,7 @@ class _RiderLiveNavigationMapState extends State<RiderLiveNavigationMap>
                                   style: TextStyle(
                                     fontSize: 9.5,
                                     fontWeight: FontWeight.w900,
-                                    color: Color(0xFF38BDF8),
+                                    color: Color(0xFF0066FF),
                                     letterSpacing: 0.5,
                                   ),
                                 ),
@@ -299,7 +299,7 @@ class _RiderLiveNavigationMapState extends State<RiderLiveNavigationMap>
                                       ? Icons.nightlight_round
                                       : Icons.satellite_alt_rounded),
                               size: 13,
-                              color: const Color(0xFF38BDF8),
+                              color: const Color(0xFF0066FF),
                             ),
                             const SizedBox(width: 4),
                             Text(
@@ -371,7 +371,7 @@ class _RiderLiveNavigationMapState extends State<RiderLiveNavigationMap>
                                   style: TextStyle(
                                     fontSize: 8.5,
                                     fontWeight: FontWeight.w900,
-                                    color: Color(0xFF059669),
+                                    color: Color(0xFF10B981),
                                     letterSpacing: 0.4,
                                   ),
                                 ),
@@ -395,7 +395,7 @@ class _RiderLiveNavigationMapState extends State<RiderLiveNavigationMap>
                             style: TextStyle(
                               fontSize: 9.5,
                               fontWeight: FontWeight.w700,
-                              color: isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7),
+                              color: isDark ? const Color(0xFF0066FF) : const Color(0xFF0066FF),
                               fontFamily: 'monospace',
                             ),
                           ),
@@ -765,7 +765,7 @@ class _RiderMapPainter extends CustomPainter {
 
     // Core Route
     final coreRoutePaint = Paint()
-      ..color = const Color(0xFF00C4FF)
+      ..color = const Color(0xFF0066FF)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3.5;
     canvas.drawPath(routePath, coreRoutePaint);
@@ -860,7 +860,7 @@ class _RiderMapPainter extends CustomPainter {
     final pulseRadius = 14.0 + (progress * 14.0);
     final pulseAlpha = (1.0 - progress).clamp(0.0, 1.0) * 0.45;
     final pulsePaint = Paint()
-      ..color = const Color(0xFF00C4FF).withValues(alpha: pulseAlpha)
+      ..color = const Color(0xFF0066FF).withValues(alpha: pulseAlpha)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.5;
     canvas.drawCircle(pos, pulseRadius, pulsePaint);
@@ -900,7 +900,7 @@ class _RiderMapPainter extends CustomPainter {
       ..close();
 
     final arrowPaint = Paint()
-      ..color = const Color(0xFF00C4FF)
+      ..color = const Color(0xFF0066FF)
       ..style = PaintingStyle.fill;
     canvas.drawPath(arrowPath, arrowPaint);
   }

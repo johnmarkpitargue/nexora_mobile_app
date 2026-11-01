@@ -104,7 +104,7 @@ class _RiderChatScreenState extends State<RiderChatScreen> with WidgetsBindingOb
           message: msg.text,
           orderId: msgClean,
           icon: Icons.person_pin_circle_rounded,
-          accentColor: const Color(0xFF0284C7),
+          accentColor: const Color(0xFF0066FF),
           onReply: () => _switchToOrder(msg.orderId, msg.senderName),
         );
       }
@@ -229,7 +229,7 @@ class _RiderChatScreenState extends State<RiderChatScreen> with WidgetsBindingOb
                     color: const Color(0xFFE0F2FE),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.camera_alt_rounded, color: Color(0xFF0284C7)),
+                  child: const Icon(Icons.camera_alt_rounded, color: Color(0xFF0066FF)),
                 ),
                 title: const Text('Take Photo (Camera)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                 subtitle: const Text('Snap parcel, landmark, or gate photo', style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
@@ -529,7 +529,7 @@ class _RiderChatScreenState extends State<RiderChatScreen> with WidgetsBindingOb
                 ),
               ),
               const SizedBox(height: 18),
-              const Icon(Icons.phone_in_talk_rounded, color: Color(0xFF0284C7), size: 36),
+              const Icon(Icons.phone_in_talk_rounded, color: Color(0xFF0066FF), size: 36),
               const SizedBox(height: 12),
               Text(
                 'Call ${widget.customerName}',
@@ -551,14 +551,14 @@ class _RiderChatScreenState extends State<RiderChatScreen> with WidgetsBindingOb
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text('📞 Connecting secure VoIP call to ${widget.customerName}...'),
-                        backgroundColor: const Color(0xFF0284C7),
+                        backgroundColor: const Color(0xFF0066FF),
                       ),
                     );
                   },
                   icon: const Icon(Icons.call_rounded),
                   label: const Text('Connect Masked Call'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF0284C7),
+                    backgroundColor: const Color(0xFF0066FF),
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                   ),
@@ -893,7 +893,7 @@ class _RiderChatScreenState extends State<RiderChatScreen> with WidgetsBindingOb
                                     child: Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        Icon(Icons.insert_drive_file_rounded, size: 24, color: isMe ? Colors.white : const Color(0xFF0284C7)),
+                                        Icon(Icons.insert_drive_file_rounded, size: 24, color: isMe ? Colors.white : const Color(0xFF0066FF)),
                                         const SizedBox(width: 8),
                                         Flexible(
                                           child: Column(
@@ -950,7 +950,7 @@ class _RiderChatScreenState extends State<RiderChatScreen> with WidgetsBindingOb
                                       style: TextStyle(
                                         fontSize: 9.5,
                                         fontWeight: FontWeight.w600,
-                                        color: isMe ? Colors.white.withValues(alpha: 0.8) : const Color(0xFF0284C7),
+                                        color: isMe ? Colors.white.withValues(alpha: 0.8) : const Color(0xFF0066FF),
                                         fontStyle: FontStyle.italic,
                                       ),
                                     ),
@@ -1082,7 +1082,7 @@ class _RiderChatScreenState extends State<RiderChatScreen> with WidgetsBindingOb
                 children: [
                   IconButton(
                     icon: const Icon(Icons.add_photo_alternate_rounded,
-                        color: Color(0xFF0284C7), size: 24),
+                        color: Color(0xFF0066FF), size: 24),
                     tooltip: 'Send Photo / File (Max 5MB)',
                     onPressed: _pickAttachment,
                   ),
@@ -1382,7 +1382,7 @@ class ChatTypingIndicator extends StatefulWidget {
   const ChatTypingIndicator({
     super.key,
     required this.senderName,
-    this.dotColor = const Color(0xFF0284C7),
+    this.dotColor = const Color(0xFF0066FF),
     this.leadingAvatar,
   });
 

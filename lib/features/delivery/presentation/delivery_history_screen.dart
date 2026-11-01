@@ -145,7 +145,7 @@ class _DeliveryHistoryScreenState extends State<DeliveryHistoryScreen> {
                                           fontWeight: FontWeight.w800,
                                           color: isActive
                                               ? RiderTheme.primary
-                                              : const Color(0xFF047857),
+                                              : const Color(0xFF10B981),
                                         ),
                                       ),
                                     ),
@@ -197,7 +197,7 @@ class _DeliveryHistoryScreenState extends State<DeliveryHistoryScreen> {
                                             '(₱${order.tip.toStringAsFixed(0)} tip)',
                                             style: const TextStyle(
                                               fontSize: 11,
-                                              color: Color(0xFF059669),
+                                              color: Color(0xFF10B981),
                                               fontWeight: FontWeight.w700,
                                             ),
                                           ),

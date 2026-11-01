@@ -311,7 +311,7 @@ class FleetTabView extends StatelessWidget {
                       icon: const Icon(Icons.chat_bubble_outline_rounded, size: 15),
                       label: const Text('Order Chat', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFF0284C7),
+                        foregroundColor: const Color(0xFF0066FF),
                         side: const BorderSide(color: Color(0xFFBAE6FD)),
                         padding: const EdgeInsets.symmetric(vertical: 8),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),

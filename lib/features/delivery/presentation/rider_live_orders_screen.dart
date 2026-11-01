@@ -204,7 +204,7 @@ class _RiderLiveOrdersScreenState extends State<RiderLiveOrdersScreen> {
                 const Text(
                   'REALTIME',
                   style: TextStyle(
-                    color: Color(0xFF059669),
+                    color: Color(0xFF10B981),
                     fontWeight: FontWeight.w800,
                     fontSize: 11,
                     letterSpacing: 0.5,
@@ -520,7 +520,7 @@ class _RiderLiveOrdersScreenState extends State<RiderLiveOrdersScreen> {
                                     style: TextStyle(fontWeight: FontWeight.bold),
                                   ),
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF0284C7),
+                                    backgroundColor: const Color(0xFF0066FF),
                                     foregroundColor: Colors.white,
                                     elevation: 0,
                                     shape: RoundedRectangleBorder(

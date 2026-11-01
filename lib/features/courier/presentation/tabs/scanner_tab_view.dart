@@ -80,7 +80,7 @@ class _ScannerTabViewState extends State<ScannerTabView> {
                     const Expanded(
                       child: Row(
                         children: [
-                          Icon(Icons.qr_code_scanner_rounded, color: Color(0xFF00D2FF), size: 24),
+                          Icon(Icons.qr_code_scanner_rounded, color: Color(0xFF0066FF), size: 24),
                           SizedBox(width: 8),
                           Flexible(
                             child: Text(
@@ -128,7 +128,7 @@ class _ScannerTabViewState extends State<ScannerTabView> {
                         width: 220,
                         height: 120,
                         decoration: BoxDecoration(
-                          border: Border.all(color: const Color(0xFF00D2FF), width: 2),
+                          border: Border.all(color: const Color(0xFF0066FF), width: 2),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: const Center(

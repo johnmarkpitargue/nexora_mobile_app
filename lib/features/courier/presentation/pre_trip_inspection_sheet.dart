@@ -165,7 +165,7 @@ class _PreTripInspectionSheetState extends State<PreTripInspectionSheet> {
                   ),
                   child: const Icon(
                     Icons.fact_check_rounded,
-                    color: Color(0xFF00D2FF),
+                    color: Color(0xFF0066FF),
                     size: 24,
                   ),
                 ),

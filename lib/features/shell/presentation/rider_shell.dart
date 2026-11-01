@@ -139,10 +139,10 @@ class _RiderShellState extends State<RiderShell> {
                             Container(
                               padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF00C4FF).withValues(alpha: 0.15),
+                                color: const Color(0xFF0066FF).withValues(alpha: 0.15),
                                 borderRadius: BorderRadius.circular(10),
                               ),
-                              child: const Icon(Icons.qr_code_scanner_rounded, color: Color(0xFF00C4FF), size: 20),
+                              child: const Icon(Icons.qr_code_scanner_rounded, color: Color(0xFF0066FF), size: 20),
                             ),
                             const SizedBox(width: 10),
                             const Expanded(
@@ -152,7 +152,7 @@ class _RiderShellState extends State<RiderShell> {
                                   Text(
                                     'WAYBILL OPTICAL ENGINE',
                                     style: TextStyle(
-                                      color: Color(0xFF38BDF8),
+                                      color: Color(0xFF0066FF),
                                       fontSize: 10,
                                       fontWeight: FontWeight.w900,
                                       letterSpacing: 0.8,
@@ -187,7 +187,7 @@ class _RiderShellState extends State<RiderShell> {
                     decoration: BoxDecoration(
                       color: Colors.black,
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: const Color(0xFF00D2FF), width: 1.5),
+                      border: Border.all(color: const Color(0xFF0066FF), width: 1.5),
                     ),
                     child: Stack(
                       alignment: Alignment.center,
@@ -196,7 +196,7 @@ class _RiderShellState extends State<RiderShell> {
                           width: 190,
                           height: 110,
                           decoration: BoxDecoration(
-                            border: Border.all(color: const Color(0xFF38BDF8), width: 2),
+                            border: Border.all(color: const Color(0xFF0066FF), width: 2),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: const Center(
@@ -208,7 +208,7 @@ class _RiderShellState extends State<RiderShell> {
                                 Text(
                                   'NX-WAY-8812',
                                   style: TextStyle(
-                                    color: Color(0xFF38BDF8),
+                                    color: Color(0xFF0066FF),
                                     fontSize: 11,
                                     fontFamily: 'monospace',
                                     fontWeight: FontWeight.bold,
@@ -253,7 +253,7 @@ class _RiderShellState extends State<RiderShell> {
                         style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900, letterSpacing: 0.3),
                       ),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF00C4FF),
+                        backgroundColor: const Color(0xFF0066FF),
                         foregroundColor: const Color(0xFF0F172A),
                         elevation: 0,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -268,15 +268,15 @@ class _RiderShellState extends State<RiderShell> {
                     height: 40,
                     child: OutlinedButton.icon(
                       onPressed: () => completeVerification('NX-WAY-8812', 'Simulated Scan'),
-                      icon: const Icon(Icons.flash_on_rounded, size: 16, color: Color(0xFF38BDF8)),
+                      icon: const Icon(Icons.flash_on_rounded, size: 16, color: Color(0xFF0066FF)),
                       label: const Text(
                         'Simulate Waybill Scan',
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFF38BDF8)),
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFF0066FF)),
                       ),
                       style: OutlinedButton.styleFrom(
-                        side: BorderSide(color: const Color(0xFF00C4FF).withValues(alpha: 0.35)),
+                        side: BorderSide(color: const Color(0xFF0066FF).withValues(alpha: 0.35)),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        backgroundColor: const Color(0xFF00C4FF).withValues(alpha: 0.05),
+                        backgroundColor: const Color(0xFF0066FF).withValues(alpha: 0.05),
                       ),
                     ),
                   ),
@@ -299,7 +299,7 @@ class _RiderShellState extends State<RiderShell> {
                       children: [
                         Row(
                           children: [
-                            const Icon(Icons.edit_note_rounded, size: 16, color: Color(0xFF38BDF8)),
+                            const Icon(Icons.edit_note_rounded, size: 16, color: Color(0xFF0066FF)),
                             const SizedBox(width: 6),
                             const Expanded(
                               child: Text(
@@ -318,7 +318,7 @@ class _RiderShellState extends State<RiderShell> {
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF38BDF8).withValues(alpha: 0.15),
+                                color: const Color(0xFF0066FF).withValues(alpha: 0.15),
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: const Text(
@@ -326,7 +326,7 @@ class _RiderShellState extends State<RiderShell> {
                                 style: TextStyle(
                                   fontSize: 8.5,
                                   fontWeight: FontWeight.w800,
-                                  color: Color(0xFF38BDF8),
+                                  color: Color(0xFF0066FF),
                                   letterSpacing: 0.5,
                                 ),
                               ),
@@ -361,7 +361,7 @@ class _RiderShellState extends State<RiderShell> {
                                   prefixIcon: const Icon(
                                     Icons.keyboard_alt_outlined,
                                     size: 17,
-                                    color: Color(0xFF38BDF8),
+                                    color: Color(0xFF0066FF),
                                   ),
                                   suffixIcon: Row(
                                     mainAxisSize: MainAxisSize.min,
@@ -378,7 +378,7 @@ class _RiderShellState extends State<RiderShell> {
                                         ),
                                       IconButton(
                                         tooltip: 'Auto-fill demo waybill',
-                                        icon: const Icon(Icons.auto_fix_high_rounded, size: 16, color: Color(0xFF38BDF8)),
+                                        icon: const Icon(Icons.auto_fix_high_rounded, size: 16, color: Color(0xFF0066FF)),
                                         onPressed: () {
                                           setModalState(() {
                                             waybillController.text = 'NX-WAY-8812';
@@ -399,7 +399,7 @@ class _RiderShellState extends State<RiderShell> {
                                   ),
                                   focusedBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(10),
-                                    borderSide: const BorderSide(color: Color(0xFF00C4FF), width: 1.5),
+                                    borderSide: const BorderSide(color: Color(0xFF0066FF), width: 1.5),
                                   ),
                                 ),
                                 onChanged: (_) {
@@ -414,7 +414,7 @@ class _RiderShellState extends State<RiderShell> {
                             ElevatedButton(
                               onPressed: submitManualWaybill,
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF00C4FF),
+                                backgroundColor: const Color(0xFF0066FF),
                                 foregroundColor: const Color(0xFF0F172A),
                                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -434,7 +434,7 @@ class _RiderShellState extends State<RiderShell> {
                             decoration: BoxDecoration(
                               color: isError
                                   ? const Color(0xFFEF4444).withValues(alpha: 0.15)
-                                  : const Color(0xFF00C4FF).withValues(alpha: 0.15),
+                                  : const Color(0xFF0066FF).withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Row(
@@ -442,7 +442,7 @@ class _RiderShellState extends State<RiderShell> {
                                 Icon(
                                   isError ? Icons.error_outline_rounded : Icons.info_outline_rounded,
                                   size: 14,
-                                  color: isError ? const Color(0xFFF87171) : const Color(0xFF38BDF8),
+                                  color: isError ? const Color(0xFFF87171) : const Color(0xFF0066FF),
                                 ),
                                 const SizedBox(width: 6),
                                 Expanded(
@@ -450,7 +450,7 @@ class _RiderShellState extends State<RiderShell> {
                                     statusMessage!,
                                     style: TextStyle(
                                       fontSize: 11,
-                                      color: isError ? const Color(0xFFF87171) : const Color(0xFF38BDF8),
+                                      color: isError ? const Color(0xFFF87171) : const Color(0xFF0066FF),
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
@@ -512,7 +512,7 @@ class _RiderShellState extends State<RiderShell> {
               type: BottomNavigationBarType.fixed,
               backgroundColor: Colors.white,
               elevation: 0,
-              selectedItemColor: const Color(0xFF0284C7),
+              selectedItemColor: const Color(0xFF0066FF),
               unselectedItemColor: const Color(0xFF64748B),
               selectedLabelStyle: const TextStyle(
                 fontWeight: FontWeight.w800,
@@ -532,13 +532,13 @@ class _RiderShellState extends State<RiderShell> {
                   icon: Badge(
                     isLabelVisible: hasActiveOrder,
                     label: const Text('1'),
-                    backgroundColor: const Color(0xFF0284C7),
+                    backgroundColor: const Color(0xFF0066FF),
                     child: const Icon(Icons.assignment_outlined),
                   ),
                   activeIcon: Badge(
                     isLabelVisible: hasActiveOrder,
                     label: const Text('1'),
-                    backgroundColor: const Color(0xFF0284C7),
+                    backgroundColor: const Color(0xFF0066FF),
                     child: const Icon(Icons.assignment_rounded),
                   ),
                   label: 'Tasks',
@@ -547,7 +547,7 @@ class _RiderShellState extends State<RiderShell> {
                   icon: Container(
                     padding: const EdgeInsets.all(7),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF0284C7),
+                      color: const Color(0xFF0066FF),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: const Icon(

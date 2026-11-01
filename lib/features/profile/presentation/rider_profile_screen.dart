@@ -271,7 +271,7 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: const Icon(Icons.cloud_upload_rounded,
-                        color: Color(0xFF0284C7), size: 22),
+                        color: Color(0xFF0066FF), size: 22),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
@@ -306,7 +306,7 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Icon(Icons.camera_alt_outlined,
-                      color: Color(0xFF0284C7)),
+                      color: Color(0xFF0066FF)),
                 ),
                 title: const Text('Take Photo (Camera)',
                     style:
@@ -330,7 +330,7 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Icon(Icons.photo_library_outlined,
-                      color: Color(0xFF0284C7)),
+                      color: Color(0xFF0066FF)),
                 ),
                 title: const Text('Choose from Gallery',
                     style:
@@ -499,7 +499,7 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                     label: '${selectedSizeMb.toStringAsFixed(1)} MB',
                     activeColor: selectedSizeMb > 5.0
                         ? const Color(0xFFEF4444)
-                        : const Color(0xFF0284C7),
+                        : const Color(0xFF0066FF),
                     onChanged: (val) {
                       setDlgState(() => selectedSizeMb = val);
                     },
@@ -527,7 +527,7 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                   );
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF0284C7),
+                  backgroundColor: const Color(0xFF0066FF),
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10)),
@@ -609,7 +609,7 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                 const Row(
                   children: [
                     Icon(Icons.edit_note_rounded,
-                        color: Color(0xFF0284C7), size: 24),
+                        color: Color(0xFF0066FF), size: 24),
                     SizedBox(width: 8),
                     Text(
                       'Update Vehicle Details',
@@ -710,7 +710,7 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                             : Icons.image_rounded,
                         color: orCrFile.toLowerCase().endsWith('.pdf')
                             ? const Color(0xFFEF4444)
-                            : const Color(0xFF0284C7),
+                            : const Color(0xFF0066FF),
                         size: 26,
                       ),
                       const SizedBox(width: 10),
@@ -754,7 +754,7 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                         icon: const Icon(Icons.upload_file_rounded, size: 16),
                         label: const Text('Upload File'),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF0284C7),
+                          backgroundColor: const Color(0xFF0066FF),
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(
                               horizontal: 12, vertical: 8),
@@ -796,13 +796,13 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                                 Expanded(child: Text(result.message)),
                               ],
                             ),
-                            backgroundColor: const Color(0xFF0284C7),
+                            backgroundColor: const Color(0xFF0066FF),
                           ),
                         );
                       }
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF0284C7),
+                      backgroundColor: const Color(0xFF0066FF),
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(14),
@@ -932,7 +932,7 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                             Row(
                               children: [
                                 const Icon(Icons.security_rounded,
-                                    color: Color(0xFF00D2FF), size: 20),
+                                    color: Color(0xFF0066FF), size: 20),
                                 const SizedBox(width: 8),
                                 Text(
                                   isLicense
@@ -1072,7 +1072,7 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                               size: 15),
                           label: const Text('Pick Date'),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF0284C7),
+                            backgroundColor: const Color(0xFF0066FF),
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 12, vertical: 10),
@@ -1111,7 +1111,7 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                               : Icons.image_rounded,
                           color: activeDocName.toLowerCase().endsWith('.pdf')
                               ? const Color(0xFFEF4444)
-                              : const Color(0xFF0284C7),
+                              : const Color(0xFF0066FF),
                           size: 26,
                         ),
                         const SizedBox(width: 10),
@@ -1173,7 +1173,7 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                               size: 16),
                           label: const Text('Upload File'),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF0284C7),
+                            backgroundColor: const Color(0xFF0066FF),
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 12, vertical: 8),
@@ -1290,7 +1290,7 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                         onPressed: () =>
                             setState(() => _unauthorizedViewId = null),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF0284C7),
+                          backgroundColor: const Color(0xFF0066FF),
                           foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14),
@@ -1318,7 +1318,7 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                   width: 38,
                   height: 38,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF0284C7),
+                    color: const Color(0xFF0066FF),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Icon(
@@ -1397,7 +1397,7 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                                       Container(
                                     width: 58,
                                     height: 58,
-                                    color: const Color(0xFF0284C7),
+                                    color: const Color(0xFF0066FF),
                                     child: const Icon(Icons.person,
                                         color: Colors.white, size: 32),
                                   ),
@@ -1449,7 +1449,7 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                                           : Icons.verified_rounded,
                                       color: profile.accountStatus == 'Suspended'
                                           ? const Color(0xFFEF4444)
-                                          : const Color(0xFF0284C7),
+                                          : const Color(0xFF0066FF),
                                       size: 16,
                                     ),
                                   ],
@@ -1525,7 +1525,7 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                       Row(
                         children: [
                           const Icon(Icons.badge_outlined,
-                              size: 14, color: Color(0xFF0284C7)),
+                              size: 14, color: Color(0xFF0066FF)),
                           const SizedBox(width: 6),
                           Expanded(
                             child: Text(
@@ -1609,8 +1609,8 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                             ),
                             Switch.adaptive(
                               value: isOnline,
-                              activeThumbColor: const Color(0xFF0284C7),
-                              activeTrackColor: const Color(0xFF0284C7)
+                              activeThumbColor: const Color(0xFF0066FF),
+                              activeTrackColor: const Color(0xFF0066FF)
                                   .withValues(alpha: 0.35),
                               onChanged: (_) {
                                 ShiftDutyCoordinator.handleRiderToggleDuty(context);
@@ -1707,7 +1707,7 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                                     style: TextStyle(
                                       fontSize: 10.5,
                                       fontWeight: FontWeight.w700,
-                                      color: Color(0xFF047857),
+                                      color: Color(0xFF10B981),
                                     ),
                                   ),
                                 ],
@@ -1739,7 +1739,7 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                                     style: TextStyle(
                                       fontSize: 10.5,
                                       fontWeight: FontWeight.w700,
-                                      color: Color(0xFF0284C7),
+                                      color: Color(0xFF0066FF),
                                     ),
                                   ),
                                 ],
@@ -1829,7 +1829,7 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                                               style: const TextStyle(
                                                 fontSize: 10,
                                                 fontWeight: FontWeight.w700,
-                                                color: Color(0xFF0284C7),
+                                                color: Color(0xFF0066FF),
                                               ),
                                             ),
                                           ),
@@ -1852,7 +1852,7 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                   icon: Icons.two_wheeler_rounded,
                   title: 'Vehicle & Gear',
                   actionText: 'Edit Vehicle Details',
-                  actionColor: const Color(0xFF0284C7),
+                  actionColor: const Color(0xFF0066FF),
                   onAction: () => _showEditVehicleDialog(context),
                 ),
                 const SizedBox(height: 8),
@@ -1883,7 +1883,7 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                               ),
                               child: const Icon(
                                 Icons.sports_motorsports_rounded,
-                                color: Color(0xFF0284C7),
+                                color: Color(0xFF0066FF),
                                 size: 20,
                               ),
                             ),
@@ -1989,7 +1989,7 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                                           profile.vehicleReverificationStatus ==
                                                   'Pending Re-verification'
                                               ? const Color(0xFFD97706)
-                                              : const Color(0xFF059669),
+                                              : const Color(0xFF10B981),
                                     ),
                                   ),
                                 ],
@@ -2033,7 +2033,7 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                                     style: const TextStyle(
                                       fontSize: 10,
                                       fontWeight: FontWeight.w800,
-                                      color: Color(0xFF0284C7),
+                                      color: Color(0xFF0066FF),
                                     ),
                                   ),
                                 ],
@@ -2064,7 +2064,7 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                             style: const TextStyle(
                               fontSize: 11.5,
                               fontWeight: FontWeight.w800,
-                              color: Color(0xFF0284C7),
+                              color: Color(0xFF0066FF),
                             ),
                           ),
                         ],
@@ -2079,7 +2079,7 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                   icon: Icons.verified_user_outlined,
                   title: 'Compliance & Badges (Tap to Open)',
                   actionText: '100% Compliant',
-                  actionColor: const Color(0xFF059669),
+                  actionColor: const Color(0xFF10B981),
                 ),
                 const SizedBox(height: 8),
                 Container(
@@ -2205,7 +2205,7 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                                 Icon(
                                   Icons.near_me_rounded,
                                   size: 13,
-                                  color: Color(0xFF0284C7),
+                                  color: Color(0xFF0066FF),
                                 ),
                                 SizedBox(width: 4),
                                 Text(
@@ -2213,7 +2213,7 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                                   style: TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w800,
-                                    color: Color(0xFF0284C7),
+                                    color: Color(0xFF0066FF),
                                   ),
                                 ),
                               ],
@@ -2252,7 +2252,7 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                           ),
                           Checkbox(
                             value: profile.audioPromptsEnabled,
-                            activeColor: const Color(0xFF0284C7),
+                            activeColor: const Color(0xFF0066FF),
                             onChanged: (val) {
                               RiderService.instance
                                   .toggleAudioPrompts(val ?? true);
@@ -2352,7 +2352,7 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                           );
                         },
                         icon: const Icon(Icons.call_outlined,
-                            color: Color(0xFF0284C7)),
+                            color: Color(0xFF0066FF)),
                       ),
                     ],
                   ),
@@ -2485,7 +2485,7 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
   }) {
     return Row(
       children: [
-        Icon(icon, size: 16, color: const Color(0xFF0284C7)),
+        Icon(icon, size: 16, color: const Color(0xFF0066FF)),
         const SizedBox(width: 6),
         Text(
           title,
@@ -2502,7 +2502,7 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
-                color: (actionColor ?? const Color(0xFF0284C7))
+                color: (actionColor ?? const Color(0xFF0066FF))
                     .withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(6),
               ),
@@ -2511,7 +2511,7 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w800,
-                  color: actionColor ?? const Color(0xFF0284C7),
+                  color: actionColor ?? const Color(0xFF0066FF),
                 ),
               ),
             ),
@@ -2529,7 +2529,7 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
         color: const Color(0xFFF0F9FF),
         borderRadius: BorderRadius.circular(10),
       ),
-      child: Icon(icon, size: 18, color: const Color(0xFF0284C7)),
+      child: Icon(icon, size: 18, color: const Color(0xFF0066FF)),
     );
   }
 
@@ -2577,7 +2577,7 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
             style: const TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w800,
-              color: Color(0xFF0284C7),
+              color: Color(0xFF0066FF),
             ),
           ),
         ),

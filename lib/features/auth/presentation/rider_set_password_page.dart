@@ -202,14 +202,14 @@ class _RiderSetPasswordPageState extends State<RiderSetPasswordPage> {
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.lock_reset_rounded, size: 14, color: Color(0xFF0284C7)),
+                    Icon(Icons.lock_reset_rounded, size: 14, color: Color(0xFF0066FF)),
                     SizedBox(width: 4),
                     Text(
                       'STEP 2: SET PASSWORD',
                       style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.w900,
-                        color: Color(0xFF0284C7),
+                        color: Color(0xFF0066FF),
                         letterSpacing: 0.5,
                       ),
                     ),
@@ -367,7 +367,7 @@ class _RiderSetPasswordPageState extends State<RiderSetPasswordPage> {
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(14),
-                          borderSide: const BorderSide(color: Color(0xFF0284C7), width: 1.5),
+                          borderSide: const BorderSide(color: Color(0xFF0066FF), width: 1.5),
                         ),
                         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                       ),
@@ -415,7 +415,7 @@ class _RiderSetPasswordPageState extends State<RiderSetPasswordPage> {
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(14),
-                          borderSide: const BorderSide(color: Color(0xFF0284C7), width: 1.5),
+                          borderSide: const BorderSide(color: Color(0xFF0066FF), width: 1.5),
                         ),
                         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                       ),
@@ -456,7 +456,7 @@ class _RiderSetPasswordPageState extends State<RiderSetPasswordPage> {
                     ElevatedButton(
                       onPressed: (isExpired || isUsedOrInvalid || _isSubmitting) ? null : _handleActivate,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF0284C7),
+                        backgroundColor: const Color(0xFF0066FF),
                         foregroundColor: Colors.white,
                         disabledBackgroundColor: const Color(0xFFBAE6FD),
                         minimumSize: const Size(double.infinity, 50),

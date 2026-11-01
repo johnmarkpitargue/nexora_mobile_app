@@ -73,7 +73,7 @@ class _RiderApplicationApprovedPageState
             Text('Digital Pass saved to your phone gallery & wallet!'),
           ],
         ),
-        backgroundColor: const Color(0xFF059669),
+        backgroundColor: const Color(0xFF10B981),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
@@ -289,7 +289,7 @@ class _RiderApplicationApprovedPageState
                               style: const TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.w900,
-                                color: Color(0xFF38BDF8),
+                                color: Color(0xFF0066FF),
                                 letterSpacing: 1.2,
                                 fontFamily: 'monospace',
                               ),
@@ -394,11 +394,11 @@ class _RiderApplicationApprovedPageState
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 8, vertical: 4),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF38BDF8)
+                                color: const Color(0xFF0066FF)
                                     .withValues(alpha: 0.2),
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(
-                                  color: const Color(0xFF38BDF8)
+                                  color: const Color(0xFF0066FF)
                                       .withValues(alpha: 0.4),
                                 ),
                               ),
@@ -407,7 +407,7 @@ class _RiderApplicationApprovedPageState
                                 style: TextStyle(
                                   fontSize: 10,
                                   fontWeight: FontWeight.w800,
-                                  color: Color(0xFF38BDF8),
+                                  color: Color(0xFF0066FF),
                                   fontFamily: RiderTheme.fontFamily,
                                 ),
                               ),
@@ -477,7 +477,7 @@ class _RiderApplicationApprovedPageState
                                         children: [
                                           Icon(
                                             Icons.copy_rounded,
-                                            color: Color(0xFF0284C7),
+                                            color: Color(0xFF0066FF),
                                             size: 13,
                                           ),
                                           SizedBox(width: 4),
@@ -486,7 +486,7 @@ class _RiderApplicationApprovedPageState
                                             style: TextStyle(
                                               fontSize: 11,
                                               fontWeight: FontWeight.w800,
-                                              color: Color(0xFF0284C7),
+                                              color: Color(0xFF0066FF),
                                               fontFamily: RiderTheme.fontFamily,
                                             ),
                                           ),
@@ -588,7 +588,7 @@ class _RiderApplicationApprovedPageState
                         ),
                         child: const Icon(
                           Icons.location_on_rounded,
-                          color: Color(0xFF0284C7),
+                          color: Color(0xFF0066FF),
                           size: 18,
                         ),
                       ),
@@ -626,7 +626,7 @@ class _RiderApplicationApprovedPageState
                       Icon(
                         Icons.access_time_rounded,
                         size: 14,
-                        color: Color(0xFF0284C7),
+                        color: Color(0xFF0066FF),
                       ),
                       SizedBox(width: 6),
                       Text(
@@ -634,7 +634,7 @@ class _RiderApplicationApprovedPageState
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
-                          color: Color(0xFF0284C7),
+                          color: Color(0xFF0066FF),
                           fontFamily: RiderTheme.fontFamily,
                         ),
                       ),
@@ -751,7 +751,7 @@ class _RiderApplicationApprovedPageState
                     ),
                     child: const Icon(
                       Icons.payments_outlined,
-                      color: Color(0xFF0284C7),
+                      color: Color(0xFF0066FF),
                       size: 20,
                     ),
                   ),
@@ -892,14 +892,14 @@ class _RiderApplicationApprovedPageState
               height: 52,
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
-                  colors: [Color(0xFF00D2FF), Color(0xFF0284C7)],
+                  colors: [Color(0xFF0066FF), Color(0xFF0066FF)],
                   begin: Alignment.centerLeft,
                   end: Alignment.centerRight,
                 ),
                 borderRadius: BorderRadius.circular(14),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF0284C7).withValues(alpha: 0.35),
+                    color: const Color(0xFF0066FF).withValues(alpha: 0.35),
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),
@@ -951,7 +951,7 @@ class _RiderApplicationApprovedPageState
                         height: 16,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          color: Color(0xFF0284C7),
+                          color: Color(0xFF0066FF),
                         ),
                       )
                     : const Icon(

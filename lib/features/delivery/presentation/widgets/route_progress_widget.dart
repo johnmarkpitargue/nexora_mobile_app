@@ -90,21 +90,21 @@ class RouteProgressWidget extends StatelessWidget {
                         height: 6,
                         margin: const EdgeInsets.only(right: 5),
                         decoration: const BoxDecoration(
-                          color: Color(0xFF00C4FF),
+                          color: Color(0xFF0066FF),
                           shape: BoxShape.circle,
                         ),
                       )
                     else
                       const Padding(
                         padding: EdgeInsets.only(right: 4),
-                        child: Icon(Icons.check, size: 12, color: Color(0xFF0284C7)),
+                        child: Icon(Icons.check, size: 12, color: Color(0xFF0066FF)),
                       ),
                     Text(
                       _getPillText(),
                       style: const TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.w900,
-                        color: Color(0xFF0284C7),
+                        color: Color(0xFF0066FF),
                         letterSpacing: 0.4,
                       ),
                     ),
@@ -182,21 +182,21 @@ class RouteProgressWidget extends StatelessWidget {
                                   color: isPast
                                       ? const Color(0xFF10B981)
                                       : (isCurrent
-                                          ? const Color(0xFF00C4FF)
+                                          ? const Color(0xFF0066FF)
                                           : const Color(0xFFF1F5F9)),
                                   shape: BoxShape.circle,
                                   border: Border.all(
                                     color: isPast
-                                        ? const Color(0xFF059669)
+                                        ? const Color(0xFF10B981)
                                         : (isCurrent
-                                            ? const Color(0xFF00C4FF)
+                                            ? const Color(0xFF0066FF)
                                             : const Color(0xFFCBD5E1)),
                                     width: 1.5,
                                   ),
                                   boxShadow: isCurrent
                                       ? [
                                           BoxShadow(
-                                            color: const Color(0xFF00C4FF)
+                                            color: const Color(0xFF0066FF)
                                                 .withValues(alpha: 0.35),
                                             blurRadius: 8,
                                             offset: const Offset(0, 3),
@@ -228,9 +228,9 @@ class RouteProgressWidget extends StatelessWidget {
                                       ? FontWeight.w900
                                       : FontWeight.w600,
                                   color: isPast
-                                      ? const Color(0xFF047857)
+                                      ? const Color(0xFF10B981)
                                       : (isCurrent
-                                          ? const Color(0xFF0284C7)
+                                          ? const Color(0xFF0066FF)
                                           : const Color(0xFF64748B)),
                                 ),
                               ),

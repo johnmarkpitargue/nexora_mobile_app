@@ -163,7 +163,7 @@ class _CourierDashboardPageState extends State<CourierDashboardPage>
                 height: 44,
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                    colors: [Color(0xFF00D2FF), Color(0xFF0066FF)],
+                    colors: [Color(0xFF0066FF), Color(0xFF0066FF)],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
@@ -355,14 +355,14 @@ class _CourierDashboardPageState extends State<CourierDashboardPage>
                 label: 'Total Shipments',
                 value: '${_service.totalParcelsCount}',
                 icon: Icons.inventory_2_outlined,
-                color: const Color(0xFF00D2FF),
+                color: const Color(0xFF0066FF),
               ),
               const SizedBox(width: 8),
               _buildKpiCard(
                 label: 'Out for Delivery',
                 value: '${_service.outForDeliveryCount}',
                 icon: Icons.two_wheeler_rounded,
-                color: const Color(0xFF38BDF8),
+                color: const Color(0xFF0066FF),
               ),
               const SizedBox(width: 8),
               _buildKpiCard(

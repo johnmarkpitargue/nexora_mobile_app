@@ -233,7 +233,7 @@ extension CourierTripStatusExt on CourierTripStatus {
       case CourierTripStatus.loading:
         return const Color(0xFF8B5CF6);
       case CourierTripStatus.inTransit:
-        return const Color(0xFF0284C7);
+        return const Color(0xFF0066FF);
       case CourierTripStatus.completed:
         return const Color(0xFF10B981);
       case CourierTripStatus.declined:

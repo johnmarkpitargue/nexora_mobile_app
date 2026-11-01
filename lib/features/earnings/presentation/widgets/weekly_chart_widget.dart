@@ -62,7 +62,7 @@ class _WeeklyChartWidgetState extends State<WeeklyChartWidget>
           return Theme(
             data: Theme.of(context).copyWith(
               colorScheme: const ColorScheme.light(
-                primary: Color(0xFF0284C7),
+                primary: Color(0xFF0066FF),
                 onPrimary: Colors.white,
                 onSurface: Color(0xFF0F172A),
               ),
@@ -291,7 +291,7 @@ class _WeeklyChartWidgetState extends State<WeeklyChartWidget>
                   style: const TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w800,
-                    color: Color(0xFF059669),
+                    color: Color(0xFF10B981),
                   ),
                 ),
               ),
@@ -349,7 +349,7 @@ class _WeeklyChartWidgetState extends State<WeeklyChartWidget>
                                       ? FontWeight.w900
                                       : FontWeight.w800,
                                   color: isBarHighlighted
-                                      ? const Color(0xFF0284C7)
+                                      ? const Color(0xFF0066FF)
                                       : const Color(0xFF64748B),
                                 ),
                                 child: Text(amountLabel),
@@ -365,8 +365,8 @@ class _WeeklyChartWidgetState extends State<WeeklyChartWidget>
                                   gradient: isBarHighlighted
                                       ? const LinearGradient(
                                           colors: [
-                                            Color(0xFF00C4FF),
-                                            Color(0xFF0284C7),
+                                            Color(0xFF0066FF),
+                                            Color(0xFF0066FF),
                                           ],
                                           begin: Alignment.bottomCenter,
                                           end: Alignment.topCenter,
@@ -383,7 +383,7 @@ class _WeeklyChartWidgetState extends State<WeeklyChartWidget>
                                   boxShadow: isBarHighlighted
                                       ? [
                                           BoxShadow(
-                                            color: const Color(0xFF00C4FF)
+                                            color: const Color(0xFF0066FF)
                                                 .withValues(alpha: 0.35),
                                             blurRadius: 10,
                                             offset: const Offset(0, 4),
@@ -403,7 +403,7 @@ class _WeeklyChartWidgetState extends State<WeeklyChartWidget>
                                       ? FontWeight.w900
                                       : FontWeight.w600,
                                   color: isBarHighlighted
-                                      ? const Color(0xFF0284C7)
+                                      ? const Color(0xFF0066FF)
                                       : (item.isCurrent
                                           ? const Color(0xFF0F172A)
                                           : const Color(0xFF64748B)),
@@ -417,7 +417,7 @@ class _WeeklyChartWidgetState extends State<WeeklyChartWidget>
                                   height: 4,
                                   decoration: BoxDecoration(
                                     color: isBarHighlighted
-                                        ? const Color(0xFF0284C7)
+                                        ? const Color(0xFF0066FF)
                                         : const Color(0xFF94A3B8),
                                     shape: BoxShape.circle,
                                   ),
@@ -456,7 +456,7 @@ class _WeeklyChartWidgetState extends State<WeeklyChartWidget>
                           width: 7,
                           height: 7,
                           decoration: const BoxDecoration(
-                            color: Color(0xFF00C4FF),
+                            color: Color(0xFF0066FF),
                             shape: BoxShape.circle,
                           ),
                         ),
@@ -496,7 +496,7 @@ class _WeeklyChartWidgetState extends State<WeeklyChartWidget>
                           horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
                         color: _drillDownActive
-                            ? const Color(0xFF0284C7)
+                            ? const Color(0xFF0066FF)
                             : Colors.white,
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(color: const Color(0xFF93C5FD)),
@@ -508,7 +508,7 @@ class _WeeklyChartWidgetState extends State<WeeklyChartWidget>
                           fontWeight: FontWeight.w800,
                           color: _drillDownActive
                               ? Colors.white
-                              : const Color(0xFF0284C7),
+                              : const Color(0xFF0066FF),
                         ),
                       ),
                     ),
@@ -538,11 +538,11 @@ class _WeeklyChartWidgetState extends State<WeeklyChartWidget>
                 ),
                 Expanded(
                   child: _buildMetricColumn(
-                      'AVG/HR', displayAvg, const Color(0xFF059669)),
+                      'AVG/HR', displayAvg, const Color(0xFF10B981)),
                 ),
                 Expanded(
                   child: _buildMetricColumn(
-                      'TIPS', displayTips, const Color(0xFF0284C7)),
+                      'TIPS', displayTips, const Color(0xFF0066FF)),
                 ),
               ],
             ),
@@ -582,7 +582,7 @@ class _WeeklyChartWidgetState extends State<WeeklyChartWidget>
                 fontSize: 12,
                 fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
                 color: isSelected
-                    ? const Color(0xFF0284C7)
+                    ? const Color(0xFF0066FF)
                     : const Color(0xFF64748B),
               ),
             ),

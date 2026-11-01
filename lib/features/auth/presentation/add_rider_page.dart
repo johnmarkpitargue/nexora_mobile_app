@@ -168,7 +168,7 @@ class AddRiderPageState extends State<AddRiderPage> {
         return Theme(
           data: Theme.of(context).copyWith(
             colorScheme: const ColorScheme.light(
-              primary: Color(0xFF0284C7),
+              primary: Color(0xFF0066FF),
               onPrimary: Colors.white,
               onSurface: Color(0xFF0F172A),
             ),
@@ -236,7 +236,7 @@ class AddRiderPageState extends State<AddRiderPage> {
                     color: const Color(0xFFE0F2FE),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.camera_alt_outlined, color: Color(0xFF0284C7)),
+                  child: const Icon(Icons.camera_alt_outlined, color: Color(0xFF0066FF)),
                 ),
                 title: const Text('Take Photo (Camera)',
                     style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5)),
@@ -260,7 +260,7 @@ class AddRiderPageState extends State<AddRiderPage> {
                     color: const Color(0xFFE0F2FE),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.photo_library_outlined, color: Color(0xFF0284C7)),
+                  child: const Icon(Icons.photo_library_outlined, color: Color(0xFF0066FF)),
                 ),
                 title: const Text('Choose from Gallery',
                     style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5)),
@@ -497,7 +497,7 @@ class AddRiderPageState extends State<AddRiderPage> {
                 color: Color(0xFFE0F2FE),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.check_circle_rounded, color: Color(0xFF0284C7), size: 36),
+              child: const Icon(Icons.check_circle_rounded, color: Color(0xFF0066FF), size: 36),
             ),
             const SizedBox(height: 16),
             const Text(
@@ -554,7 +554,7 @@ class AddRiderPageState extends State<AddRiderPage> {
                     children: [
                       const Text('Activation Link:', style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
                       const Text('Valid for 24 Hours',
-                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0284C7))),
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0066FF))),
                     ],
                   ),
                 ],
@@ -566,7 +566,7 @@ class AddRiderPageState extends State<AddRiderPage> {
                 icon: const Icon(Icons.link_rounded, size: 18),
                 label: const Text('Open Activation Link (Set Password)', style: TextStyle(fontSize: 12)),
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFF0284C7),
+                  foregroundColor: const Color(0xFF0066FF),
                   minimumSize: const Size(double.infinity, 40),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 ),
@@ -590,7 +590,7 @@ class AddRiderPageState extends State<AddRiderPage> {
                 Navigator.pop(context);
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF0284C7),
+                backgroundColor: const Color(0xFF0066FF),
                 foregroundColor: Colors.white,
                 minimumSize: const Size(double.infinity, 44),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -660,7 +660,7 @@ class AddRiderPageState extends State<AddRiderPage> {
           ),
           actions: [
             IconButton(
-              icon: const Icon(Icons.playlist_add_check_rounded, color: Color(0xFF0284C7)),
+              icon: const Icon(Icons.playlist_add_check_rounded, color: Color(0xFF0066FF)),
               tooltip: 'Fill Valid Account 1 Data (TC-001)',
               onPressed: _fillAccount1Data,
             ),
@@ -775,14 +775,14 @@ class AddRiderPageState extends State<AddRiderPage> {
                             child: const Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(Icons.two_wheeler_rounded, size: 13, color: Color(0xFF0284C7)),
+                                Icon(Icons.two_wheeler_rounded, size: 13, color: Color(0xFF0066FF)),
                                 SizedBox(width: 4),
                                 Flexible(
                                   child: Text(
                                     'Logistics Fleet Dispatch',
                                     overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
-                                      color: Color(0xFF0284C7),
+                                      color: Color(0xFF0066FF),
                                       fontWeight: FontWeight.w900,
                                       fontSize: 10,
                                     ),
@@ -805,7 +805,7 @@ class AddRiderPageState extends State<AddRiderPage> {
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 fontSize: 10.5,
-                                color: Color(0xFF0284C7),
+                                color: Color(0xFF0066FF),
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -1083,7 +1083,7 @@ class AddRiderPageState extends State<AddRiderPage> {
                                   style: TextStyle(
                                     fontSize: 9.5,
                                     fontWeight: FontWeight.w900,
-                                    color: Color(0xFF0284C7),
+                                    color: Color(0xFF0066FF),
                                   ),
                                 ),
                               ),
@@ -1146,7 +1146,7 @@ class AddRiderPageState extends State<AddRiderPage> {
                             key: const Key('rider_save_button'),
                             onPressed: _isSubmitting ? null : _handleSave,
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF0284C7),
+                              backgroundColor: const Color(0xFF0066FF),
                               foregroundColor: Colors.white,
                               disabledBackgroundColor: const Color(0xFFBAE6FD),
                               padding: const EdgeInsets.symmetric(vertical: 16),
@@ -1252,7 +1252,7 @@ class AddRiderPageState extends State<AddRiderPage> {
           color: isSelected ? const Color(0xFFE0F2FE) : const Color(0xFFF8FAFC),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isSelected ? const Color(0xFF0284C7) : Colors.grey.shade200,
+            color: isSelected ? const Color(0xFF0066FF) : Colors.grey.shade200,
             width: 1.5,
           ),
         ),
@@ -1262,12 +1262,12 @@ class AddRiderPageState extends State<AddRiderPage> {
               width: 38,
               height: 38,
               decoration: BoxDecoration(
-                color: isSelected ? const Color(0xFF0284C7) : const Color(0xFFE0F2FE),
+                color: isSelected ? const Color(0xFF0066FF) : const Color(0xFFE0F2FE),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Icon(
                 icon,
-                color: isSelected ? Colors.white : const Color(0xFF0284C7),
+                color: isSelected ? Colors.white : const Color(0xFF0066FF),
                 size: 20,
               ),
             ),
@@ -1298,7 +1298,7 @@ class AddRiderPageState extends State<AddRiderPage> {
               isSelected
                   ? Icons.check_circle_rounded
                   : Icons.radio_button_unchecked_rounded,
-              color: isSelected ? const Color(0xFF0284C7) : Colors.grey.shade400,
+              color: isSelected ? const Color(0xFF0066FF) : Colors.grey.shade400,
               size: 20,
             ),
           ],
@@ -1336,7 +1336,7 @@ class AddRiderPageState extends State<AddRiderPage> {
             ),
             child: Icon(
               icon,
-              color: isUploaded ? const Color(0xFF15803D) : const Color(0xFF0284C7),
+              color: isUploaded ? const Color(0xFF15803D) : const Color(0xFF0066FF),
               size: 18,
             ),
           ),
@@ -1367,7 +1367,7 @@ class AddRiderPageState extends State<AddRiderPage> {
             key: buttonKey,
             onPressed: onTap,
             style: ElevatedButton.styleFrom(
-              backgroundColor: isUploaded ? const Color(0xFFDCFCE7) : const Color(0xFF0284C7),
+              backgroundColor: isUploaded ? const Color(0xFFDCFCE7) : const Color(0xFF0066FF),
               foregroundColor: isUploaded ? const Color(0xFF15803D) : Colors.white,
               elevation: 0,
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
@@ -1416,7 +1416,7 @@ class AddRiderPageState extends State<AddRiderPage> {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: Color(0xFF0284C7), width: 1.5),
+        borderSide: const BorderSide(color: Color(0xFF0066FF), width: 1.5),
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
     );

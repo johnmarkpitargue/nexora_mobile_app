@@ -7,9 +7,9 @@ class RiderTheme {
   static const Color primaryContainer = Color(0xFFE0F2FE);
   static const Color onPrimary = Color(0xFFFFFFFF);
 
-  static const Color secondary = Color(0xFF00D2FF);
-  static const Color darkNavy = Color(0xFF050B28);
-  static const Color darkCard = Color(0xFF0E1738);
+  static const Color secondary = Color(0xFF0066FF);
+  static const Color darkNavy = Color(0xFF0F172A);
+  static const Color darkCard = Color(0xFF1E293B);
 
   // Status & Utility Colors
   static const Color onlineGreen = Color(0xFF10B981);

@@ -227,7 +227,7 @@ class _RiderLoginPageState extends State<RiderLoginPage> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Row(
           children: [
-            Icon(Icons.lock_reset_rounded, color: Color(0xFF0284C7), size: 24),
+            Icon(Icons.lock_reset_rounded, color: Color(0xFF0066FF), size: 24),
             SizedBox(width: 8),
             Text(
               'Reset Password or PIN',
@@ -250,12 +250,12 @@ class _RiderLoginPageState extends State<RiderLoginPage> {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
                   content: Text('Reset instructions sent to your registered contact!'),
-                  backgroundColor: Color(0xFF0284C7),
+                  backgroundColor: Color(0xFF0066FF),
                 ),
               );
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF0284C7),
+              backgroundColor: const Color(0xFF0066FF),
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -348,7 +348,7 @@ class _RiderLoginPageState extends State<RiderLoginPage> {
                       border: Border.all(color: const Color(0xFFE2E8F0)),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF0284C7).withValues(alpha: 0.08),
+                          color: const Color(0xFF0066FF).withValues(alpha: 0.08),
                           blurRadius: 10,
                           offset: const Offset(0, 4),
                         ),
@@ -362,7 +362,7 @@ class _RiderLoginPageState extends State<RiderLoginPage> {
                         fit: BoxFit.cover,
                         errorBuilder: (context, error, stackTrace) => Container(
                           decoration: BoxDecoration(
-                            color: const Color(0xFF0284C7),
+                            color: const Color(0xFF0066FF),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: const Center(
@@ -401,7 +401,7 @@ class _RiderLoginPageState extends State<RiderLoginPage> {
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w900,
-                                color: Color(0xFF0284C7),
+                                color: Color(0xFF0066FF),
                                 letterSpacing: 0.8,
                               ),
                             ),
@@ -537,7 +537,7 @@ class _RiderLoginPageState extends State<RiderLoginPage> {
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w800,
-                        color: Color(0xFF0284C7),
+                        color: Color(0xFF0066FF),
                       ),
                     ),
                   ),
@@ -622,7 +622,7 @@ class _RiderLoginPageState extends State<RiderLoginPage> {
                       onChanged: (val) {
                         setState(() => _rememberDevice = val ?? true);
                       },
-                      activeColor: const Color(0xFF0284C7),
+                      activeColor: const Color(0xFF0066FF),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(5),
                       ),
@@ -654,7 +654,7 @@ class _RiderLoginPageState extends State<RiderLoginPage> {
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w800,
-                        color: Color(0xFF0284C7),
+                        color: Color(0xFF0066FF),
                       ),
                     ),
                   ),
@@ -684,8 +684,8 @@ class _RiderLoginPageState extends State<RiderLoginPage> {
         borderRadius: BorderRadius.circular(16),
         gradient: const LinearGradient(
           colors: [
-            Color(0xFF00D2FF), // Electric Cyan
-            Color(0xFF0284C7), // Sky Blue
+            Color(0xFF0066FF), // Electric Cyan
+            Color(0xFF0066FF), // Sky Blue
             Color(0xFF0369A1), // Deep Ocean
           ],
           begin: Alignment.centerLeft,
@@ -693,7 +693,7 @@ class _RiderLoginPageState extends State<RiderLoginPage> {
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF00D2FF).withValues(alpha: 0.25),
+            color: const Color(0xFF0066FF).withValues(alpha: 0.25),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -754,7 +754,7 @@ class _RiderLoginPageState extends State<RiderLoginPage> {
                 TextSpan(
                   text: '📞 (02) 8888–RIDE',
                   style: TextStyle(
-                    color: Color(0xFF0284C7),
+                    color: Color(0xFF0066FF),
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -784,7 +784,7 @@ class _RiderLoginPageState extends State<RiderLoginPage> {
                     style: TextStyle(
                       fontSize: 10.5,
                       fontWeight: FontWeight.w800,
-                      color: Color(0xFF0284C7),
+                      color: Color(0xFF0066FF),
                     ),
                   ),
                 ),

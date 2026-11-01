@@ -115,7 +115,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
         message: msg.text,
         orderId: msg.orderId,
         icon: Icons.person_pin_circle_rounded,
-        accentColor: const Color(0xFF0284C7),
+        accentColor: const Color(0xFF0066FF),
         onReply: () => _openChat(widget.order.customerName),
       );
     };
@@ -662,10 +662,10 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                             Container(
                               padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF00C4FF).withValues(alpha: 0.15),
+                                color: const Color(0xFF0066FF).withValues(alpha: 0.15),
                                 borderRadius: BorderRadius.circular(10),
                               ),
-                              child: const Icon(Icons.qr_code_scanner_rounded, color: Color(0xFF00C4FF), size: 20),
+                              child: const Icon(Icons.qr_code_scanner_rounded, color: Color(0xFF0066FF), size: 20),
                             ),
                             const SizedBox(width: 10),
                             Expanded(
@@ -677,7 +677,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                                     style: TextStyle(
                                       fontSize: 10,
                                       fontWeight: FontWeight.w900,
-                                      color: Color(0xFF38BDF8),
+                                      color: Color(0xFF0066FF),
                                       letterSpacing: 0.8,
                                     ),
                                     maxLines: 1,
@@ -727,7 +727,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                           bottom: 14,
                           child: Container(
                             decoration: BoxDecoration(
-                              border: Border.all(color: const Color(0xFF00C4FF), width: 2),
+                              border: Border.all(color: const Color(0xFF0066FF), width: 2),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Center(
@@ -739,7 +739,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                                   Text(
                                     barcode,
                                     style: const TextStyle(
-                                      color: Color(0xFF38BDF8),
+                                      color: Color(0xFF0066FF),
                                       fontSize: 12,
                                       letterSpacing: 2,
                                       fontFamily: 'monospace',
@@ -759,10 +759,10 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                           child: Container(
                             height: 2,
                             decoration: BoxDecoration(
-                              color: const Color(0xFF00C4FF),
+                              color: const Color(0xFF0066FF),
                               boxShadow: [
                                 BoxShadow(
-                                  color: const Color(0xFF00C4FF).withValues(alpha: 0.8),
+                                  color: const Color(0xFF0066FF).withValues(alpha: 0.8),
                                   blurRadius: 8,
                                   spreadRadius: 2,
                                 ),
@@ -797,7 +797,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.shield_outlined, size: 16, color: Color(0xFF38BDF8)),
+                        const Icon(Icons.shield_outlined, size: 16, color: Color(0xFF0066FF)),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
@@ -828,7 +828,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                         style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900, letterSpacing: 0.4),
                       ),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF00C4FF),
+                        backgroundColor: const Color(0xFF0066FF),
                         foregroundColor: const Color(0xFF0F172A),
                         elevation: 0,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -843,20 +843,20 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                     height: 42,
                     child: OutlinedButton.icon(
                       onPressed: () => completeVerification('Simulated Scan'),
-                      icon: const Icon(Icons.qr_code_scanner_rounded, size: 16, color: Color(0xFF38BDF8)),
+                      icon: const Icon(Icons.qr_code_scanner_rounded, size: 16, color: Color(0xFF0066FF)),
                       label: const Text(
                         'SIMULATE CAMERA BARCODE SCAN',
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w800,
-                          color: Color(0xFF38BDF8),
+                          color: Color(0xFF0066FF),
                           letterSpacing: 0.3,
                         ),
                       ),
                       style: OutlinedButton.styleFrom(
-                        side: BorderSide(color: const Color(0xFF00C4FF).withValues(alpha: 0.35)),
+                        side: BorderSide(color: const Color(0xFF0066FF).withValues(alpha: 0.35)),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        backgroundColor: const Color(0xFF00C4FF).withValues(alpha: 0.05),
+                        backgroundColor: const Color(0xFF0066FF).withValues(alpha: 0.05),
                       ),
                     ),
                   ),
@@ -879,7 +879,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                       children: [
                         Row(
                           children: [
-                            const Icon(Icons.edit_note_rounded, size: 16, color: Color(0xFF38BDF8)),
+                            const Icon(Icons.edit_note_rounded, size: 16, color: Color(0xFF0066FF)),
                             const SizedBox(width: 6),
                             const Expanded(
                               child: Text(
@@ -898,7 +898,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF38BDF8).withValues(alpha: 0.15),
+                                color: const Color(0xFF0066FF).withValues(alpha: 0.15),
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: const Text(
@@ -906,7 +906,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                                 style: TextStyle(
                                   fontSize: 8.5,
                                   fontWeight: FontWeight.w800,
-                                  color: Color(0xFF38BDF8),
+                                  color: Color(0xFF0066FF),
                                   letterSpacing: 0.5,
                                 ),
                               ),
@@ -941,7 +941,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                                   prefixIcon: const Icon(
                                     Icons.keyboard_alt_outlined,
                                     size: 17,
-                                    color: Color(0xFF38BDF8),
+                                    color: Color(0xFF0066FF),
                                   ),
                                   suffixIcon: Row(
                                     mainAxisSize: MainAxisSize.min,
@@ -958,7 +958,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                                         ),
                                       IconButton(
                                         tooltip: 'Paste barcode',
-                                        icon: const Icon(Icons.auto_fix_high_rounded, size: 16, color: Color(0xFF38BDF8)),
+                                        icon: const Icon(Icons.auto_fix_high_rounded, size: 16, color: Color(0xFF0066FF)),
                                         onPressed: () {
                                           setModalState(() {
                                             manualCodeController.text = barcode;
@@ -979,7 +979,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                                   ),
                                   focusedBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(10),
-                                    borderSide: const BorderSide(color: Color(0xFF00C4FF), width: 1.5),
+                                    borderSide: const BorderSide(color: Color(0xFF0066FF), width: 1.5),
                                   ),
                                 ),
                                 onChanged: (_) {
@@ -994,7 +994,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                             ElevatedButton(
                               onPressed: submitManualBarcode,
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF00C4FF),
+                                backgroundColor: const Color(0xFF0066FF),
                                 foregroundColor: const Color(0xFF0F172A),
                                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -1014,7 +1014,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                             decoration: BoxDecoration(
                               color: isStatusError
                                   ? const Color(0xFFEF4444).withValues(alpha: 0.15)
-                                  : const Color(0xFF00C4FF).withValues(alpha: 0.15),
+                                  : const Color(0xFF0066FF).withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Row(
@@ -1022,7 +1022,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                                 Icon(
                                   isStatusError ? Icons.error_outline_rounded : Icons.info_outline_rounded,
                                   size: 14,
-                                  color: isStatusError ? const Color(0xFFF87171) : const Color(0xFF38BDF8),
+                                  color: isStatusError ? const Color(0xFFF87171) : const Color(0xFF0066FF),
                                 ),
                                 const SizedBox(width: 6),
                                 Expanded(
@@ -1030,7 +1030,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                                     statusMessage!,
                                     style: TextStyle(
                                       fontSize: 11,
-                                      color: isStatusError ? const Color(0xFFF87171) : const Color(0xFF38BDF8),
+                                      color: isStatusError ? const Color(0xFFF87171) : const Color(0xFF0066FF),
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
@@ -1081,7 +1081,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
             ),
           ],
         ),
-        backgroundColor: const Color(0xFF059669),
+        backgroundColor: const Color(0xFF10B981),
       ),
     );
   }
@@ -1118,14 +1118,14 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
               child: const Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.badge_outlined, size: 14, color: Color(0xFF0284C7)),
+                  Icon(Icons.badge_outlined, size: 14, color: Color(0xFF0066FF)),
                   SizedBox(width: 4),
                   Text(
                     'COURIER IDENTIFICATION BADGE',
                     style: TextStyle(
                       fontSize: 10.5,
                       fontWeight: FontWeight.w900,
-                      color: Color(0xFF0284C7),
+                      color: Color(0xFF0066FF),
                       letterSpacing: 0.5,
                     ),
                   ),
@@ -1169,7 +1169,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                       fontSize: 11.5,
                       fontWeight: FontWeight.w800,
                       letterSpacing: 1.2,
-                      color: Color(0xFF0284C7),
+                      color: Color(0xFF0066FF),
                     ),
                   ),
                 ],
@@ -1200,7 +1200,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                           ),
                         ],
                       ),
-                      backgroundColor: Color(0xFF059669),
+                      backgroundColor: Color(0xFF10B981),
                     ),
                   );
                 },
@@ -1210,7 +1210,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                   style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w900),
                 ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF00C4FF),
+                  backgroundColor: const Color(0xFF0066FF),
                   foregroundColor: const Color(0xFF0F172A),
                   elevation: 0,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -1261,7 +1261,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
             ),
           ],
         ),
-        backgroundColor: const Color(0xFF0284C7),
+        backgroundColor: const Color(0xFF0066FF),
       ),
     );
   }
@@ -1315,7 +1315,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                     alignment: Alignment.center,
                     children: [
                       IconButton(
-                        icon: const Icon(Icons.chat_bubble_outline_rounded, color: Color(0xFF0284C7)),
+                        icon: const Icon(Icons.chat_bubble_outline_rounded, color: Color(0xFF0066FF)),
                         tooltip: 'Chat Customer',
                         onPressed: () => _openChat(order.customerName),
                       ),
@@ -1460,7 +1460,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                 style: TextStyle(
                   fontSize: 10.5,
                   fontWeight: FontWeight.w900,
-                  color: Color(0xFF0284C7),
+                  color: Color(0xFF0066FF),
                 ),
               ),
             ),
@@ -1514,7 +1514,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
               style: const TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.w900,
-                color: Color(0xFF0284C7),
+                color: Color(0xFF0066FF),
               ),
             ),
           ],
@@ -1582,7 +1582,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                   style: const TextStyle(
                     fontSize: 19,
                     fontWeight: FontWeight.w900,
-                    color: Color(0xFF00C4FF),
+                    color: Color(0xFF0066FF),
                   ),
                 ),
               ],
@@ -1634,7 +1634,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                   style: TextStyle(
                     fontSize: 10.5,
                     fontWeight: FontWeight.w800,
-                    color: Color(0xFF0284C7),
+                    color: Color(0xFF0066FF),
                   ),
                 ),
               ),
@@ -1668,7 +1668,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                   style: const TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.w900,
-                    color: Color(0xFF00C4FF),
+                    color: Color(0xFF0066FF),
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -1683,14 +1683,14 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.verified_outlined, size: 14, color: Color(0xFF0284C7)),
+                    Icon(Icons.verified_outlined, size: 14, color: Color(0xFF0066FF)),
                     SizedBox(width: 4),
                     Text(
                       'Guaranteed',
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w800,
-                        color: Color(0xFF0284C7),
+                        color: Color(0xFF0066FF),
                       ),
                     ),
                   ],
@@ -1727,12 +1727,12 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                color: const Color(0xFF00C4FF).withValues(alpha: 0.15),
+                color: const Color(0xFF0066FF).withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: const Icon(
                 Icons.turn_slight_right_rounded,
-                color: Color(0xFF00C4FF),
+                color: Color(0xFF0066FF),
                 size: 24,
               ),
             ),
@@ -1757,7 +1757,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                     const Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        Icon(Icons.location_on_rounded, size: 13, color: Color(0xFF38BDF8)),
+                        Icon(Icons.location_on_rounded, size: 13, color: Color(0xFF0066FF)),
                         SizedBox(width: 4),
                         Expanded(
                           child: Text(
@@ -1790,7 +1790,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                     color: Colors.white.withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.navigation_rounded, color: Color(0xFF38BDF8), size: 18),
+                  child: const Icon(Icons.navigation_rounded, color: Color(0xFF0066FF), size: 18),
                 ),
               ),
             ),
@@ -1816,10 +1816,10 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                   width: 38,
                   height: 38,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF00C4FF).withValues(alpha: 0.15),
+                    color: const Color(0xFF0066FF).withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(Icons.storefront_rounded, color: Color(0xFF00C4FF), size: 20),
+                  child: const Icon(Icons.storefront_rounded, color: Color(0xFF0066FF), size: 20),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -1831,7 +1831,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                         style: TextStyle(
                           fontSize: 10.5,
                           fontWeight: FontWeight.w900,
-                          color: Color(0xFF38BDF8),
+                          color: Color(0xFF0066FF),
                           letterSpacing: 0.5,
                         ),
                       ),
@@ -1875,7 +1875,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                             Icon(
                               _handoverCodeVerified ? Icons.check_circle_rounded : Icons.vpn_key_rounded,
                               size: 13,
-                              color: _handoverCodeVerified ? const Color(0xFF34D399) : const Color(0xFF38BDF8),
+                              color: _handoverCodeVerified ? const Color(0xFF34D399) : const Color(0xFF0066FF),
                             ),
                             const SizedBox(width: 5),
                             Expanded(
@@ -1899,10 +1899,10 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                       const SizedBox(width: 6),
                       TextButton.icon(
                         onPressed: _showRiderPickupQrModal,
-                        icon: const Icon(Icons.qr_code_2_rounded, size: 14, color: Color(0xFF00C4FF)),
+                        icon: const Icon(Icons.qr_code_2_rounded, size: 14, color: Color(0xFF0066FF)),
                         label: const Text(
                           'Show My QR',
-                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Color(0xFF00C4FF)),
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Color(0xFF0066FF)),
                         ),
                         style: TextButton.styleFrom(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -1917,7 +1917,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF059669).withValues(alpha: 0.18),
+                        color: const Color(0xFF10B981).withValues(alpha: 0.18),
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.3)),
                       ),
@@ -1976,7 +1976,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                                 ),
                                 focusedBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(10),
-                                  borderSide: const BorderSide(color: Color(0xFF00C4FF), width: 1.5),
+                                  borderSide: const BorderSide(color: Color(0xFF0066FF), width: 1.5),
                                 ),
                               ),
                               onSubmitted: _validateHandoverCode,
@@ -1989,7 +1989,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                           child: ElevatedButton(
                             onPressed: () => _validateHandoverCode(_handoverCodeController.text),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF00C4FF),
+                              backgroundColor: const Color(0xFF0066FF),
                               foregroundColor: const Color(0xFF0F172A),
                               elevation: 0,
                               padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -2064,7 +2064,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                       style: TextStyle(
                         fontSize: 10.5,
                         fontWeight: FontWeight.w900,
-                        color: Color(0xFF38BDF8),
+                        color: Color(0xFF0066FF),
                         letterSpacing: 0.6,
                       ),
                     ),
@@ -2083,10 +2083,10 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                   width: 36,
                   height: 36,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF00C4FF).withValues(alpha: 0.15),
+                    color: const Color(0xFF0066FF).withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.archive_outlined, color: Color(0xFF00C4FF), size: 18),
+                  child: const Icon(Icons.archive_outlined, color: Color(0xFF0066FF), size: 18),
                 ),
               ],
             ),
@@ -2127,14 +2127,14 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                   ),
                   Row(
                     children: [
-                      Icon(Icons.check_circle_rounded, size: 14, color: Color(0xFF00C4FF)),
+                      Icon(Icons.check_circle_rounded, size: 14, color: Color(0xFF0066FF)),
                       SizedBox(width: 4),
                       Text(
                         'ACCEPTED BY MERCHANT',
                         style: TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.w900,
-                          color: Color(0xFF00C4FF),
+                          color: Color(0xFF0066FF),
                         ),
                       ),
                     ],
@@ -2149,7 +2149,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
               children: [
                 Row(
                   children: [
-                    Icon(Icons.badge_outlined, size: 14, color: Color(0xFF00C4FF)),
+                    Icon(Icons.badge_outlined, size: 14, color: Color(0xFF0066FF)),
                     SizedBox(width: 4),
                     Text(
                       'Authorized Staff: Marco R.',
@@ -2197,24 +2197,24 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF00C4FF).withValues(alpha: 0.15),
+                  color: const Color(0xFF0066FF).withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(Icons.check_circle_outline_rounded, color: Color(0xFF00C4FF), size: 22),
+                child: const Icon(Icons.check_circle_outline_rounded, color: Color(0xFF0066FF), size: 22),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF0284C7).withValues(alpha: 0.3),
+                  color: const Color(0xFF0066FF).withValues(alpha: 0.3),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Row(
                   children: [
-                    Icon(Icons.circle, size: 6, color: Color(0xFF00C4FF)),
+                    Icon(Icons.circle, size: 6, color: Color(0xFF0066FF)),
                     SizedBox(width: 5),
                     Text(
                       'PAYOUT SETTLED',
-                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Color(0xFF00C4FF)),
+                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Color(0xFF0066FF)),
                     ),
                   ],
                 ),
@@ -2268,7 +2268,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                       const SizedBox(height: 3),
                       Text(
                         '+₱${order.riderEarnings.toStringAsFixed(2)}',
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Color(0xFF00C4FF)),
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Color(0xFF0066FF)),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -2344,7 +2344,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Text('STORE PICKUP',
-                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Color(0xFF0284C7))),
+                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Color(0xFF0066FF))),
                 ),
                 const SizedBox(width: 8),
                 Container(
@@ -2354,7 +2354,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Text('● Prepaid',
-                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Color(0xFF047857))),
+                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Color(0xFF10B981))),
                 ),
               ],
             ),
@@ -2430,7 +2430,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
               children: [
                 const Row(
                   children: [
-                    Icon(Icons.inventory_2_outlined, size: 16, color: Color(0xFF0284C7)),
+                    Icon(Icons.inventory_2_outlined, size: 16, color: Color(0xFF0066FF)),
                     SizedBox(width: 6),
                     Text(
                       'PACKAGE MANIFEST',
@@ -2471,7 +2471,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
               desc: 'Express Courier Pouch • Fragile Handle with Care',
               tag: 'EXPRESS',
               tagColor: const Color(0xFFDCFCE7),
-              tagTextColor: const Color(0xFF047857),
+              tagTextColor: const Color(0xFF10B981),
               onScanTap: () => _showBarcodeScannerModal(
                 'Parcel #NX8942-B',
                 'Express Courier Pouch • Fragile Handle with Care',
@@ -2509,7 +2509,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                     color: const Color(0xFFE0F2FE),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.location_on_rounded, color: Color(0xFF0284C7), size: 20),
+                  child: const Icon(Icons.location_on_rounded, color: Color(0xFF0066FF), size: 20),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -2543,7 +2543,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                 Flexible(
                   child: Text(
                     'Attendant: Marco R.',
-                    style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: Color(0xFF0284C7)),
+                    style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: Color(0xFF0066FF)),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -2591,7 +2591,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                         style: TextStyle(
                           fontSize: 10.5,
                           fontWeight: FontWeight.w800,
-                          color: scannedCount == 2 ? const Color(0xFF047857) : const Color(0xFF0284C7),
+                          color: scannedCount == 2 ? const Color(0xFF10B981) : const Color(0xFF0066FF),
                         ),
                       ),
                     ),
@@ -2608,7 +2608,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                         });
                       },
                       child: const Text('Verify All',
-                          style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: Color(0xFF0284C7))),
+                          style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: Color(0xFF0066FF))),
                     ),
                   ],
                 ),
@@ -2631,7 +2631,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                     style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFF0F9FF),
-                  foregroundColor: const Color(0xFF0284C7),
+                  foregroundColor: const Color(0xFF0066FF),
                   elevation: 0,
                   side: const BorderSide(color: Color(0xFFBAE6FD)),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -2684,7 +2684,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
           children: [
             const Row(
               children: [
-                Icon(Icons.shield_outlined, size: 16, color: Color(0xFF0284C7)),
+                Icon(Icons.shield_outlined, size: 16, color: Color(0xFF0066FF)),
                 SizedBox(width: 6),
                 Text(
                   'Inspection & Protocol',
@@ -2744,12 +2744,12 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                 Row(
                   children: [
                     Text('2/2 Verified',
-                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Color(0xFF0284C7))),
+                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Color(0xFF0066FF))),
                     SizedBox(width: 8),
-                    Icon(Icons.qr_code_scanner_rounded, size: 14, color: Color(0xFF00C4FF)),
+                    Icon(Icons.qr_code_scanner_rounded, size: 14, color: Color(0xFF0066FF)),
                     SizedBox(width: 4),
                     Text('All Scanned',
-                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Color(0xFF00C4FF))),
+                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Color(0xFF0066FF))),
                   ],
                 ),
               ],
@@ -2759,7 +2759,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
             // Item 1
             _buildVerifiedStowTile(
               icon: Icons.shield_outlined,
-              iconColor: const Color(0xFF0284C7),
+              iconColor: const Color(0xFF0066FF),
               pkgId: 'NX-PKG-8942-01',
               tag: 'FRAGILE',
               desc: 'Sealed Box • 0.65 kg',
@@ -2771,7 +2771,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
             // Item 2
             _buildVerifiedStowTile(
               icon: Icons.inventory_2_outlined,
-              iconColor: const Color(0xFF00C4FF),
+              iconColor: const Color(0xFF0066FF),
               pkgId: 'NX-PKG-8942-02',
               tag: 'STANDARD',
               desc: 'Express Pouch • 0.40 kg',
@@ -2802,10 +2802,10 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                 ),
                 Row(
                   children: [
-                    Icon(Icons.check_rounded, size: 14, color: Color(0xFF00C4FF)),
+                    Icon(Icons.check_rounded, size: 14, color: Color(0xFF0066FF)),
                     SizedBox(width: 4),
                     Text('All Cleared',
-                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Color(0xFF00C4FF))),
+                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Color(0xFF0066FF))),
                   ],
                 ),
               ],
@@ -2838,7 +2838,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                 color: const Color(0xFFE0F2FE),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: const Icon(Icons.navigation_rounded, color: Color(0xFF0284C7), size: 18),
+              child: const Icon(Icons.navigation_rounded, color: Color(0xFF0066FF), size: 18),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -2875,7 +2875,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
               children: const [
                 TextSpan(
                   text: '+₱25 Bonus applied',
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Color(0xFF00C4FF)),
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Color(0xFF0066FF)),
                 ),
               ],
             ),
@@ -2905,7 +2905,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                 Expanded(
                   child: Row(
                     children: [
-                      const Icon(Icons.archive_outlined, size: 16, color: Color(0xFF0284C7)),
+                      const Icon(Icons.archive_outlined, size: 16, color: Color(0xFF0066FF)),
                       const SizedBox(width: 6),
                       Flexible(
                         child: Text(
@@ -2928,10 +2928,10 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                   child: const Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.lock_rounded, size: 12, color: Color(0xFF0284C7)),
+                      Icon(Icons.lock_rounded, size: 12, color: Color(0xFF0066FF)),
                       SizedBox(width: 4),
                       Text('Secured',
-                          style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w900, color: Color(0xFF0284C7))),
+                          style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w900, color: Color(0xFF0066FF))),
                     ],
                   ),
                 ),
@@ -3020,11 +3020,11 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                   child: const Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.verified_rounded, size: 11, color: Color(0xFF047857)),
+                      Icon(Icons.verified_rounded, size: 11, color: Color(0xFF10B981)),
                       SizedBox(width: 4),
                       Text(
                         'Accurate GPS',
-                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Color(0xFF047857)),
+                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Color(0xFF10B981)),
                       ),
                     ],
                   ),
@@ -3089,7 +3089,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                   radius: 18,
                   backgroundColor: const Color(0xFFE0F2FE),
                   child: const Text('JD',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: Color(0xFF0284C7))),
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: Color(0xFF0066FF))),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -3109,7 +3109,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                     Text('ESTIMATED ARRIVAL',
                         style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: Color(0xFF94A3B8))),
                     Text('8 mins',
-                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: Color(0xFF00C4FF))),
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: Color(0xFF0066FF))),
                   ],
                 ),
               ],
@@ -3127,7 +3127,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                   Expanded(
                     child: Row(
                       children: [
-                        const Icon(Icons.shield_rounded, size: 13, color: Color(0xFF0284C7)),
+                        const Icon(Icons.shield_rounded, size: 13, color: Color(0xFF0066FF)),
                         const SizedBox(width: 5),
                         Flexible(
                           child: Text(
@@ -3146,7 +3146,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                           ),
                           child: const Text(
                             'MASKED',
-                            style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.w900, color: Color(0xFF0284C7)),
+                            style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.w900, color: Color(0xFF0066FF)),
                           ),
                         ),
                       ],
@@ -3154,7 +3154,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                   ),
                   const SizedBox(width: 8),
                   const Text('1.8 km remaining',
-                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF0284C7))),
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF0066FF))),
                 ],
               ),
             ),
@@ -3171,7 +3171,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
               child: const Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.notes_rounded, size: 14, color: Color(0xFF0284C7)),
+                  Icon(Icons.notes_rounded, size: 14, color: Color(0xFF0066FF)),
                   SizedBox(width: 6),
                   Expanded(
                     child: Text(
@@ -3273,7 +3273,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                 Expanded(
                   child: Row(
                     children: [
-                      const Icon(Icons.inventory_2_outlined, size: 16, color: Color(0xFF0284C7)),
+                      const Icon(Icons.inventory_2_outlined, size: 16, color: Color(0xFF0066FF)),
                       const SizedBox(width: 6),
                       Flexible(
                         child: Text(
@@ -3303,7 +3303,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                     ),
                     child: const Row(
                       children: [
-                        Icon(Icons.check_circle_rounded, size: 14, color: Color(0xFF0284C7)),
+                        Icon(Icons.check_circle_rounded, size: 14, color: Color(0xFF0066FF)),
                         SizedBox(width: 6),
                         Expanded(
                           child: Column(
@@ -3328,7 +3328,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                     ),
                     child: const Row(
                       children: [
-                        Icon(Icons.check_circle_rounded, size: 14, color: Color(0xFF0284C7)),
+                        Icon(Icons.check_circle_rounded, size: 14, color: Color(0xFF0066FF)),
                         SizedBox(width: 6),
                         Expanded(
                           child: Column(
@@ -3367,7 +3367,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                 Expanded(
                   child: Row(
                     children: [
-                      const Icon(Icons.draw_rounded, size: 16, color: Color(0xFF0284C7)),
+                      const Icon(Icons.draw_rounded, size: 16, color: Color(0xFF0066FF)),
                       const SizedBox(width: 6),
                       Flexible(
                         child: Text(
@@ -3388,7 +3388,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Text('Verified',
-                      style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w900, color: Color(0xFF047857))),
+                      style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w900, color: Color(0xFF10B981))),
                 ),
               ],
             ),
@@ -3443,8 +3443,8 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                             errorBuilder: (context, error, stackTrace) => Container(
                               width: 52,
                               height: 52,
-                              color: const Color(0xFF0284C7).withValues(alpha: 0.1),
-                              child: const Icon(Icons.photo_camera_rounded, color: Color(0xFF0284C7), size: 24),
+                              color: const Color(0xFF0066FF).withValues(alpha: 0.1),
+                              child: const Icon(Icons.photo_camera_rounded, color: Color(0xFF0066FF), size: 24),
                             ),
                           ),
                         Container(
@@ -3457,7 +3457,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                           child: const Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.pin_drop_rounded, size: 8, color: Color(0xFF38BDF8)),
+                              Icon(Icons.pin_drop_rounded, size: 8, color: Color(0xFF0066FF)),
                               SizedBox(width: 2),
                               Text(
                                 'GPS',
@@ -3479,7 +3479,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                         SizedBox(height: 3),
                         Row(
                           children: [
-                            Icon(Icons.check_circle_rounded, size: 12, color: Color(0xFF059669)),
+                            Icon(Icons.check_circle_rounded, size: 12, color: Color(0xFF10B981)),
                             SizedBox(width: 4),
                             Expanded(
                               child: Text(
@@ -3511,7 +3511,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                     child: const Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('DISTANCE', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w900, color: Color(0xFF0284C7))),
+                        Text('DISTANCE', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w900, color: Color(0xFF0066FF))),
                         SizedBox(height: 2),
                         Text('1.8 km total', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: Color(0xFF0F172A))),
                       ],
@@ -3529,7 +3529,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                     child: const Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('DURATION', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w900, color: Color(0xFF0284C7))),
+                        Text('DURATION', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w900, color: Color(0xFF0066FF))),
                         SizedBox(height: 2),
                         Text('28 mins (On-Time)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: Color(0xFF0F172A))),
                       ],
@@ -3580,7 +3580,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                 const CircleAvatar(
                   radius: 16,
                   backgroundColor: Color(0xFFE0F2FE),
-                  child: Icon(Icons.person, color: Color(0xFF0284C7), size: 18),
+                  child: Icon(Icons.person, color: Color(0xFF0066FF), size: 18),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -3629,12 +3629,12 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
               ),
               child: const Row(
                 children: [
-                  Icon(Icons.lightbulb_outline_rounded, size: 14, color: Color(0xFF059669)),
+                  Icon(Icons.lightbulb_outline_rounded, size: 14, color: Color(0xFF10B981)),
                   SizedBox(width: 6),
                   Expanded(
                     child: Text(
                       'You achieved a 100% on-time score for this fulfillment cycle.',
-                      style: TextStyle(fontSize: 11, color: Color(0xFF047857), fontWeight: FontWeight.w600),
+                      style: TextStyle(fontSize: 11, color: Color(0xFF10B981), fontWeight: FontWeight.w600),
                     ),
                   ),
                 ],
@@ -3663,7 +3663,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                 Navigator.pop(context);
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF00C4FF),
+                backgroundColor: const Color(0xFF0066FF),
                 foregroundColor: const Color(0xFF0F172A),
                 elevation: 0,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -3703,8 +3703,8 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                 style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900),
               ),
               style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFF0284C7),
-                side: const BorderSide(color: Color(0xFF00C4FF), width: 1.5),
+                foregroundColor: const Color(0xFF0066FF),
+                side: const BorderSide(color: Color(0xFF0066FF), width: 1.5),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
               ),
             ),
@@ -3729,7 +3729,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                 style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, letterSpacing: 0.3),
               ),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF00C4FF),
+                backgroundColor: const Color(0xFF0066FF),
                 foregroundColor: const Color(0xFF0F172A),
                 elevation: 0,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -3748,8 +3748,8 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                 style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w900, letterSpacing: 0.2),
               ),
               style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFF0284C7),
-                side: const BorderSide(color: Color(0xFF00C4FF), width: 1.5),
+                foregroundColor: const Color(0xFF0066FF),
+                side: const BorderSide(color: Color(0xFF0066FF), width: 1.5),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                 backgroundColor: Colors.white,
               ),
@@ -3837,7 +3837,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Arrived at customer dropoff! Tap Complete Delivery after handing over the parcel.'),
-            backgroundColor: Color(0xFF0284C7),
+            backgroundColor: Color(0xFF0066FF),
           ),
         );
       };
@@ -3857,7 +3857,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
           child: ElevatedButton(
             onPressed: onCtaPressed,
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF00C4FF),
+              backgroundColor: const Color(0xFF0066FF),
               foregroundColor: const Color(0xFF0F172A),
               elevation: 0,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -3942,18 +3942,18 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                 decoration: BoxDecoration(
                   color: isScanned
                       ? const Color(0xFF10B981)
-                      : const Color(0xFF0284C7).withValues(alpha: 0.1),
+                      : const Color(0xFF0066FF).withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(
                     color: isScanned
-                        ? const Color(0xFF059669)
-                        : const Color(0xFF0284C7).withValues(alpha: 0.3),
+                        ? const Color(0xFF10B981)
+                        : const Color(0xFF0066FF).withValues(alpha: 0.3),
                   ),
                 ),
                 child: Icon(
                   isScanned ? Icons.check_rounded : Icons.qr_code_scanner_rounded,
                   size: 17,
-                  color: isScanned ? Colors.white : const Color(0xFF0284C7),
+                  color: isScanned ? Colors.white : const Color(0xFF0066FF),
                 ),
               ),
             ),
@@ -4012,7 +4012,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                   Icon(
                     isScanned ? Icons.verified_rounded : Icons.camera_alt_outlined,
                     size: 12,
-                    color: isScanned ? const Color(0xFF047857) : const Color(0xFF0284C7),
+                    color: isScanned ? const Color(0xFF10B981) : const Color(0xFF0066FF),
                   ),
                   const SizedBox(width: 4),
                   Text(
@@ -4020,7 +4020,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                     style: TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.w900,
-                      color: isScanned ? const Color(0xFF047857) : const Color(0xFF0284C7),
+                      color: isScanned ? const Color(0xFF10B981) : const Color(0xFF0066FF),
                       letterSpacing: 0.3,
                     ),
                   ),
@@ -4057,9 +4057,9 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
               width: 22,
               height: 22,
               decoration: BoxDecoration(
-                color: isScanned ? const Color(0xFF059669) : Colors.white,
+                color: isScanned ? const Color(0xFF10B981) : Colors.white,
                 shape: BoxShape.circle,
-                border: Border.all(color: isScanned ? const Color(0xFF059669) : const Color(0xFFCBD5E1)),
+                border: Border.all(color: isScanned ? const Color(0xFF10B981) : const Color(0xFFCBD5E1)),
               ),
               child: isScanned
                   ? const Icon(Icons.check, size: 14, color: Colors.white)
@@ -4093,7 +4093,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                         style: TextStyle(
                           fontSize: 9,
                           fontWeight: FontWeight.w900,
-                          color: isFragile ? const Color(0xFFDC2626) : const Color(0xFF0284C7),
+                          color: isFragile ? const Color(0xFFDC2626) : const Color(0xFF0066FF),
                         ),
                       ),
                     ),
@@ -4115,7 +4115,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
             label: Text(isScanned ? 'Verified' : 'Scan'),
             style: ElevatedButton.styleFrom(
               backgroundColor: isScanned ? const Color(0xFFDCFCE7) : Colors.white,
-              foregroundColor: isScanned ? const Color(0xFF047857) : const Color(0xFF0284C7),
+              foregroundColor: isScanned ? const Color(0xFF10B981) : const Color(0xFF0066FF),
               elevation: 0,
               side: BorderSide(color: isScanned ? const Color(0xFFA7F3D0) : const Color(0xFFCBD5E1)),
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -4142,7 +4142,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
         children: [
           Checkbox(
             value: value,
-            activeColor: const Color(0xFF0284C7),
+            activeColor: const Color(0xFF0066FF),
             onChanged: onChanged,
             materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
           ),
@@ -4203,7 +4203,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                   ],
                 ),
               ),
-              const Icon(Icons.check_circle_rounded, color: Color(0xFF00C4FF), size: 18),
+              const Icon(Icons.check_circle_rounded, color: Color(0xFF0066FF), size: 18),
             ],
           ),
           const SizedBox(height: 8),
@@ -4218,10 +4218,10 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.archive_outlined, size: 13, color: Color(0xFF0284C7)),
+                    const Icon(Icons.archive_outlined, size: 13, color: Color(0xFF0066FF)),
                     const SizedBox(width: 5),
                     Text(stowLocation,
-                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF0284C7))),
+                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF0066FF))),
                   ],
                 ),
                 Text(bayText,
@@ -4243,7 +4243,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
       ),
       child: Row(
         children: [
-          const Icon(Icons.check_box_rounded, size: 18, color: Color(0xFF00C4FF)),
+          const Icon(Icons.check_box_rounded, size: 18, color: Color(0xFF0066FF)),
           const SizedBox(width: 8),
           Expanded(
             child: Text(text,
@@ -4269,7 +4269,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
       ),
       child: Row(
         children: [
-          Icon(icon, size: 18, color: const Color(0xFF0284C7)),
+          Icon(icon, size: 18, color: const Color(0xFF0066FF)),
           const SizedBox(width: 10),
           Expanded(
             child: Column(

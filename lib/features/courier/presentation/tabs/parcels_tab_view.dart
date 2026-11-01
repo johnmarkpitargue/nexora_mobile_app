@@ -491,9 +491,9 @@ class _ParcelsTabViewState extends State<ParcelsTabView> {
                           child: const Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.chat_bubble_outline_rounded, size: 13, color: Color(0xFF0284C7)),
+                              Icon(Icons.chat_bubble_outline_rounded, size: 13, color: Color(0xFF0066FF)),
                               SizedBox(width: 4),
-                              Text('Chat', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0284C7))),
+                              Text('Chat', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF0066FF))),
                             ],
                           ),
                         ),
@@ -607,7 +607,7 @@ class _ParcelsTabViewState extends State<ParcelsTabView> {
                     value: 'chat',
                     child: Row(
                       children: [
-                        Icon(Icons.chat_bubble_outline_rounded, size: 16, color: Color(0xFF0284C7)),
+                        Icon(Icons.chat_bubble_outline_rounded, size: 16, color: Color(0xFF0066FF)),
                         SizedBox(width: 8),
                         Text('Chat Customer'),
                       ],
@@ -627,7 +627,7 @@ class _ParcelsTabViewState extends State<ParcelsTabView> {
                     value: 'out_for_delivery',
                     child: Row(
                       children: [
-                        Icon(Icons.local_shipping_outlined, size: 16, color: Color(0xFF0284C7)),
+                        Icon(Icons.local_shipping_outlined, size: 16, color: Color(0xFF0066FF)),
                         SizedBox(width: 8),
                         Text('Mark Out for Delivery'),
                       ],

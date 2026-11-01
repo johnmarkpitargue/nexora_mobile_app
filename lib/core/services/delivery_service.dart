@@ -34,11 +34,13 @@ class DeliveryService extends ChangeNotifier {
   }
 
   bool _hasCompletedInitialFetch = false;
+  bool _hasStreamInitialSnapshot = false;
   RealtimeChannel? _dispatchChannel;
   bool? _isDispatchSubscribed;
   Timer? _pollTimer;
   Set<String>? _declinedOrderIdsSet;
   Set<String> get _declinedOrderIds => _declinedOrderIdsSet ??= {};
+  final Set<String> _notifiedOrderIds = {};
 
   /// Extracts clean readable item title if stored as JSON with chat history
   static String extractItemTitle(dynamic raw) {
@@ -92,41 +94,9 @@ class DeliveryService extends ChangeNotifier {
     _handoverCodeVerified = false;
     _deliveryCompletedTime = null;
     _availableOrders.clear();
+    _notifiedOrderIds.clear();
 
-    _availableOrders.add(
-      DeliveryOrder(
-        id: 'NX-8942-ORD',
-        customerName: 'Alex Rivera',
-        customerPhone: '+63 917 555 0192',
-        customerAddress: 'Unit 2402, Lumina Tower, Taguig City',
-        customerNotes: 'Please ring the doorbell or leave with concierge.',
-        merchantName: 'Nexora Official Store',
-        merchantAddress: 'High Street South, 26th St',
-        merchantPhone: '+63 2 8899 0011',
-        items: const [
-          OrderItemDetail(
-            name: 'Nexora Studio Pro Wireless ANC Headphone System',
-            quantity: 1,
-            price: 4999.00,
-            imageUrl: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=200',
-          ),
-        ],
-        deliveryFee: 120.00,
-        tip: 50.00,
-        orderTotal: 5049.00,
-        paymentType: 'Cash on Delivery (COD)',
-        distanceKm: 2.4,
-        estimatedMinutes: 12,
-        createdAt: DateTime.now(),
-        status: DeliveryStatus.available,
-        customerLat: 14.5515,
-        customerLng: 121.0505,
-        merchantLat: 14.5528,
-        merchantLng: 121.0518,
-      ),
-    );
-
-    // 3. Past Completed Orders History
+    // Past Completed Orders History
     _completedOrders.addAll([
       DeliveryOrder(
         id: 'NX-8720-ORD',
@@ -196,12 +166,16 @@ class DeliveryService extends ChangeNotifier {
   Future<void> refreshAvailableOrders() async {
     if (!isSupabaseReady) return;
     try {
+      final currentRider = RiderService.instance.profile;
+      final currentRiderName = currentRider.name.trim().toLowerCase();
+      final currentRiderId = currentRider.id.trim().toLowerCase();
+
       final data = await Supabase.instance.client
           .from('orders')
           .select(
-              'id, order_id, status, customer_id, customer_email, item_details, delivery_address, delivery_lat, delivery_lng, created_at, payment_method, total_price, courier_name, is_rider_accepted')
+              'id, order_id, status, customer_id, buyer_name, buyer_email, item_details, delivery_address, delivery_lat, delivery_lng, created_at, payment_method, total_price, courier_name, rider_id, is_rider_accepted')
           .order('created_at', ascending: false)
-          .limit(15);
+          .limit(20);
       bool addedAny = false;
       for (final row in data) {
         final rawId = row['id'].toString();
@@ -211,30 +185,39 @@ class DeliveryService extends ChangeNotifier {
           continue;
         }
         final status = (row['status'] ?? 'pending').toString().toLowerCase();
-        if (status == 'pending') {
-          final isMatchActive = _activeOrder != null &&
-              (_activeOrder!.id == orderCode ||
-                  _activeOrder!.id == rawId ||
-                  _activeOrder!.id.replaceAll('#', '').trim() == clean);
-          final isMatchCompleted = _completedOrders.any(
-            (o) =>
-                o.id == orderCode ||
-                o.id == rawId ||
-                o.id.replaceAll('#', '').trim() == clean,
-          );
-          final availIdx = _availableOrders.indexWhere(
-            (o) =>
-                o.id == orderCode ||
-                o.id == rawId ||
-                o.id.replaceAll('#', '').trim() == clean,
-          );
+
+        final rowCourierName = (row['courier_name'] ?? '').toString().trim().toLowerCase();
+        final rowRiderId = (row['rider_id'] ?? '').toString().trim().toLowerCase();
+        final isMyDelivery = (rowCourierName.isNotEmpty && rowCourierName == currentRiderName) ||
+            (rowRiderId.isNotEmpty && rowRiderId == currentRiderId);
+
+        final isMatchActive = _activeOrder != null &&
+            (_activeOrder!.id == orderCode ||
+                _activeOrder!.id == rawId ||
+                _activeOrder!.id.replaceAll('#', '').trim() == clean);
+        final isMatchCompleted = _completedOrders.any(
+          (o) =>
+              o.id == orderCode ||
+              o.id == rawId ||
+              o.id.replaceAll('#', '').trim() == clean,
+        );
+        final availIdx = _availableOrders.indexWhere(
+          (o) =>
+              o.id == orderCode ||
+              o.id == rawId ||
+              o.id.replaceAll('#', '').trim() == clean,
+        );
+
+        if (status == 'pending' || status == 'ready') {
           if (!isMatchActive && !isMatchCompleted && availIdx < 0) {
             final newOrder = _createDeliveryOrderFromRow(orderCode, row);
             _availableOrders.insert(0, newOrder);
             RiderChatService.instance.subscribeToOrder(orderCode, customerName: newOrder.customerName);
             addedAny = true;
 
-            if (_hasCompletedInitialFetch) {
+            // Only notify if initial load was already completed AND not yet notified
+            if (_hasCompletedInitialFetch && !_notifiedOrderIds.contains(clean)) {
+              _notifiedOrderIds.add(clean);
               InAppNotificationService.instance.showNotification(
                 senderName: 'New Delivery Dispatch',
                 message: 'Order #$orderCode (${newOrder.merchantName} ➔ ${newOrder.customerName}) is ready for pickup!',
@@ -242,7 +225,37 @@ class DeliveryService extends ChangeNotifier {
                 icon: Icons.two_wheeler_rounded,
                 accentColor: const Color(0xFF0066FF),
               );
+            } else {
+              _notifiedOrderIds.add(clean);
             }
+          }
+        } else if (status == 'accepted' ||
+            status == 'at_store' ||
+            status == 'picked_up' ||
+            status == 'in_transit' ||
+            status == 'to_deliver') {
+          if (availIdx >= 0) {
+            _availableOrders.removeAt(availIdx);
+            addedAny = true;
+          }
+          // Only restore active order if assigned to THIS rider
+          if (isMyDelivery && _activeOrder == null) {
+            _activeOrder = _createDeliveryOrderFromRow(orderCode, row).copyWith(status: DeliveryStatus.accepted);
+            _activeOrderStage = status == 'in_transit' || status == 'to_deliver'
+                ? 3
+                : status == 'picked_up'
+                    ? 2
+                    : status == 'at_store'
+                        ? 1
+                        : 0;
+            addedAny = true;
+          }
+        } else if (status == 'delivered') {
+          if (isMatchActive) {
+            completeCurrentDelivery();
+          } else if (availIdx >= 0) {
+            _availableOrders.removeAt(availIdx);
+            addedAny = true;
           }
         }
       }
@@ -323,6 +336,7 @@ class DeliveryService extends ChangeNotifier {
               status: DeliveryStatus.available,
             );
             _availableOrders.insert(0, newOrder);
+            _notifiedOrderIds.add(clean);
             RiderChatService.instance.subscribeToOrder(orderCode, customerName: newOrder.customerName);
             notifyListeners();
 
@@ -420,10 +434,20 @@ class DeliveryService extends ChangeNotifier {
           .stream(primaryKey: ['id'])
           .order('created_at', ascending: false)
           .listen((data) {
+        final currentRider = RiderService.instance.profile;
+        final currentRiderName = currentRider.name.trim().toLowerCase();
+        final currentRiderId = currentRider.id.trim().toLowerCase();
+
         for (final row in data) {
           final rawId = row['id'].toString();
           final orderCode = (row['order_id'] ?? rawId).toString();
+          final clean = orderCode.replaceAll('#', '').trim();
           final status = (row['status'] ?? 'pending').toString().toLowerCase();
+
+          final rowCourierName = (row['courier_name'] ?? '').toString().trim().toLowerCase();
+          final rowRiderId = (row['rider_id'] ?? '').toString().trim().toLowerCase();
+          final isMyDelivery = (rowCourierName.isNotEmpty && rowCourierName == currentRiderName) ||
+              (rowRiderId.isNotEmpty && rowRiderId == currentRiderId);
 
           // Sync real-time delivery coordinates if changed by customer
           final rowLat = (row['delivery_lat'] as num?)?.toDouble() ??
@@ -436,19 +460,21 @@ class DeliveryService extends ChangeNotifier {
           }
 
           final isMatchActive = _activeOrder != null &&
-              (_activeOrder!.id == orderCode || _activeOrder!.id == rawId || _activeOrder!.id.replaceAll('#', '') == orderCode.replaceAll('#', ''));
+              (_activeOrder!.id == orderCode || _activeOrder!.id == rawId || _activeOrder!.id.replaceAll('#', '') == clean);
           final availIdx = _availableOrders.indexWhere(
-            (o) => o.id == orderCode || o.id == rawId || o.id.replaceAll('#', '') == orderCode.replaceAll('#', ''),
+            (o) => o.id == orderCode || o.id == rawId || o.id.replaceAll('#', '') == clean,
           );
 
-          if (status == 'pending') {
+          if (status == 'pending' || status == 'ready') {
             if (!isMatchActive && availIdx < 0) {
               final newOrder = _createDeliveryOrderFromRow(orderCode, row);
               _availableOrders.insert(0, newOrder);
               RiderChatService.instance.subscribeToOrder(orderCode, customerName: newOrder.customerName);
               notifyListeners();
 
-              if (_hasCompletedInitialFetch) {
+              // Only notify if initial stream snapshot has already passed AND not notified yet
+              if (_hasStreamInitialSnapshot && !_notifiedOrderIds.contains(clean)) {
+                _notifiedOrderIds.add(clean);
                 InAppNotificationService.instance.showNotification(
                   senderName: 'New Delivery Dispatch',
                   message: 'Order #$orderCode (${newOrder.merchantName} ➔ ${newOrder.customerName}) is ready for pickup!',
@@ -456,30 +482,23 @@ class DeliveryService extends ChangeNotifier {
                   icon: Icons.two_wheeler_rounded,
                   accentColor: const Color(0xFF0066FF),
                 );
+              } else {
+                _notifiedOrderIds.add(clean);
               }
             }
           } else if (status == 'accepted' ||
               status == 'at_store' ||
               status == 'picked_up' ||
               status == 'in_transit' ||
-              status == 'to_deliver' ||
-              status == 'ready') {
+              status == 'to_deliver') {
             if (availIdx >= 0) {
-              final order = _availableOrders.removeAt(availIdx);
-              if (_activeOrder == null) {
-                _activeOrder = order.copyWith(status: DeliveryStatus.accepted);
-                _activeOrderStage = status == 'in_transit'
-                    ? 3
-                    : status == 'picked_up'
-                        ? 2
-                        : status == 'at_store'
-                            ? 1
-                            : 0;
-              }
+              _availableOrders.removeAt(availIdx);
               notifyListeners();
-            } else if (!isMatchActive && _activeOrder == null) {
+            }
+            // Only restore active order if assigned to THIS rider
+            if (isMyDelivery && _activeOrder == null) {
               _activeOrder = _createDeliveryOrderFromRow(orderCode, row).copyWith(status: DeliveryStatus.accepted);
-              _activeOrderStage = status == 'in_transit'
+              _activeOrderStage = status == 'in_transit' || status == 'to_deliver'
                   ? 3
                   : status == 'picked_up'
                       ? 2
@@ -497,6 +516,7 @@ class DeliveryService extends ChangeNotifier {
             }
           }
         }
+        _hasStreamInitialSnapshot = true;
       });
     } catch (e) {
       debugPrint('⚠️ DeliveryService Supabase listener notice: $e');
@@ -562,7 +582,7 @@ class DeliveryService extends ChangeNotifier {
 
     if (!isSupabaseReady) return;
     try {
-      _updateOrderRowInSupabase(clean, status, proofPhoto: proofPhoto);
+      _updateOrderRowInSupabase(clean, status, isAccepting: isAccepting, proofPhoto: proofPhoto);
 
       final statusPayload = <String, dynamic>{
         'order_id': clean,
@@ -609,8 +629,13 @@ class DeliveryService extends ChangeNotifier {
     }
   }
 
-  Future<void> _updateOrderRowInSupabase(String clean, String status, {String? proofPhoto}) async {
+  Future<void> _updateOrderRowInSupabase(String clean, String status, {bool isAccepting = false, String? proofPhoto}) async {
     final updateData = <String, dynamic>{'status': status};
+    if (isAccepting) {
+      updateData['courier_name'] = RiderService.instance.profile.name;
+      updateData['rider_id'] = RiderService.instance.profile.id;
+      updateData['is_rider_accepted'] = true;
+    }
     if (proofPhoto != null && proofPhoto.isNotEmpty) {
       updateData['proof_photo'] = proofPhoto;
     }

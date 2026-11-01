@@ -118,7 +118,7 @@ class EarningsSummaryCard extends StatelessWidget {
                     label: 'Rating',
                     value: '${profile.rating} ★',
                     icon: Icons.star_rounded,
-                    color: Colors.amber.shade700,
+                    color: RiderTheme.primary,
                   ),
                   _dividerVertical(),
                   _statItem(

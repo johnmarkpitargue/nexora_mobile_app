@@ -51,7 +51,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
             const SizedBox(height: 18),
             const Row(
               children: [
-                Icon(Icons.schedule_rounded, color: Color(0xFF0284C7)),
+                Icon(Icons.schedule_rounded, color: Color(0xFF0066FF)),
                 SizedBox(width: 8),
                 Text(
                   'Auto-Cashout Settings',
@@ -92,7 +92,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
                     style: TextStyle(
                       fontWeight: FontWeight.w900,
                       fontSize: 13,
-                      color: Color(0xFF0284C7),
+                      color: Color(0xFF0066FF),
                     ),
                   ),
                 ],
@@ -108,12 +108,12 @@ class _EarningsScreenState extends State<EarningsScreen> {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
                       content: Text('Auto-cashout schedule confirmed for 11:00 PM daily.'),
-                      backgroundColor: Color(0xFF0284C7),
+                      backgroundColor: Color(0xFF0066FF),
                     ),
                   );
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF0284C7),
+                  backgroundColor: const Color(0xFF0066FF),
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),
@@ -192,7 +192,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w900,
-                      color: held > 0 ? const Color(0xFFD97706) : const Color(0xFF047857),
+                      color: held > 0 ? const Color(0xFFD97706) : const Color(0xFF10B981),
                     ),
                   ),
                 ),
@@ -217,7 +217,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
                   children: [
                     const Row(
                       children: [
-                        Icon(Icons.verified_rounded, color: Color(0xFF059669), size: 20),
+                        Icon(Icons.verified_rounded, color: Color(0xFF10B981), size: 20),
                         SizedBox(width: 8),
                         Text(
                           'Zero Pending COD Cash',
@@ -228,7 +228,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
                     const SizedBox(height: 6),
                     const Text(
                       'All Cash on Delivery payments have been remitted. Your dispatch standing is 100% active with zero holds.',
-                      style: TextStyle(fontSize: 12, color: Color(0xFF047857)),
+                      style: TextStyle(fontSize: 12, color: Color(0xFF10B981)),
                     ),
                     const SizedBox(height: 8),
                     TextButton.icon(
@@ -254,7 +254,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
                     borderRadius: BorderRadius.circular(14),
                     side: const BorderSide(color: Color(0xFFE2E8F0)),
                   ),
-                  leading: const Icon(Icons.qr_code_2_rounded, color: Color(0xFF0284C7)),
+                  leading: const Icon(Icons.qr_code_2_rounded, color: Color(0xFF0066FF)),
                   title: const Text('Remit via GCash / Maya Direct',
                       style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
                   subtitle: const Text('Zero convenience fees • Instant clearance',
@@ -275,7 +275,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
                     borderRadius: BorderRadius.circular(14),
                     side: const BorderSide(color: Color(0xFFE2E8F0)),
                   ),
-                  leading: const Icon(Icons.storefront_rounded, color: Color(0xFF047857)),
+                  leading: const Icon(Icons.storefront_rounded, color: Color(0xFF10B981)),
                   title: const Text('Hub Counter Deposit (Pasig Central)',
                       style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
                   subtitle: const Text('Hand to Dispatcher at Hub 4B counter',
@@ -313,7 +313,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
         builder: (modalCtx, setModalState) {
           final isGCash = selectedWallet == 'GCash';
           final primaryColor = isGCash ? const Color(0xFF005CE6) : const Color(0xFF00D084);
-          final primaryDark = isGCash ? const Color(0xFF0044B3) : const Color(0xFF059669);
+          final primaryDark = isGCash ? const Color(0xFF0044B3) : const Color(0xFF10B981);
 
           return Padding(
             padding: EdgeInsets.only(
@@ -473,7 +473,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
                                     Icon(
                                       Icons.check_circle_rounded,
                                       size: 15,
-                                      color: !isGCash ? const Color(0xFF059669) : Colors.transparent,
+                                      color: !isGCash ? const Color(0xFF10B981) : Colors.transparent,
                                     ),
                                     const SizedBox(width: 4),
                                     Text(
@@ -481,7 +481,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
                                       style: TextStyle(
                                         fontSize: 12.5,
                                         fontWeight: FontWeight.w800,
-                                        color: !isGCash ? const Color(0xFF059669) : const Color(0xFF64748B),
+                                        color: !isGCash ? const Color(0xFF10B981) : const Color(0xFF64748B),
                                       ),
                                     ),
                                   ],
@@ -879,7 +879,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
                         const Expanded(
                           child: Row(
                             children: [
-                              Icon(Icons.storefront_rounded, color: Color(0xFF047857), size: 24),
+                              Icon(Icons.storefront_rounded, color: Color(0xFF10B981), size: 24),
                               SizedBox(width: 10),
                               Expanded(
                                 child: Column(
@@ -953,7 +953,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
                                 style: const TextStyle(
                                   fontSize: 24,
                                   fontWeight: FontWeight.w900,
-                                  color: Color(0xFF047857),
+                                  color: Color(0xFF10B981),
                                 ),
                               ),
                             ],
@@ -988,12 +988,12 @@ class _EarningsScreenState extends State<EarningsScreen> {
                               children: [
                                 Row(
                                   children: [
-                                    Icon(Icons.badge_outlined, size: 14, color: Color(0xFF047857)),
+                                    Icon(Icons.badge_outlined, size: 14, color: Color(0xFF10B981)),
                                     SizedBox(width: 6),
                                     Expanded(
                                       child: Text(
                                         'Cashier on Duty: Elena V. (ID: #PV-409)',
-                                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF047857)),
+                                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF10B981)),
                                         overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
@@ -1002,7 +1002,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
                                 SizedBox(height: 4),
                                 Row(
                                   children: [
-                                    Icon(Icons.access_time_rounded, size: 14, color: Color(0xFF047857)),
+                                    Icon(Icons.access_time_rounded, size: 14, color: Color(0xFF10B981)),
                                     SizedBox(width: 6),
                                     Expanded(
                                       child: Text(
@@ -1049,7 +1049,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
                                 );
                               },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF047857),
+                          backgroundColor: const Color(0xFF10B981),
                           foregroundColor: Colors.white,
                           elevation: 0,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -1108,7 +1108,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
                 color: Color(0xFFDCFCE7),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.check_circle_rounded, color: Color(0xFF059669), size: 36),
+              child: const Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 36),
             ),
             const SizedBox(height: 14),
             const Text(
@@ -1302,7 +1302,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
             const SizedBox(height: 18),
             const Row(
               children: [
-                Icon(Icons.bolt_rounded, color: Color(0xFF059669)),
+                Icon(Icons.bolt_rounded, color: Color(0xFF10B981)),
                 SizedBox(width: 8),
                 Text(
                   'Weekend Surge Quest',
@@ -1326,7 +1326,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
                 value: 14 / 18,
                 minHeight: 10,
                 backgroundColor: Color(0xFFE2E8F0),
-                valueColor: AlwaysStoppedAnimation(Color(0xFF059669)),
+                valueColor: AlwaysStoppedAnimation(Color(0xFF10B981)),
               ),
             ),
             const SizedBox(height: 10),
@@ -1338,7 +1338,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w800,
-                    color: Color(0xFF059669),
+                    color: Color(0xFF10B981),
                   ),
                 ),
                 Text(
@@ -1421,7 +1421,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
                       fontWeight: FontWeight.w900,
                       fontSize: 16,
                       color: txn.amount >= 0
-                          ? const Color(0xFF059669)
+                          ? const Color(0xFF10B981)
                           : const Color(0xFFEF4444),
                     ),
                   ),
@@ -1525,7 +1525,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
                           width: 7,
                           height: 7,
                           decoration: const BoxDecoration(
-                            color: Color(0xFF00C4FF),
+                            color: Color(0xFF0066FF),
                             shape: BoxShape.circle,
                           ),
                         ),
@@ -1629,7 +1629,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Icon(Icons.account_balance_wallet_rounded,
-                                      size: 13, color: Color(0xFF00C4FF)),
+                                      size: 13, color: Color(0xFF0066FF)),
                                   SizedBox(width: 5),
                                   Text(
                                     'GCash ••8291',
@@ -1666,7 +1666,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
                             ),
                           ),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF00C4FF),
+                            backgroundColor: const Color(0xFF0066FF),
                             foregroundColor: const Color(0xFF0F172A),
                             elevation: 0,
                             shape: RoundedRectangleBorder(
@@ -1692,7 +1692,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
                               child: Row(
                                 children: [
                                   Icon(Icons.access_time_rounded,
-                                      size: 14, color: Color(0xFF38BDF8)),
+                                      size: 14, color: Color(0xFF0066FF)),
                                   SizedBox(width: 6),
                                   Flexible(
                                     child: Text(
@@ -1714,7 +1714,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
                               child: const Text(
                                 'Manage',
                                 style: TextStyle(
-                                  color: Color(0xFF38BDF8),
+                                  color: Color(0xFF0066FF),
                                   fontSize: 11.5,
                                   fontWeight: FontWeight.w800,
                                 ),
@@ -1757,7 +1757,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
                           ),
                           child: const Icon(
                             Icons.payments_outlined,
-                            color: Color(0xFF0284C7),
+                            color: Color(0xFF0066FF),
                             size: 20,
                           ),
                         ),
@@ -1805,7 +1805,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
                                 style: TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w900,
-                                  color: isCleared ? const Color(0xFF047857) : const Color(0xFFD97706),
+                                  color: isCleared ? const Color(0xFF10B981) : const Color(0xFFD97706),
                                 ),
                               ),
                             );
@@ -1854,7 +1854,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
                                     ),
                                     child: const Icon(
                                       Icons.bolt_rounded,
-                                      color: Color(0xFF059669),
+                                      color: Color(0xFF10B981),
                                       size: 18,
                                     ),
                                   ),
@@ -1870,7 +1870,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
                                       style: TextStyle(
                                         fontSize: 10,
                                         fontWeight: FontWeight.w800,
-                                        color: Color(0xFF059669),
+                                        color: Color(0xFF10B981),
                                       ),
                                     ),
                                   ),
@@ -1891,7 +1891,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
                                 style: TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w800,
-                                  color: Color(0xFF059669),
+                                  color: Color(0xFF10B981),
                                 ),
                               ),
                             ],
@@ -2031,7 +2031,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w900,
-                              color: Color(0xFF0284C7),
+                              color: Color(0xFF0066FF),
                             ),
                           ),
                         ),
@@ -2116,7 +2116,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
                                         : Icons.arrow_upward_rounded),
                                 size: 18,
                                 color: isPositive
-                                    ? const Color(0xFF059669)
+                                    ? const Color(0xFF10B981)
                                     : const Color(0xFFEF4444),
                               ),
                             ),
@@ -2153,7 +2153,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
                                             style: TextStyle(
                                               fontSize: 9,
                                               fontWeight: FontWeight.w900,
-                                              color: Color(0xFF047857),
+                                              color: Color(0xFF10B981),
                                             ),
                                           ),
                                         ),
@@ -2182,7 +2182,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
                                     fontSize: 13.5,
                                     fontWeight: FontWeight.w900,
                                     color: isPositive
-                                        ? const Color(0xFF059669)
+                                        ? const Color(0xFF10B981)
                                         : const Color(0xFFEF4444),
                                   ),
                                 ),

@@ -205,7 +205,7 @@ class _CashOutScreenState extends State<CashOutScreen> {
                             style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w800,
-                                color: Color(0xFF059669))),
+                                color: Color(0xFF10B981))),
                       ],
                     ),
                     const SizedBox(height: 6),
@@ -240,7 +240,7 @@ class _CashOutScreenState extends State<CashOutScreen> {
                     Navigator.pop(context); // Return to Earnings page
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF00C4FF),
+                    backgroundColor: const Color(0xFF0066FF),
                     foregroundColor: const Color(0xFF0F172A),
                     elevation: 0,
                     shape: RoundedRectangleBorder(
@@ -334,7 +334,7 @@ class _CashOutScreenState extends State<CashOutScreen> {
                         style: TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.w900,
-                          color: Color(0xFF38BDF8),
+                          color: Color(0xFF0066FF),
                         ),
                       ),
                       const SizedBox(width: 4),
@@ -356,7 +356,7 @@ class _CashOutScreenState extends State<CashOutScreen> {
                       Row(
                         children: [
                           Icon(Icons.bolt_rounded,
-                              size: 15, color: Color(0xFF38BDF8)),
+                              size: 15, color: Color(0xFF0066FF)),
                           SizedBox(width: 4),
                           Text(
                             '0 Transfer Fee Applied',
@@ -371,7 +371,7 @@ class _CashOutScreenState extends State<CashOutScreen> {
                       Text(
                         'Nexora FastPay™',
                         style: TextStyle(
-                          color: Color(0xFF38BDF8),
+                          color: Color(0xFF0066FF),
                           fontSize: 11,
                           fontWeight: FontWeight.w800,
                         ),
@@ -400,7 +400,7 @@ class _CashOutScreenState extends State<CashOutScreen> {
                       const Row(
                         children: [
                           Icon(Icons.account_balance_wallet_outlined,
-                              size: 16, color: Color(0xFF0284C7)),
+                              size: 16, color: Color(0xFF0066FF)),
                           SizedBox(width: 6),
                           Text(
                             'Transfer Destination',
@@ -419,7 +419,7 @@ class _CashOutScreenState extends State<CashOutScreen> {
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w800,
-                            color: Color(0xFF0284C7),
+                            color: Color(0xFF0066FF),
                           ),
                         ),
                       ),
@@ -478,7 +478,7 @@ class _CashOutScreenState extends State<CashOutScreen> {
                                 style: const TextStyle(
                                   fontSize: 10.5,
                                   fontWeight: FontWeight.w800,
-                                  color: Color(0xFF0284C7),
+                                  color: Color(0xFF0066FF),
                                 ),
                               ),
                             ],
@@ -526,7 +526,7 @@ class _CashOutScreenState extends State<CashOutScreen> {
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w900,
-                            color: Color(0xFF0284C7),
+                            color: Color(0xFF0066FF),
                           ),
                         ),
                       ),
@@ -645,7 +645,7 @@ class _CashOutScreenState extends State<CashOutScreen> {
                           style: TextStyle(
                             fontSize: 22,
                             fontWeight: FontWeight.w900,
-                            color: Color(0xFF0284C7),
+                            color: Color(0xFF0066FF),
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -704,7 +704,7 @@ class _CashOutScreenState extends State<CashOutScreen> {
                   const Row(
                     children: [
                       Icon(Icons.speed_rounded,
-                          size: 14, color: Color(0xFF0284C7)),
+                          size: 14, color: Color(0xFF0066FF)),
                       SizedBox(width: 6),
                       Text(
                         'Daily cash out left: ',
@@ -797,7 +797,7 @@ class _CashOutScreenState extends State<CashOutScreen> {
                           style: TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.w900,
-                            color: Color(0xFF047857),
+                            color: Color(0xFF10B981),
                           ),
                         ),
                       ),
@@ -825,7 +825,7 @@ class _CashOutScreenState extends State<CashOutScreen> {
                           style: TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.w900,
-                            color: Color(0xFF047857),
+                            color: Color(0xFF10B981),
                           ),
                         ),
                       ),
@@ -851,7 +851,7 @@ class _CashOutScreenState extends State<CashOutScreen> {
                         style: const TextStyle(
                           fontSize: 17,
                           fontWeight: FontWeight.w900,
-                          color: Color(0xFF0284C7),
+                          color: Color(0xFF0066FF),
                         ),
                       ),
                     ],
@@ -868,7 +868,7 @@ class _CashOutScreenState extends State<CashOutScreen> {
               child: ElevatedButton(
                 onPressed: _isProcessing ? null : _onConfirmCashOut,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF00C4FF),
+                  backgroundColor: const Color(0xFF0066FF),
                   foregroundColor: const Color(0xFF0F172A),
                   elevation: 0,
                   shape: RoundedRectangleBorder(
@@ -911,7 +911,7 @@ class _CashOutScreenState extends State<CashOutScreen> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(Icons.lock_outline_rounded,
-                          size: 13, color: Color(0xFF0284C7)),
+                          size: 13, color: Color(0xFF0066FF)),
                       SizedBox(width: 4),
                       Text(
                         'Protected by 256-Bit Financial Encryption & Biometrics',
@@ -950,7 +950,7 @@ class _CashOutScreenState extends State<CashOutScreen> {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 9),
           decoration: BoxDecoration(
-            color: isSelected ? const Color(0xFF00C4FF) : const Color(0xFFF1F5F9),
+            color: isSelected ? const Color(0xFF0066FF) : const Color(0xFFF1F5F9),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Center(
@@ -980,7 +980,7 @@ class _CashOutScreenState extends State<CashOutScreen> {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 9),
           decoration: BoxDecoration(
-            color: isSelected ? const Color(0xFF00C4FF) : const Color(0xFFF1F5F9),
+            color: isSelected ? const Color(0xFF0066FF) : const Color(0xFFF1F5F9),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Center(
@@ -991,7 +991,7 @@ class _CashOutScreenState extends State<CashOutScreen> {
                 fontWeight: FontWeight.w900,
                 color: isSelected
                     ? const Color(0xFF0F172A)
-                    : const Color(0xFF0284C7),
+                    : const Color(0xFF0066FF),
               ),
             ),
           ),

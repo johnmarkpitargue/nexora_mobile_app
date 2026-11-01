@@ -19,7 +19,7 @@ class OnlineStatusCard extends StatelessWidget {
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: isOnline
-                  ? [RiderTheme.darkNavy, const Color(0xFF13224F)]
+                  ? [const Color(0xFF0F172A), const Color(0xFF1E293B)]
                   : [const Color(0xFF1E293B), const Color(0xFF0F172A)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,

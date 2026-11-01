@@ -331,7 +331,7 @@ class _TopNotificationBannerState extends State<_TopNotificationBanner>
                         gradient: const LinearGradient(
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
-                          colors: [Color(0xFF0066FF), Color(0xFF00D2FF)],
+                          colors: [Color(0xFF0066FF), Color(0xFF0066FF)],
                         ),
                         borderRadius: BorderRadius.circular(12),
                         boxShadow: [
@@ -586,7 +586,7 @@ class _NotificationHistorySheetState extends State<_NotificationHistorySheet> {
                     ),
                     child: const Icon(
                       Icons.notifications_active_rounded,
-                      color: Color(0xFF00D2FF),
+                      color: Color(0xFF0066FF),
                       size: 20,
                     ),
                   ),
@@ -745,13 +745,13 @@ class _NotificationHistorySheetState extends State<_NotificationHistorySheet> {
                             icon: const Icon(
                               Icons.volume_up_rounded,
                               size: 15,
-                              color: Color(0xFF00D2FF),
+                              color: Color(0xFF0066FF),
                             ),
                             label: const Text(
                               'Test Sound & Vibrate',
                               style: TextStyle(
                                 fontSize: 12,
-                                color: Color(0xFF00D2FF),
+                                color: Color(0xFF0066FF),
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -920,7 +920,7 @@ class _NotificationHistorySheetState extends State<_NotificationHistorySheet> {
                                           .withValues(alpha: 0.22),
                                       borderRadius: BorderRadius.circular(8),
                                       border: Border.all(
-                                        color: const Color(0xFF00D2FF)
+                                        color: const Color(0xFF0066FF)
                                             .withValues(alpha: 0.45),
                                         width: 0.8,
                                       ),
@@ -931,7 +931,7 @@ class _NotificationHistorySheetState extends State<_NotificationHistorySheet> {
                                         Text(
                                           'VIEW',
                                           style: TextStyle(
-                                            color: Color(0xFF00D2FF),
+                                            color: Color(0xFF0066FF),
                                             fontSize: 10.5,
                                             fontWeight: FontWeight.w800,
                                             letterSpacing: 0.4,
@@ -940,7 +940,7 @@ class _NotificationHistorySheetState extends State<_NotificationHistorySheet> {
                                         SizedBox(width: 3),
                                         Icon(
                                           Icons.arrow_forward_ios_rounded,
-                                          color: Color(0xFF00D2FF),
+                                          color: Color(0xFF0066FF),
                                           size: 10,
                                         ),
                                       ],

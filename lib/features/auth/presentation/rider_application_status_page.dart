@@ -116,7 +116,7 @@ class _RiderApplicationStatusPageState
                 const Row(
                   children: [
                     Icon(Icons.ondemand_video_rounded,
-                        color: Color(0xFF00D2FF), size: 20),
+                        color: Color(0xFF0066FF), size: 20),
                     SizedBox(width: 8),
                     Text(
                       'Rider Safety & Delivery Tips',
@@ -153,12 +153,12 @@ class _RiderApplicationStatusPageState
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF00D2FF).withValues(alpha: 0.2),
+                          color: const Color(0xFF0066FF).withValues(alpha: 0.2),
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(
                           Icons.play_arrow_rounded,
-                          color: Color(0xFF00D2FF),
+                          color: Color(0xFF0066FF),
                           size: 40,
                         ),
                       ),
@@ -195,12 +195,12 @@ class _RiderApplicationStatusPageState
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
                       content: Text('Orientation module completed!'),
-                      backgroundColor: Color(0xFF059669),
+                      backgroundColor: Color(0xFF10B981),
                     ),
                   );
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF00D2FF),
+                  backgroundColor: const Color(0xFF0066FF),
                   foregroundColor: const Color(0xFF0F172A),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -310,7 +310,7 @@ class _RiderApplicationStatusPageState
                     height: 62,
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
-                        colors: [Color(0xFF00D2FF), Color(0xFF0284C7)],
+                        colors: [Color(0xFF0066FF), Color(0xFF0066FF)],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
@@ -318,7 +318,7 @@ class _RiderApplicationStatusPageState
                       boxShadow: [
                         BoxShadow(
                           color:
-                              const Color(0xFF0284C7).withValues(alpha: 0.3),
+                              const Color(0xFF0066FF).withValues(alpha: 0.3),
                           blurRadius: 12,
                           offset: const Offset(0, 4),
                         ),
@@ -345,7 +345,7 @@ class _RiderApplicationStatusPageState
                       children: [
                         Icon(
                           Icons.circle,
-                          color: Color(0xFF0284C7),
+                          color: Color(0xFF0066FF),
                           size: 7,
                         ),
                         SizedBox(width: 6),
@@ -354,7 +354,7 @@ class _RiderApplicationStatusPageState
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w800,
-                            color: Color(0xFF0284C7),
+                            color: Color(0xFF0066FF),
                             fontFamily: RiderTheme.fontFamily,
                           ),
                         ),
@@ -428,7 +428,7 @@ class _RiderApplicationStatusPageState
                               style: TextStyle(
                                 fontSize: 11.5,
                                 fontWeight: FontWeight.w900,
-                                color: Color(0xFF0284C7),
+                                color: Color(0xFF0066FF),
                                 letterSpacing: 0.5,
                                 fontFamily: RiderTheme.fontFamily,
                               ),
@@ -460,7 +460,7 @@ class _RiderApplicationStatusPageState
                           ),
                           child: const Icon(
                             Icons.bolt_rounded,
-                            color: Color(0xFF0284C7),
+                            color: Color(0xFF0066FF),
                             size: 16,
                           ),
                         ),
@@ -517,7 +517,7 @@ class _RiderApplicationStatusPageState
                         children: [
                           Icon(
                             Icons.shield_outlined,
-                            color: Color(0xFF0284C7),
+                            color: Color(0xFF0066FF),
                             size: 18,
                           ),
                           SizedBox(width: 8),
@@ -609,7 +609,7 @@ class _RiderApplicationStatusPageState
                       style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.w900,
-                        color: Color(0xFF0284C7),
+                        color: Color(0xFF0066FF),
                         letterSpacing: 0.6,
                         fontFamily: RiderTheme.fontFamily,
                       ),
@@ -634,7 +634,7 @@ class _RiderApplicationStatusPageState
                   ),
                   child: const Icon(
                     Icons.inventory_2_outlined,
-                    color: Color(0xFF0284C7),
+                    color: Color(0xFF0066FF),
                     size: 18,
                   ),
                 ),
@@ -668,7 +668,7 @@ class _RiderApplicationStatusPageState
                     title: 'Thermal Bag',
                     subtitle: '50L Proof',
                     icon: Icons.backpack_rounded,
-                    accentColor: const Color(0xFF0284C7),
+                    accentColor: const Color(0xFF0066FF),
                   ),
                 ),
               ],
@@ -699,7 +699,7 @@ class _RiderApplicationStatusPageState
                           ),
                           child: const Icon(
                             Icons.location_on_outlined,
-                            color: Color(0xFF0284C7),
+                            color: Color(0xFF0066FF),
                             size: 18,
                           ),
                         ),
@@ -792,7 +792,7 @@ class _RiderApplicationStatusPageState
                                   children: [
                                     Icon(
                                       Icons.storefront_rounded,
-                                      color: Color(0xFF00D2FF),
+                                      color: Color(0xFF0066FF),
                                       size: 13,
                                     ),
                                     SizedBox(width: 5),
@@ -830,7 +830,7 @@ class _RiderApplicationStatusPageState
                                   ),
                                 ),
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF00D2FF),
+                                  backgroundColor: const Color(0xFF0066FF),
                                   foregroundColor: Colors.white,
                                   elevation: 0,
                                   padding: const EdgeInsets.symmetric(
@@ -883,7 +883,7 @@ class _RiderApplicationStatusPageState
                             children: [
                               Icon(
                                 Icons.play_circle_outline_rounded,
-                                color: Color(0xFF00D2FF),
+                                color: Color(0xFF0066FF),
                                 size: 14,
                               ),
                               SizedBox(width: 5),
@@ -892,7 +892,7 @@ class _RiderApplicationStatusPageState
                                 style: TextStyle(
                                   fontSize: 10,
                                   fontWeight: FontWeight.w900,
-                                  color: Color(0xFF00D2FF),
+                                  color: Color(0xFF0066FF),
                                   letterSpacing: 0.5,
                                   fontFamily: RiderTheme.fontFamily,
                                 ),
@@ -927,7 +927,7 @@ class _RiderApplicationStatusPageState
                       width: 44,
                       height: 44,
                       decoration: const BoxDecoration(
-                        color: Color(0xFF00D2FF),
+                        color: Color(0xFF0066FF),
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(
@@ -948,14 +948,14 @@ class _RiderApplicationStatusPageState
               height: 52,
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
-                  colors: [Color(0xFF00D2FF), Color(0xFF0284C7)],
+                  colors: [Color(0xFF0066FF), Color(0xFF0066FF)],
                   begin: Alignment.centerLeft,
                   end: Alignment.centerRight,
                 ),
                 borderRadius: BorderRadius.circular(14),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF0284C7).withValues(alpha: 0.35),
+                    color: const Color(0xFF0066FF).withValues(alpha: 0.35),
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),
@@ -1018,7 +1018,7 @@ class _RiderApplicationStatusPageState
                     ),
                     child: const Icon(
                       Icons.headset_mic_outlined,
-                      color: Color(0xFF0284C7),
+                      color: Color(0xFF0066FF),
                       size: 18,
                     ),
                   ),
@@ -1067,14 +1067,14 @@ class _RiderApplicationStatusPageState
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(Icons.call_rounded,
-                            size: 12, color: Color(0xFF0284C7)),
+                            size: 12, color: Color(0xFF0066FF)),
                         SizedBox(width: 4),
                         Text(
                           'Call Now',
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w800,
-                            color: Color(0xFF0284C7),
+                            color: Color(0xFF0066FF),
                             fontFamily: RiderTheme.fontFamily,
                           ),
                         ),
@@ -1179,7 +1179,7 @@ class _RiderApplicationStatusPageState
           width: 24,
           height: 24,
           decoration: const BoxDecoration(
-            color: Color(0xFF059669),
+            color: Color(0xFF10B981),
             shape: BoxShape.circle,
           ),
           child: const Icon(Icons.check_rounded, color: Colors.white, size: 14),
@@ -1195,7 +1195,7 @@ class _RiderApplicationStatusPageState
             style: TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.w800,
-              color: Color(0xFF059669),
+              color: Color(0xFF10B981),
               fontFamily: RiderTheme.fontFamily,
             ),
           ),
@@ -1207,7 +1207,7 @@ class _RiderApplicationStatusPageState
           width: 24,
           height: 24,
           decoration: const BoxDecoration(
-            color: Color(0xFF0284C7),
+            color: Color(0xFF0066FF),
             shape: BoxShape.circle,
           ),
           child: RotationTransition(
@@ -1227,7 +1227,7 @@ class _RiderApplicationStatusPageState
               RotationTransition(
                 turns: _clearanceRollController,
                 child: const Icon(Icons.autorenew_rounded,
-                    size: 11, color: Color(0xFF0284C7)),
+                    size: 11, color: Color(0xFF0066FF)),
               ),
               const SizedBox(width: 4),
               const Text(
@@ -1235,7 +1235,7 @@ class _RiderApplicationStatusPageState
                 style: TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.w800,
-                  color: Color(0xFF0284C7),
+                  color: Color(0xFF0066FF),
                   fontFamily: RiderTheme.fontFamily,
                 ),
               ),
@@ -1287,7 +1287,7 @@ class _RiderApplicationStatusPageState
                   child: Container(
                     width: 2,
                     color: status == _ItemStatus.verified
-                        ? const Color(0xFF059669)
+                        ? const Color(0xFF10B981)
                         : const Color(0xFFE2E8F0),
                   ),
                 ),
@@ -1355,8 +1355,8 @@ class _RiderApplicationStatusPageState
                                       decoration: const BoxDecoration(
                                         gradient: LinearGradient(
                                           colors: [
-                                            Color(0xFF00D2FF),
-                                            Color(0xFF0284C7),
+                                            Color(0xFF0066FF),
+                                            Color(0xFF0066FF),
                                           ],
                                         ),
                                       ),
@@ -1404,7 +1404,7 @@ class _RiderApplicationStatusPageState
                                   style: TextStyle(
                                     fontSize: 9.5,
                                     fontWeight: FontWeight.w700,
-                                    color: Color(0xFF0284C7),
+                                    color: Color(0xFF0066FF),
                                     fontFamily: RiderTheme.fontFamily,
                                   ),
                                 ),
@@ -1413,7 +1413,7 @@ class _RiderApplicationStatusPageState
                                   style: TextStyle(
                                     fontSize: 9.5,
                                     fontWeight: FontWeight.w900,
-                                    color: Color(0xFF0284C7),
+                                    color: Color(0xFF0066FF),
                                     fontFamily: RiderTheme.fontFamily,
                                   ),
                                 ),
@@ -1475,10 +1475,10 @@ class _MiniMapPainter extends CustomPainter {
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3);
     canvas.drawCircle(pinCenter.translate(0, 4), 6, shadowPaint);
 
-    final hubPinPaint = Paint()..color = const Color(0xFF00D2FF);
+    final hubPinPaint = Paint()..color = const Color(0xFF0066FF);
     canvas.drawCircle(pinCenter, 8, hubPinPaint);
 
-    final hubPinInnerPaint = Paint()..color = const Color(0xFF0284C7);
+    final hubPinInnerPaint = Paint()..color = const Color(0xFF0066FF);
     canvas.drawCircle(pinCenter, 4, hubPinInnerPaint);
   }
 

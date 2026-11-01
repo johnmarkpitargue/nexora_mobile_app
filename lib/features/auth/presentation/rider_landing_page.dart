@@ -187,7 +187,7 @@ class _RiderLandingPageState extends State<RiderLandingPage>
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w900,
-                            color: Color(0xFF0284C7),
+                            color: Color(0xFF0066FF),
                             letterSpacing: 0.6,
                           ),
                         ),
@@ -286,7 +286,7 @@ class _RiderLandingPageState extends State<RiderLandingPage>
                           height: 7,
                           decoration: BoxDecoration(
                             color: isActive
-                                ? const Color(0xFF00D2FF)
+                                ? const Color(0xFF0066FF)
                                 : const Color(0xFFCBD5E1),
                             borderRadius: BorderRadius.circular(4),
                           ),
@@ -321,8 +321,8 @@ class _RiderLandingPageState extends State<RiderLandingPage>
                           child: Stack(
                             children: [
                               _avatarCircle(0, 'JD', const Color(0xFF0F172A)),
-                              _avatarCircle(18, 'MR', const Color(0xFF0284C7)),
-                              _avatarCircle(36, 'KL', const Color(0xFF00D2FF)),
+                              _avatarCircle(18, 'MR', const Color(0xFF0066FF)),
+                              _avatarCircle(36, 'KL', const Color(0xFF0066FF)),
                             ],
                           ),
                         ),
@@ -366,7 +366,7 @@ class _RiderLandingPageState extends State<RiderLandingPage>
                             style: TextStyle(
                               fontSize: 10.5,
                               fontWeight: FontWeight.w800,
-                              color: Color(0xFF0284C7),
+                              color: Color(0xFF0066FF),
                             ),
                           ),
                         ),
@@ -401,7 +401,7 @@ class _RiderLandingPageState extends State<RiderLandingPage>
         border: Border.all(color: const Color(0xFFE2E8F0)),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF0284C7).withValues(alpha: 0.08),
+            color: const Color(0xFF0066FF).withValues(alpha: 0.08),
             blurRadius: 18,
             offset: const Offset(0, 6),
           ),
@@ -423,7 +423,7 @@ class _RiderLandingPageState extends State<RiderLandingPage>
                 ),
                 child: Icon(
                   slide.icon,
-                  color: const Color(0xFF0284C7),
+                  color: const Color(0xFF0066FF),
                   size: 22,
                 ),
               ),
@@ -440,7 +440,7 @@ class _RiderLandingPageState extends State<RiderLandingPage>
                   style: const TextStyle(
                     fontSize: 11.5,
                     fontWeight: FontWeight.w800,
-                    color: Color(0xFF0284C7),
+                    color: Color(0xFF0066FF),
                   ),
                 ),
               ),
@@ -546,8 +546,8 @@ class _RiderLandingPageState extends State<RiderLandingPage>
         borderRadius: BorderRadius.circular(28),
         gradient: const LinearGradient(
           colors: [
-            Color(0xFF00D2FF), // Electric Cyan
-            Color(0xFF0284C7), // Sky Blue
+            Color(0xFF0066FF), // Electric Cyan
+            Color(0xFF0066FF), // Sky Blue
             Color(0xFF0369A1), // Deep Ocean
           ],
           begin: Alignment.centerLeft,
@@ -555,7 +555,7 @@ class _RiderLandingPageState extends State<RiderLandingPage>
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF00D2FF).withValues(alpha: 0.4),
+            color: const Color(0xFF0066FF).withValues(alpha: 0.4),
             blurRadius: 18,
             offset: const Offset(0, 8),
           ),
@@ -607,7 +607,7 @@ class _RiderLandingPageState extends State<RiderLandingPage>
                 TextSpan(
                   text: '(02) 8888–RIDE',
                   style: TextStyle(
-                    color: Color(0xFF0284C7),
+                    color: Color(0xFF0066FF),
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -635,7 +635,7 @@ class _RiderLandingPageState extends State<RiderLandingPage>
                   style: TextStyle(
                     fontSize: 10.5,
                     fontWeight: FontWeight.w800,
-                    color: Color(0xFF0284C7),
+                    color: Color(0xFF0066FF),
                   ),
                 ),
               ],
@@ -676,13 +676,13 @@ class _RiderLandingPageState extends State<RiderLandingPage>
                 MaterialPageRoute(builder: (_) => const AddRiderPage()),
               );
             },
-            icon: const Icon(Icons.business_center_outlined, size: 16, color: Color(0xFF0284C7)),
+            icon: const Icon(Icons.business_center_outlined, size: 16, color: Color(0xFF0066FF)),
             label: const Text(
               'Logistics Admin: Add Rider Form',
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
-                color: Color(0xFF0284C7),
+                color: Color(0xFF0066FF),
               ),
             ),
           ),
@@ -739,8 +739,8 @@ class _FluidVelocityBgPainter extends CustomPainter {
     final orb1Paint = Paint()
       ..shader = RadialGradient(
         colors: [
-          const Color(0xFF00C4FF).withValues(alpha: 0.32),
-          const Color(0xFF00C4FF).withValues(alpha: 0.16),
+          const Color(0xFF0066FF).withValues(alpha: 0.32),
+          const Color(0xFF0066FF).withValues(alpha: 0.16),
           const Color(0xFF00779E).withValues(alpha: 0.06),
           Colors.transparent,
         ],
@@ -760,7 +760,7 @@ class _FluidVelocityBgPainter extends CustomPainter {
       ..shader = RadialGradient(
         colors: [
           const Color(0xFF00779E).withValues(alpha: 0.28),
-          const Color(0xFF00C4FF).withValues(alpha: 0.14),
+          const Color(0xFF0066FF).withValues(alpha: 0.14),
           const Color(0xFF00779E).withValues(alpha: 0.05),
           Colors.transparent,
         ],
@@ -778,7 +778,7 @@ class _FluidVelocityBgPainter extends CustomPainter {
     final orb3Paint = Paint()
       ..shader = RadialGradient(
         colors: [
-          const Color(0xFF00C4FF).withValues(alpha: 0.15),
+          const Color(0xFF0066FF).withValues(alpha: 0.15),
           const Color(0xFF00779E).withValues(alpha: 0.06),
           Colors.transparent,
         ],
@@ -800,11 +800,11 @@ class _FluidVelocityBgPainter extends CustomPainter {
       ..strokeWidth = 1.4
       ..shader = LinearGradient(
         colors: [
-          const Color(0xFF00C4FF).withValues(alpha: 0.0),
-          const Color(0xFF00C4FF).withValues(alpha: 0.20 + 0.16 * pulse1),
+          const Color(0xFF0066FF).withValues(alpha: 0.0),
+          const Color(0xFF0066FF).withValues(alpha: 0.20 + 0.16 * pulse1),
           const Color(0xFF00E5FF).withValues(alpha: 0.35 + 0.15 * pulse1),
-          const Color(0xFF00C4FF).withValues(alpha: 0.20 + 0.16 * pulse1),
-          const Color(0xFF00C4FF).withValues(alpha: 0.0),
+          const Color(0xFF0066FF).withValues(alpha: 0.20 + 0.16 * pulse1),
+          const Color(0xFF0066FF).withValues(alpha: 0.0),
         ],
         stops: const [0.0, 0.20, 0.50, 0.80, 1.0],
       ).createShader(Rect.fromLTWH(0, y1 - 2, w, 4));
@@ -816,7 +816,7 @@ class _FluidVelocityBgPainter extends CustomPainter {
       ..shader = LinearGradient(
         colors: [
           Colors.transparent,
-          const Color(0xFF00C4FF).withValues(alpha: 0.08 + 0.05 * pulse1),
+          const Color(0xFF0066FF).withValues(alpha: 0.08 + 0.05 * pulse1),
           Colors.transparent,
         ],
         stops: const [0.0, 0.50, 1.0],
@@ -830,9 +830,9 @@ class _FluidVelocityBgPainter extends CustomPainter {
       ..strokeWidth = 1.0
       ..shader = LinearGradient(
         colors: [
-          const Color(0xFF00C4FF).withValues(alpha: 0.0),
-          const Color(0xFF00C4FF).withValues(alpha: 0.12 + 0.08 * pulse2),
-          const Color(0xFF00C4FF).withValues(alpha: 0.0),
+          const Color(0xFF0066FF).withValues(alpha: 0.0),
+          const Color(0xFF0066FF).withValues(alpha: 0.12 + 0.08 * pulse2),
+          const Color(0xFF0066FF).withValues(alpha: 0.0),
         ],
         stops: const [0.0, 0.50, 1.0],
       ).createShader(Rect.fromLTWH(0, y2 - 2, w, 4));
@@ -884,10 +884,10 @@ class _FluidVelocityBgPainter extends CustomPainter {
         ..strokeCap = StrokeCap.round
         ..shader = LinearGradient(
           colors: [
-            const Color(0xFF00C4FF).withValues(alpha: 0.0),
-            const Color(0xFF00C4FF).withValues(alpha: currentAlpha),
+            const Color(0xFF0066FF).withValues(alpha: 0.0),
+            const Color(0xFF0066FF).withValues(alpha: currentAlpha),
             const Color(0xFF00779E).withValues(alpha: currentAlpha * 0.4),
-            const Color(0xFF00C4FF).withValues(alpha: 0.0),
+            const Color(0xFF0066FF).withValues(alpha: 0.0),
           ],
           stops: const [0.0, 0.50, 0.75, 1.0],
         ).createShader(
@@ -922,13 +922,13 @@ class _FluidVelocityBgPainter extends CustomPainter {
       // 1. Radiant Outer Halo
       final haloPaint = Paint()
         ..style = PaintingStyle.fill
-        ..color = const Color(0xFF00C4FF).withValues(alpha: alpha * 0.26);
+        ..color = const Color(0xFF0066FF).withValues(alpha: alpha * 0.26);
       canvas.drawCircle(Offset(s.x, s.y), s.radius * 3.5, haloPaint);
 
       // 2. Vibrant Inner Core
       final corePaint = Paint()
         ..style = PaintingStyle.fill
-        ..color = const Color(0xFF00C4FF).withValues(alpha: alpha);
+        ..color = const Color(0xFF0066FF).withValues(alpha: alpha);
       canvas.drawCircle(Offset(s.x, s.y), s.radius, corePaint);
 
       // 3. Peak Sparkle Glint Flare

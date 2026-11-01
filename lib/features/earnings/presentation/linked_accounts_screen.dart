@@ -77,7 +77,7 @@ class _LinkedAccountsScreenState extends State<LinkedAccountsScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('✓ ${account.name} is now your primary payout method.'),
-        backgroundColor: const Color(0xFF059669),
+        backgroundColor: const Color(0xFF10B981),
         duration: const Duration(seconds: 2),
       ),
     );
@@ -227,7 +227,7 @@ class _LinkedAccountsScreenState extends State<LinkedAccountsScreen> {
                               ? nameCtrl.text.trim()
                               : 'John Mark Pitargue',
                           icon: Icons.account_balance_rounded,
-                          brandColor: const Color(0xFF0284C7),
+                          brandColor: const Color(0xFF0066FF),
                         ),
                       );
                     });
@@ -236,12 +236,12 @@ class _LinkedAccountsScreenState extends State<LinkedAccountsScreen> {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text('✓ $selectedBank account linked successfully!'),
-                        backgroundColor: const Color(0xFF059669),
+                        backgroundColor: const Color(0xFF10B981),
                       ),
                     );
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF00C4FF),
+                    backgroundColor: const Color(0xFF0066FF),
                     foregroundColor: const Color(0xFF0F172A),
                     elevation: 0,
                     shape: RoundedRectangleBorder(
@@ -305,13 +305,13 @@ class _LinkedAccountsScreenState extends State<LinkedAccountsScreen> {
                         ? FontWeight.w900
                         : FontWeight.w600,
                     color: _payoutSchedule == s
-                        ? const Color(0xFF0284C7)
+                        ? const Color(0xFF0066FF)
                         : const Color(0xFF0F172A),
                   ),
                 ),
                 trailing: _payoutSchedule == s
                     ? const Icon(Icons.check_circle_rounded,
-                        color: Color(0xFF0284C7))
+                        color: Color(0xFF0066FF))
                     : null,
                 onTap: () {
                   setState(() => _payoutSchedule = s);
@@ -369,13 +369,13 @@ class _LinkedAccountsScreenState extends State<LinkedAccountsScreen> {
                         ? FontWeight.w900
                         : FontWeight.w600,
                     color: _minThreshold == t
-                        ? const Color(0xFF0284C7)
+                        ? const Color(0xFF0066FF)
                         : const Color(0xFF0F172A),
                   ),
                 ),
                 trailing: _minThreshold == t
                     ? const Icon(Icons.check_circle_rounded,
-                        color: Color(0xFF0284C7))
+                        color: Color(0xFF0066FF))
                     : null,
                 onTap: () {
                   setState(() => _minThreshold = t);
@@ -443,7 +443,7 @@ class _LinkedAccountsScreenState extends State<LinkedAccountsScreen> {
                     ),
                     child: const Icon(
                       Icons.verified_user_rounded,
-                      color: Color(0xFF0284C7),
+                      color: Color(0xFF0066FF),
                       size: 18,
                     ),
                   ),
@@ -505,7 +505,7 @@ class _LinkedAccountsScreenState extends State<LinkedAccountsScreen> {
                       width: 7,
                       height: 7,
                       decoration: const BoxDecoration(
-                        color: Color(0xFF059669),
+                        color: Color(0xFF10B981),
                         shape: BoxShape.circle,
                       ),
                     ),
@@ -515,7 +515,7 @@ class _LinkedAccountsScreenState extends State<LinkedAccountsScreen> {
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w800,
-                        color: Color(0xFF059669),
+                        color: Color(0xFF10B981),
                       ),
                     ),
                   ],
@@ -585,7 +585,7 @@ class _LinkedAccountsScreenState extends State<LinkedAccountsScreen> {
                                     style: TextStyle(
                                       fontSize: 10,
                                       fontWeight: FontWeight.w800,
-                                      color: Color(0xFF0284C7),
+                                      color: Color(0xFF0066FF),
                                     ),
                                   ),
                                 ),
@@ -631,7 +631,7 @@ class _LinkedAccountsScreenState extends State<LinkedAccountsScreen> {
                         Row(
                           children: [
                             const Icon(Icons.check_circle_rounded,
-                                size: 14, color: Color(0xFF059669)),
+                                size: 14, color: Color(0xFF10B981)),
                             const SizedBox(width: 6),
                             Text(
                               primaryAccount.accountHolder,
@@ -655,7 +655,7 @@ class _LinkedAccountsScreenState extends State<LinkedAccountsScreen> {
                             style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.w800,
-                              color: Color(0xFF047857),
+                              color: Color(0xFF10B981),
                             ),
                           ),
                         ),
@@ -742,7 +742,7 @@ class _LinkedAccountsScreenState extends State<LinkedAccountsScreen> {
                               ),
                               const SizedBox(width: 4),
                               const Icon(Icons.check_circle_rounded,
-                                  size: 13, color: Color(0xFF059669)),
+                                  size: 13, color: Color(0xFF10B981)),
                             ],
                           ),
                           const SizedBox(height: 2),
@@ -768,7 +768,7 @@ class _LinkedAccountsScreenState extends State<LinkedAccountsScreen> {
                       onPressed: () => _setAsDefault(acc),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFF1F5F9),
-                        foregroundColor: const Color(0xFF0284C7),
+                        foregroundColor: const Color(0xFF0066FF),
                         elevation: 0,
                         padding: const EdgeInsets.symmetric(
                             horizontal: 12, vertical: 7),
@@ -806,14 +806,14 @@ class _LinkedAccountsScreenState extends State<LinkedAccountsScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(Icons.add_circle_outline_rounded,
-                        color: Color(0xFF0284C7), size: 18),
+                        color: Color(0xFF0066FF), size: 18),
                     SizedBox(width: 8),
                     Text(
                       'Link New Bank or E-Wallet',
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w900,
-                        color: Color(0xFF0284C7),
+                        color: Color(0xFF0066FF),
                       ),
                     ),
                   ],
@@ -847,7 +847,7 @@ class _LinkedAccountsScreenState extends State<LinkedAccountsScreen> {
                       const Row(
                         children: [
                           Icon(Icons.schedule_rounded,
-                              color: Color(0xFF0284C7), size: 18),
+                              color: Color(0xFF0066FF), size: 18),
                           SizedBox(width: 8),
                           Text(
                             'Scheduled Auto-Cashout',
@@ -861,7 +861,7 @@ class _LinkedAccountsScreenState extends State<LinkedAccountsScreen> {
                       ),
                       Switch(
                         value: _autoCashoutEnabled,
-                        activeTrackColor: const Color(0xFF00C4FF),
+                        activeTrackColor: const Color(0xFF0066FF),
                         activeThumbColor: Colors.white,
                         onChanged: (val) {
                           setState(() => _autoCashoutEnabled = val);

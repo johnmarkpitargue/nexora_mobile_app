@@ -58,7 +58,7 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
       message: msg.text,
       orderId: msg.orderId,
       icon: Icons.person_pin_circle_rounded,
-      accentColor: const Color(0xFF0284C7),
+      accentColor: const Color(0xFF0066FF),
       onReply: () {
         Navigator.push(
           context,
@@ -161,7 +161,7 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
                 alignment: Alignment.center,
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.chat_bubble_outline_rounded, color: Color(0xFF0284C7)),
+                    icon: const Icon(Icons.chat_bubble_outline_rounded, color: Color(0xFF0066FF)),
                     tooltip: 'In-App Messages',
                     onPressed: () {
                       final targetOrder = activeOrder ??
@@ -566,7 +566,7 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
                             message: 'You already have an active trip for ${currentActive.customerName}. Tap the banner above to continue it.',
                             orderId: currentActive.id,
                             icon: Icons.two_wheeler_rounded,
-                            accentColor: const Color(0xFF0284C7),
+                            accentColor: const Color(0xFF0066FF),
                           );
                           return;
                         }

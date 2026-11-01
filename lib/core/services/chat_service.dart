@@ -53,8 +53,11 @@ class RiderChatService extends ChangeNotifier {
                 list.add(msg);
                 if (activeScreenOrderId != clean) {
                   _unreadCounts[clean] = (_unreadCounts[clean] ?? 0) + 1;
-                  onNewMessageReceived?.call(msg);
-                  _showTopNotification(msg);
+                  if (onNewMessageReceived != null) {
+                    onNewMessageReceived!.call(msg);
+                  } else {
+                    _showTopNotification(msg);
+                  }
                 }
                 notifyListeners();
               }
@@ -241,8 +244,11 @@ class RiderChatService extends ChangeNotifier {
               // Increment unread count if user is not actively viewing this chat
               if (activeScreenOrderId != clean) {
                 _unreadCounts[clean] = (_unreadCounts[clean] ?? 0) + 1;
-                onNewMessageReceived?.call(msg);
-                _showTopNotification(msg);
+                if (onNewMessageReceived != null) {
+                  onNewMessageReceived!.call(msg);
+                } else {
+                  _showTopNotification(msg);
+                }
               }
 
               // Customer finished sending, stop typing indicator
@@ -962,7 +968,7 @@ class RiderChatService extends ChangeNotifier {
         message: msg.text,
         orderId: msg.orderId,
         icon: Icons.person_pin_circle_rounded,
-        accentColor: const Color(0xFF0284C7),
+        accentColor: const Color(0xFF0066FF),
         onReply: () {
           final nav = InAppNotificationService.navigatorKey.currentState;
           if (nav != null) {

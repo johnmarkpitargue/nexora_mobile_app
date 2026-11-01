@@ -985,12 +985,12 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                         decoration: BoxDecoration(
                           color: const Color(0xFF0066FF).withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: const Color(0xFF00D2FF)),
+                          border: Border.all(color: const Color(0xFF0066FF)),
                         ),
                         child: Text(
                           'Scheduled: ${trip.scheduledDeparture.hour.toString().padLeft(2, '0')}:${trip.scheduledDeparture.minute.toString().padLeft(2, '0')}',
                           style: const TextStyle(
-                            color: Color(0xFF38BDF8),
+                            color: Color(0xFF0066FF),
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
                           ),
@@ -1016,7 +1016,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                         children: [
                           Icon(
                             Icons.trip_origin_rounded,
-                            color: Color(0xFF38BDF8),
+                            color: Color(0xFF0066FF),
                             size: 18,
                           ),
                           SizedBox(
@@ -1517,7 +1517,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                       children: [
                         const Icon(
                           Icons.departure_board_rounded,
-                          color: Color(0xFF0284C7),
+                          color: Color(0xFF0066FF),
                         ),
                         const SizedBox(width: 8),
                         Text(

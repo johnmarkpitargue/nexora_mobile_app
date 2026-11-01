@@ -66,7 +66,7 @@ class AvailableOrderCard extends StatelessWidget {
                             TextSpan(
                               text: '₱${order.riderEarnings.toStringAsFixed(2)}',
                               style: const TextStyle(
-                                color: Color(0xFF047857),
+                                color: Color(0xFF10B981),
                                 fontWeight: FontWeight.w900,
                                 fontSize: 14.5,
                               ),
@@ -75,7 +75,7 @@ class AvailableOrderCard extends StatelessWidget {
                                   TextSpan(
                                     text: ' (+₱${order.tip.toStringAsFixed(0)})',
                                     style: const TextStyle(
-                                      color: Color(0xFF059669),
+                                      color: Color(0xFF10B981),
                                       fontWeight: FontWeight.w700,
                                       fontSize: 11,
                                     ),
@@ -239,7 +239,7 @@ class AvailableOrderCard extends StatelessWidget {
                         icon: Icons.check_circle_outline_rounded,
                         label: 'Fits Insulated Bag',
                         bgColor: const Color(0xFFD1FAE5),
-                        textColor: const Color(0xFF047857),
+                        textColor: const Color(0xFF10B981),
                       ),
                   ],
                 ),
@@ -552,7 +552,7 @@ class _SwipeToAcceptSliderState extends State<SwipeToAcceptSlider>
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: [
-                        const Color(0xFF047857),
+                        const Color(0xFF10B981),
                         RiderTheme.onlineGreen,
                       ],
                     ),
