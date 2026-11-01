@@ -96,23 +96,13 @@ class PaymentMethodService extends ChangeNotifier {
         brandColor: const Color(0xFF00B4D8),
       ),
       PaymentMethodModel(
-        id: 'visa_primary',
-        type: PaymentType.card,
-        name: 'Visa Debit/Credit',
-        accountNumber: '•••• •••• •••• 4012',
-        accountHolder: 'ALEXA N. SANTOS',
-        isDefault: false,
-        isLinked: true,
-        brandColor: const Color(0xFF1E293B),
-      ),
-      PaymentMethodModel(
         id: 'gcash_primary',
         type: PaymentType.gcash,
         name: 'GCash',
-        accountNumber: '0917 890 9128',
-        accountHolder: 'ALEXA N. SANTOS',
+        accountNumber: '',
+        accountHolder: '',
         isDefault: false,
-        isLinked: true,
+        isLinked: false,
         brandColor: const Color(0xFF005CE6), // Official GCash Royal Blue
       ),
     ];

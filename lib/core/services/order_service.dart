@@ -202,7 +202,25 @@ class OrderService extends ChangeNotifier {
   }
 
   void _onBuyerAccountChanged() {
+    _pruneForeignOrdersForCurrentUser();
     notifyListeners();
+  }
+
+  void _pruneForeignOrdersForCurrentUser() {
+    final key = _currentUserKey;
+    if (key == 'guest') {
+      _userActiveOrders.remove('guest');
+      _userPastOrders.remove('guest');
+      return;
+    }
+    final active = _userActiveOrders[key];
+    if (active != null) {
+      active.removeWhere((o) => o.buyerEmail != 'guest' && o.buyerEmail.toLowerCase() != key);
+    }
+    final past = _userPastOrders[key];
+    if (past != null) {
+      past.removeWhere((o) => o.buyerEmail != 'guest' && o.buyerEmail.toLowerCase() != key);
+    }
   }
 
   int _orderCounter = 10000 + (DateTime.now().millisecondsSinceEpoch % 89999);
@@ -561,7 +579,7 @@ class OrderService extends ChangeNotifier {
       final rows = await Supabase.instance.client
           .from('orders')
           .select(
-              'id, order_id, customer_id, customer_email, buyer_email, item_details, delivery_address, delivery_lat, delivery_lng, status, created_at, courier_name, courier_rating, is_rider_accepted, total_price, subtotal, shipping_fee, payment_method')
+              'id, order_id, customer_id, buyer_email, buyer_name, item_details, delivery_address, delivery_lat, delivery_lng, status, created_at, courier_name, courier_rating, is_rider_accepted, total_price, subtotal, shipping_fee, payment_method')
           .order('created_at', ascending: false)
           .limit(20);
       _processSupabaseOrderRows(List<Map<String, dynamic>>.from(rows));
@@ -614,16 +632,17 @@ class OrderService extends ChangeNotifier {
       if (currentKey == 'guest') continue;
 
       final rowCustomerEmail =
-          (row['customer_email'] ?? row['buyer_email'] ?? '').toString().toLowerCase().trim();
+          (row['buyer_email'] ?? row['customer_email'] ?? '').toString().toLowerCase().trim();
       final rowCustomerId = (row['customer_id'] ?? '').toString().toLowerCase().trim();
+      final rowBuyerId = (row['buyer_id'] ?? '').toString().toLowerCase().trim();
 
+      // Only match orders strictly associated with the active buyer's email or account id
       final isForCurrentUser =
           (rowCustomerEmail.isNotEmpty && rowCustomerEmail == currentKey) ||
-              (rowCustomerId.isNotEmpty &&
-                  (rowCustomerId == currentKey ||
-                      (currentBuyerName.isNotEmpty && rowCustomerId == currentBuyerName) ||
-                      (profileName.isNotEmpty && rowCustomerId == profileName) ||
-                      (defaultAddrName.isNotEmpty && rowCustomerId == defaultAddrName)));
+          (rowCustomerId.isNotEmpty &&
+              (rowCustomerId == currentKey ||
+                  (currentBuyer != null && rowCustomerId == currentBuyer.id.toLowerCase()))) ||
+          (rowBuyerId.isNotEmpty && currentBuyer != null && rowBuyerId == currentBuyer.id.toLowerCase());
 
       if (!isForCurrentUser) continue;
 
@@ -1104,6 +1123,8 @@ class OrderService extends ChangeNotifier {
         await Supabase.instance.client.from('orders').insert({
           'order_id': cleanId,
           'customer_id': customerNameStr,
+          'buyer_name': customerNameStr,
+          'buyer_email': _currentUserKey,
           'item_details': itemsSummary,
           'delivery_address': effectiveShippingAddress,
           'delivery_lat': latVal,

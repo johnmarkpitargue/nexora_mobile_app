@@ -84,13 +84,19 @@ void main() {
       expect(paymentService.defaultMethod.id, 'cod_primary');
       expect(paymentService.defaultMethod.type, PaymentType.cod);
 
-      // Set Card as default
-      paymentService.setDefault('visa_primary');
-      expect(paymentService.defaultMethod.id, 'visa_primary');
+      // Add a Card and set as default
+      paymentService.addCard(cardNumber: '4012 0000 0000 4012', expiry: '12/28', cardHolder: 'Test User');
+      final cardId = paymentService.methods.firstWhere((m) => m.type == PaymentType.card).id;
+      paymentService.setDefault(cardId);
+      expect(paymentService.defaultMethod.id, cardId);
       expect(paymentService.defaultMethod.type, PaymentType.card);
 
-      // Set GCash as default
-      paymentService.setDefault('gcash_primary');
+      // Link GCash and set as default
+      paymentService.linkGCash(
+        phoneNumber: '0917 890 9128',
+        accountHolder: 'Alexa N. Santos',
+        makeDefault: true,
+      );
       expect(paymentService.defaultMethod.id, 'gcash_primary');
       expect(paymentService.defaultMethod.type, PaymentType.gcash);
     });
