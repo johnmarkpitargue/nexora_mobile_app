@@ -5,7 +5,6 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'address_service.dart';
 import 'buyer_account_service.dart';
 import 'cart_service.dart';
 import 'profile_service.dart';
@@ -590,10 +589,6 @@ class OrderService extends ChangeNotifier {
     bool hasChanges = false;
     final currentKey = _currentUserKey;
     final currentBuyer = BuyerAccountService.instance.currentBuyer;
-    final currentBuyerName = currentBuyer?.fullName.toLowerCase().trim() ?? '';
-    final profileName = ProfileService.instance.name.toLowerCase().trim();
-    final defaultAddrName =
-        (AddressService.instance.defaultAddress?.fullName ?? '').toLowerCase().trim();
 
     for (final row in rows) {
       final rawId = (row['order_id'] ?? row['id'] ?? '')
