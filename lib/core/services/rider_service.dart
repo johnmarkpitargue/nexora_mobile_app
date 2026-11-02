@@ -1,4 +1,6 @@
 import 'package:flutter/foundation.dart';
+import '../constants/api_constants.dart';
+import '../network/api_client.dart';
 import '../models/rider_profile.dart';
 
 class OperationResult {
@@ -247,6 +249,12 @@ class RiderService extends ChangeNotifier {
   void setOnlineStatus(bool online) {
     _profile = _profile.copyWith(isOnline: online);
     notifyListeners();
+    if (ApiClient.instance.isAuthenticated) {
+      ApiClient.instance.post(
+        ApiConstants.availability,
+        body: {'is_online': online},
+      ).catchError((_) => ApiResponse<dynamic>(data: null, message: ''));
+    }
   }
 
   // RID-PROF-006 & COU-SHIFT-004 & COU-SHIFT-005
@@ -274,6 +282,82 @@ class RiderService extends ChangeNotifier {
           ? 'You are now ON DUTY and accepting dispatches.'
           : 'You are now OFF DUTY.',
     );
+  }
+
+  void updateProfileFromApi({
+    required String id,
+    required String name,
+    required String email,
+    required String phone,
+    required String plateNumber,
+    required String vehicleType,
+    bool isOnline = true,
+    double rating = 5.0,
+    double walletBalance = 0.0,
+    int todayDeliveries = 0,
+    double todayEarnings = 0.0,
+  }) {
+    _profile = _profile.copyWith(
+      id: id,
+      name: name,
+      email: email,
+      phone: phone,
+      plateNumber: plateNumber,
+      vehicleType: vehicleType,
+      isOnline: isOnline,
+      rating: rating,
+      walletBalance: walletBalance,
+      todayDeliveries: todayDeliveries,
+      todayEarnings: todayEarnings,
+    );
+    notifyListeners();
+  }
+
+  Future<OperationResult> fetchProfileRemote() async {
+    try {
+      if (!ApiClient.instance.isAuthenticated) {
+        return OperationResult.ok('Offline mode');
+      }
+
+      final res = await ApiClient.instance.get(ApiConstants.riderProfile);
+      final data = res.data as Map<String, dynamic>;
+      final user = data['user'] as Map<String, dynamic>?;
+      final courierProfile = data['courier_profile'] as Map<String, dynamic>?;
+
+      updateProfileFromApi(
+        id: (user?['id'] ?? _profile.id).toString(),
+        name: (user?['full_name'] ?? _profile.name).toString(),
+        email: (user?['email'] ?? _profile.email).toString(),
+        phone: (user?['contact_number'] ?? _profile.phone).toString(),
+        plateNumber: (courierProfile?['plate_number'] ?? _profile.plateNumber).toString(),
+        vehicleType: (courierProfile?['vehicle_type'] ?? _profile.vehicleType).toString(),
+        isOnline: data['is_online'] == true,
+        walletBalance: (data['earnings_balance'] as num?)?.toDouble() ?? _profile.walletBalance,
+      );
+
+      return OperationResult.ok(res.message);
+    } catch (e) {
+      return OperationResult.fail(e.toString());
+    }
+  }
+
+  Future<OperationResult> toggleOnlineStatusRemote() async {
+    final localCheck = toggleOnlineStatus();
+    if (!localCheck.success) {
+      return localCheck;
+    }
+
+    try {
+      if (ApiClient.instance.isAuthenticated) {
+        final res = await ApiClient.instance.post(
+          ApiConstants.availability,
+          body: {'is_online': _profile.isOnline},
+        );
+        return OperationResult.ok(res.message);
+      }
+    } catch (_) {}
+
+    return localCheck;
   }
 
   // RID-PROF-002 & RID-PROF-003: Update vehicle details & duplicate plate check

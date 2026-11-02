@@ -1307,43 +1307,49 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
               ),
             ),
             actions: [
-              AnimatedBuilder(
-                animation: RiderChatService.instance,
-                builder: (context, _) {
-                  final unread = RiderChatService.instance.getUnreadCount(order.id);
-                  return Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.chat_bubble_outline_rounded, color: Color(0xFF0066FF)),
-                        tooltip: 'Chat Customer',
-                        onPressed: () => _openChat(order.customerName),
-                      ),
-                      if (unread > 0)
-                        Positioned(
-                          top: 8,
-                          right: 8,
-                          child: Container(
-                            padding: const EdgeInsets.all(4),
-                            decoration: const BoxDecoration(
-                              color: Color(0xFFEF4444),
-                              shape: BoxShape.circle,
-                            ),
-                            constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
-                            child: Text(
-                              '$unread',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 9,
-                                fontWeight: FontWeight.w900,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
+              // Hidden mobile-only feature: Rider-buyer chat disabled (no web equivalent)
+              Opacity(
+                opacity: 0.0,
+                child: IgnorePointer(
+                  child: AnimatedBuilder(
+                    animation: RiderChatService.instance,
+                    builder: (context, _) {
+                      final unread = RiderChatService.instance.getUnreadCount(order.id);
+                      return Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.chat_bubble_outline_rounded, color: Color(0xFF0066FF)),
+                            tooltip: 'Chat Customer',
+                            onPressed: () => _openChat(order.customerName),
                           ),
-                        ),
-                    ],
-                  );
-                },
+                          if (unread > 0)
+                            Positioned(
+                              top: 8,
+                              right: 8,
+                              child: Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFFEF4444),
+                                  shape: BoxShape.circle,
+                                ),
+                                constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                                child: Text(
+                                  '$unread',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            ),
+                        ],
+                      );
+                    },
+                  ),
+                ),
               ),
               const SizedBox(width: 8),
             ],
@@ -3202,28 +3208,33 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: AnimatedBuilder(
-                    animation: RiderChatService.instance,
-                    builder: (context, _) {
-                      final unread = RiderChatService.instance.getUnreadCount(order.id);
-                      return ElevatedButton.icon(
-                        onPressed: () => _openChat(order.customerName),
-                        icon: Badge(
-                          isLabelVisible: unread > 0,
-                          label: Text('$unread', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
-                          backgroundColor: const Color(0xFFEF4444),
-                          child: const Icon(Icons.chat_bubble_outline_rounded, size: 15),
-                        ),
-                        label: Text(unread > 0 ? 'Chat Customer ($unread)' : 'Chat Customer'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: unread > 0 ? const Color(0xFFEFF6FF) : const Color(0xFFF1F5F9),
-                          foregroundColor: unread > 0 ? RiderTheme.primary : const Color(0xFF0F172A),
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                        ),
-                      );
-                    },
+                  child: Opacity(
+                    opacity: 0.0,
+                    child: IgnorePointer(
+                      child: AnimatedBuilder(
+                        animation: RiderChatService.instance,
+                        builder: (context, _) {
+                          final unread = RiderChatService.instance.getUnreadCount(order.id);
+                          return ElevatedButton.icon(
+                            onPressed: () => _openChat(order.customerName),
+                            icon: Badge(
+                              isLabelVisible: unread > 0,
+                              label: Text('$unread', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+                              backgroundColor: const Color(0xFFEF4444),
+                              child: const Icon(Icons.chat_bubble_outline_rounded, size: 15),
+                            ),
+                            label: Text(unread > 0 ? 'Chat Customer ($unread)' : 'Chat Customer'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: unread > 0 ? const Color(0xFFEFF6FF) : const Color(0xFFF1F5F9),
+                              foregroundColor: unread > 0 ? RiderTheme.primary : const Color(0xFF0F172A),
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
                   ),
                 ),
               ],

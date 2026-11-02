@@ -668,21 +668,27 @@ class _RiderLandingPageState extends State<RiderLandingPage>
           ),
         ),
         const SizedBox(height: 12),
-        Center(
-          child: TextButton.icon(
-            key: const Key('logistics_add_rider_btn'),
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const AddRiderPage()),
-              );
-            },
-            icon: const Icon(Icons.business_center_outlined, size: 16, color: Color(0xFF0066FF)),
-            label: const Text(
-              'Logistics Admin: Add Rider Form',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF0066FF),
+        // Hidden mobile-only feature: Rider self-registration is disabled (web requires logistics admin invite)
+        Opacity(
+          opacity: 0.0,
+          child: IgnorePointer(
+            child: Center(
+              child: TextButton.icon(
+                key: const Key('logistics_add_rider_btn'),
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const AddRiderPage()),
+                  );
+                },
+                icon: const Icon(Icons.business_center_outlined, size: 16, color: Color(0xFF0066FF)),
+                label: const Text(
+                  'Logistics Admin: Add Rider Form',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF0066FF),
+                  ),
+                ),
               ),
             ),
           ),

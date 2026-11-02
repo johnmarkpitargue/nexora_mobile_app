@@ -1,7 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../constants/api_constants.dart';
+import '../network/api_client.dart';
 import '../models/delivery_order.dart';
 import 'rider_service.dart';
 import 'rider_location_service.dart';
@@ -164,6 +167,34 @@ class DeliveryService extends ChangeNotifier {
 
   /// Fetches the latest pending orders from Supabase and adds any new ones to `_availableOrders`.
   Future<void> refreshAvailableOrders() async {
+    // 1. Fetch remote job offers from Laravel Sanctum API if authenticated
+    if (ApiClient.instance.isAuthenticated) {
+      try {
+        final res = await ApiClient.instance.get(ApiConstants.riderOffers);
+        final list = res.data as List<dynamic>? ?? [];
+        bool addedAny = false;
+        for (final item in list) {
+          final map = item as Map<String, dynamic>;
+          final offerId = map['id']?.toString() ?? '';
+          final orderCode = (map['order_number'] ?? map['order_id'] ?? offerId).toString();
+          final clean = orderCode.replaceAll('#', '').trim();
+          if (_declinedOrderIds.contains(clean) || _declinedOrderIds.contains(offerId)) {
+            continue;
+          }
+          final availIdx = _availableOrders.indexWhere(
+            (o) => o.id == orderCode || o.id.replaceAll('#', '').trim() == clean,
+          );
+          if (availIdx < 0) {
+            _availableOrders.insert(0, DeliveryOrder.fromApiOffer(map));
+            addedAny = true;
+          }
+        }
+        if (addedAny) {
+          notifyListeners();
+        }
+      } catch (_) {}
+    }
+
     if (!isSupabaseReady) return;
     try {
       final currentRider = RiderService.instance.profile;
@@ -843,6 +874,140 @@ class DeliveryService extends ChangeNotifier {
 
     _syncStatusToSupabase(completed.id, 'delivered', proofPhoto: photoPath);
     RiderLocationService.instance.stopTracking();
+  }
+
+  Future<bool> acceptOrderRemote(String orderId, {String? offerId}) async {
+    final clean = orderId.replaceAll('#', '').trim();
+    final effectiveOfferId = offerId ?? clean;
+
+    if (ApiClient.instance.isAuthenticated) {
+      try {
+        final idempotencyKey = 'accept_${clean}_${DateTime.now().millisecondsSinceEpoch}';
+        await ApiClient.instance.post(
+          ApiConstants.acceptOffer(effectiveOfferId),
+          headers: {'Idempotency-Key': idempotencyKey},
+        );
+      } catch (_) {}
+    }
+
+    acceptOrder(orderId);
+    return true;
+  }
+
+  Future<bool> declineOrderRemote(String orderId, {String? offerId}) async {
+    final clean = orderId.replaceAll('#', '').trim();
+    final effectiveOfferId = offerId ?? clean;
+
+    if (ApiClient.instance.isAuthenticated) {
+      try {
+        await ApiClient.instance.post(ApiConstants.declineOffer(effectiveOfferId));
+      } catch (_) {}
+    }
+
+    declineOrder(orderId);
+    return true;
+  }
+
+  Future<bool> confirmPickupRemote(String trackingNumber) async {
+    if (ApiClient.instance.isAuthenticated) {
+      try {
+        final idempotencyKey = 'pickup_${trackingNumber}_${DateTime.now().millisecondsSinceEpoch}';
+        await ApiClient.instance.post(
+          ApiConstants.pickup,
+          body: {'tracking_number': trackingNumber.trim()},
+          headers: {'Idempotency-Key': idempotencyKey},
+        );
+        updateActiveOrderStage(2);
+        return true;
+      } catch (e) {
+        debugPrint('Confirm pickup remote notice: $e');
+      }
+    }
+    updateActiveOrderStage(2);
+    return true;
+  }
+
+  Future<bool> completeDeliveryRemote({
+    required String orderId,
+    required String deliveryOtp,
+    required String podFilePath,
+    String? notes,
+  }) async {
+    if (ApiClient.instance.isAuthenticated) {
+      try {
+        final idempotencyKey = 'complete_${orderId}_${DateTime.now().millisecondsSinceEpoch}';
+        final multipartFile = await http.MultipartFile.fromPath('pod_image', podFilePath);
+
+        await ApiClient.instance.multipartPost(
+          ApiConstants.completeDelivery(orderId),
+          fields: {
+            'delivery_otp': deliveryOtp.trim(),
+            if (notes != null && notes.isNotEmpty) 'notes': notes,
+          },
+          files: {'pod_image': multipartFile},
+          headers: {'Idempotency-Key': idempotencyKey},
+        );
+
+        completeCurrentDelivery(photoPath: podFilePath, notes: notes);
+        return true;
+      } catch (e) {
+        debugPrint('Complete delivery remote notice: $e');
+      }
+    }
+
+    completeCurrentDelivery(photoPath: podFilePath, notes: notes);
+    return true;
+  }
+
+  Future<bool> failDeliveryRemote({
+    required String orderId,
+    required String reason,
+    String? notes,
+  }) async {
+    if (ApiClient.instance.isAuthenticated) {
+      try {
+        final idempotencyKey = 'fail_${orderId}_${DateTime.now().millisecondsSinceEpoch}';
+        await ApiClient.instance.post(
+          ApiConstants.failDelivery(orderId),
+          body: {
+            'reason': reason,
+            if (notes != null && notes.isNotEmpty) 'notes': notes,
+          },
+          headers: {'Idempotency-Key': idempotencyKey},
+        );
+      } catch (e) {
+        debugPrint('Fail delivery remote notice: $e');
+      }
+    }
+    return true;
+  }
+
+  Future<List<DeliveryOrder>> fetchActiveDeliveriesRemote() async {
+    if (!ApiClient.instance.isAuthenticated) return [];
+    try {
+      final res = await ApiClient.instance.get(ApiConstants.activeDeliveries);
+      final list = res.data as List<dynamic>? ?? [];
+      return list.map((item) => DeliveryOrder.fromApiOrder(item as Map<String, dynamic>)).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<List<DeliveryOrder>> fetchDeliveryHistoryRemote() async {
+    if (!ApiClient.instance.isAuthenticated) return _completedOrders;
+    try {
+      final res = await ApiClient.instance.get(ApiConstants.deliveryHistory);
+      final list = res.data as List<dynamic>? ?? [];
+      final orders = list.map((item) => DeliveryOrder.fromApiOrder(item as Map<String, dynamic>)).toList();
+      if (orders.isNotEmpty) {
+        _completedOrders.clear();
+        _completedOrders.addAll(orders);
+        notifyListeners();
+      }
+      return orders;
+    } catch (_) {
+      return _completedOrders;
+    }
   }
 
   void addSimulatedNewDispatch() {

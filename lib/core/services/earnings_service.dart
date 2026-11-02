@@ -1,4 +1,6 @@
 import 'package:flutter/foundation.dart';
+import '../constants/api_constants.dart';
+import '../network/api_client.dart';
 import '../models/earning_record.dart';
 import 'rider_service.dart';
 
@@ -266,5 +268,54 @@ class EarningsService extends ChangeNotifier {
   void resetCodBalanceForTest([double balance = 640.00]) {
     _codHeldBalance = balance;
     notifyListeners();
+  }
+
+  Future<Map<String, dynamic>?> fetchEarningsRemote() async {
+    if (!ApiClient.instance.isAuthenticated) return null;
+    try {
+      final res = await ApiClient.instance.get(ApiConstants.riderEarnings);
+      final data = res.data as Map<String, dynamic>;
+      final unremitted = (data['unremitted_cod_balance'] as num?)?.toDouble();
+      if (unremitted != null) {
+        _codHeldBalance = unremitted;
+        notifyListeners();
+      }
+      return data;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<bool> submitRemittanceRemote({
+    required double amount,
+    String? notes,
+  }) async {
+    if (amount <= 0) return false;
+
+    if (ApiClient.instance.isAuthenticated) {
+      try {
+        final idempotencyKey = 'remit_${DateTime.now().millisecondsSinceEpoch}';
+        final res = await ApiClient.instance.post(
+          ApiConstants.remittance,
+          body: {
+            'amount': amount,
+            if (notes != null && notes.isNotEmpty) 'notes': notes,
+          },
+          headers: {'Idempotency-Key': idempotencyKey},
+        );
+        remitCodCash(
+          amount: amount,
+          method: 'Mobile Remittance',
+          referenceNumber: (res.data as Map<String, dynamic>?)?['remittance_number']?.toString(),
+        );
+        return true;
+      } catch (e) {
+        debugPrint('Submit remittance remote error: $e');
+        return false;
+      }
+    }
+
+    remitCodCash(amount: amount, method: 'Direct Hub');
+    return true;
   }
 }

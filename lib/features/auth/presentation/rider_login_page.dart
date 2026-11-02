@@ -147,10 +147,12 @@ class _RiderLoginPageState extends State<RiderLoginPage> {
     }
 
     // 1. Check if rider is registered in RiderAccountService (supports email or mobile)
-    final accountResult = RiderAccountService.instance.loginRider(
-      identifier: identifier,
+    final accountResult = await RiderAccountService.instance.loginRemote(
+      email: identifier,
       password: password,
     );
+
+    if (!mounted) return;
 
     if (accountResult.success) {
       // Activated rider authenticated

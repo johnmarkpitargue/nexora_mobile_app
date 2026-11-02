@@ -14,6 +14,9 @@ void main() {
       final service = DeliveryService.instance;
 
       // 1. Accept first available order
+      if (service.availableOrders.isEmpty) {
+        service.addSimulatedNewDispatch();
+      }
       final orderId = service.availableOrders.first.id;
       service.acceptOrder(orderId);
       expect(service.activeOrderStage, equals(0));

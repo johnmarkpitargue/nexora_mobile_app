@@ -197,4 +197,105 @@ class DeliveryOrder {
       fitsInsulatedBag: fitsInsulatedBag ?? this.fitsInsulatedBag,
     );
   }
+
+  factory DeliveryOrder.fromApiOffer(Map<String, dynamic> json) {
+    final orderObj = json['order'] as Map<String, dynamic>?;
+    final orderId = (json['order_number'] ?? json['order_id'] ?? json['id']).toString();
+    final codAmount = (json['cod_amount'] as num?)?.toDouble() ?? 0.0;
+    final expectedPay = (json['expected_pay'] as num?)?.toDouble() ?? 50.0;
+    final expiresIn = (json['expires_in_seconds'] as num?)?.toInt() ?? 60;
+
+    return DeliveryOrder(
+      id: orderId,
+      customerName: (orderObj?['recipient_name'] ?? 'Buyer').toString(),
+      customerPhone: (orderObj?['recipient_phone'] ?? '+63 917 000 0000').toString(),
+      customerAddress: (json['dropoff_location'] ?? 'Buyer Address').toString(),
+      merchantName: 'Merchant Store',
+      merchantAddress: (json['pickup_location'] ?? 'Seller Store, Laguna').toString(),
+      merchantPhone: '+63 2 8888 1234',
+      items: const [
+        OrderItemDetail(
+          name: 'Package Item',
+          quantity: 1,
+          price: 100.0,
+          imageUrl: 'https://images.unsplash.com/photo-1587829741301-dc798b83add3?w=200',
+        ),
+      ],
+      deliveryFee: expectedPay,
+      orderTotal: codAmount,
+      paymentType: (orderObj?['payment_method'] ?? 'COD').toString().toUpperCase(),
+      distanceKm: 2.5,
+      estimatedMinutes: 15,
+      createdAt: DateTime.now(),
+      status: DeliveryStatus.available,
+      acceptanceCountdownSec: expiresIn,
+    );
+  }
+
+  factory DeliveryOrder.fromApiOrder(Map<String, dynamic> json) {
+    final orderId = (json['order_number'] ?? json['id']).toString();
+    final itemsList = json['items'] as List<dynamic>? ?? [];
+    final items = itemsList.map((it) {
+      final m = it as Map<String, dynamic>;
+      return OrderItemDetail(
+        name: (m['product_name'] ?? 'Assorted Items').toString(),
+        quantity: (m['quantity'] as num?)?.toInt() ?? 1,
+        price: (m['price'] as num?)?.toDouble() ?? 0.0,
+        imageUrl: 'https://images.unsplash.com/photo-1587829741301-dc798b83add3?w=200',
+      );
+    }).toList();
+
+    DeliveryStatus status = DeliveryStatus.available;
+    final statusStr = (json['status'] ?? '').toString().toLowerCase();
+    switch (statusStr) {
+      case 'ready_for_pickup':
+      case 'assigned':
+        status = DeliveryStatus.accepted;
+        break;
+      case 'picked_up':
+        status = DeliveryStatus.pickedUp;
+        break;
+      case 'in_transit':
+      case 'out_for_delivery':
+      case 'assigned_to_rider':
+        status = DeliveryStatus.atCustomer;
+        break;
+      case 'delivered':
+      case 'completed':
+        status = DeliveryStatus.delivered;
+        break;
+      case 'failed_delivery':
+      case 'return_to_sender':
+      case 'cancelled':
+        status = DeliveryStatus.cancelled;
+        break;
+    }
+
+    return DeliveryOrder(
+      id: orderId,
+      customerName: (json['recipient_name'] ?? 'Buyer').toString(),
+      customerPhone: (json['recipient_phone'] ?? '+63 917 000 0000').toString(),
+      customerAddress: (json['dropoff_address'] ?? 'Customer Address').toString(),
+      merchantName: 'Merchant Seller',
+      merchantAddress: (json['pickup_address'] ?? 'Merchant Store, Laguna').toString(),
+      merchantPhone: '+63 2 8888 1234',
+      items: items.isNotEmpty
+          ? items
+          : const [
+              OrderItemDetail(
+                name: 'Standard Parcel',
+                quantity: 1,
+                price: 150.0,
+                imageUrl: 'https://images.unsplash.com/photo-1587829741301-dc798b83add3?w=200',
+              ),
+            ],
+      deliveryFee: 50.0,
+      orderTotal: (json['total'] as num?)?.toDouble() ?? 0.0,
+      paymentType: (json['payment_method'] ?? 'COD').toString().toUpperCase(),
+      distanceKm: 2.8,
+      estimatedMinutes: 18,
+      createdAt: json['created_at'] != null ? DateTime.tryParse(json['created_at'].toString()) ?? DateTime.now() : DateTime.now(),
+      status: status,
+    );
+  }
 }
