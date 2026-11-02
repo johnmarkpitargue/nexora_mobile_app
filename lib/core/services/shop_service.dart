@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../models/shop_models.dart';
 import '../../features/home/presentation/widgets/product_card.dart';
 import 'buyer_account_service.dart';
+import '../constants/api_constants.dart';
+import '../network/api_client.dart';
 
 class SearchFilterParams {
   final String query;
@@ -77,6 +79,85 @@ class ShopService extends ChangeNotifier {
       set.add(shopId);
     }
     notifyListeners();
+  }
+
+  /// Fetch catalog products from Laravel backend API
+  Future<List<ProductModel>> fetchCatalogRemote({
+    String? query,
+    String? category,
+    String? sort,
+    double? minPrice,
+    double? maxPrice,
+  }) async {
+    try {
+      final queryParams = <String, String>{};
+      if (query != null && query.isNotEmpty) queryParams['q'] = query;
+      if (category != null && category.isNotEmpty) queryParams['category'] = category;
+      if (sort != null && sort.isNotEmpty) queryParams['sort'] = sort;
+      if (minPrice != null) queryParams['min_price'] = minPrice.toString();
+      if (maxPrice != null) queryParams['max_price'] = maxPrice.toString();
+
+      final uri = Uri(path: ApiConstants.buyerCatalog, queryParameters: queryParams.isNotEmpty ? queryParams : null);
+      final res = await ApiClient.instance.get(uri.toString());
+      final data = res['data'];
+      final List list = data is List ? data : (data is Map && data['data'] is List ? data['data'] : []);
+      return list.map((item) => ProductModel.fromApiJson(item as Map<String, dynamic>)).toList();
+    } catch (e) {
+      debugPrint('fetchCatalogRemote error: $e');
+      return [];
+    }
+  }
+
+  /// Fetch single product detail from Laravel backend API
+  Future<ProductModel?> fetchProductRemote(String id) async {
+    try {
+      final res = await ApiClient.instance.get(ApiConstants.buyerProduct(id));
+      if (res['data'] is Map<String, dynamic>) {
+        return ProductModel.fromApiJson(res['data'] as Map<String, dynamic>);
+      }
+      return null;
+    } catch (e) {
+      debugPrint('fetchProductRemote error: $e');
+      return null;
+    }
+  }
+
+  /// Toggle wishlist on Laravel backend API
+  Future<bool> toggleWishlistRemote(String productId) async {
+    if (!ApiClient.instance.hasToken) return false;
+    try {
+      final res = await ApiClient.instance.post(ApiConstants.buyerWishlistToggle(productId));
+      return res['data']?['wishlisted'] == true;
+    } catch (e) {
+      debugPrint('toggleWishlistRemote error: $e');
+      return false;
+    }
+  }
+
+  /// Toggle follow store on Laravel backend API
+  Future<bool> toggleFollowRemote(String sellerId) async {
+    toggleFollow(sellerId);
+    if (!ApiClient.instance.hasToken) return isFollowing(sellerId);
+    try {
+      final res = await ApiClient.instance.post(ApiConstants.buyerStoreFollowToggle(sellerId));
+      return res['data']?['following'] == true;
+    } catch (e) {
+      debugPrint('toggleFollowRemote error: $e');
+      return isFollowing(sellerId);
+    }
+  }
+
+  /// Claim voucher on Laravel backend API
+  Future<bool> claimVoucherRemote(String voucherId) async {
+    claimVoucher(voucherId);
+    if (!ApiClient.instance.hasToken) return true;
+    try {
+      await ApiClient.instance.post(ApiConstants.buyerVoucherClaim(voucherId));
+      return true;
+    } catch (e) {
+      debugPrint('claimVoucherRemote error: $e');
+      return false;
+    }
   }
 
   bool isVoucherClaimed(String voucherId) => _currentClaimedVouchers.contains(voucherId);

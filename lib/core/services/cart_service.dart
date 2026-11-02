@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'buyer_account_service.dart';
+import '../constants/api_constants.dart';
+import '../network/api_client.dart';
 
 class CartItemModel {
   final String id;
@@ -75,6 +77,32 @@ class CartItemModel {
       isChecked: isChecked ?? this.isChecked,
     );
   }
+
+  factory CartItemModel.fromApiJson(Map<String, dynamic> json) {
+    final product = json['product'] as Map<String, dynamic>? ?? {};
+    final seller = json['seller'] as Map<String, dynamic>? ?? {};
+    final priceVal = (json['price'] as num?)?.toDouble() ??
+        (product['price'] as num?)?.toDouble() ??
+        0.0;
+    final primaryImg = product['primary_image'] as String? ??
+        (product['images'] is List && (product['images'] as List).isNotEmpty
+            ? product['images'][0].toString()
+            : '');
+
+    return CartItemModel(
+      id: json['id'].toString(),
+      storeName: seller['store_name'] as String? ?? 'Nexora Store',
+      storeBadge: 'MALL',
+      title: product['title'] as String? ?? product['name'] as String? ?? 'Product',
+      variant: 'Standard',
+      imageUrl: primaryImg.isNotEmpty
+          ? primaryImg
+          : 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=300&q=80',
+      price: priceVal,
+      quantity: (json['quantity'] as num?)?.toInt() ?? 1,
+      isChecked: json['is_selected'] == true || json['is_selected'] == 1,
+    );
+  }
 }
 
 class CartService extends ChangeNotifier {
@@ -85,7 +113,108 @@ class CartService extends ChangeNotifier {
 
   void _onBuyerChanged() {
     _directBuyItem = null;
+    loadCartRemote();
     notifyListeners();
+  }
+
+  /// Load cart from backend API
+  Future<void> loadCartRemote() async {
+    if (!ApiClient.instance.hasToken) return;
+    try {
+      final res = await ApiClient.instance.get(ApiConstants.buyerCart);
+      if (res['data'] is Map<String, dynamic>) {
+        final items = res['data']['items'];
+        if (items is List) {
+          final list = items
+              .map((i) => CartItemModel.fromApiJson(i as Map<String, dynamic>))
+              .toList();
+          _userItems[_currentUserKey] = list;
+          notifyListeners();
+        }
+      }
+    } catch (e) {
+      debugPrint('loadCartRemote error: $e');
+    }
+  }
+
+  /// Add item to cart on backend API
+  Future<void> addItemRemote({required int productId, int quantity = 1}) async {
+    if (ApiClient.instance.hasToken) {
+      try {
+        await ApiClient.instance.post(
+          ApiConstants.buyerCartItems,
+          body: {
+            'product_id': productId,
+            'quantity': quantity,
+          },
+        );
+        await loadCartRemote();
+        return;
+      } catch (e) {
+        debugPrint('addItemRemote error: $e');
+      }
+    }
+  }
+
+  /// Update item quantity on backend API
+  Future<void> updateQuantityRemote(String id, int quantity) async {
+    updateQuantity(id, quantity);
+    if (ApiClient.instance.hasToken) {
+      try {
+        await ApiClient.instance.patch(
+          ApiConstants.buyerCartItem(id),
+          body: {'quantity': quantity},
+        );
+        await loadCartRemote();
+      } catch (e) {
+        debugPrint('updateQuantityRemote error: $e');
+      }
+    }
+  }
+
+  /// Toggle item selected on backend API
+  Future<void> toggleItemCheckedRemote(String id, bool checked) async {
+    toggleItemChecked(id, checked);
+    if (ApiClient.instance.hasToken) {
+      try {
+        await ApiClient.instance.patch(
+          ApiConstants.buyerCartItem(id),
+          body: {'is_selected': checked},
+        );
+        await loadCartRemote();
+      } catch (e) {
+        debugPrint('toggleItemCheckedRemote error: $e');
+      }
+    }
+  }
+
+  /// Remove item on backend API
+  Future<void> removeItemRemote(String id) async {
+    removeItem(id);
+    if (ApiClient.instance.hasToken) {
+      try {
+        await ApiClient.instance.delete(ApiConstants.buyerCartItem(id));
+        await loadCartRemote();
+      } catch (e) {
+        debugPrint('removeItemRemote error: $e');
+      }
+    }
+  }
+
+  /// Select or deselect all items on backend API
+  Future<void> selectAllRemote(bool selected) async {
+    toggleSelectAll(selected);
+    if (ApiClient.instance.hasToken) {
+      try {
+        await ApiClient.instance.patch(
+          ApiConstants.buyerCartSelectAll,
+          body: {'is_selected': selected},
+        );
+        await loadCartRemote();
+      } catch (e) {
+        debugPrint('selectAllRemote error: $e');
+      }
+    }
   }
 
   final Map<String, List<CartItemModel>> _userItems = {};

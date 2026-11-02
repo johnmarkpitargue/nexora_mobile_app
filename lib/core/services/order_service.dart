@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io' show Platform;
+
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -8,6 +9,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'buyer_account_service.dart';
 import 'cart_service.dart';
 import 'profile_service.dart';
+import '../constants/api_constants.dart';
+import '../network/api_client.dart';
 
 class OrderItemModel {
   final String orderId;
@@ -159,6 +162,132 @@ class OrderItemModel {
       buyerCourierTags: buyerCourierTags ?? this.buyerCourierTags,
     );
   }
+
+  factory OrderItemModel.fromApiJson(Map<String, dynamic> json) {
+    final status = (json['status'] as String? ?? 'pending').toLowerCase();
+    String statusText;
+    Color statusColor;
+    double progress;
+    String etaText;
+    String etaTime;
+
+    switch (status) {
+      case 'processing':
+        statusText = 'Processing';
+        statusColor = const Color(0xFF3B82F6);
+        progress = 0.3;
+        etaText = 'Seller is preparing your order';
+        etaTime = 'Estimated: 2-3 days';
+        break;
+      case 'shipped':
+        statusText = 'In Transit';
+        statusColor = const Color(0xFF8B5CF6);
+        progress = 0.6;
+        etaText = 'Package in transit with courier';
+        etaTime = 'Estimated: 1-2 days';
+        break;
+      case 'out_for_delivery':
+        statusText = 'Out for Delivery';
+        statusColor = const Color(0xFF0066FF);
+        progress = 0.8;
+        etaText = 'Courier is on the way';
+        etaTime = 'Expected today';
+        break;
+      case 'delivered':
+      case 'completed':
+        statusText = 'Completed';
+        statusColor = const Color(0xFF10B981);
+        progress = 1.0;
+        etaText = 'Delivered successfully';
+        etaTime = 'Package received by recipient';
+        break;
+      case 'cancelled':
+        statusText = 'Cancelled';
+        statusColor = const Color(0xFFEF4444);
+        progress = 0.0;
+        etaText = 'Order cancelled';
+        etaTime = '-';
+        break;
+      case 'returned':
+        statusText = 'Return / Refund';
+        statusColor = const Color(0xFFF97316);
+        progress = 0.0;
+        etaText = 'Return / refund requested';
+        etaTime = '-';
+        break;
+      case 'pending':
+      default:
+        statusText = 'Pending Payment';
+        statusColor = const Color(0xFFF59E0B);
+        progress = 0.1;
+        etaText = 'Awaiting payment / confirmation';
+        etaTime = 'Estimated: 3-5 days';
+        break;
+    }
+
+    final rawItems = json['items'] as List? ?? [];
+    final itemsList = rawItems.map((item) {
+      if (item is Map<String, dynamic>) {
+        return CartItemModel(
+          id: item['id']?.toString() ?? '1',
+          storeName: json['seller']?['store_name'] ?? 'Nexora Store',
+          title: item['title'] ?? item['product_name'] ?? 'Product',
+          variant: 'Standard',
+          imageUrl: item['image_url'] ?? 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=300&q=80',
+          price: (item['unit_price'] as num?)?.toDouble() ?? 0.0,
+          quantity: (item['quantity'] as num?)?.toInt() ?? 1,
+        );
+      }
+      return CartItemModel(
+        id: '1',
+        storeName: 'Nexora Store',
+        title: 'Product',
+        variant: 'Standard',
+        imageUrl: '',
+        price: 0.0,
+      );
+    }).toList();
+
+    final shippingAddr = json['shipping_address'];
+    String recipientName = 'Customer';
+    String recipientPhone = '';
+    String addressStr = '';
+    if (shippingAddr is Map<String, dynamic>) {
+      recipientName = shippingAddr['recipient_name'] ?? '';
+      recipientPhone = shippingAddr['phone'] ?? '';
+      addressStr = shippingAddr['full_address'] ?? shippingAddr['street'] ?? '';
+    } else if (shippingAddr is String) {
+      addressStr = shippingAddr;
+    }
+
+    final shipment = json['shipment'] as Map<String, dynamic>?;
+    final rider = shipment?['rider'] as Map<String, dynamic>?;
+    final courierName = rider?['name'] as String? ?? 'Nexora Express';
+
+    return OrderItemModel(
+      orderId: json['order_number'] as String? ?? '#${json['id']}',
+      dateText: json['created_at'] != null
+          ? json['created_at'].toString().split('T').first
+          : 'Today',
+      statusText: statusText,
+      statusColor: statusColor,
+      etaText: etaText,
+      etaTime: etaTime,
+      progress: progress,
+      items: itemsList,
+      totalPrice: (json['total_amount'] as num?)?.toDouble() ?? 0.0,
+      shippingFee: (json['shipping_fee'] as num?)?.toDouble() ?? 0.0,
+      discount: (json['discount_amount'] as num?)?.toDouble() ?? 0.0,
+      paymentMethod: (json['payment_method'] as String? ?? 'COD').toUpperCase(),
+      courierName: courierName,
+      courierRating: 4.9,
+      courierAvatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
+      recipientName: recipientName.isNotEmpty ? recipientName : null,
+      recipientPhone: recipientPhone.isNotEmpty ? recipientPhone : null,
+      shippingAddress: addressStr.isNotEmpty ? addressStr : null,
+      isRiderAccepted: shipment != null && shipment['status'] != 'pending',
+    );
+  }
 }
 
 class OrderService extends ChangeNotifier {
@@ -182,6 +311,7 @@ class OrderService extends ChangeNotifier {
   void ensureInitialized() {
     _initSupabaseRealtimeSync();
     _startPeriodicOrderSync();
+    fetchOrdersRemote();
   }
 
   void _startPeriodicOrderSync() {
@@ -191,7 +321,7 @@ class OrderService extends ChangeNotifier {
     }
     // Periodic fallback poll (throttled to 15s to keep egress minimal while realtime streams handle instant updates)
     _pollingTimer = Timer.periodic(const Duration(seconds: 15), (_) {
-      refreshOrdersFromSupabase();
+      fetchOrdersRemote();
     });
   }
 
@@ -202,7 +332,136 @@ class OrderService extends ChangeNotifier {
 
   void _onBuyerAccountChanged() {
     _pruneForeignOrdersForCurrentUser();
+    fetchOrdersRemote();
     notifyListeners();
+  }
+
+  /// Fetch orders from Laravel backend API
+  Future<void> fetchOrdersRemote([String tab = 'all']) async {
+    if (!ApiClient.instance.hasToken) return;
+    try {
+      final res = await ApiClient.instance.get(
+        tab == 'all'
+            ? ApiConstants.buyerOrders
+            : '${ApiConstants.buyerOrders}?tab=$tab',
+      );
+      final data = res['data'];
+      final List list = data is List
+          ? data
+          : (data is Map && data['data'] is List ? data['data'] : []);
+      final parsed = list
+          .map(
+            (item) => OrderItemModel.fromApiJson(item as Map<String, dynamic>),
+          )
+          .toList();
+
+      final userActive = _userActiveOrders.putIfAbsent(
+        _currentUserKey,
+        () => [],
+      );
+      final userPast = _userPastOrders.putIfAbsent(_currentUserKey, () => []);
+
+      userActive.clear();
+      userPast.clear();
+
+      for (final o in parsed) {
+        if (o.statusText == 'Completed' ||
+            o.statusText == 'Cancelled' ||
+            o.statusText == 'Return / Refund') {
+          userPast.add(o);
+        } else {
+          userActive.add(o);
+        }
+      }
+      notifyListeners();
+    } catch (e) {
+      debugPrint('fetchOrdersRemote error: $e');
+    }
+  }
+
+  /// Cancel order via Laravel backend API
+  Future<bool> cancelOrderRemote(
+    String orderId, [
+    String reason = 'Changed my mind',
+  ]) async {
+    final cleanId = orderId.replaceAll('#', '').replaceAll('ORD-', '').trim();
+    cancelOrder(orderId);
+    if (!ApiClient.instance.hasToken) return true;
+    try {
+      await ApiClient.instance.post(
+        ApiConstants.buyerOrderCancel(cleanId),
+        body: {'reason': reason},
+      );
+      await fetchOrdersRemote();
+      return true;
+    } catch (e) {
+      debugPrint('cancelOrderRemote error: $e');
+      return false;
+    }
+  }
+
+  /// Confirm delivery receipt via Laravel backend API
+  Future<bool> confirmReceiptRemote(String orderId) async {
+    final cleanId = orderId.replaceAll('#', '').replaceAll('ORD-', '').trim();
+    if (!ApiClient.instance.hasToken) return true;
+    try {
+      await ApiClient.instance.post(
+        ApiConstants.buyerOrderConfirmReceipt(cleanId),
+      );
+      await fetchOrdersRemote();
+      return true;
+    } catch (e) {
+      debugPrint('confirmReceiptRemote error: $e');
+      return false;
+    }
+  }
+
+  /// Submit return/refund via Laravel backend API
+  Future<bool> submitReturnRemote(
+    String orderId, {
+    required String reason,
+    String? notes,
+  }) async {
+    final cleanId = orderId.replaceAll('#', '').replaceAll('ORD-', '').trim();
+    if (!ApiClient.instance.hasToken) return true;
+    try {
+      await ApiClient.instance.post(
+        ApiConstants.buyerOrderReturn(cleanId),
+        body: {
+          'reason': reason,
+          if (notes != null && notes.isNotEmpty) 'notes': notes,
+        },
+      );
+      await fetchOrdersRemote();
+      return true;
+    } catch (e) {
+      debugPrint('submitReturnRemote error: $e');
+      return false;
+    }
+  }
+
+  /// Submit product review via Laravel backend API
+  Future<bool> submitReviewRemote(
+    String orderId, {
+    required int rating,
+    String? comment,
+  }) async {
+    final cleanId = orderId.replaceAll('#', '').replaceAll('ORD-', '').trim();
+    if (!ApiClient.instance.hasToken) return true;
+    try {
+      await ApiClient.instance.post(
+        ApiConstants.buyerOrderReview(cleanId),
+        body: {
+          'rating': rating,
+          if (comment != null && comment.isNotEmpty) 'comment': comment,
+        },
+      );
+      await fetchOrdersRemote();
+      return true;
+    } catch (e) {
+      debugPrint('submitReviewRemote error: $e');
+      return false;
+    }
   }
 
   void _pruneForeignOrdersForCurrentUser() {
@@ -214,11 +473,15 @@ class OrderService extends ChangeNotifier {
     }
     final active = _userActiveOrders[key];
     if (active != null) {
-      active.removeWhere((o) => o.buyerEmail != 'guest' && o.buyerEmail.toLowerCase() != key);
+      active.removeWhere(
+        (o) => o.buyerEmail != 'guest' && o.buyerEmail.toLowerCase() != key,
+      );
     }
     final past = _userPastOrders[key];
     if (past != null) {
-      past.removeWhere((o) => o.buyerEmail != 'guest' && o.buyerEmail.toLowerCase() != key);
+      past.removeWhere(
+        (o) => o.buyerEmail != 'guest' && o.buyerEmail.toLowerCase() != key,
+      );
     }
   }
 
@@ -245,19 +508,24 @@ class OrderService extends ChangeNotifier {
         .replaceAll('#', '')
         .trim()
         .toLowerCase();
-    final lat = (payload['rider_lat'] as num?)?.toDouble() ??
+    final lat =
+        (payload['rider_lat'] as num?)?.toDouble() ??
         double.tryParse(payload['rider_lat']?.toString() ?? '');
-    final lng = (payload['rider_lng'] as num?)?.toDouble() ??
+    final lng =
+        (payload['rider_lng'] as num?)?.toDouble() ??
         double.tryParse(payload['rider_lng']?.toString() ?? '');
     if (lat == null || lng == null || lat == 0.0 || lng == 0.0) return;
 
-    final speed = (payload['rider_speed'] as num?)?.toDouble() ??
+    final speed =
+        (payload['rider_speed'] as num?)?.toDouble() ??
         double.tryParse(payload['rider_speed']?.toString() ?? '') ??
         0.0;
-    final heading = (payload['rider_heading'] as num?)?.toDouble() ??
+    final heading =
+        (payload['rider_heading'] as num?)?.toDouble() ??
         double.tryParse(payload['rider_heading']?.toString() ?? '') ??
         0.0;
-    final accuracy = (payload['rider_accuracy'] as num?)?.toDouble() ??
+    final accuracy =
+        (payload['rider_accuracy'] as num?)?.toDouble() ??
         double.tryParse(payload['rider_accuracy']?.toString() ?? '') ??
         5.0;
 
@@ -292,11 +560,11 @@ class OrderService extends ChangeNotifier {
   // Live rider rating registry so buyer ratings immediately reflect on the rider's rating (lazy-initialized for hot-reload safety)
   Map<String, double>? _liveCourierRatingsMap;
   Map<String, double> get _liveCourierRatings => _liveCourierRatingsMap ??= {
-        'Pedro Jose Garcia': 4.96,
-        'Juan Carlos Ramos': 4.88,
-        'Michael Bryan Santos': 4.92,
-        'Christian Jay Alcantara': 4.85,
-      };
+    'Pedro Jose Garcia': 4.96,
+    'Juan Carlos Ramos': 4.88,
+    'Michael Bryan Santos': 4.92,
+    'Christian Jay Alcantara': 4.85,
+  };
 
   double getLiveCourierRating(String courierName, {double fallback = 4.96}) {
     try {
@@ -375,7 +643,9 @@ class OrderService extends ChangeNotifier {
       if (status != 'cancelled') return false;
     }
 
-    if (courierName != null && courierName.trim().isNotEmpty && courierRating != null) {
+    if (courierName != null &&
+        courierName.trim().isNotEmpty &&
+        courierRating != null) {
       _liveCourierRatings[courierName.trim()] = courierRating;
     }
 
@@ -402,11 +672,16 @@ class OrderService extends ChangeNotifier {
       if (status == 'delivered' || status == 'completed') {
         if (activeIdx != -1) {
           final current = userActive.removeAt(activeIdx);
-          final updatedCourier = (courierName != null && courierName.trim().isNotEmpty)
+          final updatedCourier =
+              (courierName != null && courierName.trim().isNotEmpty)
               ? courierName.trim()
               : current.courierName;
-          final updatedRating = courierRating ??
-              getLiveCourierRating(updatedCourier, fallback: current.courierRating);
+          final updatedRating =
+              courierRating ??
+              getLiveCourierRating(
+                updatedCourier,
+                fallback: current.courierRating,
+              );
           userPast.insert(
             0,
             current.copyWith(
@@ -443,11 +718,16 @@ class OrderService extends ChangeNotifier {
           status == 'shipped') {
         if (activeIdx != -1) {
           final current = userActive[activeIdx];
-          final updatedCourier = (courierName != null && courierName.trim().isNotEmpty)
+          final updatedCourier =
+              (courierName != null && courierName.trim().isNotEmpty)
               ? courierName.trim()
               : current.courierName;
-          final updatedRating = courierRating ??
-              getLiveCourierRating(updatedCourier, fallback: current.courierRating);
+          final updatedRating =
+              courierRating ??
+              getLiveCourierRating(
+                updatedCourier,
+                fallback: current.courierRating,
+              );
           final etaDesc = status == 'picked_up'
               ? 'Courier scanned & picked up your parcel — heading to you'
               : 'Parcel is out for delivery with $updatedCourier';
@@ -472,11 +752,16 @@ class OrderService extends ChangeNotifier {
       } else if (status == 'accepted' || status == 'at_store') {
         if (activeIdx != -1) {
           final current = userActive[activeIdx];
-          final updatedCourier = (courierName != null && courierName.trim().isNotEmpty)
+          final updatedCourier =
+              (courierName != null && courierName.trim().isNotEmpty)
               ? courierName.trim()
               : current.courierName;
-          final updatedRating = courierRating ??
-              getLiveCourierRating(updatedCourier, fallback: current.courierRating);
+          final updatedRating =
+              courierRating ??
+              getLiveCourierRating(
+                updatedCourier,
+                fallback: current.courierRating,
+              );
           final etaDesc = status == 'at_store'
               ? 'Courier arrived at merchant store — verifying & scanning parcel'
               : 'Rider $updatedCourier accepted your order — heading to store';
@@ -501,7 +786,9 @@ class OrderService extends ChangeNotifier {
             anyUpdated = true;
           }
         }
-      } else if (status == 'ready' || status == 'preparing' || status == 'processing') {
+      } else if (status == 'ready' ||
+          status == 'preparing' ||
+          status == 'processing') {
         if (activeIdx != -1) {
           final current = userActive[activeIdx];
           const prepDesc = 'Merchant is packing your parcel for courier pickup';
@@ -517,7 +804,8 @@ class OrderService extends ChangeNotifier {
         }
       } else if (status == 'pending') {
         // If order was cancelled locally or remotely, do not revert to pending!
-        if (pastIdx != -1 && userPast[pastIdx].statusText.toLowerCase() == 'cancelled') {
+        if (pastIdx != -1 &&
+            userPast[pastIdx].statusText.toLowerCase() == 'cancelled') {
           continue;
         }
         if (activeIdx != -1) {
@@ -525,7 +813,8 @@ class OrderService extends ChangeNotifier {
           if (current.statusText.toLowerCase() == 'cancelled') {
             continue;
           }
-          if (current.statusText != 'To Ship' && current.statusText != 'To Pay') {
+          if (current.statusText != 'To Ship' &&
+              current.statusText != 'To Pay') {
             userActive[activeIdx] = current.copyWith(
               statusText: 'To Ship',
               statusColor: const Color(0xFF008060),
@@ -578,7 +867,8 @@ class OrderService extends ChangeNotifier {
       final rows = await Supabase.instance.client
           .from('orders')
           .select(
-              'id, order_id, customer_id, buyer_email, buyer_name, item_details, delivery_address, delivery_lat, delivery_lng, status, created_at, courier_name, courier_rating, is_rider_accepted, total_price, subtotal, shipping_fee, payment_method')
+            'id, order_id, customer_id, buyer_email, buyer_name, item_details, delivery_address, delivery_lat, delivery_lng, status, created_at, courier_name, courier_rating, is_rider_accepted, total_price, subtotal, shipping_fee, payment_method',
+          )
           .order('created_at', ascending: false)
           .limit(20);
       _processSupabaseOrderRows(List<Map<String, dynamic>>.from(rows));
@@ -615,11 +905,7 @@ class OrderService extends ChangeNotifier {
 
       // If this order already exists locally on this device, always sync its status!
       if (activeIdx != -1 || pastIdx != -1) {
-        final updated = syncOrderFromRemoteStatus(
-          rawId,
-          status,
-          rowData: row,
-        );
+        final updated = syncOrderFromRemoteStatus(rawId, status, rowData: row);
         if (updated) hasChanges = true;
         continue;
       }
@@ -627,22 +913,39 @@ class OrderService extends ChangeNotifier {
       if (currentKey == 'guest') continue;
 
       final rowCustomerEmail =
-          (row['buyer_email'] ?? row['customer_email'] ?? '').toString().toLowerCase().trim();
-      final rowCustomerId = (row['customer_id'] ?? '').toString().toLowerCase().trim();
-      final rowBuyerId = (row['buyer_id'] ?? '').toString().toLowerCase().trim();
+          (row['buyer_email'] ?? row['customer_email'] ?? '')
+              .toString()
+              .toLowerCase()
+              .trim();
+      final rowCustomerId = (row['customer_id'] ?? '')
+          .toString()
+          .toLowerCase()
+          .trim();
+      final rowBuyerId = (row['buyer_id'] ?? '')
+          .toString()
+          .toLowerCase()
+          .trim();
 
       // Only match orders strictly associated with the active buyer's email or account id
       final isForCurrentUser =
           (rowCustomerEmail.isNotEmpty && rowCustomerEmail == currentKey) ||
           (rowCustomerId.isNotEmpty &&
               (rowCustomerId == currentKey ||
-                  (currentBuyer != null && rowCustomerId == currentBuyer.id.toLowerCase()))) ||
-          (rowBuyerId.isNotEmpty && currentBuyer != null && rowBuyerId == currentBuyer.id.toLowerCase());
+                  (currentBuyer != null &&
+                      rowCustomerId == currentBuyer.id.toLowerCase()))) ||
+          (rowBuyerId.isNotEmpty &&
+              currentBuyer != null &&
+              rowBuyerId == currentBuyer.id.toLowerCase());
 
       if (!isForCurrentUser) continue;
 
       if (status == 'delivered' || status == 'completed') {
-        final newPast = _buildOrderFromRow(row, 'Completed', 1.0, const Color(0xFF10B981));
+        final newPast = _buildOrderFromRow(
+          row,
+          'Completed',
+          1.0,
+          const Color(0xFF10B981),
+        );
         userPast.insert(0, newPast.copyWith(isRiderAccepted: true));
         hasChanges = true;
       } else if (status == 'to_deliver' ||
@@ -651,7 +954,12 @@ class OrderService extends ChangeNotifier {
           status == 'picked_up' ||
           status == 'shipping' ||
           status == 'shipped') {
-        final newActive = _buildOrderFromRow(row, 'To Receive', 0.75, const Color(0xFF00B4D8));
+        final newActive = _buildOrderFromRow(
+          row,
+          'To Receive',
+          0.75,
+          const Color(0xFF00B4D8),
+        );
         userActive.insert(0, newActive.copyWith(isRiderAccepted: true));
         hasChanges = true;
       } else if (status == 'accepted' || status == 'at_store') {
@@ -667,7 +975,12 @@ class OrderService extends ChangeNotifier {
           status == 'ready' ||
           status == 'preparing' ||
           status == 'processing') {
-        final newActive = _buildOrderFromRow(row, 'To Ship', 0.25, const Color(0xFF008060));
+        final newActive = _buildOrderFromRow(
+          row,
+          'To Ship',
+          0.25,
+          const Color(0xFF008060),
+        );
         userActive.insert(0, newActive);
         hasChanges = true;
       }
@@ -685,79 +998,92 @@ class OrderService extends ChangeNotifier {
       _orderStreamSub = Supabase.instance.client
           .from('orders')
           .stream(primaryKey: ['id'])
-          .listen((rows) {
-        _processSupabaseOrderRows(rows);
-      },
-      onError: (err, stack) {
-        debugPrint('📡 OrderService Supabase stream sync notice (offline/reconnecting): $err');
-      },
-      cancelOnError: false,
-    );
+          .listen(
+            (rows) {
+              _processSupabaseOrderRows(rows);
+            },
+            onError: (err, stack) {
+              debugPrint(
+                '📡 OrderService Supabase stream sync notice (offline/reconnecting): $err',
+              );
+            },
+            cancelOnError: false,
+          );
 
-    if (_dispatchChannel != null) {
-      Supabase.instance.client.removeChannel(_dispatchChannel!);
-    }
-    _isDispatchSubscribed = false;
-    _dispatchChannel = Supabase.instance.client.channel('orders_dispatch');
-    _dispatchChannel!
-        .onBroadcast(
-          event: 'status_updated',
-          callback: (payload) => _handleBroadcastStatusUpdate(payload),
-        )
-        .onBroadcast(
-          event: 'order_status_updated',
-          callback: (payload) => _handleBroadcastStatusUpdate(payload),
-        )
-        .onBroadcast(
-          event: 'order_accepted',
-          callback: (payload) => _handleBroadcastStatusUpdate({
-            ...payload,
-            'status': payload['status'] ?? 'accepted',
-            'rider_accepted': true,
-          }),
-        )
-        .onBroadcast(
-          event: 'location_update',
-          callback: (payload) => updateLiveRiderLocation(payload),
-        )
-        .onBroadcast(
-          event: 'rider_rating_updated',
-          callback: (payload) {
-            final courierName = (payload['courier_name'] ?? payload['rider_name'] ?? '').toString().trim();
-            final newRating = (payload['new_courier_rating'] as num?)?.toDouble() ??
-                double.tryParse(payload['new_courier_rating']?.toString() ?? '');
-            if (courierName.isNotEmpty && newRating != null) {
-              _updateCourierRatingInMemory(courierName, newRating);
-            }
-          },
-        )
-        .subscribe((status, [err]) {
-          if (status == RealtimeSubscribeStatus.subscribed) {
-            _isDispatchSubscribed = true;
-          }
-        });
-
-    if (_courierDispatchChannel != null) {
-      Supabase.instance.client.removeChannel(_courierDispatchChannel!);
-    }
-    _isCourierDispatchSubscribed = false;
-    _courierDispatchChannel = Supabase.instance.client.channel('orders_dispatch_courier');
-    _courierDispatchChannel!.subscribe((status, [err]) {
-      if (status == RealtimeSubscribeStatus.subscribed) {
-        _isCourierDispatchSubscribed = true;
+      if (_dispatchChannel != null) {
+        Supabase.instance.client.removeChannel(_dispatchChannel!);
       }
-    });
+      _isDispatchSubscribed = false;
+      _dispatchChannel = Supabase.instance.client.channel('orders_dispatch');
+      _dispatchChannel!
+          .onBroadcast(
+            event: 'status_updated',
+            callback: (payload) => _handleBroadcastStatusUpdate(payload),
+          )
+          .onBroadcast(
+            event: 'order_status_updated',
+            callback: (payload) => _handleBroadcastStatusUpdate(payload),
+          )
+          .onBroadcast(
+            event: 'order_accepted',
+            callback: (payload) => _handleBroadcastStatusUpdate({
+              ...payload,
+              'status': payload['status'] ?? 'accepted',
+              'rider_accepted': true,
+            }),
+          )
+          .onBroadcast(
+            event: 'location_update',
+            callback: (payload) => updateLiveRiderLocation(payload),
+          )
+          .onBroadcast(
+            event: 'rider_rating_updated',
+            callback: (payload) {
+              final courierName =
+                  (payload['courier_name'] ?? payload['rider_name'] ?? '')
+                      .toString()
+                      .trim();
+              final newRating =
+                  (payload['new_courier_rating'] as num?)?.toDouble() ??
+                  double.tryParse(
+                    payload['new_courier_rating']?.toString() ?? '',
+                  );
+              if (courierName.isNotEmpty && newRating != null) {
+                _updateCourierRatingInMemory(courierName, newRating);
+              }
+            },
+          )
+          .subscribe((status, [err]) {
+            if (status == RealtimeSubscribeStatus.subscribed) {
+              _isDispatchSubscribed = true;
+            }
+          });
 
-    if (_riderGpsDispatchChannel != null) {
-      Supabase.instance.client.removeChannel(_riderGpsDispatchChannel!);
-    }
-    _riderGpsDispatchChannel = Supabase.instance.client.channel('rider_gps_dispatch');
-    _riderGpsDispatchChannel!
-        .onBroadcast(
-          event: 'location_update',
-          callback: (payload) => updateLiveRiderLocation(payload),
-        )
-        .subscribe();
+      if (_courierDispatchChannel != null) {
+        Supabase.instance.client.removeChannel(_courierDispatchChannel!);
+      }
+      _isCourierDispatchSubscribed = false;
+      _courierDispatchChannel = Supabase.instance.client.channel(
+        'orders_dispatch_courier',
+      );
+      _courierDispatchChannel!.subscribe((status, [err]) {
+        if (status == RealtimeSubscribeStatus.subscribed) {
+          _isCourierDispatchSubscribed = true;
+        }
+      });
+
+      if (_riderGpsDispatchChannel != null) {
+        Supabase.instance.client.removeChannel(_riderGpsDispatchChannel!);
+      }
+      _riderGpsDispatchChannel = Supabase.instance.client.channel(
+        'rider_gps_dispatch',
+      );
+      _riderGpsDispatchChannel!
+          .onBroadcast(
+            event: 'location_update',
+            callback: (payload) => updateLiveRiderLocation(payload),
+          )
+          .subscribe();
     } catch (e) {
       debugPrint('⚠️ OrderService Supabase realtime notice: $e');
     }
@@ -790,8 +1116,11 @@ class OrderService extends ChangeNotifier {
         .trim()
         .toLowerCase();
     final status = (payload['status'] ?? '').toString().toLowerCase().trim();
-    final courierName = (payload['courier_name'] ?? payload['rider_name'] ?? '').toString().trim();
-    final courierRatingPayload = (payload['courier_rating'] as num?)?.toDouble() ??
+    final courierName = (payload['courier_name'] ?? payload['rider_name'] ?? '')
+        .toString()
+        .trim();
+    final courierRatingPayload =
+        (payload['courier_rating'] as num?)?.toDouble() ??
         double.tryParse(payload['courier_rating']?.toString() ?? '');
     if (rawId.isEmpty || status.isEmpty) return;
 
@@ -819,12 +1148,20 @@ class OrderService extends ChangeNotifier {
     return str;
   }
 
-  OrderItemModel _buildOrderFromRow(Map<String, dynamic> row, String statusText, double progress, Color statusColor) {
+  OrderItemModel _buildOrderFromRow(
+    Map<String, dynamic> row,
+    String statusText,
+    double progress,
+    Color statusColor,
+  ) {
     final now = DateTime.now();
-    final timeStr = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
-    final orderId = '#${(row['order_id'] ?? row['id'] ?? 'NX-00000').toString().replaceAll('#', '')}';
+    final timeStr =
+        '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+    final orderId =
+        '#${(row['order_id'] ?? row['id'] ?? 'NX-00000').toString().replaceAll('#', '')}';
     final details = extractItemTitle(row['item_details']);
-    final address = (row['delivery_address'] ?? '192 Tuy-Baanan, Liliw, Laguna').toString();
+    final address = (row['delivery_address'] ?? '192 Tuy-Baanan, Liliw, Laguna')
+        .toString();
 
     return OrderItemModel(
       orderId: orderId,
@@ -833,7 +1170,9 @@ class OrderService extends ChangeNotifier {
       statusColor: statusColor,
       etaText: statusText == 'Completed'
           ? 'Delivered successfully'
-          : (statusText == 'To Receive' ? 'Parcel is out for delivery' : 'Order Placed • Merchant is preparing your parcel'),
+          : (statusText == 'To Receive'
+                ? 'Parcel is out for delivery'
+                : 'Order Placed • Merchant is preparing your parcel'),
       etaTime: 'Expected delivery: 8 - 9 Oct',
       progress: progress,
       items: [
@@ -879,9 +1218,11 @@ class OrderService extends ChangeNotifier {
     );
     if (idx != -1) {
       final current = userActive[idx];
-      final isDelivered = newStatusText.toLowerCase().contains('delivered') ||
+      final isDelivered =
+          newStatusText.toLowerCase().contains('delivered') ||
           newStatusText.toLowerCase().contains('completed');
-      final isOutForDelivery = newStatusText.toLowerCase().contains('receive') ||
+      final isOutForDelivery =
+          newStatusText.toLowerCase().contains('receive') ||
           newStatusText.toLowerCase().contains('transit') ||
           newStatusText.toLowerCase().contains('out');
 
@@ -890,7 +1231,9 @@ class OrderService extends ChangeNotifier {
         progress: isDelivered ? 1.0 : (isOutForDelivery ? 0.75 : 0.4),
         statusColor: isDelivered
             ? const Color(0xFF10B981)
-            : (isOutForDelivery ? const Color(0xFF00C1D4) : const Color(0xFF3B82F6)),
+            : (isOutForDelivery
+                  ? const Color(0xFF00C1D4)
+                  : const Color(0xFF3B82F6)),
       );
       userActive[idx] = updated;
       notifyListeners();
@@ -1007,7 +1350,9 @@ class OrderService extends ChangeNotifier {
         dateText: 'Today',
         orderDateTimeText: formattedDateTime,
         statusText: isUnpaid ? 'To Pay' : 'To Ship',
-        statusColor: isUnpaid ? const Color(0xFFF59E0B) : const Color(0xFF3B82F6),
+        statusColor: isUnpaid
+            ? const Color(0xFFF59E0B)
+            : const Color(0xFF3B82F6),
         etaText: isUnpaid
             ? 'Payment Pending'
             : 'Order Placed • Merchant is preparing your parcel',
@@ -1045,9 +1390,12 @@ class OrderService extends ChangeNotifier {
       // Insert into Supabase orders table & broadcast over persistent channels so Rider App receives it immediately
       if (isSupabaseReady) {
         final cleanId = newOrder.orderId.replaceAll('#', '');
-        final itemsSummary = groupItems.map((e) => '${e.quantity}x ${e.title}').join(', ');
-        final customerNameStr =
-            effectiveRecipientName.isNotEmpty ? effectiveRecipientName : 'Customer';
+        final itemsSummary = groupItems
+            .map((e) => '${e.quantity}x ${e.title}')
+            .join(', ');
+        final customerNameStr = effectiveRecipientName.isNotEmpty
+            ? effectiveRecipientName
+            : 'Customer';
         final latVal = deliveryLat ?? 14.1407;
         final lngVal = deliveryLng ?? 121.4692;
         _syncNewOrderToSupabase(
@@ -1101,7 +1449,8 @@ class OrderService extends ChangeNotifier {
               payload: payload,
             );
           }
-          if (_courierDispatchChannel != null && _isCourierDispatchSubscribed == true) {
+          if (_courierDispatchChannel != null &&
+              _isCourierDispatchSubscribed == true) {
             await _courierDispatchChannel!.sendBroadcastMessage(
               event: 'order_created',
               payload: payload,
@@ -1161,7 +1510,10 @@ class OrderService extends ChangeNotifier {
     String resolvedCourierName = (courierName ?? '').trim();
 
     // Find the order to get its courierName if not explicitly passed
-    for (final list in [..._userPastOrders.values, ..._userActiveOrders.values]) {
+    for (final list in [
+      ..._userPastOrders.values,
+      ..._userActiveOrders.values,
+    ]) {
       for (final o in list) {
         if (o.orderId.replaceAll('#', '').trim().toLowerCase() == cleanId) {
           if (resolvedCourierName.isEmpty) {
@@ -1178,10 +1530,12 @@ class OrderService extends ChangeNotifier {
     final currentRating = getLiveCourierRating(resolvedCourierName);
     // Weighted blend of Driver Service (70%) + Delivery Speed (30%) with 3 baseline reviews
     // so every buyer rating visibly and realistically updates the rider's rating!
-    final double buyerRiderScore = (driverRating * 0.7) + (deliveryRating * 0.3);
+    final double buyerRiderScore =
+        (driverRating * 0.7) + (deliveryRating * 0.3);
     final double rawNewRating = ((currentRating * 3.0) + buyerRiderScore) / 4.0;
-    final double newCourierRating =
-        double.parse(rawNewRating.clamp(1.0, 5.0).toStringAsFixed(2));
+    final double newCourierRating = double.parse(
+      rawNewRating.clamp(1.0, 5.0).toStringAsFixed(2),
+    );
 
     _liveCourierRatings[resolvedCourierName] = newCourierRating;
 
@@ -1253,14 +1607,17 @@ class OrderService extends ChangeNotifier {
             payload: ratingPayload,
           );
         }
-        if (_courierDispatchChannel != null && _isCourierDispatchSubscribed == true) {
+        if (_courierDispatchChannel != null &&
+            _isCourierDispatchSubscribed == true) {
           await _courierDispatchChannel!.sendBroadcastMessage(
             event: 'rider_rated',
             payload: ratingPayload,
           );
         }
 
-        final trackCh = Supabase.instance.client.channel('rider_tracking_$rawCleanId');
+        final trackCh = Supabase.instance.client.channel(
+          'rider_tracking_$rawCleanId',
+        );
         trackCh.subscribe((status, [err]) {
           if (status == RealtimeSubscribeStatus.subscribed) {
             trackCh.sendBroadcastMessage(
@@ -1365,27 +1722,30 @@ class OrderService extends ChangeNotifier {
       }
     }
 
-    final cancelledOrder = (targetOrder ?? OrderItemModel(
-      orderId: orderId.startsWith('#') ? orderId : '#$orderId',
-      dateText: 'Today',
-      statusText: 'Cancelled',
-      statusColor: const Color(0xFFEF4444),
-      etaText: 'Order Cancelled',
-      etaTime: '-',
-      progress: 0.0,
-      items: const [],
-      totalPrice: 0.0,
-      paymentMethod: 'Cash on Delivery',
-      courierName: 'Pedro Jose Garcia',
-      courierRating: 4.96,
-      courierAvatarUrl: '',
-    )).copyWith(
-      statusText: 'Cancelled',
-      statusColor: const Color(0xFFEF4444),
-      etaText: 'Order Cancelled',
-      etaTime: '-',
-      progress: 0.0,
-    );
+    final cancelledOrder =
+        (targetOrder ??
+                OrderItemModel(
+                  orderId: orderId.startsWith('#') ? orderId : '#$orderId',
+                  dateText: 'Today',
+                  statusText: 'Cancelled',
+                  statusColor: const Color(0xFFEF4444),
+                  etaText: 'Order Cancelled',
+                  etaTime: '-',
+                  progress: 0.0,
+                  items: const [],
+                  totalPrice: 0.0,
+                  paymentMethod: 'Cash on Delivery',
+                  courierName: 'Pedro Jose Garcia',
+                  courierRating: 4.96,
+                  courierAvatarUrl: '',
+                ))
+            .copyWith(
+              statusText: 'Cancelled',
+              statusColor: const Color(0xFFEF4444),
+              etaText: 'Order Cancelled',
+              etaTime: '-',
+              progress: 0.0,
+            );
 
     // Ensure it's in current user's past list
     _currentPastList.removeWhere(
@@ -1394,9 +1754,15 @@ class OrderService extends ChangeNotifier {
     _currentPastList.insert(0, cancelledOrder);
 
     // Also update target's buyer list if different
-    if (cancelledOrder.buyerEmail.isNotEmpty && cancelledOrder.buyerEmail != _currentUserKey) {
-      final buyerPast = _userPastOrders.putIfAbsent(cancelledOrder.buyerEmail, () => []);
-      buyerPast.removeWhere((o) => o.orderId.replaceAll('#', '').trim().toLowerCase() == clean);
+    if (cancelledOrder.buyerEmail.isNotEmpty &&
+        cancelledOrder.buyerEmail != _currentUserKey) {
+      final buyerPast = _userPastOrders.putIfAbsent(
+        cancelledOrder.buyerEmail,
+        () => [],
+      );
+      buyerPast.removeWhere(
+        (o) => o.orderId.replaceAll('#', '').trim().toLowerCase() == clean,
+      );
       buyerPast.insert(0, cancelledOrder);
     }
 
@@ -1441,7 +1807,8 @@ class OrderService extends ChangeNotifier {
             payload: {'order_id': rawClean, 'status': 'cancelled'},
           );
         }
-        if (_courierDispatchChannel != null && _isCourierDispatchSubscribed == true) {
+        if (_courierDispatchChannel != null &&
+            _isCourierDispatchSubscribed == true) {
           _courierDispatchChannel!.sendBroadcastMessage(
             event: 'status_updated',
             payload: {'order_id': rawClean, 'status': 'cancelled'},
@@ -1463,7 +1830,9 @@ class OrderService extends ChangeNotifier {
     final cleanId = orderId.replaceAll('#', '').trim();
     // 1. Update in-memory active orders across all user keys
     for (final list in _userActiveOrders.values) {
-      final idx = list.indexWhere((o) => o.orderId.replaceAll('#', '').trim() == cleanId);
+      final idx = list.indexWhere(
+        (o) => o.orderId.replaceAll('#', '').trim() == cleanId,
+      );
       if (idx != -1) {
         list[idx] = list[idx].copyWith(
           deliveryLat: lat,
@@ -1478,25 +1847,39 @@ class OrderService extends ChangeNotifier {
     try {
       final isNum = int.tryParse(cleanId) != null;
       if (isNum) {
-        await Supabase.instance.client.from('orders').update({
-          'delivery_lat': lat,
-          'delivery_lng': lng,
-          'delivery_address': address,
-        }).eq('id', int.parse(cleanId)).catchError((_) {});
+        await Supabase.instance.client
+            .from('orders')
+            .update({
+              'delivery_lat': lat,
+              'delivery_lng': lng,
+              'delivery_address': address,
+            })
+            .eq('id', int.parse(cleanId))
+            .catchError((_) {});
       }
-      await Supabase.instance.client.from('orders').update({
-        'delivery_lat': lat,
-        'delivery_lng': lng,
-        'delivery_address': address,
-      }).eq('order_id', cleanId).catchError((_) {});
-      await Supabase.instance.client.from('orders').update({
-        'delivery_lat': lat,
-        'delivery_lng': lng,
-        'delivery_address': address,
-      }).eq('id', cleanId).catchError((_) {});
+      await Supabase.instance.client
+          .from('orders')
+          .update({
+            'delivery_lat': lat,
+            'delivery_lng': lng,
+            'delivery_address': address,
+          })
+          .eq('order_id', cleanId)
+          .catchError((_) {});
+      await Supabase.instance.client
+          .from('orders')
+          .update({
+            'delivery_lat': lat,
+            'delivery_lng': lng,
+            'delivery_address': address,
+          })
+          .eq('id', cleanId)
+          .catchError((_) {});
 
       // 3. Broadcast on orders_dispatch channel so Rider App instantly receives updated location
-      final dispatchChannel = Supabase.instance.client.channel('orders_dispatch');
+      final dispatchChannel = Supabase.instance.client.channel(
+        'orders_dispatch',
+      );
       dispatchChannel.sendBroadcastMessage(
         event: 'location_updated',
         payload: {
@@ -1508,7 +1891,9 @@ class OrderService extends ChangeNotifier {
       );
 
       // 4. Also broadcast on individual order channel
-      final trackingChannel = Supabase.instance.client.channel('rider_tracking_$cleanId');
+      final trackingChannel = Supabase.instance.client.channel(
+        'rider_tracking_$cleanId',
+      );
       trackingChannel.sendBroadcastMessage(
         event: 'location_updated',
         payload: {

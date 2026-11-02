@@ -78,6 +78,33 @@ class ProductModel {
     this.combinationStock,
     this.isDeleted = false,
   });
+
+  factory ProductModel.fromApiJson(Map<String, dynamic> json) {
+    final seller = json['seller'] as Map<String, dynamic>?;
+    final primaryImg = json['primary_image'] as String?;
+    final imagesList = (json['images'] as List?)?.map((e) => e.toString()).toList() ?? [];
+    final priceVal = json['price'];
+    final formattedPrice = json['formatted_price'] ?? (priceVal != null ? '₱${priceVal.toString()}' : '₱0.00');
+
+    return ProductModel(
+      id: json['id'].toString(),
+      title: json['title'] as String? ?? json['name'] as String? ?? '',
+      imageUrl: primaryImg ?? (imagesList.isNotEmpty ? imagesList.first : ''),
+      category: json['category'] as String? ?? '',
+      price: formattedPrice,
+      rating: (json['rating'] as num?)?.toDouble() ?? 5.0,
+      soldCount: '${json['sold_count'] ?? 0} sold',
+      shippingTag: 'Fast Delivery',
+      shopId: seller?['id']?.toString() ?? json['seller_id']?.toString() ?? '1',
+      shopName: seller?['store_name'] as String? ?? 'Nexora Store',
+      shopBadge: 'OFFICIAL STORE',
+      stockQuantity: (json['stock'] as num?)?.toInt() ?? 50,
+      description: json['description'] as String? ?? '',
+      galleryImages: imagesList,
+      location: seller?['city'] as String? ?? 'Metro Manila',
+      isActive: json['is_active'] != false,
+    );
+  }
 }
 
 class ProductCard extends StatefulWidget {

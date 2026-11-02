@@ -240,7 +240,7 @@ class _RegisterPageState extends State<RegisterPage> {
 
     if (!mounted) return;
 
-    final result = BuyerAccountService.instance.registerBuyer(
+    var result = await BuyerAccountService.instance.registerRemote(
       firstName: _firstNameController.text,
       lastName: _lastNameController.text,
       email: _emailController.text,
@@ -251,6 +251,24 @@ class _RegisterPageState extends State<RegisterPage> {
       agreeTerms: _agreeTerms,
       referralCode: _referralController.text,
     );
+
+    // Fallback to local validator/registry if offline or local testing
+    if (!result.success && result.fieldErrors == null) {
+      final localRes = BuyerAccountService.instance.registerBuyer(
+        firstName: _firstNameController.text,
+        lastName: _lastNameController.text,
+        email: _emailController.text,
+        mobileNumber: combinedPhone,
+        dateOfBirth: dob,
+        password: _passwordController.text,
+        confirmPassword: _confirmPasswordController.text,
+        agreeTerms: _agreeTerms,
+        referralCode: _referralController.text,
+      );
+      if (localRes.success) {
+        result = localRes;
+      }
+    }
 
     setState(() {
       _isLoading = false;
@@ -293,6 +311,7 @@ class _RegisterPageState extends State<RegisterPage> {
         arguments: _emailController.text.trim().toLowerCase(),
       );
     } else {
+      if (!mounted) return;
       String errorMessage = result.message;
       if (result.fieldErrors != null && result.fieldErrors!.isNotEmpty) {
         errorMessage = result.fieldErrors!.values.first;
@@ -1220,58 +1239,68 @@ class _RegisterPageState extends State<RegisterPage> {
                   ),
                   const SizedBox(height: 20),
 
-                  // Or Continue With Divider
-                  Row(
-                    children: [
-                      Expanded(child: Divider(color: Colors.grey.shade300)),
-                      const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 14),
-                        child: Text(
-                          'OR CONTINUE WITH',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFF94A3B8),
-                            letterSpacing: 0.5,
-                          ),
+                  // Google Sign Up (Hidden: web backend does not support mobile Google OAuth)
+                  Opacity(
+                    opacity: 0.0,
+                    child: IgnorePointer(
+                      child: Column(
+                      children: [
+                        // Or Continue With Divider
+                        Row(
+                          children: [
+                            Expanded(child: Divider(color: Colors.grey.shade300)),
+                            const Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 14),
+                              child: Text(
+                                'OR CONTINUE WITH',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF94A3B8),
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ),
+                            Expanded(child: Divider(color: Colors.grey.shade300)),
+                          ],
                         ),
-                      ),
-                      Expanded(child: Divider(color: Colors.grey.shade300)),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
+                        const SizedBox(height: 16),
 
-                  // Google Sign In Button (Apple / iCloud removed per user request!)
-                  SizedBox(
-                    width: double.infinity,
-                    height: 48,
-                    child: OutlinedButton(
-                      onPressed: _isLoading ? null : _handleGoogleSignUp,
-                      style: OutlinedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        side: BorderSide(color: Colors.grey.shade300),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                      ),
-                      child: const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          GoogleLogoIcon(size: 20),
-                          SizedBox(width: 10),
-                          Text(
-                            'Continue with Google',
-                            style: TextStyle(
-                              color: Color(0xFF0F172A),
-                              fontWeight: FontWeight.w700,
-                              fontSize: 14,
+                        // Google Sign In Button (Apple / iCloud removed per user request!)
+                        SizedBox(
+                          width: double.infinity,
+                          height: 48,
+                          child: OutlinedButton(
+                            onPressed: _isLoading ? null : _handleGoogleSignUp,
+                            style: OutlinedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              side: BorderSide(color: Colors.grey.shade300),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                            ),
+                            child: const Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                GoogleLogoIcon(size: 20),
+                                SizedBox(width: 10),
+                                Text(
+                                  'Continue with Google',
+                                  style: TextStyle(
+                                    color: Color(0xFF0F172A),
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 24),
+                ),
+                const SizedBox(height: 24),
 
                   // Already have an account? Sign In
                   Row(

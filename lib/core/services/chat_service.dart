@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../constants/api_constants.dart';
+import '../network/api_client.dart';
 
 class ChatMessageModel {
   final String sender; // 'user' or 'other'
@@ -10,6 +12,15 @@ class ChatMessageModel {
     required this.text,
     required this.time,
   });
+
+  factory ChatMessageModel.fromApiJson(Map<String, dynamic> json) {
+    final isMine = json['is_mine'] == true || json['sender_type'] == 'buyer';
+    return ChatMessageModel(
+      sender: isMine ? 'user' : 'other',
+      text: json['message'] as String? ?? '',
+      time: json['created_at'] != null ? json['created_at'].toString().split(' ').last : 'Now',
+    );
+  }
 
   Map<String, dynamic> toMap() {
     return {
@@ -83,6 +94,28 @@ class ChatConversationModel {
       'initialMessages': messages.map((m) => m.toMap()).toList(),
     };
   }
+
+  factory ChatConversationModel.fromApiJson(Map<String, dynamic> json) {
+    final seller = json['seller'] as Map<String, dynamic>? ?? {};
+    final storeName = seller['store_name'] as String? ?? 'Seller';
+    final lastMsg = json['last_message'] as Map<String, dynamic>?;
+    final lastMsgText = lastMsg?['message'] as String? ?? 'No messages yet';
+    final timeStr = lastMsg?['created_at'] != null
+        ? lastMsg!['created_at'].toString().split(' ').last
+        : 'Now';
+
+    return ChatConversationModel(
+      id: json['id'].toString(),
+      category: 'Sellers',
+      title: storeName,
+      subtitle: lastMsgText,
+      brandTag: 'BRAND',
+      time: timeStr,
+      avatarIcon: Icons.storefront_rounded,
+      avatarBg: const Color(0xFF0066FF),
+      messages: [],
+    );
+  }
 }
 
 class ChatService extends ChangeNotifier {
@@ -90,6 +123,90 @@ class ChatService extends ChangeNotifier {
 
   ChatService._internal() {
     _initConversations();
+  }
+
+  /// Fetch buyer chat conversations from Laravel backend API
+  Future<List<ChatConversationModel>> fetchConversationsRemote() async {
+    if (!ApiClient.instance.hasToken) return conversations;
+    try {
+      final res = await ApiClient.instance.get(ApiConstants.buyerChat);
+      final data = res['data'];
+      final List list = data is List ? data : (data is Map && data['data'] is List ? data['data'] : []);
+      final parsed = list.map((c) => ChatConversationModel.fromApiJson(c as Map<String, dynamic>)).toList();
+      if (parsed.isNotEmpty) {
+        _conversations.removeWhere((c) => parsed.any((p) => p.id == c.id));
+        _conversations.insertAll(0, parsed);
+        notifyListeners();
+      }
+      return conversations;
+    } catch (e) {
+      debugPrint('fetchConversationsRemote error: $e');
+      return conversations;
+    }
+  }
+
+  /// Fetch messages for conversation from Laravel backend API
+  Future<List<ChatMessageModel>> fetchMessagesRemote(String conversationId) async {
+    final existing = getConversationById(conversationId)?.messages ?? [];
+    if (!ApiClient.instance.hasToken) return existing;
+    try {
+      final res = await ApiClient.instance.get(ApiConstants.buyerChatConversation(conversationId));
+      if (res['data'] is Map<String, dynamic>) {
+        final messages = res['data']['messages'];
+        if (messages is List) {
+          final list = messages.map((m) => ChatMessageModel.fromApiJson(m as Map<String, dynamic>)).toList();
+          final conv = getConversationById(conversationId);
+          if (conv != null) {
+            conv.messages.clear();
+            conv.messages.addAll(list);
+            notifyListeners();
+          }
+          return list;
+        }
+      }
+    } catch (e) {
+      debugPrint('fetchMessagesRemote error: $e');
+    }
+    return getConversationById(conversationId)?.messages ?? [];
+  }
+
+  /// Start a chat with a seller on Laravel backend API
+  Future<ChatConversationModel?> startConversationRemote(int sellerId) async {
+    if (!ApiClient.instance.hasToken) return null;
+    try {
+      final res = await ApiClient.instance.post(
+        ApiConstants.buyerChatStart,
+        body: {'seller_id': sellerId},
+      );
+      if (res['data'] is Map<String, dynamic>) {
+        final conv = ChatConversationModel.fromApiJson(res['data'] as Map<String, dynamic>);
+        _conversations.removeWhere((c) => c.id == conv.id);
+        _conversations.insert(0, conv);
+        notifyListeners();
+        return conv;
+      }
+    } catch (e) {
+      debugPrint('startConversationRemote error: $e');
+    }
+    return null;
+  }
+
+  /// Send message in conversation via Laravel backend API
+  Future<ChatMessageModel?> sendMessageRemote(String conversationId, String text) async {
+    sendUserMessage(conversationId, text);
+    if (!ApiClient.instance.hasToken) return null;
+    try {
+      final res = await ApiClient.instance.post(
+        ApiConstants.buyerChatMessage(conversationId),
+        body: {'message': text},
+      );
+      if (res['data'] is Map<String, dynamic>) {
+        return ChatMessageModel.fromApiJson(res['data'] as Map<String, dynamic>);
+      }
+    } catch (e) {
+      debugPrint('sendMessageRemote error: $e');
+    }
+    return null;
   }
 
   final List<ChatConversationModel> _conversations = [];

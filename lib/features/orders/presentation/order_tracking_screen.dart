@@ -1,8 +1,10 @@
 import 'dart:math' as math;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
+
 import '../../../core/services/order_service.dart';
 import '../../../core/services/order_chat_service.dart';
 import '../../../core/services/in_app_notification_service.dart';
@@ -22,11 +24,7 @@ class OrderTrackingScreen extends StatefulWidget {
   final String? orderId;
   final OrderItemModel? orderItem;
 
-  const OrderTrackingScreen({
-    super.key,
-    this.orderId,
-    this.orderItem,
-  });
+  const OrderTrackingScreen({super.key, this.orderId, this.orderItem});
 
   @override
   State<OrderTrackingScreen> createState() => _OrderTrackingScreenState();
@@ -77,9 +75,15 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
     return null;
   }
 
-  double _calculateDistanceKm(double lat1, double lon1, double lat2, double lon2) {
+  double _calculateDistanceKm(
+    double lat1,
+    double lon1,
+    double lat2,
+    double lon2,
+  ) {
     const p = 0.017453292519943295; // pi / 180
-    final a = 0.5 -
+    final a =
+        0.5 -
         math.cos((lat2 - lat1) * p) / 2 +
         math.cos(lat1 * p) *
             math.cos(lat2 * p) *
@@ -89,7 +93,8 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
   }
 
   void _syncCachedRiderGps() {
-    final cached = OrderService.instance.getLiveRiderLocation(_cleanId) ??
+    final cached =
+        OrderService.instance.getLiveRiderLocation(_cleanId) ??
         OrderService.instance.getLiveRiderLocation('latest');
     if (cached != null) {
       _liveRiderLat = cached['lat'] ?? _liveRiderLat;
@@ -119,9 +124,11 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
       final rawSender = (msg['senderName'] as String?)?.isNotEmpty == true
           ? msg['senderName'] as String
           : (_localOrder?.courierName.isNotEmpty == true
-              ? _localOrder!.courierName
-              : 'Pedro Jose Garcia');
-      final riderName = rawSender.contains('Mark') ? 'Pedro Jose Garcia' : rawSender;
+                ? _localOrder!.courierName
+                : 'Pedro Jose Garcia');
+      final riderName = rawSender.contains('Mark')
+          ? 'Pedro Jose Garcia'
+          : rawSender;
       final targetOrderId = (msg['orderId'] as String?)?.isNotEmpty == true
           ? msg['orderId'] as String
           : _cleanId;
@@ -169,16 +176,18 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
       final isNumeric = int.tryParse(id) != null;
       final rawStream = isNumeric
           ? Supabase.instance.client
-              .from('orders')
-              .stream(primaryKey: ['id'])
-              .eq('id', int.parse(id))
+                .from('orders')
+                .stream(primaryKey: ['id'])
+                .eq('id', int.parse(id))
           : Supabase.instance.client
-              .from('orders')
-              .stream(primaryKey: ['id'])
-              .eq('order_id', id);
+                .from('orders')
+                .stream(primaryKey: ['id'])
+                .eq('order_id', id);
 
       _orderStream = rawStream.handleError((err) {
-        debugPrint('📡 Order tracking Supabase stream notice (offline/reconnecting): $err');
+        debugPrint(
+          '📡 Order tracking Supabase stream notice (offline/reconnecting): $err',
+        );
       });
 
       // Live Supabase Broadcast channel for real rider coordinates & stage updates
@@ -188,13 +197,28 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
             event: 'location_update',
             callback: (payload) {
               if (!mounted) return;
-              final lat = double.tryParse(payload['rider_lat']?.toString() ?? '');
-              final lng = double.tryParse(payload['rider_lng']?.toString() ?? '');
-              final speed = double.tryParse(payload['rider_speed']?.toString() ?? '');
-              final heading = double.tryParse(payload['rider_heading']?.toString() ?? '');
-              final accuracy = double.tryParse(payload['rider_accuracy']?.toString() ?? '');
-              final rawStatus = payload['status']?.toString().toLowerCase().trim();
-              final status = rawStatus != null ? OrderService.normalizeRemoteStatus(rawStatus) : null;
+              final lat = double.tryParse(
+                payload['rider_lat']?.toString() ?? '',
+              );
+              final lng = double.tryParse(
+                payload['rider_lng']?.toString() ?? '',
+              );
+              final speed = double.tryParse(
+                payload['rider_speed']?.toString() ?? '',
+              );
+              final heading = double.tryParse(
+                payload['rider_heading']?.toString() ?? '',
+              );
+              final accuracy = double.tryParse(
+                payload['rider_accuracy']?.toString() ?? '',
+              );
+              final rawStatus = payload['status']
+                  ?.toString()
+                  .toLowerCase()
+                  .trim();
+              final status = rawStatus != null
+                  ? OrderService.normalizeRemoteStatus(rawStatus)
+                  : null;
               final courierName = payload['courier_name']?.toString().trim();
 
               if (lat != null && lng != null) {
@@ -233,11 +257,23 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
                 ...payload,
                 'order_id': id,
               });
-              final rawStatus = payload['status']?.toString().toLowerCase().trim();
-              final status = rawStatus != null ? OrderService.normalizeRemoteStatus(rawStatus) : null;
-              final courierName = (payload['courier_name'] ?? payload['rider_name'])?.toString().trim();
-              final lat = double.tryParse(payload['rider_lat']?.toString() ?? '');
-              final lng = double.tryParse(payload['rider_lng']?.toString() ?? '');
+              final rawStatus = payload['status']
+                  ?.toString()
+                  .toLowerCase()
+                  .trim();
+              final status = rawStatus != null
+                  ? OrderService.normalizeRemoteStatus(rawStatus)
+                  : null;
+              final courierName =
+                  (payload['courier_name'] ?? payload['rider_name'])
+                      ?.toString()
+                      .trim();
+              final lat = double.tryParse(
+                payload['rider_lat']?.toString() ?? '',
+              );
+              final lng = double.tryParse(
+                payload['rider_lng']?.toString() ?? '',
+              );
               if (status != null && status.isNotEmpty) {
                 OrderService.instance.syncOrderFromRemoteStatus(
                   id,
@@ -267,15 +303,15 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
             },
           )
           .subscribe((status, [error]) {
-        debugPrint('📡 Rider tracking channel status: $status');
-        if (status == RealtimeSubscribeStatus.subscribed) {
-          _trackingChannel?.sendBroadcastMessage(
-            event: 'request_rider_location',
-            payload: {'order_id': id},
-          );
-          OrderService.instance.requestRiderLocation(id);
-        }
-      });
+            debugPrint('📡 Rider tracking channel status: $status');
+            if (status == RealtimeSubscribeStatus.subscribed) {
+              _trackingChannel?.sendBroadcastMessage(
+                event: 'request_rider_location',
+                payload: {'order_id': id},
+              );
+              OrderService.instance.requestRiderLocation(id);
+            }
+          });
     } catch (e) {
       debugPrint('⚠️ Supabase stream note: $e');
       _orderStream = null;
@@ -291,7 +327,9 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
     if (lat == null || lng == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Delivery GPS coordinates are not available for this order.'),
+          content: Text(
+            'Delivery GPS coordinates are not available for this order.',
+          ),
           backgroundColor: Color(0xFFEF4444),
           behavior: SnackBarBehavior.floating,
         ),
@@ -310,14 +348,18 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
 
       // 1. Android native Google Maps Geo intent
       if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-        final androidGeoUri = Uri.parse('geo:$lat,$lng?q=$lat,$lng($encodedLabel)');
+        final androidGeoUri = Uri.parse(
+          'geo:$lat,$lng?q=$lat,$lng($encodedLabel)',
+        );
         if (await canLaunchUrl(androidGeoUri)) {
           targetUri = androidGeoUri;
         }
       }
       // 2. iOS native app schemes
       else if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
-        final googleMapsUri = Uri.parse('comgooglemaps://?q=$lat,$lng&center=$lat,$lng');
+        final googleMapsUri = Uri.parse(
+          'comgooglemaps://?q=$lat,$lng&center=$lat,$lng',
+        );
         final appleMapsUri = Uri.parse('maps://?q=$lat,$lng&ll=$lat,$lng');
 
         if (await canLaunchUrl(googleMapsUri)) {
@@ -328,7 +370,9 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
       }
 
       // 3. Web or browser fallback
-      targetUri ??= Uri.parse('https://www.google.com/maps/search/?api=1&query=$lat,$lng');
+      targetUri ??= Uri.parse(
+        'https://www.google.com/maps/search/?api=1&query=$lat,$lng',
+      );
 
       final launched = await launchUrl(
         targetUri,
@@ -336,7 +380,9 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
       );
 
       if (!launched) {
-        final webFallbackUri = Uri.parse('https://www.google.com/maps/search/?api=1&query=$lat,$lng');
+        final webFallbackUri = Uri.parse(
+          'https://www.google.com/maps/search/?api=1&query=$lat,$lng',
+        );
         await launchUrl(webFallbackUri, mode: LaunchMode.externalApplication);
       }
     } catch (e) {
@@ -369,10 +415,17 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
                 color: Color(0xFFE0F2FE),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.phone_in_talk_rounded, color: Color(0xFF0284C7), size: 22),
+              child: const Icon(
+                Icons.phone_in_talk_rounded,
+                color: Color(0xFF0284C7),
+                size: 22,
+              ),
             ),
             const SizedBox(width: 10),
-            const Text('Call Courier', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
+            const Text(
+              'Call Courier',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
+            ),
           ],
         ),
         content: Column(
@@ -396,8 +449,21 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(riderName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
-                        Text(riderPhone, style: const TextStyle(color: Color(0xFF0066FF), fontSize: 13, fontWeight: FontWeight.w600)),
+                        Text(
+                          riderName,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13.5,
+                          ),
+                        ),
+                        Text(
+                          riderPhone,
+                          style: const TextStyle(
+                            color: Color(0xFF0066FF),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -409,7 +475,10 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel', style: TextStyle(color: Color(0xFF64748B))),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: Color(0xFF64748B)),
+            ),
           ),
           ElevatedButton.icon(
             onPressed: () async {
@@ -421,7 +490,9 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
                 if (!mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text('Simulated call to $riderName at $riderPhone'),
+                    content: Text(
+                      'Simulated call to $riderName at $riderPhone',
+                    ),
                     backgroundColor: const Color(0xFF10B981),
                   ),
                 );
@@ -432,7 +503,9 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF10B981),
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
           ),
         ],
@@ -441,8 +514,12 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
   }
 
   void _openChatWithRider(String riderName, String orderRef) {
-    final effectiveRef = orderRef.isNotEmpty ? orderRef.replaceAll('#', '').trim() : _cleanId;
-    final existingMessages = OrderChatService.instance.getMessages(effectiveRef);
+    final effectiveRef = orderRef.isNotEmpty
+        ? orderRef.replaceAll('#', '').trim()
+        : _cleanId;
+    final existingMessages = OrderChatService.instance.getMessages(
+      effectiveRef,
+    );
 
     Navigator.push(
       context,
@@ -454,7 +531,9 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
           orderRef: '#$effectiveRef',
           avatarIcon: Icons.two_wheeler_rounded,
           avatarBgColor: const Color(0xFF0066FF),
-          initialMessages: existingMessages.isNotEmpty ? existingMessages : const [],
+          initialMessages: existingMessages.isNotEmpty
+              ? existingMessages
+              : const [],
         ),
       ),
     );
@@ -462,13 +541,15 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
 
   /// Maps local order status string to stepper index
   String _mapLocalStatus(OrderItemModel o) {
-    if (_broadcastStatusOverride != null && _broadcastStatusOverride!.isNotEmpty) {
+    if (_broadcastStatusOverride != null &&
+        _broadcastStatusOverride!.isNotEmpty) {
       return OrderService.normalizeRemoteStatus(_broadcastStatusOverride!);
     }
     final s = o.statusText.toLowerCase();
     final eta = o.etaText.toLowerCase();
     if (s.contains('pay') || s.contains('unpaid')) return 'pending';
-    if (s.contains('complete') || s.contains('delivered') || o.progress >= 1.0) return 'delivered';
+    if (s.contains('complete') || s.contains('delivered') || o.progress >= 1.0)
+      return 'delivered';
     if (s.contains('cancel')) return 'cancelled';
     if (s.contains('transit') ||
         s.contains('out for delivery') ||
@@ -478,7 +559,8 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
         o.progress >= 0.7) {
       return 'in_transit';
     }
-    if (eta.contains('arrived at merchant') || eta.contains('scanning')) return 'at_store';
+    if (eta.contains('arrived at merchant') || eta.contains('scanning'))
+      return 'at_store';
     if (o.isRiderAccepted || eta.contains('accepted')) return 'accepted';
     if (o.progress >= 0.45) return 'preparing';
     return 'pending';
@@ -505,7 +587,11 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
         ),
         centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Color(0xFF0F172A), size: 20),
+          icon: const Icon(
+            Icons.arrow_back_ios_new_rounded,
+            color: Color(0xFF0F172A),
+            size: 20,
+          ),
           onPressed: () => Navigator.of(context).pop(),
         ),
         actions: [
@@ -515,7 +601,9 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
             decoration: BoxDecoration(
               color: const Color(0xFF10B981).withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.3)),
+              border: Border.all(
+                color: const Color(0xFF10B981).withValues(alpha: 0.3),
+              ),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -554,7 +642,9 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
                     (order['status'] ?? 'pending').toString(),
                   );
                   final rawStatus = _broadcastStatusOverride != null
-                      ? OrderService.normalizeRemoteStatus(_broadcastStatusOverride!)
+                      ? OrderService.normalizeRemoteStatus(
+                          _broadcastStatusOverride!,
+                        )
                       : dbStatus;
                   WidgetsBinding.instance.addPostFrameCallback((_) {
                     OrderService.instance.syncOrderFromRemoteStatus(
@@ -563,20 +653,44 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
                       rowData: order,
                     );
                   });
-                  final deliveryAddress = (order['delivery_address'] ?? _localOrder?.shippingAddress ?? '192 Tuy-Baanan, Liliw, Laguna').toString();
-                  double? parsedLat = (order['delivery_lat'] as num?)?.toDouble() ?? double.tryParse(order['delivery_lat']?.toString() ?? '');
-                  double? parsedLng = (order['delivery_lng'] as num?)?.toDouble() ?? double.tryParse(order['delivery_lng']?.toString() ?? '');
-                  if (parsedLat == null || parsedLng == null || parsedLat == 0.0 || parsedLng == 0.0) {
-                    final resolved = LagunaPlacesService.instance.resolveCoordinates(deliveryAddress);
+                  final deliveryAddress =
+                      (order['delivery_address'] ??
+                              _localOrder?.shippingAddress ??
+                              '192 Tuy-Baanan, Liliw, Laguna')
+                          .toString();
+                  double? parsedLat =
+                      (order['delivery_lat'] as num?)?.toDouble() ??
+                      double.tryParse(order['delivery_lat']?.toString() ?? '');
+                  double? parsedLng =
+                      (order['delivery_lng'] as num?)?.toDouble() ??
+                      double.tryParse(order['delivery_lng']?.toString() ?? '');
+                  if (parsedLat == null ||
+                      parsedLng == null ||
+                      parsedLat == 0.0 ||
+                      parsedLng == 0.0) {
+                    final resolved = LagunaPlacesService.instance
+                        .resolveCoordinates(deliveryAddress);
                     parsedLat = resolved.latitude;
                     parsedLng = resolved.longitude;
                   }
                   final lat = parsedLat;
                   final lng = parsedLng;
-                  final orderNumber = order['order_id']?.toString() ?? order['order_number']?.toString() ?? order['id']?.toString() ?? _cleanId;
-                  final recipientName = order['customer_id']?.toString() ?? _localOrder?.recipientName ?? 'Customer';
-                  final recipientPhone = _localOrder?.recipientPhone ?? '(+63) 975 963 2035';
-                  final totalAmount = _localOrder != null ? '₱${_localOrder!.totalPrice.toStringAsFixed(2)}' : (order['total_amount'] != null ? '₱${order['total_amount']}' : '₱337.00');
+                  final orderNumber =
+                      order['order_id']?.toString() ??
+                      order['order_number']?.toString() ??
+                      order['id']?.toString() ??
+                      _cleanId;
+                  final recipientName =
+                      order['customer_id']?.toString() ??
+                      _localOrder?.recipientName ??
+                      'Customer';
+                  final recipientPhone =
+                      _localOrder?.recipientPhone ?? '(+63) 975 963 2035';
+                  final totalAmount = _localOrder != null
+                      ? '₱${_localOrder!.totalPrice.toStringAsFixed(2)}'
+                      : (order['total_amount'] != null
+                            ? '₱${order['total_amount']}'
+                            : '₱337.00');
 
                   return _buildTrackingContent(
                     status: rawStatus,
@@ -598,11 +712,14 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
                   double localLng = _localOrder!.deliveryLng ?? 0.0;
                   if (localLat == 0.0 || localLng == 0.0) {
                     final defaultAddr = AddressService.instance.defaultAddress;
-                    if (defaultAddr != null && defaultAddr.latitude != null && defaultAddr.latitude != 0.0) {
+                    if (defaultAddr != null &&
+                        defaultAddr.latitude != null &&
+                        defaultAddr.latitude != 0.0) {
                       localLat = defaultAddr.latitude!;
                       localLng = defaultAddr.longitude ?? 0.0;
                     } else {
-                      final resolved = LagunaPlacesService.instance.resolveCoordinates(_localOrder!.shippingAddress);
+                      final resolved = LagunaPlacesService.instance
+                          .resolveCoordinates(_localOrder!.shippingAddress);
                       localLat = resolved.latitude;
                       localLng = resolved.longitude;
                     }
@@ -616,7 +733,8 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
                     recipientName: _localOrder!.recipientName,
                     recipientPhone: _localOrder!.recipientPhone,
                     orderNumber: _localOrder!.orderId.replaceAll('#', ''),
-                    totalAmount: '₱${_localOrder!.totalPrice.toStringAsFixed(2)}',
+                    totalAmount:
+                        '₱${_localOrder!.totalPrice.toStringAsFixed(2)}',
                     isLiveRiderConnected: false,
                     localOrder: _localOrder,
                   );
@@ -628,11 +746,17 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        CircularProgressIndicator(strokeWidth: 3, color: brandBlue),
+                        CircularProgressIndicator(
+                          strokeWidth: 3,
+                          color: brandBlue,
+                        ),
                         SizedBox(height: 16),
                         Text(
                           'Connecting to live tracking stream...',
-                          style: TextStyle(color: Color(0xFF64748B), fontSize: 14),
+                          style: TextStyle(
+                            color: Color(0xFF64748B),
+                            fontSize: 14,
+                          ),
                         ),
                       ],
                     ),
@@ -644,34 +768,39 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
               },
             )
           : _localOrder != null
-              ? Builder(builder: (context) {
-                  double localLat = _localOrder!.deliveryLat ?? 0.0;
-                  double localLng = _localOrder!.deliveryLng ?? 0.0;
-                  if (localLat == 0.0 || localLng == 0.0) {
-                    final defaultAddr = AddressService.instance.defaultAddress;
-                    if (defaultAddr != null && defaultAddr.latitude != null && defaultAddr.latitude != 0.0) {
-                      localLat = defaultAddr.latitude!;
-                      localLng = defaultAddr.longitude ?? 0.0;
-                    } else {
-                      final resolved = LagunaPlacesService.instance.resolveCoordinates(_localOrder!.shippingAddress);
-                      localLat = resolved.latitude;
-                      localLng = resolved.longitude;
-                    }
+          ? Builder(
+              builder: (context) {
+                double localLat = _localOrder!.deliveryLat ?? 0.0;
+                double localLng = _localOrder!.deliveryLng ?? 0.0;
+                if (localLat == 0.0 || localLng == 0.0) {
+                  final defaultAddr = AddressService.instance.defaultAddress;
+                  if (defaultAddr != null &&
+                      defaultAddr.latitude != null &&
+                      defaultAddr.latitude != 0.0) {
+                    localLat = defaultAddr.latitude!;
+                    localLng = defaultAddr.longitude ?? 0.0;
+                  } else {
+                    final resolved = LagunaPlacesService.instance
+                        .resolveCoordinates(_localOrder!.shippingAddress);
+                    localLat = resolved.latitude;
+                    localLng = resolved.longitude;
                   }
-                  return _buildTrackingContent(
-                    status: _mapLocalStatus(_localOrder!),
-                    address: _localOrder!.shippingAddress,
-                    lat: localLat,
-                    lng: localLng,
-                    recipientName: _localOrder!.recipientName,
-                    recipientPhone: _localOrder!.recipientPhone,
-                    orderNumber: _localOrder!.orderId.replaceAll('#', ''),
-                    totalAmount: '₱${_localOrder!.totalPrice.toStringAsFixed(2)}',
-                    isLiveRiderConnected: false,
-                    localOrder: _localOrder,
-                  );
-                })
-              : _buildFallbackEmptyState(),
+                }
+                return _buildTrackingContent(
+                  status: _mapLocalStatus(_localOrder!),
+                  address: _localOrder!.shippingAddress,
+                  lat: localLat,
+                  lng: localLng,
+                  recipientName: _localOrder!.recipientName,
+                  recipientPhone: _localOrder!.recipientPhone,
+                  orderNumber: _localOrder!.orderId.replaceAll('#', ''),
+                  totalAmount: '₱${_localOrder!.totalPrice.toStringAsFixed(2)}',
+                  isLiveRiderConnected: false,
+                  localOrder: _localOrder,
+                );
+              },
+            )
+          : _buildFallbackEmptyState(),
     );
   }
 
@@ -682,11 +811,19 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.inventory_2_outlined, color: Color(0xFF94A3B8), size: 54),
+            const Icon(
+              Icons.inventory_2_outlined,
+              color: Color(0xFF94A3B8),
+              size: 54,
+            ),
             const SizedBox(height: 14),
             const Text(
               'Order Tracking Initialized',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF0F172A),
+              ),
             ),
             const SizedBox(height: 6),
             Text(
@@ -700,7 +837,9 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF0066FF),
                 foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
               ),
               child: const Text('Back to Orders'),
             ),
@@ -722,11 +861,13 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
     required bool isLiveRiderConnected,
     OrderItemModel? localOrder,
   }) {
-    final riderName = (_broadcastCourierNameOverride != null && _broadcastCourierNameOverride!.isNotEmpty)
+    final riderName =
+        (_broadcastCourierNameOverride != null &&
+            _broadcastCourierNameOverride!.isNotEmpty)
         ? _broadcastCourierNameOverride!
         : (localOrder?.courierName.isNotEmpty == true
-            ? localOrder!.courierName
-            : 'Pedro Jose Garcia');
+              ? localOrder!.courierName
+              : 'Pedro Jose Garcia');
     final riderRating = OrderService.instance.getLiveCourierRating(
       riderName,
       fallback: localOrder?.courierRating ?? 4.96,
@@ -745,13 +886,16 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
           _buildOrderHeaderCard(orderNumber, totalAmount, isLiveRiderConnected),
           const SizedBox(height: 14),
 
-          // 2. In-App Live GPS Interactive Map
-          _buildInAppLiveGpsMapCard(
-            status: status,
-            lat: lat,
-            lng: lng,
-            address: address,
-            riderName: riderName,
+          // 2. In-App Live GPS Interactive Map (Hidden: web backend does not support live mobile GPS tracking)
+          Visibility(
+            visible: false,
+            child: _buildInAppLiveGpsMapCard(
+              status: status,
+              lat: lat,
+              lng: lng,
+              address: address,
+              riderName: riderName,
+            ),
           ),
           const SizedBox(height: 14),
 
@@ -798,7 +942,8 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
     required String address,
     required String riderName,
   }) {
-    final isOutForDelivery = status == 'to_deliver' ||
+    final isOutForDelivery =
+        status == 'to_deliver' ||
         status == 'in_transit' ||
         status == 'out_for_delivery' ||
         status == 'picked_up';
@@ -822,8 +967,14 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
     }
 
     // 2. Real geographical distance (Haversine formula) & dynamic ETA
-    final distKm = _calculateDistanceKm(currentRiderLat, currentRiderLng, lat, lng);
-    final effectiveSpeedKmh = (_liveRiderSpeed != null && _liveRiderSpeed! > 5.0)
+    final distKm = _calculateDistanceKm(
+      currentRiderLat,
+      currentRiderLng,
+      lat,
+      lng,
+    );
+    final effectiveSpeedKmh =
+        (_liveRiderSpeed != null && _liveRiderSpeed! > 5.0)
         ? _liveRiderSpeed!
         : 24.0;
     final etaMinutes = (distKm / effectiveSpeedKmh * 60.0).round().clamp(1, 60);
@@ -854,7 +1005,9 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
         color: _isSatelliteMode ? const Color(0xFF0F172A) : Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: _isSatelliteMode ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
+          color: _isSatelliteMode
+              ? const Color(0xFF1E293B)
+              : const Color(0xFFE2E8F0),
         ),
         boxShadow: [
           BoxShadow(
@@ -891,13 +1044,18 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
                         fontSize: 11,
                         fontWeight: FontWeight.w800,
                         letterSpacing: 0.8,
-                        color: _isSatelliteMode ? const Color(0xFF38BDF8) : const Color(0xFF0284C7),
+                        color: _isSatelliteMode
+                            ? const Color(0xFF38BDF8)
+                            : const Color(0xFF0284C7),
                       ),
                     ),
                   ],
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
                     color: _isSatelliteMode
                         ? const Color(0xFF1E293B)
@@ -908,12 +1066,14 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
                     isDelivered
                         ? 'Delivered'
                         : (isOutForDelivery
-                            ? '${distKm.toStringAsFixed(1)} km • ETA $etaMinutes min'
-                            : 'In Hub Dispatch'),
+                              ? '${distKm.toStringAsFixed(1)} km • ETA $etaMinutes min'
+                              : 'In Hub Dispatch'),
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
-                      color: _isSatelliteMode ? Colors.white70 : const Color(0xFF334155),
+                      color: _isSatelliteMode
+                          ? Colors.white70
+                          : const Color(0xFF334155),
                     ),
                   ),
                 ),
@@ -931,9 +1091,17 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
                   final mapHeight = constraints.maxHeight;
 
                   // Web Mercator tile projection
-                  final double globalTileX = (centerLng + 180.0) / 360.0 * (1 << z);
+                  final double globalTileX =
+                      (centerLng + 180.0) / 360.0 * (1 << z);
                   final double latRad = centerLat * math.pi / 180.0;
-                  final double globalTileY = (1.0 - (math.log(math.tan(latRad) + (1.0 / math.cos(latRad))) / math.pi)) / 2.0 * (1 << z);
+                  final double globalTileY =
+                      (1.0 -
+                          (math.log(
+                                math.tan(latRad) + (1.0 / math.cos(latRad)),
+                              ) /
+                              math.pi)) /
+                      2.0 *
+                      (1 << z);
 
                   final int centerTileX = globalTileX.floor();
                   final int centerTileY = globalTileY.floor();
@@ -941,8 +1109,10 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
                   final double fracX = globalTileX - centerTileX;
                   final double fracY = globalTileY - centerTileY;
 
-                  final double originPixelX = (mapWidth / 2) - (fracX * 256.0) + _mapPanOffset.dx;
-                  final double originPixelY = (mapHeight / 2) - (fracY * 256.0) + _mapPanOffset.dy;
+                  final double originPixelX =
+                      (mapWidth / 2) - (fracX * 256.0) + _mapPanOffset.dx;
+                  final double originPixelY =
+                      (mapHeight / 2) - (fracY * 256.0) + _mapPanOffset.dy;
 
                   // Render tile grid
                   final tileWidgets = <Widget>[];
@@ -951,7 +1121,10 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
                       final double tileLeft = originPixelX + (dx * 256.0);
                       final double tileTop = originPixelY + (dy * 256.0);
 
-                      if (tileLeft + 256 < 0 || tileLeft > mapWidth || tileTop + 256 < 0 || tileTop > mapHeight) {
+                      if (tileLeft + 256 < 0 ||
+                          tileLeft > mapWidth ||
+                          tileTop + 256 < 0 ||
+                          tileTop > mapHeight) {
                         continue;
                       }
 
@@ -973,21 +1146,25 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
                             headers: kIsWeb
                                 ? null
                                 : const {
-                                    'User-Agent':
-                                        'NexoraBuyerApp/1.0 (com.example.nexora_flutter_app)',
+                                    'User-Agent': 'NexoraBuyerApp/1.0 (com.example.nexora_flutter_app)',
                                   },
                             fit: BoxFit.cover,
                             gaplessPlayback: true,
-                            errorBuilder: (context, error, stackTrace) => Container(
-                              color: _isSatelliteMode ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9),
-                              child: Center(
-                                child: Icon(
-                                  Icons.map_outlined,
-                                  size: 24,
-                                  color: _isSatelliteMode ? Colors.white12 : Colors.black12,
+                            errorBuilder: (context, error, stackTrace) =>
+                                Container(
+                                  color: _isSatelliteMode
+                                      ? const Color(0xFF0F172A)
+                                      : const Color(0xFFF1F5F9),
+                                  child: Center(
+                                    child: Icon(
+                                      Icons.map_outlined,
+                                      size: 24,
+                                      color: _isSatelliteMode
+                                          ? Colors.white12
+                                          : Colors.black12,
+                                    ),
+                                  ),
                                 ),
-                              ),
-                            ),
                           ),
                         ),
                       );
@@ -1004,7 +1181,9 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
                       children: [
                         // Background base color
                         Container(
-                          color: _isSatelliteMode ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9),
+                          color: _isSatelliteMode
+                              ? const Color(0xFF0F172A)
+                              : const Color(0xFFF1F5F9),
                         ),
 
                         // Real map tiles
@@ -1017,7 +1196,8 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
                             builder: (context, child) {
                               return CustomPaint(
                                 painter: _RealTileOverlayPainter(
-                                  animationProgress: _mapAnimationController.value,
+                                  animationProgress:
+                                      _mapAnimationController.value,
                                   isSatelliteMode: _isSatelliteMode,
                                   status: status,
                                   z: z,
@@ -1051,7 +1231,11 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
   }
 
   /// Order identifier & overview header
-  Widget _buildOrderHeaderCard(String orderNumber, String? totalAmount, bool isLive) {
+  Widget _buildOrderHeaderCard(
+    String orderNumber,
+    String? totalAmount,
+    bool isLive,
+  ) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -1132,7 +1316,9 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
                 Icon(
                   isLive ? Icons.wifi_tethering_rounded : Icons.sync_rounded,
                   size: 15,
-                  color: isLive ? const Color(0xFF00B4D8) : const Color(0xFF64748B),
+                  color: isLive
+                      ? const Color(0xFF00B4D8)
+                      : const Color(0xFF64748B),
                 ),
                 const SizedBox(width: 6),
                 Expanded(
@@ -1143,7 +1329,9 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
-                      color: isLive ? const Color(0xFF0891B2) : const Color(0xFF475569),
+                      color: isLive
+                          ? const Color(0xFF0891B2)
+                          : const Color(0xFF475569),
                     ),
                   ),
                 ),
@@ -1185,7 +1373,11 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
                   color: statusConfig.color.withValues(alpha: 0.12),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(statusConfig.icon, color: statusConfig.color, size: 24),
+                child: Icon(
+                  statusConfig.icon,
+                  color: statusConfig.color,
+                  size: 24,
+                ),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -1266,8 +1458,8 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
     final Color dotColor = isCurrent
         ? const Color(0xFF0066FF)
         : isPassed
-            ? const Color(0xFF10B981)
-            : const Color(0xFFCBD5E1);
+        ? const Color(0xFF10B981)
+        : const Color(0xFFCBD5E1);
 
     return IntrinsicHeight(
       child: Row(
@@ -1297,7 +1489,9 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
                   Expanded(
                     child: Container(
                       width: 2,
-                      color: isPassed ? const Color(0xFF10B981) : const Color(0xFFE2E8F0),
+                      color: isPassed
+                          ? const Color(0xFF10B981)
+                          : const Color(0xFFE2E8F0),
                     ),
                   ),
               ],
@@ -1316,7 +1510,9 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
                     style: TextStyle(
                       fontWeight: isCurrent ? FontWeight.w800 : FontWeight.w600,
                       fontSize: 14,
-                      color: isPending ? const Color(0xFF94A3B8) : const Color(0xFF0F172A),
+                      color: isPending
+                          ? const Color(0xFF94A3B8)
+                          : const Color(0xFF0F172A),
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -1324,7 +1520,9 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
                     sublabel,
                     style: TextStyle(
                       fontSize: 12,
-                      color: isPending ? const Color(0xFFCBD5E1) : const Color(0xFF64748B),
+                      color: isPending
+                          ? const Color(0xFFCBD5E1)
+                          : const Color(0xFF64748B),
                     ),
                   ),
                 ],
@@ -1344,7 +1542,8 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
     required String orderNumber,
     required String status,
   }) {
-    final isOutForDelivery = status == 'to_deliver' ||
+    final isOutForDelivery =
+        status == 'to_deliver' ||
         status == 'in_transit' ||
         status == 'out_for_delivery' ||
         status == 'picked_up' ||
@@ -1375,7 +1574,11 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
                   color: const Color(0xFF0066FF).withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Icon(Icons.two_wheeler_rounded, color: Color(0xFF0066FF), size: 20),
+                child: const Icon(
+                  Icons.two_wheeler_rounded,
+                  color: Color(0xFF0066FF),
+                  size: 20,
+                ),
               ),
               const SizedBox(width: 10),
               const Expanded(
@@ -1392,7 +1595,10 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
                     ),
                     Text(
                       'Nexora Express • SPX Logistics Partner',
-                      style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: Color(0xFF64748B),
+                      ),
                     ),
                   ],
                 ),
@@ -1407,11 +1613,19 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.star_rounded, color: Color(0xFFF59E0B), size: 14),
+                    const Icon(
+                      Icons.star_rounded,
+                      color: Color(0xFFF59E0B),
+                      size: 14,
+                    ),
                     const SizedBox(width: 2),
                     Text(
                       riderRating.toStringAsFixed(2),
-                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 11.5, color: Color(0xFF065F46)),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 11.5,
+                        color: Color(0xFF065F46),
+                      ),
                     ),
                   ],
                 ),
@@ -1471,15 +1685,17 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
                     Text(
                       isOutForDelivery
                           ? (_liveRiderSpeed != null && _liveRiderSpeed! > 1.5
-                              ? '🛵 En route • ${_liveRiderSpeed!.round()} km/h live speed'
-                              : (_liveRiderSpeed != null
-                                  ? '🛵 En route • Stopped (0 km/h)'
-                                  : '🛵 Heading to your drop-off point'))
+                                ? '🛵 En route • ${_liveRiderSpeed!.round()} km/h live speed'
+                                : (_liveRiderSpeed != null
+                                      ? '🛵 En route • Stopped (0 km/h)'
+                                      : '🛵 Heading to your drop-off point'))
                           : '📍 Assigned at Laguna Hub #402',
                       style: TextStyle(
                         fontSize: 11.5,
                         fontWeight: FontWeight.w600,
-                        color: isOutForDelivery ? const Color(0xFF8B5CF6) : const Color(0xFF0284C7),
+                        color: isOutForDelivery
+                            ? const Color(0xFF8B5CF6)
+                            : const Color(0xFF0284C7),
                       ),
                     ),
                   ],
@@ -1494,41 +1710,74 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
             children: [
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: () => _showCallRiderDialog(riderName, '(+63) 975 963 2035'),
+                  onPressed: () =>
+                      _showCallRiderDialog(riderName, '(+63) 975 963 2035'),
                   icon: const Icon(Icons.phone_rounded, size: 16),
-                  label: const Text('Call Rider', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  label: const Text(
+                    'Call Rider',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: const Color(0xFF0F172A),
                     side: const BorderSide(color: Color(0xFFCBD5E1)),
                     padding: const EdgeInsets.symmetric(vertical: 11),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: AnimatedBuilder(
-                  animation: OrderChatService.instance,
-                  builder: (context, _) {
-                    final unread = OrderChatService.instance.getUnreadCount(_cleanId);
-                    return ElevatedButton.icon(
-                      onPressed: () => _openChatWithRider(riderName, orderNumber),
-                      icon: Badge(
-                        isLabelVisible: unread > 0,
-                        label: Text('$unread', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
-                        backgroundColor: const Color(0xFFEF4444),
-                        child: const Icon(Icons.chat_bubble_outline_rounded, size: 16),
-                      ),
-                      label: Text(unread > 0 ? 'Chat Courier ($unread)' : 'Chat Courier', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: unread > 0 ? const Color(0xFF0052CC) : const Color(0xFF0066FF),
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        padding: const EdgeInsets.symmetric(vertical: 11),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      ),
-                    );
-                  },
+              // Chat Courier (Hidden: web backend does not support buyer-rider chat)
+              Visibility(
+                visible: false,
+                child: Expanded(
+                  child: AnimatedBuilder(
+                    animation: OrderChatService.instance,
+                    builder: (context, _) {
+                      final unread = OrderChatService.instance.getUnreadCount(
+                        _cleanId,
+                      );
+                      return ElevatedButton.icon(
+                        onPressed: () =>
+                            _openChatWithRider(riderName, orderNumber),
+                        icon: Badge(
+                          isLabelVisible: unread > 0,
+                          label: Text(
+                            '$unread',
+                            style: const TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          backgroundColor: const Color(0xFFEF4444),
+                          child: const Icon(
+                            Icons.chat_bubble_outline_rounded,
+                            size: 16,
+                          ),
+                        ),
+                        label: Text(
+                          unread > 0
+                              ? 'Chat Courier ($unread)'
+                              : 'Chat Courier',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: unread > 0
+                              ? const Color(0xFF0052CC)
+                              : const Color(0xFF0066FF),
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(vertical: 11),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
                 ),
               ),
             ],
@@ -1538,12 +1787,18 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: (isOutForDelivery || status == 'delivered' || _localOrder?.isRiderAccepted == true)
+              color:
+                  (isOutForDelivery ||
+                      status == 'delivered' ||
+                      _localOrder?.isRiderAccepted == true)
                   ? const Color(0xFFECFDF5)
                   : const Color(0xFFFFFBEB),
               borderRadius: BorderRadius.circular(10),
               border: Border.all(
-                color: (isOutForDelivery || status == 'delivered' || _localOrder?.isRiderAccepted == true)
+                color:
+                    (isOutForDelivery ||
+                        status == 'delivered' ||
+                        _localOrder?.isRiderAccepted == true)
                     ? const Color(0xFFA7F3D0)
                     : const Color(0xFFFDE68A),
               ),
@@ -1551,24 +1806,34 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
             child: Row(
               children: [
                 Icon(
-                  (isOutForDelivery || status == 'delivered' || _localOrder?.isRiderAccepted == true)
+                  (isOutForDelivery ||
+                          status == 'delivered' ||
+                          _localOrder?.isRiderAccepted == true)
                       ? Icons.verified_rounded
                       : Icons.hourglass_top_rounded,
                   size: 16,
-                  color: (isOutForDelivery || status == 'delivered' || _localOrder?.isRiderAccepted == true)
+                  color:
+                      (isOutForDelivery ||
+                          status == 'delivered' ||
+                          _localOrder?.isRiderAccepted == true)
                       ? const Color(0xFF059669)
                       : const Color(0xFFD97706),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    (isOutForDelivery || status == 'delivered' || _localOrder?.isRiderAccepted == true)
+                    (isOutForDelivery ||
+                            status == 'delivered' ||
+                            _localOrder?.isRiderAccepted == true)
                         ? 'Rider Acceptance: Accepted by $riderName (${riderRating.toStringAsFixed(2)} ★)'
                         : 'Rider Acceptance: Waiting for rider to accept order',
                     style: TextStyle(
                       fontSize: 11.5,
                       fontWeight: FontWeight.w700,
-                      color: (isOutForDelivery || status == 'delivered' || _localOrder?.isRiderAccepted == true)
+                      color:
+                          (isOutForDelivery ||
+                              status == 'delivered' ||
+                              _localOrder?.isRiderAccepted == true)
                           ? const Color(0xFF065F46)
                           : const Color(0xFF92400E),
                     ),
@@ -1662,16 +1927,27 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.person_outline_rounded, size: 16, color: Color(0xFF64748B)),
+                    const Icon(
+                      Icons.person_outline_rounded,
+                      size: 16,
+                      color: Color(0xFF64748B),
+                    ),
                     const SizedBox(width: 6),
                     Text(
                       recipientName,
-                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: Color(0xFF0F172A)),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                        color: Color(0xFF0F172A),
+                      ),
                     ),
                     const SizedBox(width: 8),
                     Text(
                       '• $recipientPhone',
-                      style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF64748B),
+                      ),
                     ),
                   ],
                 ),
@@ -1688,7 +1964,11 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    const Icon(Icons.pin_drop_outlined, size: 14, color: Color(0xFF0066FF)),
+                    const Icon(
+                      Icons.pin_drop_outlined,
+                      size: 14,
+                      color: Color(0xFF0066FF),
+                    ),
                     const SizedBox(width: 4),
                     Text(
                       'GPS Coordinates: ${lat.toStringAsFixed(4)}, ${lng.toStringAsFixed(4)}',
@@ -1720,10 +2000,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
               icon: const Icon(Icons.edit_location_alt_rounded, size: 19),
               label: const Text(
                 'Adjust / Fine-Tune Doorstep Pin',
-                style: TextStyle(
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.w700,
-                ),
+                style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700),
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF0066FF),
@@ -1745,19 +2022,24 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
               onPressed: _isOpeningMap
                   ? null
                   : () => _verifyDeliveryPin(
-                        lat: lat,
-                        lng: lng,
-                        addressLabel: address,
-                      ),
+                      lat: lat,
+                      lng: lng,
+                      addressLabel: address,
+                    ),
               icon: _isOpeningMap
                   ? const SizedBox(
                       width: 16,
                       height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF0066FF)),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Color(0xFF0066FF),
+                      ),
                     )
                   : const Icon(Icons.map_rounded, size: 18),
               label: Text(
-                _isOpeningMap ? 'Opening Maps...' : 'Verify Pin in External Maps',
+                _isOpeningMap
+                    ? 'Opening Maps...'
+                    : 'Verify Pin in External Maps',
                 style: const TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
@@ -1800,7 +2082,8 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
           final int z = tempZoom;
           final double globalTileX = (tempLng + 180.0) / 360.0 * (1 << z);
           final double latRad = tempLat * math.pi / 180.0;
-          final double globalTileY = (1.0 -
+          final double globalTileY =
+              (1.0 -
                   (math.log(math.tan(latRad) + (1.0 / math.cos(latRad))) /
                       math.pi)) /
               2.0 *
@@ -1840,11 +2123,15 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
                       Container(
                         padding: const EdgeInsets.all(7),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF0066FF).withValues(alpha: 0.12),
+                          color: const Color(0xFF0066FF)
+                              .withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        child: const Icon(Icons.pin_drop_rounded,
-                            color: Color(0xFF0066FF), size: 20),
+                        child: const Icon(
+                          Icons.pin_drop_rounded,
+                          color: Color(0xFF0066FF),
+                          size: 20,
+                        ),
                       ),
                       const SizedBox(width: 10),
                       const Expanded(
@@ -1854,21 +2141,26 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
                             Text(
                               'Set / Adjust Delivery Pin on Map',
                               style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w800,
-                                  color: Color(0xFF0F172A)),
+                                fontSize: 16,
+                                fontWeight: FontWeight.w800,
+                                color: Color(0xFF0F172A),
+                              ),
                             ),
                             Text(
                               'Rider navigation reflects your pin live in real time',
                               style: TextStyle(
-                                  fontSize: 11, color: Color(0xFF64748B)),
+                                fontSize: 11,
+                                color: Color(0xFF64748B),
+                              ),
                             ),
                           ],
                         ),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.close_rounded,
-                            color: Color(0xFF64748B)),
+                        icon: const Icon(
+                          Icons.close_rounded,
+                          color: Color(0xFF64748B),
+                        ),
                         onPressed: () => Navigator.pop(modalCtx),
                       ),
                     ],
@@ -1887,21 +2179,28 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.search_rounded,
-                            size: 18, color: Color(0xFF64748B)),
+                        const Icon(
+                          Icons.search_rounded,
+                          size: 18,
+                          color: Color(0xFF64748B),
+                        ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: TextField(
                             controller: searchController,
                             style: const TextStyle(fontSize: 13),
                             decoration: const InputDecoration(
-                              hintText: 'Search place, landmark, or street in PH...',
+                              hintText:
+                                  'Search place, landmark, or street in PH...',
                               hintStyle: TextStyle(
-                                  fontSize: 12.5, color: Color(0xFF94A3B8)),
+                                fontSize: 12.5,
+                                color: Color(0xFF94A3B8),
+                              ),
                               border: InputBorder.none,
                               isDense: true,
-                              contentPadding:
-                                  EdgeInsets.symmetric(vertical: 10),
+                              contentPadding: EdgeInsets.symmetric(
+                                vertical: 10,
+                              ),
                             ),
                             onChanged: (val) async {
                               if (val.trim().isEmpty) {
@@ -1920,8 +2219,11 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
                               searchController.clear();
                               setModalState(() => searchSuggestions = []);
                             },
-                            child: const Icon(Icons.clear_rounded,
-                                size: 16, color: Color(0xFF94A3B8)),
+                            child: const Icon(
+                              Icons.clear_rounded,
+                              size: 16,
+                              color: Color(0xFF94A3B8),
+                            ),
                           ),
                       ],
                     ),
@@ -1931,7 +2233,10 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
                 if (searchSuggestions.isNotEmpty)
                   Container(
                     constraints: const BoxConstraints(maxHeight: 180),
-                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                    margin: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 6,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(12),
@@ -1953,19 +2258,28 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
                         final p = searchSuggestions[idx];
                         return ListTile(
                           dense: true,
-                          leading: const Icon(Icons.location_on_outlined,
-                              size: 18, color: Color(0xFF0066FF)),
-                          title: Text(p.name,
-                              style: const TextStyle(
-                                  fontSize: 12.5, fontWeight: FontWeight.bold)),
+                          leading: const Icon(
+                            Icons.location_on_outlined,
+                            size: 18,
+                            color: Color(0xFF0066FF),
+                          ),
+                          title: Text(
+                            p.name,
+                            style: const TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                           subtitle: Text(
-                              '${p.cityOrMunicipality}, ${p.province} • ${p.postalCode}',
-                              style: const TextStyle(fontSize: 10.5)),
+                            '${p.cityOrMunicipality}, ${p.province} • ${p.postalCode}',
+                            style: const TextStyle(fontSize: 10.5),
+                          ),
                           onTap: () {
                             setModalState(() {
                               tempLat = p.latitude;
                               tempLng = p.longitude;
-                              tempPlaceName = '${p.name}, ${p.cityOrMunicipality}';
+                              tempPlaceName =
+                                  '${p.name}, ${p.cityOrMunicipality}';
                               searchSuggestions = [];
                               searchController.text = p.name;
                             });
@@ -1987,10 +2301,8 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
                           builder: (context, constraints) {
                             final mapWidth = constraints.maxWidth;
                             final mapHeight = constraints.maxHeight;
-                            final originX =
-                                (mapWidth / 2) - (fracX * 256.0);
-                            final originY =
-                                (mapHeight / 2) - (fracY * 256.0);
+                            final originX = (mapWidth / 2) - (fracX * 256.0);
+                            final originY = (mapHeight / 2) - (fracY * 256.0);
 
                             final tiles = <Widget>[];
                             for (int dx = -2; dx <= 2; dx++) {
@@ -2020,8 +2332,11 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
                                       osmTileUrl,
                                       fit: BoxFit.cover,
                                       gaplessPlayback: true,
-                                      errorBuilder: (context, error, stackTrace) =>
-                                          Container(color: const Color(0xFFDCF0D8)),
+                                      errorBuilder:
+                                          (context, error, stackTrace) =>
+                                              Container(
+                                                color: const Color(0xFFDCF0D8),
+                                              ),
                                     ),
                                   ),
                                 );
@@ -2036,30 +2351,36 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
                                   final moveDy = details.delta.dy;
                                   final metersPerPixel =
                                       156543.03392 *
-                                          math.cos(tempLat * math.pi / 180.0) /
-                                          math.pow(2, z);
+                                      math.cos(tempLat * math.pi / 180.0) /
+                                      math.pow(2, z);
                                   final double deltaLng =
                                       -(moveDx * metersPerPixel) /
-                                          (111320.0 *
-                                              math.cos(tempLat * math.pi / 180.0));
+                                      (111320.0 *
+                                          math.cos(tempLat * math.pi / 180.0));
                                   final double deltaLat =
                                       (moveDy * metersPerPixel) / 110540.0;
 
-                                  tempLat = (tempLat + deltaLat).clamp(-85.0, 85.0);
-                                  tempLng = (tempLng + deltaLng).clamp(-180.0, 180.0);
+                                  tempLat = (tempLat + deltaLat).clamp(
+                                    -85.0,
+                                    85.0,
+                                  );
+                                  tempLng = (tempLng + deltaLng).clamp(
+                                    -180.0,
+                                    180.0,
+                                  );
                                 });
                               },
                               onPanEnd: (_) {
                                 setModalState(() {
-                                  final nearest = LagunaPlacesService.instance.getNearestPlace(tempLat, tempLng);
-                                  tempPlaceName = '${nearest.name}, ${nearest.cityOrMunicipality}';
+                                  final nearest = LagunaPlacesService.instance
+                                      .getNearestPlace(tempLat, tempLng);
+                                  tempPlaceName =
+                                      '${nearest.name}, ${nearest.cityOrMunicipality}';
                                 });
                               },
                               child: Container(
                                 color: const Color(0xFFDCF0D8),
-                                child: Stack(
-                                  children: tiles,
-                                ),
+                                child: Stack(children: tiles),
                               ),
                             );
                           },
@@ -2073,7 +2394,9 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
                           children: [
                             Container(
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 10, vertical: 5),
+                                horizontal: 10,
+                                vertical: 5,
+                              ),
                               decoration: BoxDecoration(
                                 color: const Color(0xFF0F172A),
                                 borderRadius: BorderRadius.circular(20),
@@ -2088,8 +2411,11 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
                               child: const Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.doorbell_rounded,
-                                      color: Color(0xFF0066FF), size: 12),
+                                  Icon(
+                                    Icons.doorbell_rounded,
+                                    color: Color(0xFF0066FF),
+                                    size: 12,
+                                  ),
                                   SizedBox(width: 4),
                                   Text(
                                     'Delivery Doorstep Pin',
@@ -2134,7 +2460,8 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
                               foregroundColor: const Color(0xFF0066FF),
                               elevation: 3,
                               onPressed: () async {
-                                final loc = await LagunaPlacesService.instance.getCurrentDeviceLocation();
+                                final loc = await LagunaPlacesService.instance
+                                    .getCurrentDeviceLocation();
                                 if (loc != null) {
                                   setModalState(() {
                                     tempLat = loc.latitude;
@@ -2143,7 +2470,10 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
                                   });
                                 }
                               },
-                              child: const Icon(Icons.my_location_rounded, size: 20),
+                              child: const Icon(
+                                Icons.my_location_rounded,
+                                size: 20,
+                              ),
                             ),
                             const SizedBox(height: 8),
                             Container(
@@ -2167,7 +2497,9 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
                                       }
                                     },
                                     constraints: const BoxConstraints(
-                                        minWidth: 36, minHeight: 36),
+                                      minWidth: 36,
+                                      minHeight: 36,
+                                    ),
                                     padding: EdgeInsets.zero,
                                   ),
                                   const Divider(height: 1),
@@ -2179,7 +2511,9 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
                                       }
                                     },
                                     constraints: const BoxConstraints(
-                                        minWidth: 36, minHeight: 36),
+                                      minWidth: 36,
+                                      minHeight: 36,
+                                    ),
                                     padding: EdgeInsets.zero,
                                   ),
                                 ],
@@ -2211,8 +2545,11 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
                     children: [
                       Row(
                         children: [
-                          const Icon(Icons.check_circle_rounded,
-                              size: 16, color: Color(0xFF10B981)),
+                          const Icon(
+                            Icons.check_circle_rounded,
+                            size: 16,
+                            color: Color(0xFF10B981),
+                          ),
                           const SizedBox(width: 6),
                           Expanded(
                             child: Text(
@@ -2254,7 +2591,9 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
                               setState(() {});
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
-                                  content: Text('✓ Delivery doorstep pin updated to ${tempLat.toStringAsFixed(4)}, ${tempLng.toStringAsFixed(4)}! Rider navigation notified in real time.'),
+                                  content: Text(
+                                    '✓ Delivery doorstep pin updated to ${tempLat.toStringAsFixed(4)}, ${tempLng.toStringAsFixed(4)}! Rider navigation notified in real time.',
+                                  ),
                                   backgroundColor: const Color(0xFF0066FF),
                                   duration: const Duration(seconds: 3),
                                 ),
@@ -2331,52 +2670,69 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
             ],
           ),
           const SizedBox(height: 12),
-          ...localOrder.items.map((item) => Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: Row(
-                  children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: Image.network(
-                        item.imageUrl,
+          ...localOrder.items.map(
+            (item) => Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Row(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.network(
+                      item.imageUrl,
+                      width: 48,
+                      height: 48,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) => Container(
                         width: 48,
                         height: 48,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) => Container(
-                          width: 48,
-                          height: 48,
-                          color: const Color(0xFFF1F5F9),
-                          child: const Icon(Icons.image, size: 20, color: Color(0xFF94A3B8)),
+                        color: const Color(0xFFF1F5F9),
+                        child: const Icon(
+                          Icons.image,
+                          size: 20,
+                          color: Color(0xFF94A3B8),
                         ),
                       ),
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            item.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: Color(0xFF0F172A)),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          item.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 13,
+                            color: Color(0xFF0F172A),
                           ),
-                          const SizedBox(height: 2),
-                          Text(
-                            item.variant,
-                            style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          item.variant,
+                          style: const TextStyle(
+                            fontSize: 11.5,
+                            color: Color(0xFF64748B),
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 8),
-                    Text(
-                      '₱${item.price.toStringAsFixed(2)}',
-                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13, color: Color(0xFF0F172A)),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '₱${item.price.toStringAsFixed(2)}',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 13,
+                      color: Color(0xFF0F172A),
                     ),
-                  ],
-                ),
-              )),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -2395,13 +2751,13 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
           title: status == 'at_store'
               ? 'Courier at Store • Scanning'
               : status == 'accepted'
-                  ? 'Rider Accepted • En Route to Store'
-                  : 'Preparing & Packed',
+              ? 'Rider Accepted • En Route to Store'
+              : 'Preparing & Packed',
           description: status == 'at_store'
               ? 'Your assigned courier has arrived at the merchant store and is scanning your parcel.'
               : status == 'accepted'
-                  ? 'Your rider has accepted the delivery and is heading to the merchant store to pick up your parcel.'
-                  : 'The store has confirmed your items and is packing your parcel.',
+              ? 'Your rider has accepted the delivery and is heading to the merchant store to pick up your parcel.'
+              : 'The store has confirmed your items and is packing your parcel.',
           color: const Color(0xFF3B82F6),
           icon: Icons.inventory_2_outlined,
           stepIndex: 1,
@@ -2431,7 +2787,8 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
       case 'cancelled':
         return _StatusMeta(
           title: 'Order Cancelled',
-          description: 'This order was cancelled. Please check your refund or reorder.',
+          description:
+              'This order was cancelled. Please check your refund or reorder.',
           color: const Color(0xFFEF4444),
           icon: Icons.cancel_outlined,
           stepIndex: -1,
@@ -2507,10 +2864,15 @@ class _RealTileOverlayPainter extends CustomPainter {
   Offset toScreen(Size size, double lat, double lng) {
     final double gx = (lng + 180.0) / 360.0 * (1 << z);
     final double r = lat * math.pi / 180.0;
-    final double gy = (1.0 - (math.log(math.tan(r) + (1.0 / math.cos(r))) / math.pi)) / 2.0 * (1 << z);
+    final double gy =
+        (1.0 - (math.log(math.tan(r) + (1.0 / math.cos(r))) / math.pi)) /
+        2.0 *
+        (1 << z);
 
-    final double px = (size.width / 2) + ((gx - globalTileX) * 256.0) + panOffset.dx;
-    final double py = (size.height / 2) + ((gy - globalTileY) * 256.0) + panOffset.dy;
+    final double px =
+        (size.width / 2) + ((gx - globalTileX) * 256.0) + panOffset.dx;
+    final double py =
+        (size.height / 2) + ((gy - globalTileY) * 256.0) + panOffset.dy;
     return Offset(px, py);
   }
 
@@ -2578,7 +2940,8 @@ class _RealTileOverlayPainter extends CustomPainter {
     if (status == 'delivered' || status == 'completed') {
       final pulseRadius = 14 + (animationProgress * 16);
       final pulsePaint = Paint()
-        ..color = const Color(0xFF10B981).withValues(alpha: (1.0 - animationProgress) * 0.45)
+        ..color = const Color(0xFF10B981)
+            .withValues(alpha: (1.0 - animationProgress) * 0.45)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2.5;
       canvas.drawCircle(pos, pulseRadius, pulsePaint);
@@ -2591,17 +2954,9 @@ class _RealTileOverlayPainter extends CustomPainter {
       Paint()..color = Colors.black.withValues(alpha: 0.25),
     );
     // Green pin base
-    canvas.drawCircle(
-      pos,
-      11,
-      Paint()..color = const Color(0xFF10B981),
-    );
+    canvas.drawCircle(pos, 11, Paint()..color = const Color(0xFF10B981));
     // White inner ring
-    canvas.drawCircle(
-      pos,
-      4.5,
-      Paint()..color = Colors.white,
-    );
+    canvas.drawCircle(pos, 4.5, Paint()..color = Colors.white);
 
     // Label pill above
     final tp = TextPainter(
@@ -2617,10 +2972,17 @@ class _RealTileOverlayPainter extends CustomPainter {
     )..layout();
 
     final pillRRect = RRect.fromRectAndRadius(
-      Rect.fromCenter(center: Offset(pos.dx, pos.dy - 17), width: tp.width + 10, height: 16),
+      Rect.fromCenter(
+        center: Offset(pos.dx, pos.dy - 17),
+        width: tp.width + 10,
+        height: 16,
+      ),
       const Radius.circular(4),
     );
-    canvas.drawRRect(pillRRect, Paint()..color = Colors.white.withValues(alpha: 0.95));
+    canvas.drawRRect(
+      pillRRect,
+      Paint()..color = Colors.white.withValues(alpha: 0.95),
+    );
     tp.paint(canvas, Offset(pos.dx - (tp.width / 2), pos.dy - 23));
   }
 
@@ -2700,4 +3062,3 @@ class _RealTileOverlayPainter extends CustomPainter {
         oldDelegate.riderAccuracy != riderAccuracy;
   }
 }
-

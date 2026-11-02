@@ -4,6 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'profile_service.dart';
 import 'wishlist_service.dart';
+import '../constants/api_constants.dart';
+import '../network/api_client.dart';
 
 /// Validation rules and constants for Buyer Account Creation based on
 /// Mobile_Blackbox_Test_Cases_Account_Creation-Buyer.xlsx
@@ -256,6 +258,50 @@ class BuyerAccountService extends ChangeNotifier {
       } catch (_) {}
     }
     await _loadFromPersistence();
+    await syncRemoteUser();
+  }
+
+  /// Sync currently authenticated user from Laravel Sanctum backend
+  Future<void> syncRemoteUser() async {
+    if (!ApiClient.instance.hasToken) return;
+    try {
+      final res = await ApiClient.instance.get(ApiConstants.me);
+      if (res['data'] is Map<String, dynamic>) {
+        final data = res['data'] as Map<String, dynamic>;
+        final user = data['user'] as Map<String, dynamic>? ?? data;
+        final name = user['name'] as String? ?? '';
+        final email = (user['email'] as String? ?? '').toLowerCase();
+        final phone = user['phone'] as String? ?? '';
+        final id = user['id']?.toString() ?? 'BUY-${DateTime.now().millisecondsSinceEpoch}';
+
+        final existing = _buyers[email];
+        final buyer = existing ?? BuyerAccountRecord(
+          id: id,
+          firstName: name.split(' ').first,
+          lastName: name.split(' ').length > 1 ? name.split(' ').sublist(1).join(' ') : '',
+          email: email,
+          mobileNumber: phone,
+          dateOfBirth: DateTime(1995, 1, 1),
+          accountStatus: 'Active',
+          otpCode: '123456',
+          otpCreatedAt: DateTime.now(),
+          otpExpiresAt: DateTime.now().add(const Duration(days: 365)),
+          password: '',
+        );
+        buyer.accountStatus = 'Active';
+        _buyers[email] = buyer;
+        _currentBuyerSession = buyer;
+        ProfileService.instance.updateProfile(
+          name: name.isNotEmpty ? name : buyer.fullName,
+          email: email,
+          phone: phone.isNotEmpty ? phone : buyer.mobileNumber,
+        );
+        _saveToPersistence();
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('syncRemoteUser error: $e');
+    }
   }
 
   /// Trigger asynchronous save and track the in-flight Future
@@ -815,6 +861,252 @@ class BuyerAccountService extends ChangeNotifier {
     _currentBuyerSession = buyer;
     _saveToPersistence();
     notifyListeners();
+  }
+
+  /// Buyer Login via Sanctum API
+  Future<BuyerOpResult> loginRemote({
+    required String emailOrPhone,
+    required String password,
+  }) async {
+    try {
+      final response = await ApiClient.instance.post(
+        ApiConstants.buyerLogin,
+        body: {
+          'email': emailOrPhone.trim(),
+          'password': password,
+        },
+      );
+
+      final data = response['data'] as Map<String, dynamic>? ?? {};
+      final token = data['token'] as String?;
+      if (token != null) {
+        await ApiClient.instance.saveToken(token);
+      }
+
+      final userData = data['user'] as Map<String, dynamic>? ?? {};
+      final name = userData['name'] as String? ?? '';
+      final email = (userData['email'] as String? ?? emailOrPhone).toLowerCase().trim();
+      final phone = userData['phone'] as String? ?? '';
+      final id = userData['id']?.toString() ?? 'BUY-${DateTime.now().millisecondsSinceEpoch}';
+
+      final buyer = BuyerAccountRecord(
+        id: id,
+        firstName: name.split(' ').first,
+        lastName: name.split(' ').length > 1 ? name.split(' ').sublist(1).join(' ') : '',
+        email: email,
+        mobileNumber: phone,
+        dateOfBirth: DateTime(1995, 1, 1),
+        accountStatus: 'Active',
+        otpCode: '123456',
+        otpCreatedAt: DateTime.now(),
+        otpExpiresAt: DateTime.now().add(const Duration(days: 365)),
+        password: password,
+      );
+
+      _buyers[email] = buyer;
+      _currentBuyerSession = buyer;
+      ProfileService.instance.updateProfile(
+        name: name.isNotEmpty ? name : buyer.fullName,
+        email: email,
+        phone: phone.isNotEmpty ? phone : buyer.mobileNumber,
+      );
+      _saveToPersistence();
+      notifyListeners();
+
+      return BuyerOpResult.ok(
+        message: response['message'] as String? ?? 'Login successful',
+        buyer: buyer,
+      );
+    } on ApiException catch (e) {
+      if (e.statusCode == 403 && e.errors != null && e.errors!['email_unverified'] == true) {
+        final unverifiedBuyer = BuyerAccountRecord(
+          id: 'BUY-TEMP',
+          firstName: 'User',
+          lastName: '',
+          email: emailOrPhone.trim().toLowerCase(),
+          mobileNumber: '',
+          dateOfBirth: DateTime(1995, 1, 1),
+          accountStatus: 'Unverified',
+          otpCode: '123456',
+          otpCreatedAt: DateTime.now(),
+          otpExpiresAt: DateTime.now().add(const Duration(minutes: 10)),
+          password: password,
+        );
+        _currentUnverifiedBuyer = unverifiedBuyer;
+        return BuyerOpResult.fail(
+          e.message,
+          buyer: unverifiedBuyer,
+        );
+      }
+      return BuyerOpResult.fail(e.message);
+    } catch (e) {
+      return BuyerOpResult.fail(e.toString());
+    }
+  }
+
+  /// Buyer Register via Sanctum API
+  Future<BuyerOpResult> registerRemote({
+    required String firstName,
+    required String lastName,
+    required String email,
+    required String mobileNumber,
+    required DateTime? dateOfBirth,
+    required String password,
+    required String confirmPassword,
+    required bool agreeTerms,
+    String? referralCode,
+  }) async {
+    try {
+      final response = await ApiClient.instance.post(
+        ApiConstants.buyerRegister,
+        body: {
+          'first_name': firstName.trim(),
+          'last_name': lastName.trim(),
+          'email': email.trim().toLowerCase(),
+          'phone': BuyerValidationRules.normalizePhone(mobileNumber),
+          'password': password,
+          'password_confirmation': confirmPassword,
+          if (dateOfBirth != null) 'date_of_birth': dateOfBirth.toIso8601String().split('T').first,
+        },
+      );
+
+      final unverifiedBuyer = BuyerAccountRecord(
+        id: 'BUY-${DateTime.now().millisecondsSinceEpoch}',
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        email: email.trim().toLowerCase(),
+        mobileNumber: BuyerValidationRules.normalizePhone(mobileNumber),
+        dateOfBirth: dateOfBirth ?? DateTime(1995, 1, 1),
+        accountStatus: 'Unverified',
+        otpCode: '123456',
+        otpCreatedAt: DateTime.now(),
+        otpExpiresAt: DateTime.now().add(const Duration(minutes: 5)),
+        password: password,
+        referralCode: referralCode,
+      );
+
+      _buyers[unverifiedBuyer.email] = unverifiedBuyer;
+      _currentUnverifiedBuyer = unverifiedBuyer;
+      _saveToPersistence();
+      notifyListeners();
+
+      return BuyerOpResult.ok(
+        message: response['message'] as String? ?? 'Registration successful. Please verify your email.',
+        buyer: unverifiedBuyer,
+      );
+    } on ApiException catch (e) {
+      final fieldErrors = <String, String>{};
+      if (e.errors != null) {
+        e.errors!.forEach((key, val) {
+          if (val is List && val.isNotEmpty) {
+            fieldErrors[key] = val.first.toString();
+          } else if (val is String) {
+            fieldErrors[key] = val;
+          }
+        });
+      }
+      return BuyerOpResult.fail(
+        e.message,
+        fieldErrors: fieldErrors.isNotEmpty ? fieldErrors : null,
+      );
+    } catch (e) {
+      return BuyerOpResult.fail(e.toString());
+    }
+  }
+
+  /// Verify OTP via Sanctum API
+  Future<BuyerOpResult> verifyOtpRemote({
+    required String email,
+    required String inputOtp,
+  }) async {
+    try {
+      final response = await ApiClient.instance.post(
+        ApiConstants.verifyEmailOtp,
+        body: {
+          'email': email.trim().toLowerCase(),
+          'otp': inputOtp.trim(),
+        },
+      );
+
+      final data = response['data'] as Map<String, dynamic>? ?? {};
+      final token = data['token'] as String?;
+      if (token != null) {
+        await ApiClient.instance.saveToken(token);
+      }
+
+      final userData = data['user'] as Map<String, dynamic>? ?? {};
+      final name = userData['name'] as String? ?? '';
+      final userEmail = (userData['email'] as String? ?? email).toLowerCase().trim();
+      final phone = userData['phone'] as String? ?? '';
+      final id = userData['id']?.toString() ?? 'BUY-${DateTime.now().millisecondsSinceEpoch}';
+
+      final buyer = _buyers[userEmail] ?? BuyerAccountRecord(
+        id: id,
+        firstName: name.split(' ').first,
+        lastName: name.split(' ').length > 1 ? name.split(' ').sublist(1).join(' ') : '',
+        email: userEmail,
+        mobileNumber: phone,
+        dateOfBirth: DateTime(1995, 1, 1),
+        accountStatus: 'Active',
+        otpCode: inputOtp,
+        otpCreatedAt: DateTime.now(),
+        otpExpiresAt: DateTime.now().add(const Duration(days: 365)),
+        password: '',
+      );
+
+      buyer.accountStatus = 'Active';
+      _buyers[userEmail] = buyer;
+      _currentBuyerSession = buyer;
+      _currentUnverifiedBuyer = null;
+
+      ProfileService.instance.updateProfile(
+        name: name.isNotEmpty ? name : buyer.fullName,
+        email: userEmail,
+        phone: phone.isNotEmpty ? phone : buyer.mobileNumber,
+      );
+
+      _saveToPersistence();
+      notifyListeners();
+
+      return BuyerOpResult.ok(
+        message: response['message'] as String? ?? 'Email verified successfully',
+        buyer: buyer,
+      );
+    } on ApiException catch (e) {
+      return BuyerOpResult.fail(e.message);
+    } catch (e) {
+      return BuyerOpResult.fail(e.toString());
+    }
+  }
+
+  /// Resend OTP via Sanctum API
+  Future<BuyerOpResult> resendOtpRemote({required String email}) async {
+    try {
+      final response = await ApiClient.instance.post(
+        ApiConstants.resendEmailOtp,
+        body: {
+          'email': email.trim().toLowerCase(),
+        },
+      );
+      return BuyerOpResult.ok(
+        message: response['message'] as String? ?? 'Verification code sent',
+      );
+    } on ApiException catch (e) {
+      return BuyerOpResult.fail(e.message);
+    } catch (e) {
+      return BuyerOpResult.fail(e.toString());
+    }
+  }
+
+  /// Logout via Sanctum API
+  Future<void> logoutRemote() async {
+    try {
+      if (ApiClient.instance.hasToken) {
+        await ApiClient.instance.post(ApiConstants.logout);
+      }
+    } catch (_) {}
+    await ApiClient.instance.clearToken();
+    logout();
   }
 
   /// Find a registered BuyerAccountRecord by Email or Mobile Number

@@ -10,12 +10,20 @@ import 'core/services/buyer_account_service.dart';
 import 'core/services/supabase_auth_service.dart';
 import 'core/services/order_chat_service.dart';
 import 'core/services/order_service.dart';
+import 'core/network/api_client.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Request system notification permission for receiving messages when app is in background/minimized
   ExternalNotificationService.requestPermission();
+
+  // Initialize central HTTP API Client for Laravel Sanctum authentication
+  try {
+    await ApiClient.instance.init();
+  } catch (e) {
+    debugPrint('ApiClient initialization notice: $e');
+  }
 
   try {
     await Supabase.initialize(

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'buyer_account_service.dart';
 import 'profile_service.dart';
+import '../constants/api_constants.dart';
+import '../network/api_client.dart';
 
 class AddressModel {
   final String id;
@@ -81,6 +83,42 @@ class AddressModel {
       longitude: longitude ?? this.longitude,
     );
   }
+
+  Map<String, dynamic> toApiJson() => {
+    'label': label.isNotEmpty ? label : 'Home',
+    'recipient_name': fullName,
+    'phone': phone,
+    'street': streetBuilding.isNotEmpty ? streetBuilding : fullAddress,
+    'barangay': barangay.isNotEmpty ? barangay : 'Central',
+    'city': city.isNotEmpty ? city : 'Makati',
+    'province': province,
+    'region': region,
+    'postal_code': postalCode.isNotEmpty ? postalCode : '1200',
+    'is_default': isDefault,
+    if (latitude != null) 'latitude': latitude,
+    if (longitude != null) 'longitude': longitude,
+  };
+
+  factory AddressModel.fromApiJson(Map<String, dynamic> json) {
+    return AddressModel(
+      id: json['id'].toString(),
+      fullName: json['recipient_name'] as String? ?? json['fullName'] as String? ?? '',
+      phone: json['phone'] as String? ?? '',
+      region: json['region'] as String? ?? '',
+      province: json['province'] as String? ?? '',
+      city: json['city'] as String? ?? '',
+      barangay: json['barangay'] as String? ?? '',
+      regionCity: [json['region'], json['province'], json['city'], json['barangay']]
+          .where((s) => s != null && (s as String).isNotEmpty)
+          .join(', '),
+      postalCode: json['postal_code'] as String? ?? json['postalCode'] as String? ?? '',
+      streetBuilding: json['street'] as String? ?? json['streetBuilding'] as String? ?? '',
+      label: json['label'] as String? ?? 'Home',
+      isDefault: json['is_default'] == true || json['is_default'] == 1 || json['isDefault'] == true,
+      latitude: (json['latitude'] as num?)?.toDouble(),
+      longitude: (json['longitude'] as num?)?.toDouble(),
+    );
+  }
 }
 
 class AddressService extends ChangeNotifier {
@@ -93,6 +131,7 @@ class AddressService extends ChangeNotifier {
 
   void _onBuyerChanged() {
     _syncDefaultWithProfile();
+    loadAddressesFromApi();
     notifyListeners();
   }
 
@@ -329,6 +368,92 @@ class AddressService extends ChangeNotifier {
     _syncDefaultWithProfile();
     notifyListeners();
     return BuyerOpResult.ok(message: 'Address deleted successfully.');
+  }
+
+  /// Fetch buyer addresses from backend API
+  Future<void> loadAddressesFromApi() async {
+    if (!ApiClient.instance.hasToken) return;
+    try {
+      final res = await ApiClient.instance.get(ApiConstants.buyerAddresses);
+      if (res['data'] is List) {
+        final list = (res['data'] as List)
+            .map((x) => AddressModel.fromApiJson(x as Map<String, dynamic>))
+            .toList();
+        _userAddresses[_currentUserKey] = list;
+        _syncDefaultWithProfile();
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('loadAddressesFromApi error: $e');
+    }
+  }
+
+  /// Add address via backend API
+  Future<BuyerOpResult> addAddressRemote(AddressModel newAddress) async {
+    if (ApiClient.instance.hasToken) {
+      try {
+        final res = await ApiClient.instance.post(
+          ApiConstants.buyerAddresses,
+          body: newAddress.toApiJson(),
+        );
+        await loadAddressesFromApi();
+        return BuyerOpResult.ok(message: res['message'] as String? ?? 'Address saved successfully');
+      } on ApiException catch (e) {
+        return BuyerOpResult.fail(e.message);
+      } catch (e) {
+        return BuyerOpResult.fail(e.toString());
+      }
+    }
+    return addAddress(newAddress);
+  }
+
+  /// Update address via backend API
+  Future<BuyerOpResult> updateAddressRemote(AddressModel updatedAddress) async {
+    if (ApiClient.instance.hasToken) {
+      try {
+        final res = await ApiClient.instance.put(
+          ApiConstants.buyerAddressDetail(updatedAddress.id),
+          body: updatedAddress.toApiJson(),
+        );
+        await loadAddressesFromApi();
+        return BuyerOpResult.ok(message: res['message'] as String? ?? 'Address updated successfully');
+      } on ApiException catch (e) {
+        return BuyerOpResult.fail(e.message);
+      } catch (e) {
+        return BuyerOpResult.fail(e.toString());
+      }
+    }
+    return updateAddress(updatedAddress);
+  }
+
+  /// Delete address via backend API
+  Future<BuyerOpResult> deleteAddressRemote(String id) async {
+    if (ApiClient.instance.hasToken) {
+      try {
+        final res = await ApiClient.instance.delete(ApiConstants.buyerAddressDetail(id));
+        await loadAddressesFromApi();
+        return BuyerOpResult.ok(message: res['message'] as String? ?? 'Address deleted successfully');
+      } on ApiException catch (e) {
+        return BuyerOpResult.fail(e.message);
+      } catch (e) {
+        return BuyerOpResult.fail(e.toString());
+      }
+    }
+    return deleteAddress(id);
+  }
+
+  /// Set default address via backend API
+  Future<void> setDefaultAddressRemote(String id) async {
+    if (ApiClient.instance.hasToken) {
+      try {
+        await ApiClient.instance.patch(ApiConstants.buyerAddressDefault(id));
+        await loadAddressesFromApi();
+        return;
+      } catch (e) {
+        debugPrint('setDefaultAddressRemote error: $e');
+      }
+    }
+    setDefaultAddress(id);
   }
 
   void _syncDefaultWithProfile() {

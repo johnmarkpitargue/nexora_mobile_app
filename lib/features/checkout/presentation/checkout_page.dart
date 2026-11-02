@@ -11,6 +11,8 @@ import 'package:nexora_flutter_app/core/services/external_notification_service.d
 import 'package:nexora_flutter_app/core/services/shop_service.dart';
 import 'package:nexora_flutter_app/core/models/shop_models.dart';
 import 'package:nexora_flutter_app/core/utils/guest_auth_guard.dart';
+import 'package:nexora_flutter_app/core/constants/api_constants.dart';
+import 'package:nexora_flutter_app/core/network/api_client.dart';
 import 'package:nexora_flutter_app/features/profile/presentation/new_address_page.dart';
 import 'widgets/shipping_option_modal.dart';
 
@@ -1008,6 +1010,35 @@ class _CheckoutPageState extends State<CheckoutPage> {
       final placedOrder = _orderService.latestActiveOrder;
       if (placedOrder != null) {
         orderId = placedOrder.orderId;
+      }
+
+      // Synchronize with Laravel backend API
+      if (ApiClient.instance.hasToken) {
+        try {
+          final defaultAddr = AddressService.instance.defaultAddress;
+          final int? addrId = defaultAddr != null ? int.tryParse(defaultAddr.id) : null;
+          final String pMethod = selectedPayment.toLowerCase().contains('cod')
+              ? 'cod'
+              : (selectedPayment.toLowerCase().contains('wallet') ? 'wallet' : 'cod');
+          final String idempotencyKey = 'chk_${DateTime.now().millisecondsSinceEpoch}';
+
+          final res = await ApiClient.instance.post(
+            ApiConstants.buyerCheckout,
+            headers: {'Idempotency-Key': idempotencyKey},
+            body: {
+              if (addrId != null) 'shipping_address_id': addrId else 'shipping_address': deliveryAddressStr,
+              'payment_method': pMethod,
+            },
+          );
+          if (res['data'] is Map &&
+              res['data']['orders'] is List &&
+              (res['data']['orders'] as List).isNotEmpty) {
+            final firstOrd = res['data']['orders'][0];
+            orderId = firstOrd['order_number'] ?? '#${firstOrd['id']}';
+          }
+        } catch (e) {
+          debugPrint('remote checkout notice: $e');
+        }
       }
     } catch (e, st) {
       debugPrint('⚠️ Checkout placeOrder error: $e\n$st');

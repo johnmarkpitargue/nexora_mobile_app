@@ -52,33 +52,19 @@ class _LoginPageState extends State<LoginPage> {
       await Future.delayed(const Duration(milliseconds: 400));
       if (!mounted) return;
 
-      var result = BuyerAccountService.instance.loginBuyer(
+      var result = await BuyerAccountService.instance.loginRemote(
         emailOrPhone: _emailController.text,
         password: _passwordController.text,
       );
 
-      // If local buyer registry doesn't have it, authenticate against Supabase database
-      if (!result.success && SupabaseAuthService.instance.isSupabaseConfigured) {
-        final supabaseRes = await SupabaseAuthService.instance.signInWithEmail(
-          email: _emailController.text,
+      // If remote failed due to network or demo credentials, fallback to local test registry
+      if (!result.success && !result.message.contains('unverified') && !result.message.contains('suspended')) {
+        final localRes = BuyerAccountService.instance.loginBuyer(
+          emailOrPhone: _emailController.text,
           password: _passwordController.text,
         );
-
-        if (supabaseRes.success && supabaseRes.user != null) {
-          final user = supabaseRes.user!;
-          final profile = supabaseRes.profile;
-          final fullName = profile?['full_name'] ??
-              user.userMetadata?['full_name'] ??
-              _emailController.text.split('@').first;
-
-          BuyerAccountService.instance.establishGoogleSession(
-            name: fullName,
-            email: user.email ?? _emailController.text,
-          );
-
-          result = BuyerOpResult.ok(
-            message: supabaseRes.message,
-          );
+        if (localRes.success) {
+          result = localRes;
         }
       }
 
@@ -645,64 +631,74 @@ class _LoginPageState extends State<LoginPage> {
                 ),
                 const SizedBox(height: 22),
 
-                // Divider: OR CONTINUE WITH
-                Row(
-                  children: [
-                    const Expanded(
-                      child: Divider(color: Color(0xFFE2E8F0), thickness: 1),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 14),
-                      child: Text(
-                        'OR CONTINUE WITH',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.8,
-                          color: const Color(0xFF94A3B8),
-                        ),
+                // Google Sign In (Hidden: web backend does not support mobile Google OAuth)
+                Opacity(
+                  opacity: 0.0,
+                  child: IgnorePointer(
+                    child: Column(
+                    children: [
+                      // Divider: OR CONTINUE WITH
+                      Row(
+                        children: [
+                          const Expanded(
+                            child: Divider(color: Color(0xFFE2E8F0), thickness: 1),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 14),
+                            child: Text(
+                              'OR CONTINUE WITH',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.8,
+                                color: const Color(0xFF94A3B8),
+                              ),
+                            ),
+                          ),
+                          const Expanded(
+                            child: Divider(color: Color(0xFFE2E8F0), thickness: 1),
+                          ),
+                        ],
                       ),
-                    ),
-                    const Expanded(
-                      child: Divider(color: Color(0xFFE2E8F0), thickness: 1),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 18),
+                      const SizedBox(height: 18),
 
-                // Continue with Google Button
-                SizedBox(
-                  width: double.infinity,
-                  height: 50,
-                  child: OutlinedButton(
-                    onPressed: _isLoading ? null : _handleGoogleSignIn,
-                    style: OutlinedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      side: const BorderSide(
-                        color: Color(0xFFE2E8F0),
-                        width: 1.2,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      elevation: 0,
-                    ),
-                    child: const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        GoogleLogoIcon(size: 20),
-                        SizedBox(width: 10),
-                        Text(
-                          'Continue with Google',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFF0F172A),
+                      // Continue with Google Button
+                      SizedBox(
+                        width: double.infinity,
+                        height: 50,
+                        child: OutlinedButton(
+                          onPressed: _isLoading ? null : _handleGoogleSignIn,
+                          style: OutlinedButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            side: const BorderSide(
+                              color: Color(0xFFE2E8F0),
+                              width: 1.2,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            elevation: 0,
+                          ),
+                          child: const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              GoogleLogoIcon(size: 20),
+                              SizedBox(width: 10),
+                              Text(
+                                'Continue with Google',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF0F172A),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
+                ),
                 ),
                 const SizedBox(height: 24),
 
