@@ -106,6 +106,16 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
     } else if (args is String) {
       _shop = _shopService.getShopById(args);
     }
+    final targetShopId = _shop.id;
+    if (targetShopId.isNotEmpty) {
+      _shopService.fetchStoreRemote(targetShopId).then((remoteShop) {
+        if (remoteShop != null && mounted) {
+          setState(() {
+            _shop = remoteShop;
+          });
+        }
+      });
+    }
   }
 
   @override

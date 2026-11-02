@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'product_card.dart';
 import '../../../../core/services/shop_service.dart';
 
-class DailyDiscoverSection extends StatelessWidget {
+class DailyDiscoverSection extends StatefulWidget {
   final String? selectedCategory;
   final VoidCallback? onLoadMore;
 
@@ -12,7 +12,7 @@ class DailyDiscoverSection extends StatelessWidget {
     this.onLoadMore,
   });
 
-  static List<ProductModel> get allProducts => ShopService.allAppProducts;
+  static List<ProductModel> get allProducts => ShopService.instance.products;
 
   static const List<ProductModel> legacyProducts = [
     // Tech & Gadgets / Mall
@@ -146,10 +146,46 @@ class DailyDiscoverSection extends StatelessWidget {
   ];
 
   @override
+  State<DailyDiscoverSection> createState() => _DailyDiscoverSectionState();
+}
+
+class _DailyDiscoverSectionState extends State<DailyDiscoverSection> {
+  @override
+  void initState() {
+    super.initState();
+    ShopService.instance.addListener(_onServiceUpdate);
+    _loadCatalog();
+  }
+
+  @override
+  void didUpdateWidget(covariant DailyDiscoverSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.selectedCategory != oldWidget.selectedCategory) {
+      _loadCatalog();
+    }
+  }
+
+  @override
+  void dispose() {
+    ShopService.instance.removeListener(_onServiceUpdate);
+    super.dispose();
+  }
+
+  void _onServiceUpdate() {
+    if (mounted) setState(() {});
+  }
+
+  void _loadCatalog() {
+    ShopService.instance.loadCatalogRemote(category: widget.selectedCategory);
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final allProducts = ShopService.instance.products;
+    final selectedCategory = widget.selectedCategory;
     final filteredProducts = selectedCategory == null || selectedCategory == 'Mall'
         ? allProducts
-        : allProducts.where((p) => p.category == selectedCategory).toList();
+        : allProducts.where((p) => p.category.toLowerCase() == selectedCategory.toLowerCase()).toList();
 
     final displayProducts = filteredProducts.isEmpty ? allProducts : filteredProducts;
 
@@ -218,7 +254,7 @@ class DailyDiscoverSection extends StatelessWidget {
           // Loading more recommendations button matching screenshot
           Center(
             child: InkWell(
-              onTap: onLoadMore,
+              onTap: widget.onLoadMore,
               borderRadius: BorderRadius.circular(20),
               child: Container(
                 padding:

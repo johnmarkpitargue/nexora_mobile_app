@@ -16,6 +16,12 @@ class _WishlistPageState extends State<WishlistPage> {
   String _selectedCategory = 'All';
 
   @override
+  void initState() {
+    super.initState();
+    WishlistService.instance.refreshWishlistRemote();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: WishlistService.instance,

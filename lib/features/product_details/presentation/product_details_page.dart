@@ -115,6 +115,22 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
         } else if (_productArg!.imageUrl.isNotEmpty) {
           _productImages.add(_productArg!.imageUrl);
         }
+
+        if (_productArg!.id.isNotEmpty) {
+          ShopService.instance.fetchProductRemote(_productArg!.id).then((freshProduct) {
+            if (freshProduct != null && mounted) {
+              setState(() {
+                _productArg = freshProduct;
+                _productImages.clear();
+                if (_productArg!.galleryImages != null && _productArg!.galleryImages!.isNotEmpty) {
+                  _productImages.addAll(_productArg!.galleryImages!);
+                } else if (_productArg!.imageUrl.isNotEmpty) {
+                  _productImages.add(_productArg!.imageUrl);
+                }
+              });
+            }
+          });
+        }
       }
     }
   }

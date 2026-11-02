@@ -6,6 +6,7 @@ import '../../orders/presentation/orders_page.dart';
 import '../../profile/presentation/profile_page.dart';
 import '../../../core/services/cart_service.dart';
 import '../../../core/services/chat_service.dart';
+import '../../../core/services/shop_service.dart';
 import 'widgets/header_app_bar.dart';
 import 'widgets/promo_banners_section.dart';
 import 'widgets/category_section.dart';
@@ -23,39 +24,44 @@ class _NexoraHomePageState extends State<NexoraHomePage> {
   String? _selectedCategory;
 
   Widget _buildHomeTab() {
-    return SingleChildScrollView(
-      physics: const BouncingScrollPhysics(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Top Banners & Promo Action Pills Section
-          const PromoBannersSection(),
+    return RefreshIndicator(
+      onRefresh: () async {
+        await ShopService.instance.loadCatalogRemote(category: _selectedCategory);
+      },
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Top Banners & Promo Action Pills Section
+            const PromoBannersSection(),
 
-          // 8 Circular Interactive Categories Section
-          CategorySection(
-            selectedCategory: _selectedCategory,
-            onCategorySelected: (category) {
-              setState(() {
-                _selectedCategory = category;
-              });
-            },
-          ),
+            // 8 Circular Interactive Categories Section
+            CategorySection(
+              selectedCategory: _selectedCategory,
+              onCategorySelected: (category) {
+                setState(() {
+                  _selectedCategory = category;
+                });
+              },
+            ),
 
-          // DAILY DISCOVER Product Grid dynamically filtered by Category
-          DailyDiscoverSection(
-            selectedCategory: _selectedCategory,
-            onLoadMore: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Loading more recommendations...'),
-                  duration: Duration(seconds: 1),
-                ),
-              );
-            },
-          ),
-          
-          const SizedBox(height: 20),
-        ],
+            // DAILY DISCOVER Product Grid dynamically filtered by Category
+            DailyDiscoverSection(
+              selectedCategory: _selectedCategory,
+              onLoadMore: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Loading more recommendations...'),
+                    duration: Duration(seconds: 1),
+                  ),
+                );
+              },
+            ),
+            
+            const SizedBox(height: 20),
+          ],
+        ),
       ),
     );
   }

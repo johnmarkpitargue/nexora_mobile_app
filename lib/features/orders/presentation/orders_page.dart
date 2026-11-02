@@ -19,7 +19,7 @@ class _OrdersPageState extends State<OrdersPage>
   void initState() {
     super.initState();
     _tabController = TabController(length: 7, vsync: this);
-    OrderService.instance.refreshOrdersFromSupabase();
+    OrderService.instance.fetchOrdersRemote();
   }
 
   bool _initializedTab = false;

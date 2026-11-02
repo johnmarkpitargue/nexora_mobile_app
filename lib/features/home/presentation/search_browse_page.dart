@@ -66,7 +66,7 @@ class _SearchBrowsePageState extends State<SearchBrowsePage> {
     super.dispose();
   }
 
-  void _executeSearch() {
+  Future<void> _executeSearch() async {
     setState(() => _isLoading = true);
     final params = SearchFilterParams(
       query: _searchController.text.trim(),
@@ -78,11 +78,13 @@ class _SearchBrowsePageState extends State<SearchBrowsePage> {
       sortBy: _currentSort,
     );
 
-    final res = ShopService.instance.searchAndFilter(params);
-    setState(() {
-      _searchResult = res;
-      _isLoading = false;
-    });
+    final res = await ShopService.instance.searchAndFilterRemote(params);
+    if (mounted) {
+      setState(() {
+        _searchResult = res;
+        _isLoading = false;
+      });
+    }
   }
 
   void _openFilterDialog() {

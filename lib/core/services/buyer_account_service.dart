@@ -269,16 +269,24 @@ class BuyerAccountService extends ChangeNotifier {
       if (res['data'] is Map<String, dynamic>) {
         final data = res['data'] as Map<String, dynamic>;
         final user = data['user'] as Map<String, dynamic>? ?? data;
-        final name = user['name'] as String? ?? '';
+        final firstName = user['first_name'] as String? ?? '';
+        final lastName = user['last_name'] as String? ?? '';
+        final fullName = user['full_name'] as String? ?? user['name'] as String? ?? '';
+        final finalFirst = firstName.isNotEmpty
+            ? firstName
+            : (fullName.isNotEmpty ? fullName.split(' ').first : 'User');
+        final finalLast = lastName.isNotEmpty
+            ? lastName
+            : (fullName.split(' ').length > 1 ? fullName.split(' ').sublist(1).join(' ') : '');
         final email = (user['email'] as String? ?? '').toLowerCase();
-        final phone = user['phone'] as String? ?? '';
+        final phone = user['contact_number'] as String? ?? user['phone'] as String? ?? '';
         final id = user['id']?.toString() ?? 'BUY-${DateTime.now().millisecondsSinceEpoch}';
 
         final existing = _buyers[email];
         final buyer = existing ?? BuyerAccountRecord(
           id: id,
-          firstName: name.split(' ').first,
-          lastName: name.split(' ').length > 1 ? name.split(' ').sublist(1).join(' ') : '',
+          firstName: finalFirst,
+          lastName: finalLast,
           email: email,
           mobileNumber: phone,
           dateOfBirth: DateTime(1995, 1, 1),
@@ -292,7 +300,7 @@ class BuyerAccountService extends ChangeNotifier {
         _buyers[email] = buyer;
         _currentBuyerSession = buyer;
         ProfileService.instance.updateProfile(
-          name: name.isNotEmpty ? name : buyer.fullName,
+          name: buyer.fullName,
           email: email,
           phone: phone.isNotEmpty ? phone : buyer.mobileNumber,
         );
@@ -884,15 +892,23 @@ class BuyerAccountService extends ChangeNotifier {
       }
 
       final userData = data['user'] as Map<String, dynamic>? ?? {};
-      final name = userData['name'] as String? ?? '';
+      final firstName = userData['first_name'] as String? ?? '';
+      final lastName = userData['last_name'] as String? ?? '';
+      final fullName = userData['full_name'] as String? ?? userData['name'] as String? ?? '';
+      final finalFirst = firstName.isNotEmpty
+          ? firstName
+          : (fullName.isNotEmpty ? fullName.split(' ').first : 'User');
+      final finalLast = lastName.isNotEmpty
+          ? lastName
+          : (fullName.split(' ').length > 1 ? fullName.split(' ').sublist(1).join(' ') : '');
       final email = (userData['email'] as String? ?? emailOrPhone).toLowerCase().trim();
-      final phone = userData['phone'] as String? ?? '';
+      final phone = userData['contact_number'] as String? ?? userData['phone'] as String? ?? '';
       final id = userData['id']?.toString() ?? 'BUY-${DateTime.now().millisecondsSinceEpoch}';
 
       final buyer = BuyerAccountRecord(
         id: id,
-        firstName: name.split(' ').first,
-        lastName: name.split(' ').length > 1 ? name.split(' ').sublist(1).join(' ') : '',
+        firstName: finalFirst,
+        lastName: finalLast,
         email: email,
         mobileNumber: phone,
         dateOfBirth: DateTime(1995, 1, 1),
@@ -906,7 +922,7 @@ class BuyerAccountService extends ChangeNotifier {
       _buyers[email] = buyer;
       _currentBuyerSession = buyer;
       ProfileService.instance.updateProfile(
-        name: name.isNotEmpty ? name : buyer.fullName,
+        name: buyer.fullName,
         email: email,
         phone: phone.isNotEmpty ? phone : buyer.mobileNumber,
       );

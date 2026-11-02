@@ -42,7 +42,7 @@ class _ShippedOrderDetailsPageState extends State<ShippedOrderDetailsPage> {
       }
       _findLatestFromOrderService();
       _initSupabaseStream();
-      OrderService.instance.refreshOrdersFromSupabase();
+      OrderService.instance.fetchOrdersRemote();
     }
   }
 

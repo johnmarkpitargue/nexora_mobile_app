@@ -81,28 +81,106 @@ class ProductModel {
 
   factory ProductModel.fromApiJson(Map<String, dynamic> json) {
     final seller = json['seller'] as Map<String, dynamic>?;
-    final primaryImg = json['primary_image'] as String?;
+    final primaryImg = json['image'] as String? ?? json['primary_image'] as String?;
+    final gallery = (json['gallery'] as List?)?.map((e) => e.toString()).toList() ?? [];
     final imagesList = (json['images'] as List?)?.map((e) => e.toString()).toList() ?? [];
+    final allImages = [...gallery, ...imagesList];
+    final imgUrl = primaryImg ?? (allImages.isNotEmpty ? allImages.first : '');
+
     final priceVal = json['price'];
-    final formattedPrice = json['formatted_price'] ?? (priceVal != null ? '₱${priceVal.toString()}' : '₱0.00');
+    final compareVal = json['compare_price'] ?? json['regular_price'];
+    final formattedPrice = json['formatted_price'] ??
+        (priceVal != null
+            ? '₱${priceVal is num ? (priceVal % 1 == 0 ? priceVal.toInt().toString() : priceVal.toStringAsFixed(2)) : priceVal}'
+            : '₱0.00');
+    final formattedOriginal = compareVal != null && compareVal != priceVal
+        ? '₱${compareVal is num ? (compareVal % 1 == 0 ? compareVal.toInt().toString() : compareVal.toStringAsFixed(2)) : compareVal}'
+        : null;
+
+    final sellerId = seller?['id']?.toString() ?? json['seller_id']?.toString() ?? '1';
+    final sellerName = seller?['name'] as String? ??
+        seller?['business_name'] as String? ??
+        seller?['store_name'] as String? ??
+        json['seller_name'] as String? ??
+        'Nexora Store';
+
+    final categoryName = json['category_name'] as String? ??
+        json['category'] as String? ??
+        (json['category_slug'] != null ? json['category_slug'].toString() : 'General');
+
+    final isVacation = seller?['is_vacation_mode'] == true || json['is_vacation_mode'] == true;
+
+    // Variants data if provided by product detail endpoint
+    List<ProductVariantGroup>? variantGroups;
+    if (json['variants_data'] is List && (json['variants_data'] as List).isNotEmpty) {
+      final vList = json['variants_data'] as List;
+      final options = vList.map((v) {
+        final optName = v['name']?.toString() ??
+            v['color']?.toString() ??
+            v['size']?.toString() ??
+            'Default';
+        return ProductVariantOption(
+          id: v['id']?.toString() ?? optName,
+          name: optName,
+          stock: (v['stock'] as num?)?.toInt() ??
+              (json['stock'] as num?)?.toInt() ??
+              50,
+        );
+      }).toList();
+      variantGroups = [
+        ProductVariantGroup(
+          groupName: 'Variation',
+          options: options,
+        )
+      ];
+    }
+
+    // Reviews if provided
+    List<ProductReviewModel>? reviews;
+    if (json['reviews'] is List && (json['reviews'] as List).isNotEmpty) {
+      reviews = (json['reviews'] as List).map((r) {
+        final reviewer = r['buyer_name'] as String? ?? 'Shopper';
+        final initial = reviewer.isNotEmpty ? reviewer[0].toUpperCase() : 'S';
+        final photos =
+            (r['photos'] as List?)?.map((p) => p.toString()).toList() ?? [];
+        return ProductReviewModel(
+          id: r['id']?.toString() ?? 'rev-1',
+          userName: reviewer,
+          initials: initial,
+          avatarColor: const Color(0xFF0066FF),
+          rating: (r['rating'] as num?)?.toDouble() ?? 5.0,
+          date: r['created_at'] as String? ?? 'Recently',
+          variantName: 'Standard',
+          comment: r['comment'] as String? ?? '',
+          reviewImages: photos,
+        );
+      }).toList();
+    }
 
     return ProductModel(
       id: json['id'].toString(),
-      title: json['title'] as String? ?? json['name'] as String? ?? '',
-      imageUrl: primaryImg ?? (imagesList.isNotEmpty ? imagesList.first : ''),
-      category: json['category'] as String? ?? '',
+      title: json['name'] as String? ?? json['title'] as String? ?? '',
+      imageUrl: imgUrl,
+      category: categoryName,
       price: formattedPrice,
+      originalPrice: formattedOriginal,
       rating: (json['rating'] as num?)?.toDouble() ?? 5.0,
-      soldCount: '${json['sold_count'] ?? 0} sold',
+      soldCount: '${json['sold_count'] ?? json['reviews_count'] ?? 0} sold',
       shippingTag: 'Fast Delivery',
-      shopId: seller?['id']?.toString() ?? json['seller_id']?.toString() ?? '1',
-      shopName: seller?['store_name'] as String? ?? 'Nexora Store',
+      shopId: sellerId,
+      shopName: sellerName,
       shopBadge: 'OFFICIAL STORE',
       stockQuantity: (json['stock'] as num?)?.toInt() ?? 50,
       description: json['description'] as String? ?? '',
-      galleryImages: imagesList,
+      galleryImages: allImages.isNotEmpty ? allImages : (imgUrl.isNotEmpty ? [imgUrl] : []),
       location: seller?['city'] as String? ?? 'Metro Manila',
-      isActive: json['is_active'] != false,
+      isActive: json['is_active'] != false && json['status'] != 'inactive',
+      isOnVacation: isVacation,
+      isFlashSale: json['is_flash_sale'] == true,
+      flashSalePrice: json['flash_sale_price'] != null ? '₱${json['flash_sale_price']}' : null,
+      perBuyerLimit: (json['max_purchase_limit'] as num?)?.toInt(),
+      variantGroups: variantGroups,
+      reviews: reviews,
     );
   }
 }

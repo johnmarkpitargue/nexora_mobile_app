@@ -52,6 +52,110 @@ class ShopService extends ChangeNotifier {
   final Map<String, int> _helpfulVotes = {};
   final Set<String> _userUpvotedReviews = {};
 
+  List<ProductModel> _remoteProducts = [];
+  bool _isLoadingCatalog = false;
+  bool get isLoadingCatalog => _isLoadingCatalog;
+
+  List<ProductModel> get products =>
+      _remoteProducts.isNotEmpty ? _remoteProducts : allAppProducts;
+
+  /// Loads catalog from remote Laravel backend and updates listeners
+  Future<List<ProductModel>> loadCatalogRemote({
+    String? query,
+    String? category,
+    String? sort,
+    double? minPrice,
+    double? maxPrice,
+    String? sellerId,
+  }) async {
+    _isLoadingCatalog = true;
+    notifyListeners();
+    try {
+      final fetched = await fetchCatalogRemote(
+        query: query,
+        category: category,
+        sort: sort,
+        minPrice: minPrice,
+        maxPrice: maxPrice,
+        sellerId: sellerId,
+      );
+      if (fetched.isNotEmpty) {
+        _remoteProducts = fetched;
+      }
+      return fetched;
+    } finally {
+      _isLoadingCatalog = false;
+      notifyListeners();
+    }
+  }
+
+  /// Search and filter with remote Laravel catalog, falling back to local
+  Future<SearchResult> searchAndFilterRemote(SearchFilterParams params) async {
+    try {
+      final queryParams = <String, String>{};
+      if (params.query.isNotEmpty) queryParams['q'] = params.query;
+      if (params.category != null &&
+          params.category != 'All' &&
+          params.category != 'Mall') {
+        queryParams['category'] = params.category!;
+      }
+      if (params.minPrice != null) {
+        queryParams['min_price'] = params.minPrice.toString();
+      }
+      if (params.maxPrice != null) {
+        queryParams['max_price'] = params.maxPrice.toString();
+      }
+      if (params.sortBy.isNotEmpty) queryParams['sort'] = params.sortBy;
+
+      final uri = Uri(
+          path: ApiConstants.buyerCatalog,
+          queryParameters: queryParams.isNotEmpty ? queryParams : null);
+      final res = await ApiClient.instance.get(uri.toString());
+      final data = res['data'];
+      final List list = data is List
+          ? data
+          : (data is Map && data['data'] is List ? data['data'] : []);
+      final remoteList = list
+          .map((item) =>
+              ProductModel.fromApiJson(item as Map<String, dynamic>))
+          .toList();
+
+      if (remoteList.isNotEmpty) {
+        return SearchResult(products: remoteList);
+      }
+    } catch (e) {
+      debugPrint('searchAndFilterRemote error: $e');
+    }
+    return searchAndFilter(params);
+  }
+
+  /// Fetch store detail from Laravel backend API
+  Future<ShopModel?> fetchStoreRemote(String sellerId) async {
+    try {
+      final res =
+          await ApiClient.instance.get(ApiConstants.buyerStore(sellerId));
+      if (res['data'] is Map<String, dynamic>) {
+        final d = res['data'] as Map<String, dynamic>;
+        final storeName = d['name'] as String? ?? 'Seller Store';
+        final initial = storeName.isNotEmpty ? storeName[0].toUpperCase() : 'S';
+        return ShopModel(
+          id: d['id'].toString(),
+          name: storeName,
+          badge: 'VERIFIED SELLER',
+          followers: '${d['followers_count'] ?? 0}',
+          initials: initial,
+          avatarBg: const Color(0xFF0066FF),
+          categoryGroupTitle: d['category'] as String? ?? 'STORE MERCHANDISE',
+          categories: [],
+          vouchers: [],
+        );
+      }
+    } catch (e) {
+      debugPrint('fetchStoreRemote error: $e');
+    }
+    return null;
+  }
+
   String get _currentUserKey {
     final buyer = BuyerAccountService.instance.currentBuyer;
     return (buyer != null && buyer.email.isNotEmpty) ? buyer.email.toLowerCase().trim() : 'guest';
@@ -88,14 +192,18 @@ class ShopService extends ChangeNotifier {
     String? sort,
     double? minPrice,
     double? maxPrice,
+    String? sellerId,
   }) async {
     try {
       final queryParams = <String, String>{};
       if (query != null && query.isNotEmpty) queryParams['q'] = query;
-      if (category != null && category.isNotEmpty) queryParams['category'] = category;
+      if (category != null && category.isNotEmpty && category != 'All' && category != 'Mall') {
+        queryParams['category'] = category;
+      }
       if (sort != null && sort.isNotEmpty) queryParams['sort'] = sort;
       if (minPrice != null) queryParams['min_price'] = minPrice.toString();
       if (maxPrice != null) queryParams['max_price'] = maxPrice.toString();
+      if (sellerId != null && sellerId.isNotEmpty) queryParams['seller_id'] = sellerId;
 
       final uri = Uri(path: ApiConstants.buyerCatalog, queryParameters: queryParams.isNotEmpty ? queryParams : null);
       final res = await ApiClient.instance.get(uri.toString());
@@ -355,11 +463,17 @@ class ShopService extends ChangeNotifier {
   ProductModel? getProductById(String? id) {
     if (id == null || id.isEmpty) return null;
     try {
-      return allAppProducts.firstWhere(
+      return products.firstWhere(
         (p) => p.id.toLowerCase() == id.toLowerCase(),
       );
     } catch (_) {
-      return null;
+      try {
+        return allAppProducts.firstWhere(
+          (p) => p.id.toLowerCase() == id.toLowerCase(),
+        );
+      } catch (_) {
+        return null;
+      }
     }
   }
 
