@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../../core/services/rider_service.dart';
 import '../../../core/services/rider_account_service.dart';
 import '../../shell/presentation/rider_shell.dart';
@@ -50,7 +51,9 @@ class _RiderLoginPageState extends State<RiderLoginPage> {
     if (identifier.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please enter your registered email address or mobile number'),
+          content: Text(
+            'Please enter your registered email address or mobile number',
+          ),
           backgroundColor: Color(0xFFEF4444),
         ),
       );
@@ -77,7 +80,8 @@ class _RiderLoginPageState extends State<RiderLoginPage> {
     // If logging into the dedicated Courier Hub account, immediately redirect to CourierDashboardPage
     final cleanIdentifier = identifier.toLowerCase().trim();
     final cleanPhone = identifier.replaceAll(RegExp(r'[\s\-\+]'), '');
-    final isCourierAccount = cleanIdentifier == 'courier@nexora.io' ||
+    final isCourierAccount =
+        cleanIdentifier == 'courier@nexora.io' ||
         cleanIdentifier == 'courier.hub@nexora.io' ||
         cleanIdentifier == 'courier@example.com' ||
         cleanIdentifier == 'ernesto.villareal@example.com' ||
@@ -90,7 +94,8 @@ class _RiderLoginPageState extends State<RiderLoginPage> {
         cleanPhone.endsWith('9285551234');
 
     if (isCourierAccount) {
-      final isCourierPassword = password == 'Courier@2026' ||
+      final isCourierPassword =
+          password == 'Courier@2026' ||
           password == 'Passw0rd!' ||
           password == '123456' ||
           password == 'password123' ||
@@ -99,7 +104,9 @@ class _RiderLoginPageState extends State<RiderLoginPage> {
       if (!isCourierPassword) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Invalid Courier credentials. Use password Courier@2026 or 123456.'),
+            content: Text(
+              'Invalid Courier credentials. Use password Courier@2026 or 123456.',
+            ),
             backgroundColor: Color(0xFFEF4444),
           ),
         );
@@ -107,7 +114,8 @@ class _RiderLoginPageState extends State<RiderLoginPage> {
       }
 
       // Switch active courier profile fixture for COU-PROF-001 to 008
-      if (cleanIdentifier.contains('courier3') || cleanIdentifier.contains('suspended')) {
+      if (cleanIdentifier.contains('courier3') ||
+          cleanIdentifier.contains('suspended')) {
         CourierProfileService.instance.switchCourier('NX-CR-003');
       } else if (cleanIdentifier.contains('courier2')) {
         CourierProfileService.instance.switchCourier('NX-CR-002');
@@ -129,7 +137,9 @@ class _RiderLoginPageState extends State<RiderLoginPage> {
               Icon(Icons.hub_rounded, color: Colors.white, size: 20),
               SizedBox(width: 10),
               Expanded(
-                child: Text('Courier Hub verified! Redirecting to Courier Dispatch Dashboard...'),
+                child: Text(
+                  'Courier Hub verified! Redirecting to Courier Dispatch Dashboard...',
+                ),
               ),
             ],
           ),
@@ -159,11 +169,14 @@ class _RiderLoginPageState extends State<RiderLoginPage> {
       RiderService.instance.switchRider('NX-RD-001');
 
       final riderName = accountResult.rider?.fullName ?? 'Pedro Jose Garcia';
-      final company = accountResult.rider?.companyName ?? 'Bilis Hatid Express Inc.';
+      final company =
+          accountResult.rider?.companyName ?? 'Bilis Hatid Express Inc.';
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Welcome back, $riderName! Daily dispatch route loaded for $company.'),
+          content: Text(
+            'Welcome back, $riderName! Daily dispatch route loaded for $company.',
+          ),
           backgroundColor: const Color(0xFF10B981),
         ),
       );
@@ -190,7 +203,8 @@ class _RiderLoginPageState extends State<RiderLoginPage> {
     }
 
     // 3. Fallback / Seeded Demo Rider access
-    final isDemoEmail = identifier.toLowerCase() == 'pedrojose.garcia@example.com';
+    final isDemoEmail =
+        identifier.toLowerCase() == 'pedrojose.garcia@example.com';
     final isDemoPhone = cleanPhone.contains('9171234567');
     final isDemoPassword = password == 'Rider@2026' || password == '123456';
 
@@ -239,7 +253,11 @@ class _RiderLoginPageState extends State<RiderLoginPage> {
         ),
         content: const Text(
           'A 6-digit OTP verification token or password reset link will be sent to your registered email or verified mobile number.\n\nPlease ensure your device is able to receive SMS or inbox pings.',
-          style: TextStyle(fontSize: 13, height: 1.45, color: Color(0xFF475569)),
+          style: TextStyle(
+            fontSize: 13,
+            height: 1.45,
+            color: Color(0xFF475569),
+          ),
         ),
         actions: [
           TextButton(
@@ -251,7 +269,9 @@ class _RiderLoginPageState extends State<RiderLoginPage> {
               Navigator.pop(ctx);
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text('Reset instructions sent to your registered contact!'),
+                  content: Text(
+                    'Reset instructions sent to your registered contact!',
+                  ),
                   backgroundColor: Color(0xFF0066FF),
                 ),
               );
@@ -296,8 +316,11 @@ class _RiderLoginPageState extends State<RiderLoginPage> {
                   ),
                 ],
               ),
-              child: const Icon(Icons.arrow_back_rounded,
-                  size: 18, color: Color(0xFF0F172A)),
+              child: const Icon(
+                Icons.arrow_back_rounded,
+                size: 18,
+                color: Color(0xFF0F172A),
+              ),
             ),
           ),
         ),
@@ -321,8 +344,11 @@ class _RiderLoginPageState extends State<RiderLoginPage> {
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.check_circle_rounded,
-                          color: Color(0xFF15803D), size: 22),
+                      const Icon(
+                        Icons.check_circle_rounded,
+                        color: Color(0xFF15803D),
+                        size: 22,
+                      ),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
@@ -350,7 +376,8 @@ class _RiderLoginPageState extends State<RiderLoginPage> {
                       border: Border.all(color: const Color(0xFFE2E8F0)),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF0066FF).withValues(alpha: 0.08),
+                          color: const Color(0xFF0066FF)
+                              .withValues(alpha: 0.08),
                           blurRadius: 10,
                           offset: const Offset(0, 4),
                         ),
@@ -494,13 +521,18 @@ class _RiderLoginPageState extends State<RiderLoginPage> {
                       size: 20,
                     ),
                     suffixIcon: IconButton(
-                      icon: const Icon(Icons.cancel_rounded,
-                          color: Color(0xFF94A3B8), size: 18),
+                      icon: const Icon(
+                        Icons.cancel_rounded,
+                        color: Color(0xFF94A3B8),
+                        size: 18,
+                      ),
                       onPressed: () => _identifierController.clear(),
                     ),
                     border: InputBorder.none,
-                    contentPadding:
-                        const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 14,
+                    ),
                   ),
                 ),
               ),
@@ -597,8 +629,10 @@ class _RiderLoginPageState extends State<RiderLoginPage> {
                       },
                     ),
                     border: InputBorder.none,
-                    contentPadding:
-                        const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 14,
+                    ),
                   ),
                 ),
               ),
@@ -644,8 +678,10 @@ class _RiderLoginPageState extends State<RiderLoginPage> {
                   ),
                   const SizedBox(width: 8),
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xFFF0F9FF),
                       borderRadius: BorderRadius.circular(10),

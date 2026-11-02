@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
+
 import 'rider_login_page.dart';
 import 'add_rider_page.dart';
 
@@ -43,8 +45,7 @@ class _RiderLandingPageState extends State<RiderLandingPage>
       icon: Icons.account_balance_wallet_outlined,
       badgeText: '⚡ ₱0 Transfer Fee',
       title: 'Instant GCash Cash Out',
-      description:
-          'Daily settlement straight to GCash right after delivery completed with zero deductions.',
+      description: 'Daily settlement straight to GCash right after delivery completed with zero deductions.',
       bottomPrimary: 'Auto GCash Transfer',
       bottomSecondary: '0s Latency',
     ),
@@ -52,8 +53,7 @@ class _RiderLandingPageState extends State<RiderLandingPage>
       icon: Icons.access_time_rounded,
       badgeText: '⚡ Full Freedom',
       title: 'Flexible Shift Hours',
-      description:
-          'Choose your preferred delivery zone and work whenever you want without shift quotas.',
+      description: 'Choose your preferred delivery zone and work whenever you want without shift quotas.',
       bottomPrimary: 'Pasig & Ortigas Hub',
       bottomSecondary: '100% Flexible',
     ),
@@ -61,8 +61,7 @@ class _RiderLandingPageState extends State<RiderLandingPage>
       icon: Icons.trending_up_rounded,
       badgeText: '⚡ Up to +₱45/drop',
       title: 'Peak Hour Surge Pay',
-      description:
-          'Earn higher rates during peak lunch and dinner delivery rushes across commercial hubs.',
+      description: 'Earn higher rates during peak lunch and dinner delivery rushes across commercial hubs.',
       bottomPrimary: 'Automatic Bonus',
       bottomSecondary: 'Live Boosts',
     ),
@@ -70,8 +69,7 @@ class _RiderLandingPageState extends State<RiderLandingPage>
       icon: Icons.local_gas_station_rounded,
       badgeText: '⚡ Weekly Aid',
       title: 'Fuel & Maintenance Subsidy',
-      description:
-          'Exclusive fuel discounts and regular maintenance aid at all accredited partner stations.',
+      description: 'Exclusive fuel discounts and regular maintenance aid at all accredited partner stations.',
       bottomPrimary: 'Partner Stations',
       bottomSecondary: 'Save ₱800/mo',
     ),
@@ -101,18 +99,17 @@ class _RiderLandingPageState extends State<RiderLandingPage>
 
   void _startAutoRotation() {
     _autoRotateTimer?.cancel();
-    _autoRotateTimer = Timer.periodic(
-      const Duration(milliseconds: 3500),
-      (timer) {
-        if (_isInteracting || !mounted) return;
-        final next = (_currentPage + 1) % _slides.length;
-        _pageController.animateToPage(
-          next,
-          duration: const Duration(milliseconds: 450),
-          curve: Curves.easeInOutCubic,
-        );
-      },
-    );
+    _autoRotateTimer = Timer.periodic(const Duration(milliseconds: 3500), (
+      timer,
+    ) {
+      if (_isInteracting || !mounted) return;
+      final next = (_currentPage + 1) % _slides.length;
+      _pageController.animateToPage(
+        next,
+        duration: const Duration(milliseconds: 450),
+        curve: Curves.easeInOutCubic,
+      );
+    });
   }
 
   void _pauseAutoRotation() {
@@ -176,7 +173,9 @@ class _RiderLandingPageState extends State<RiderLandingPage>
                     children: [
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 6),
+                          horizontal: 14,
+                          vertical: 6,
+                        ),
                         decoration: BoxDecoration(
                           color: const Color(0xFFE0F2FE),
                           borderRadius: BorderRadius.circular(20),
@@ -299,7 +298,9 @@ class _RiderLandingPageState extends State<RiderLandingPage>
                   // 5. Social Proof Card (No green dot indicator on social proof per constraint)
                   Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 12),
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(20),
@@ -355,7 +356,9 @@ class _RiderLandingPageState extends State<RiderLandingPage>
 
                         Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 5),
+                            horizontal: 10,
+                            vertical: 5,
+                          ),
                           decoration: BoxDecoration(
                             color: const Color(0xFFE0F2FE),
                             borderRadius: BorderRadius.circular(16),
@@ -428,8 +431,10 @@ class _RiderLandingPageState extends State<RiderLandingPage>
                 ),
               ),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 5,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFFE0F2FE),
                   borderRadius: BorderRadius.circular(20),
@@ -680,7 +685,11 @@ class _RiderLandingPageState extends State<RiderLandingPage>
                     MaterialPageRoute(builder: (_) => const AddRiderPage()),
                   );
                 },
-                icon: const Icon(Icons.business_center_outlined, size: 16, color: Color(0xFF0066FF)),
+                icon: const Icon(
+                  Icons.business_center_outlined,
+                  size: 16,
+                  color: Color(0xFF0066FF),
+                ),
                 label: const Text(
                   'Logistics Admin: Add Rider Form',
                   style: TextStyle(
@@ -743,17 +752,18 @@ class _FluidVelocityBgPainter extends CustomPainter {
         (w * 0.60) * (1.0 + 0.08 * math.sin(progress * 2 * math.pi));
 
     final orb1Paint = Paint()
-      ..shader = RadialGradient(
-        colors: [
-          const Color(0xFF0066FF).withValues(alpha: 0.32),
-          const Color(0xFF0066FF).withValues(alpha: 0.16),
-          const Color(0xFF00779E).withValues(alpha: 0.06),
-          Colors.transparent,
-        ],
-        stops: const [0.0, 0.45, 0.75, 1.0],
-      ).createShader(
-        Rect.fromCircle(center: Offset(orb1X, orb1Y), radius: orb1Radius),
-      );
+      ..shader =
+          RadialGradient(
+            colors: [
+              const Color(0xFF0066FF).withValues(alpha: 0.32),
+              const Color(0xFF0066FF).withValues(alpha: 0.16),
+              const Color(0xFF00779E).withValues(alpha: 0.06),
+              Colors.transparent,
+            ],
+            stops: const [0.0, 0.45, 0.75, 1.0],
+          ).createShader(
+            Rect.fromCircle(center: Offset(orb1X, orb1Y), radius: orb1Radius),
+          );
     canvas.drawCircle(Offset(orb1X, orb1Y), orb1Radius, orb1Paint);
 
     // Orb 2: Deep Azure (#00779E) in opposing slow circular path (bottom-left)
@@ -763,17 +773,18 @@ class _FluidVelocityBgPainter extends CustomPainter {
         (w * 0.68) * (1.0 - 0.07 * math.sin(progress * 2 * math.pi));
 
     final orb2Paint = Paint()
-      ..shader = RadialGradient(
-        colors: [
-          const Color(0xFF00779E).withValues(alpha: 0.28),
-          const Color(0xFF0066FF).withValues(alpha: 0.14),
-          const Color(0xFF00779E).withValues(alpha: 0.05),
-          Colors.transparent,
-        ],
-        stops: const [0.0, 0.45, 0.75, 1.0],
-      ).createShader(
-        Rect.fromCircle(center: Offset(orb2X, orb2Y), radius: orb2Radius),
-      );
+      ..shader =
+          RadialGradient(
+            colors: [
+              const Color(0xFF00779E).withValues(alpha: 0.28),
+              const Color(0xFF0066FF).withValues(alpha: 0.14),
+              const Color(0xFF00779E).withValues(alpha: 0.05),
+              Colors.transparent,
+            ],
+            stops: const [0.0, 0.45, 0.75, 1.0],
+          ).createShader(
+            Rect.fromCircle(center: Offset(orb2X, orb2Y), radius: orb2Radius),
+          );
     canvas.drawCircle(Offset(orb2X, orb2Y), orb2Radius, orb2Paint);
 
     // Orb 3: Luminous mid-canvas atmospheric glow
@@ -782,16 +793,17 @@ class _FluidVelocityBgPainter extends CustomPainter {
     final double orb3Radius = w * 0.50;
 
     final orb3Paint = Paint()
-      ..shader = RadialGradient(
-        colors: [
-          const Color(0xFF0066FF).withValues(alpha: 0.15),
-          const Color(0xFF00779E).withValues(alpha: 0.06),
-          Colors.transparent,
-        ],
-        stops: const [0.0, 0.50, 1.0],
-      ).createShader(
-        Rect.fromCircle(center: Offset(orb3X, orb3Y), radius: orb3Radius),
-      );
+      ..shader =
+          RadialGradient(
+            colors: [
+              const Color(0xFF0066FF).withValues(alpha: 0.15),
+              const Color(0xFF00779E).withValues(alpha: 0.06),
+              Colors.transparent,
+            ],
+            stops: const [0.0, 0.50, 1.0],
+          ).createShader(
+            Rect.fromCircle(center: Offset(orb3X, orb3Y), radius: orb3Radius),
+          );
     canvas.drawCircle(Offset(orb3X, orb3Y), orb3Radius, orb3Paint);
   }
 
@@ -856,20 +868,64 @@ class _FluidVelocityBgPainter extends CustomPainter {
 
     // 6 Staggered Velocity Streamlines across diagonal lanes
     final List<_StreakSpec> streaks = [
-      const _StreakSpec(laneOffset: 0.12, speed: 1.0, phase: 0.05, length: 220, strokeWidth: 1.8, maxAlpha: 0.42),
-      const _StreakSpec(laneOffset: 0.28, speed: 0.85, phase: 0.35, length: 280, strokeWidth: 2.2, maxAlpha: 0.38),
-      const _StreakSpec(laneOffset: 0.48, speed: 1.15, phase: 0.65, length: 190, strokeWidth: 1.6, maxAlpha: 0.48),
-      const _StreakSpec(laneOffset: 0.65, speed: 0.95, phase: 0.15, length: 260, strokeWidth: 2.0, maxAlpha: 0.40),
-      const _StreakSpec(laneOffset: 0.82, speed: 1.10, phase: 0.80, length: 240, strokeWidth: 1.8, maxAlpha: 0.44),
-      const _StreakSpec(laneOffset: 0.95, speed: 0.90, phase: 0.45, length: 210, strokeWidth: 1.5, maxAlpha: 0.36),
+      const _StreakSpec(
+        laneOffset: 0.12,
+        speed: 1.0,
+        phase: 0.05,
+        length: 220,
+        strokeWidth: 1.8,
+        maxAlpha: 0.42,
+      ),
+      const _StreakSpec(
+        laneOffset: 0.28,
+        speed: 0.85,
+        phase: 0.35,
+        length: 280,
+        strokeWidth: 2.2,
+        maxAlpha: 0.38,
+      ),
+      const _StreakSpec(
+        laneOffset: 0.48,
+        speed: 1.15,
+        phase: 0.65,
+        length: 190,
+        strokeWidth: 1.6,
+        maxAlpha: 0.48,
+      ),
+      const _StreakSpec(
+        laneOffset: 0.65,
+        speed: 0.95,
+        phase: 0.15,
+        length: 260,
+        strokeWidth: 2.0,
+        maxAlpha: 0.40,
+      ),
+      const _StreakSpec(
+        laneOffset: 0.82,
+        speed: 1.10,
+        phase: 0.80,
+        length: 240,
+        strokeWidth: 1.8,
+        maxAlpha: 0.44,
+      ),
+      const _StreakSpec(
+        laneOffset: 0.95,
+        speed: 0.90,
+        phase: 0.45,
+        length: 210,
+        strokeWidth: 1.5,
+        maxAlpha: 0.36,
+      ),
     ];
 
     for (final streak in streaks) {
-      final double cycleProgress = (progress * streak.speed + streak.phase) % 1.0;
-      
+      final double cycleProgress =
+          (progress * streak.speed + streak.phase) % 1.0;
+
       // Calculate start and end position along diagonal trajectory
       final double totalTravel = math.sqrt(w * w + h * h) + streak.length;
-      final double currentTravel = cycleProgress * totalTravel - (streak.length * 0.5);
+      final double currentTravel =
+          cycleProgress * totalTravel - (streak.length * 0.5);
 
       final double originX = w * 0.1 + (w * 0.9 * streak.laneOffset);
       final double originY = h * 0.1 + (h * 0.9 * streak.laneOffset);
@@ -881,24 +937,28 @@ class _FluidVelocityBgPainter extends CustomPainter {
 
       // Opacity curve: Smooth fade-in and fade-out
       final double alphaCurve = math.sin(cycleProgress * math.pi);
-      final double currentAlpha = (streak.maxAlpha * alphaCurve).clamp(0.0, 1.0);
+      final double currentAlpha = (streak.maxAlpha * alphaCurve).clamp(
+        0.0,
+        1.0,
+      );
 
       if (currentAlpha <= 0.02) continue;
 
       final streakPaint = Paint()
         ..strokeWidth = streak.strokeWidth
         ..strokeCap = StrokeCap.round
-        ..shader = LinearGradient(
-          colors: [
-            const Color(0xFF0066FF).withValues(alpha: 0.0),
-            const Color(0xFF0066FF).withValues(alpha: currentAlpha),
-            const Color(0xFF00779E).withValues(alpha: currentAlpha * 0.4),
-            const Color(0xFF0066FF).withValues(alpha: 0.0),
-          ],
-          stops: const [0.0, 0.50, 0.75, 1.0],
-        ).createShader(
-          Rect.fromPoints(Offset(startX, startY), Offset(endX, endY)),
-        );
+        ..shader =
+            LinearGradient(
+              colors: [
+                const Color(0xFF0066FF).withValues(alpha: 0.0),
+                const Color(0xFF0066FF).withValues(alpha: currentAlpha),
+                const Color(0xFF00779E).withValues(alpha: currentAlpha * 0.4),
+                const Color(0xFF0066FF).withValues(alpha: 0.0),
+              ],
+              stops: const [0.0, 0.50, 0.75, 1.0],
+            ).createShader(
+              Rect.fromPoints(Offset(startX, startY), Offset(endX, endY)),
+            );
 
       canvas.drawLine(Offset(startX, startY), Offset(endX, endY), streakPaint);
     }
@@ -910,13 +970,55 @@ class _FluidVelocityBgPainter extends CustomPainter {
 
     // Micro-particles at staggered coordinates matching design
     final List<_SparkleSpec> sparkles = [
-      _SparkleSpec(x: w * 0.25, y: h * 0.22, freq: 1.0, phase: 0.2, radius: 2.5),
-      _SparkleSpec(x: w * 0.30, y: h * 0.65, freq: 0.8, phase: 1.5, radius: 3.2), // Prominent cyan node in design
-      _SparkleSpec(x: w * 0.73, y: h * 0.78, freq: 1.2, phase: 3.2, radius: 3.0), // Lower right cyan node in design
-      _SparkleSpec(x: w * 0.82, y: h * 0.15, freq: 0.9, phase: 2.1, radius: 2.2),
-      _SparkleSpec(x: w * 0.14, y: h * 0.46, freq: 1.1, phase: 0.8, radius: 2.0),
-      _SparkleSpec(x: w * 0.88, y: h * 0.52, freq: 0.7, phase: 2.9, radius: 2.4),
-      _SparkleSpec(x: w * 0.50, y: h * 0.90, freq: 1.0, phase: 4.0, radius: 2.2),
+      _SparkleSpec(
+        x: w * 0.25,
+        y: h * 0.22,
+        freq: 1.0,
+        phase: 0.2,
+        radius: 2.5,
+      ),
+      _SparkleSpec(
+        x: w * 0.30,
+        y: h * 0.65,
+        freq: 0.8,
+        phase: 1.5,
+        radius: 3.2,
+      ), // Prominent cyan node in design
+      _SparkleSpec(
+        x: w * 0.73,
+        y: h * 0.78,
+        freq: 1.2,
+        phase: 3.2,
+        radius: 3.0,
+      ), // Lower right cyan node in design
+      _SparkleSpec(
+        x: w * 0.82,
+        y: h * 0.15,
+        freq: 0.9,
+        phase: 2.1,
+        radius: 2.2,
+      ),
+      _SparkleSpec(
+        x: w * 0.14,
+        y: h * 0.46,
+        freq: 1.1,
+        phase: 0.8,
+        radius: 2.0,
+      ),
+      _SparkleSpec(
+        x: w * 0.88,
+        y: h * 0.52,
+        freq: 0.7,
+        phase: 2.9,
+        radius: 2.4,
+      ),
+      _SparkleSpec(
+        x: w * 0.50,
+        y: h * 0.90,
+        freq: 1.0,
+        phase: 4.0,
+        radius: 2.2,
+      ),
     ];
 
     for (final s in sparkles) {

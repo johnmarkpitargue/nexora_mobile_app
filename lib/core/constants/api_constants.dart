@@ -32,3 +32,4 @@ class ApiConstants {
   static const String remittance = '/api/mobile/v1/rider/remittance';
   static const String submitRemittance = remittance;
 }
+
