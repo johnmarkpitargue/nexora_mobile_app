@@ -3,7 +3,7 @@
 class ApiConstants {
   static const String baseUrl = String.fromEnvironment(
     'NEXORA_API_BASE_URL',
-    defaultValue: 'https://nexora.market',
+    defaultValue: 'https://nexoramarket.store',
   );
 
   // Auth
