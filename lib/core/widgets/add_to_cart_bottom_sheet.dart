@@ -166,7 +166,7 @@ class _AddToCartBottomSheetState extends State<AddToCartBottomSheet> {
     return widget.product.imageUrl;
   }
 
-  void _onAddToCartPressed() {
+  Future<void> _onAddToCartPressed() async {
     Map<String, dynamic>? variantPayload;
     final groups = _effectiveVariantGroups;
     if (groups.isNotEmpty) {
@@ -195,35 +195,37 @@ class _AddToCartBottomSheetState extends State<AddToCartBottomSheet> {
     }
 
     final pId = int.tryParse(widget.product.id) ?? 0;
-    if (pId > 0) {
-      CartService.instance.addItemRemote(
-        productId: pId,
+    try {
+      await CartService.instance.addToCart(
+        productId: pId > 0 ? pId : null,
+        variantPayload: variantPayload,
+        title: widget.product.title,
+        variant: _currentVariantSummary,
+        price: _effectivePrice,
+        originalPrice: _originalPriceVal,
+        imageUrl: _currentThumbnailUrl,
+        storeName: widget.product.shopName.isNotEmpty
+            ? widget.product.shopName
+            : (widget.product.isMall
+                  ? 'Nexora Official Store'
+                  : 'Nexora Preferred Store'),
+        storeBadge: widget.product.shopBadge.isNotEmpty
+            ? widget.product.shopBadge
+            : (widget.product.isMall ? 'MALL' : 'OFFICIAL STORE'),
         quantity: _quantity,
-        variant: variantPayload,
+      );
+      if (!mounted) return;
+      widget.onAdded?.call();
+      Navigator.pop(context, true);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not add to cart: $e'),
+          backgroundColor: const Color(0xFFDC2626),
+        ),
       );
     }
-
-    CartService.instance.addToCart(
-      productId: pId > 0 ? pId : null,
-      variantPayload: variantPayload,
-      title: widget.product.title,
-      variant: _currentVariantSummary,
-      price: _effectivePrice,
-      originalPrice: _originalPriceVal,
-      imageUrl: _currentThumbnailUrl,
-      storeName: widget.product.shopName.isNotEmpty
-          ? widget.product.shopName
-          : (widget.product.isMall
-                ? 'Nexora Official Store'
-                : 'Nexora Preferred Store'),
-      storeBadge: widget.product.shopBadge.isNotEmpty
-          ? widget.product.shopBadge
-          : (widget.product.isMall ? 'MALL' : 'OFFICIAL STORE'),
-      quantity: _quantity,
-    );
-
-    widget.onAdded?.call();
-    Navigator.pop(context, true);
   }
 
   @override

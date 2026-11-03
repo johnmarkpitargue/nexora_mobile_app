@@ -923,11 +923,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
     }
 
     final defaultAddr = AddressService.instance.defaultAddress;
-    final addressStr = defaultAddr?.fullAddress ?? ProfileService.instance.address;
-    if (addressStr.trim().isEmpty) {
+    final int? addrId = defaultAddr != null ? int.tryParse(defaultAddr.id) : null;
+    if (defaultAddr == null || addrId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please add a delivery address before placing your order.'),
+          content: Text('Please add or select a delivery address before placing your order.'),
           backgroundColor: Colors.redAccent,
         ),
       );
@@ -942,116 +942,100 @@ class _CheckoutPageState extends State<CheckoutPage> {
       _isPlacingOrder = true;
     });
 
-    String orderId = '#NX-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}';
+    String orderId = '';
     String selectedPayment = 'Cash on Delivery';
 
     try {
-      // Use snapshot of checkout items so clearing cart does NOT blank them in background
-      final selectedItems = _checkoutItems.isNotEmpty
-          ? List<CartItemModel>.from(_checkoutItems)
-          : _cartService.removeAndGetSelectedItems();
-
-      // Clean up cart service
-      _cartService.removeAndGetSelectedItems();
-
       final options = _paymentOptions;
       final safeIndex = (_selectedPaymentIndex >= 0 && _selectedPaymentIndex < options.length)
           ? _selectedPaymentIndex
           : 0;
       selectedPayment = (options[safeIndex]['name'] ?? 'Cash on Delivery').toString();
-      final currentTotal = _finalTotal;
-      final profile = ProfileService.instance;
 
-      final deliveryAddressStr = defaultAddr?.fullAddress ??
-          (profile.address.isNotEmpty
-              ? profile.address
-              : 'Tuy-Baanan, Liliw, Laguna 4004');
-
-      double deliveryLat = defaultAddr?.latitude ?? 0.0;
-      double deliveryLng = defaultAddr?.longitude ?? 0.0;
-
-      if (deliveryLat == 0.0 || deliveryLng == 0.0) {
-        final resolved = LagunaPlacesService.instance.resolveCoordinates(deliveryAddressStr);
-        deliveryLat = resolved.latitude;
-        deliveryLng = resolved.longitude;
-      }
-
-      _orderService.placeOrder(
-        items: selectedItems.isEmpty
-            ? [
-                CartItemModel(
-                  id: 'checkout_default',
-                  storeName: 'Nexora Official Store',
-                  storeBadge: 'MALL',
-                  title: 'Nexora StreamMic D20 Professional Condenser Microphone',
-                  variant: 'Tight Cardioid Solo',
-                  imageUrl:
-                      'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?auto=format&fit=crop&w=300&q=80',
-                  price: 299.00,
-                  originalPrice: 490.00,
-                  quantity: 1,
-                )
-              ]
-            : selectedItems,
-        totalPrice: currentTotal,
-        paymentMethod: selectedPayment,
-        recipientName: profile.name,
-        recipientPhone: profile.phone,
-        shippingAddress: deliveryAddressStr,
-        shippingOption: _selectedShippingName,
-        shippingFee: _selectedShippingFee,
-        subtotal: _merchandiseSubtotal,
-        discount: _totalSaved,
-        estimatedArrival: _estimatedArrivalDate,
-        deliveryLat: deliveryLat,
-        deliveryLng: deliveryLng,
-      );
-
-      final placedOrder = _orderService.latestActiveOrder;
-      if (placedOrder != null) {
-        orderId = placedOrder.orderId;
-      }
-
-      // Synchronize with Laravel backend API
-      if (ApiClient.instance.hasToken) {
-        try {
-          final defaultAddr = AddressService.instance.defaultAddress;
-          final int? addrId = defaultAddr != null ? int.tryParse(defaultAddr.id) : null;
-          final String pMethod = selectedPayment.toLowerCase().contains('cod')
-              ? 'cod'
-              : (selectedPayment.toLowerCase().contains('wallet') ? 'wallet' : 'cod');
-          final String idempotencyKey = 'chk_${DateTime.now().millisecondsSinceEpoch}';
-
-          final res = await ApiClient.instance.post(
-            ApiConstants.buyerCheckout,
-            headers: {'Idempotency-Key': idempotencyKey},
-            body: {
-              if (addrId != null) 'shipping_address_id': addrId else 'shipping_address': deliveryAddressStr,
-              'payment_method': pMethod,
-            },
+      // If Buy Now direct item, add to remote cart first so backend has it selected
+      if (_cartService.directBuyItem != null) {
+        final dItem = _cartService.directBuyItem!;
+        final pId = int.tryParse(dItem.productId ?? '') ?? 0;
+        if (pId > 0) {
+          await _cartService.addItemRemote(
+            productId: pId,
+            quantity: dItem.quantity,
+            variant: dItem.variantData is Map<String, dynamic> ? dItem.variantData : null,
           );
-          if (res['data'] is Map &&
-              res['data']['orders'] is List &&
-              (res['data']['orders'] as List).isNotEmpty) {
-            final firstOrd = res['data']['orders'][0];
-            orderId = firstOrd['order_number'] ?? '#${firstOrd['id']}';
-          }
-        } catch (e) {
-          debugPrint('remote checkout notice: $e');
         }
       }
+
+      // Hit Laravel POST /api/mobile/v1/buyer/checkout
+      final orders = await _orderService.placeOrderRemote(
+        addressId: addrId,
+        paymentMethod: 'cod',
+      );
+
+      if (orders.isNotEmpty) {
+        final firstOrd = orders[0];
+        orderId = firstOrd['order_number'] ?? '#${firstOrd['id']}';
+      } else {
+        orderId = '#NX-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}';
+      }
+
+      // Cleanup local direct-buy and refresh cart from server
+      _cartService.clearDirectBuy();
+      await _cartService.loadCartRemote();
+
     } catch (e, st) {
-      debugPrint('⚠️ Checkout placeOrder error: $e\n$st');
+      debugPrint('⚠️ Checkout error: $e\n$st');
+      if (!mounted) return;
+      setState(() {
+        _isPlacingOrder = false;
+      });
+
+      String userMsg = e.toString();
+      if (e is ApiException) {
+        userMsg = e.message;
+      } else if (userMsg.startsWith('Exception: ')) {
+        userMsg = userMsg.substring(11);
+      }
+
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Row(
+            children: [
+              Icon(Icons.error_outline, color: Color(0xFFDC2626)),
+              SizedBox(width: 8),
+              Text('Checkout Failed', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            ],
+          ),
+          content: Text(userMsg),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('OK'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                _handlePlaceOrder();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0066FF),
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      );
+      return;
     }
 
-    await Future.delayed(const Duration(milliseconds: 350));
     if (!mounted) return;
     setState(() {
       _isPlacingOrder = false;
     });
 
     try {
-      // Fire Phone / External notification only (no redundant top in-app banner overlapping the success dialog)
       ExternalNotificationService.show(
         title: '📦 Nexora Order Placed ($selectedPayment)',
         body: 'Order $orderId has been placed. You will receive real-time courier updates here!',
@@ -1093,7 +1077,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
               ),
               const SizedBox(height: 8),
               Text(
-                'Order $orderId has been dispatched ($_selectedShippingName • Est. $_estimatedArrivalDate). Track your delivery real-time in My Orders.',
+                'Order $orderId has been placed ($_selectedShippingName • Est. $_estimatedArrivalDate). Track your delivery real-time in My Orders.',
                 style: const TextStyle(
                   fontSize: 13,
                   color: Color(0xFF64748B),

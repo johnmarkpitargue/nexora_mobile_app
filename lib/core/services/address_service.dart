@@ -87,30 +87,42 @@ class AddressModel {
   Map<String, dynamic> toApiJson() => {
     'label': label.isNotEmpty ? label : 'Home',
     'recipient_name': fullName,
+    'recipient_phone': phone,
     'phone': phone,
     'street': streetBuilding.isNotEmpty ? streetBuilding : fullAddress,
+    'barangay_name': barangay.isNotEmpty ? barangay : 'Central',
     'barangay': barangay.isNotEmpty ? barangay : 'Central',
+    'municipality_name': city.isNotEmpty ? city : 'Makati',
     'city': city.isNotEmpty ? city : 'Makati',
-    'province': province,
+    'province_name': province.isNotEmpty ? province : 'Laguna',
+    'province': province.isNotEmpty ? province : 'Laguna',
+    'region_name': region.isNotEmpty ? region : 'Region IV-A (CALABARZON)',
     'region': region,
-    'postal_code': postalCode.isNotEmpty ? postalCode : '1200',
+    'postal_code': postalCode.isNotEmpty ? postalCode : '4004',
     'is_default': isDefault,
     if (latitude != null) 'latitude': latitude,
     if (longitude != null) 'longitude': longitude,
   };
 
   factory AddressModel.fromApiJson(Map<String, dynamic> json) {
+    final recipientName = json['recipient_name'] as String? ?? json['fullName'] as String? ?? '';
+    final phone = json['recipient_phone'] as String? ?? json['phone'] as String? ?? '';
+    final region = json['region_name'] as String? ?? json['region'] as String? ?? '';
+    final province = json['province_name'] as String? ?? json['province'] as String? ?? '';
+    final city = json['municipality_name'] as String? ?? json['city'] as String? ?? '';
+    final barangay = json['barangay_name'] as String? ?? json['barangay'] as String? ?? '';
+    final fullAddr = json['full_address'] as String? ??
+        [region, province, city, barangay].where((s) => s.isNotEmpty).join(', ');
+
     return AddressModel(
       id: json['id'].toString(),
-      fullName: json['recipient_name'] as String? ?? json['fullName'] as String? ?? '',
-      phone: json['phone'] as String? ?? '',
-      region: json['region'] as String? ?? '',
-      province: json['province'] as String? ?? '',
-      city: json['city'] as String? ?? '',
-      barangay: json['barangay'] as String? ?? '',
-      regionCity: [json['region'], json['province'], json['city'], json['barangay']]
-          .where((s) => s != null && (s as String).isNotEmpty)
-          .join(', '),
+      fullName: recipientName,
+      phone: phone,
+      region: region,
+      province: province,
+      city: city,
+      barangay: barangay,
+      regionCity: fullAddr,
       postalCode: json['postal_code'] as String? ?? json['postalCode'] as String? ?? '',
       streetBuilding: json['street'] as String? ?? json['streetBuilding'] as String? ?? '',
       label: json['label'] as String? ?? 'Home',

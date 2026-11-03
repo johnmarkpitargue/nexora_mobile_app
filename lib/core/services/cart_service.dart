@@ -6,6 +6,7 @@ import '../network/api_client.dart';
 class CartItemModel {
   final String id;
   final String? productId;
+  final int? sellerId;
   final String storeName;
   final String storeBadge; // 'MALL', 'PREFERRED+', or ''
   final String title;
@@ -26,6 +27,7 @@ class CartItemModel {
   CartItemModel({
     required this.id,
     this.productId,
+    this.sellerId,
     required this.storeName,
     this.storeBadge = '',
     required this.title,
@@ -47,6 +49,7 @@ class CartItemModel {
   CartItemModel copyWith({
     String? id,
     String? productId,
+    int? sellerId,
     String? storeName,
     String? storeBadge,
     String? title,
@@ -67,6 +70,7 @@ class CartItemModel {
     return CartItemModel(
       id: id ?? this.id,
       productId: productId ?? this.productId,
+      sellerId: sellerId ?? this.sellerId,
       storeName: storeName ?? this.storeName,
       storeBadge: storeBadge ?? this.storeBadge,
       title: title ?? this.title,
@@ -92,6 +96,8 @@ class CartItemModel {
 
     final id = json['id'].toString();
     final pId = json['product_id']?.toString() ?? product['id']?.toString();
+    final rawSellerId = json['seller_id'] ?? product['seller_id'] ?? seller['id'];
+    final sId = rawSellerId != null ? int.tryParse(rawSellerId.toString()) : null;
     final name = json['name'] as String? ??
         product['title'] as String? ??
         product['name'] as String? ??
@@ -131,6 +137,7 @@ class CartItemModel {
     return CartItemModel(
       id: id,
       productId: pId,
+      sellerId: sId,
       storeName: sellerName,
       storeBadge: 'MALL',
       title: name,
@@ -259,6 +266,25 @@ class CartService extends ChangeNotifier {
   }
 
   /// Select or deselect all items on backend API
+  /// Select or deselect all items for a specific store on backend API
+  Future<void> toggleStoreCheckedRemote(int sellerId, bool checked, {String? storeName}) async {
+    if (storeName != null) {
+      toggleStoreChecked(storeName, checked);
+    }
+    if (ApiClient.instance.hasToken) {
+      try {
+        await ApiClient.instance.patch(
+          ApiConstants.cartSelectStore(sellerId),
+          body: {'selected': checked},
+        );
+        await loadCartRemote();
+      } catch (e) {
+        debugPrint('toggleStoreCheckedRemote error: $e');
+        await loadCartRemote();
+      }
+    }
+  }
+
   Future<void> selectAllRemote(bool selected) async {
     toggleSelectAll(selected);
     if (ApiClient.instance.hasToken) {
@@ -332,6 +358,7 @@ class CartService extends ChangeNotifier {
 
   void addItem({
     String? productId,
+    int? sellerId,
     dynamic variantData,
     required String title,
     required String variant,
@@ -464,7 +491,7 @@ class CartService extends ChangeNotifier {
     notifyListeners();
   }
 
-  void addToCart({
+  Future<void> addToCart({
     int? productId,
     Map<String, dynamic>? variantPayload,
     required String title,
@@ -476,13 +503,14 @@ class CartService extends ChangeNotifier {
     double? originalPrice,
     String? discountTag,
     int quantity = 1,
-  }) {
+  }) async {
     if (productId != null && ApiClient.instance.hasToken) {
-      addItemRemote(
+      await addItemRemote(
         productId: productId,
         quantity: quantity,
         variant: variantPayload,
       );
+      return;
     }
     addItem(
       productId: productId?.toString(),

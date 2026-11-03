@@ -172,13 +172,21 @@ class OrderItemModel {
     String etaTime;
 
     switch (status) {
+      case 'placed':
+      case 'confirmed':
+      case 'preparing':
       case 'processing':
-        statusText = 'Processing';
+        statusText = 'To Ship';
         statusColor = const Color(0xFF3B82F6);
         progress = 0.3;
         etaText = 'Seller is preparing your order';
         etaTime = 'Estimated: 2-3 days';
         break;
+      case 'ready_for_pickup':
+      case 'picked_up':
+      case 'at_sorting_center':
+      case 'sorted':
+      case 'assigned_to_rider':
       case 'shipped':
         statusText = 'In Transit';
         statusColor = const Color(0xFF8B5CF6);
@@ -215,6 +223,7 @@ class OrderItemModel {
         etaText = 'Return / refund requested';
         etaTime = '-';
         break;
+      case 'to_pay':
       case 'pending':
       default:
         statusText = 'Pending Payment';
@@ -226,35 +235,65 @@ class OrderItemModel {
     }
 
     final rawItems = json['items'] as List? ?? [];
-    final itemsList = rawItems.map((item) {
-      if (item is Map<String, dynamic>) {
+    List<CartItemModel> itemsList = [];
+    if (rawItems.isNotEmpty) {
+      itemsList = rawItems.map((item) {
+        if (item is Map<String, dynamic>) {
+          String variantStr = 'Standard';
+          final rawV = item['variant'];
+          if (rawV is Map) {
+            variantStr = rawV['variation']?.toString() ?? rawV['name']?.toString() ?? 'Standard';
+          } else if (rawV is String && rawV.isNotEmpty) {
+            variantStr = rawV;
+          }
+          return CartItemModel(
+            id: item['id']?.toString() ?? '1',
+            storeName: json['seller_name'] ?? json['seller']?['store_name'] ?? 'Nexora Store',
+            title: item['name'] ?? item['title'] ?? item['product_name'] ?? 'Product',
+            variant: variantStr,
+            imageUrl: item['image'] ?? item['image_url'] ?? '',
+            price: (item['price'] as num?)?.toDouble() ?? (item['unit_price'] as num?)?.toDouble() ?? 0.0,
+            quantity: (item['quantity'] as num?)?.toInt() ?? 1,
+          );
+        }
         return CartItemModel(
-          id: item['id']?.toString() ?? '1',
-          storeName: json['seller']?['store_name'] ?? 'Nexora Store',
-          title: item['title'] ?? item['product_name'] ?? 'Product',
+          id: '1',
+          storeName: 'Nexora Store',
+          title: 'Product',
           variant: 'Standard',
-          imageUrl: item['image_url'] ?? 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=300&q=80',
-          price: (item['unit_price'] as num?)?.toDouble() ?? 0.0,
-          quantity: (item['quantity'] as num?)?.toInt() ?? 1,
+          imageUrl: '',
+          price: 0.0,
         );
+      }).toList();
+    } else if (json['first_item'] is Map<String, dynamic>) {
+      final f = json['first_item'] as Map<String, dynamic>;
+      String variantStr = 'Standard';
+      final rawV = f['variant'];
+      if (rawV is Map) {
+        variantStr = rawV['variation']?.toString() ?? rawV['name']?.toString() ?? 'Standard';
+      } else if (rawV is String && rawV.isNotEmpty) {
+        variantStr = rawV;
       }
-      return CartItemModel(
-        id: '1',
-        storeName: 'Nexora Store',
-        title: 'Product',
-        variant: 'Standard',
-        imageUrl: '',
-        price: 0.0,
-      );
-    }).toList();
+      itemsList = [
+        CartItemModel(
+          id: 'fi_${json['id']}',
+          storeName: json['seller_name'] ?? 'Nexora Store',
+          title: f['name'] ?? 'Product',
+          variant: variantStr,
+          imageUrl: f['image'] ?? '',
+          price: (f['price'] as num?)?.toDouble() ?? 0.0,
+          quantity: (f['quantity'] as num?)?.toInt() ?? 1,
+        ),
+      ];
+    }
 
-    final shippingAddr = json['shipping_address'];
+    final shippingAddr = json['shipping_address'] ?? json['address_snapshot'];
     String recipientName = 'Customer';
     String recipientPhone = '';
     String addressStr = '';
     if (shippingAddr is Map<String, dynamic>) {
       recipientName = shippingAddr['recipient_name'] ?? '';
-      recipientPhone = shippingAddr['phone'] ?? '';
+      recipientPhone = shippingAddr['phone'] ?? shippingAddr['recipient_phone'] ?? '';
       addressStr = shippingAddr['full_address'] ?? shippingAddr['street'] ?? '';
     } else if (shippingAddr is String) {
       addressStr = shippingAddr;
@@ -266,18 +305,19 @@ class OrderItemModel {
 
     return OrderItemModel(
       orderId: json['order_number'] as String? ?? '#${json['id']}',
-      dateText: json['created_at'] != null
-          ? json['created_at'].toString().split('T').first
-          : 'Today',
+      dateText: json['placed_at'] != null
+          ? json['placed_at'].toString().split(' ').first
+          : (json['created_at'] != null ? json['created_at'].toString().split('T').first : 'Today'),
       statusText: statusText,
       statusColor: statusColor,
       etaText: etaText,
       etaTime: etaTime,
       progress: progress,
       items: itemsList,
-      totalPrice: (json['total_amount'] as num?)?.toDouble() ?? 0.0,
+      totalPrice: (json['total'] as num?)?.toDouble() ?? (json['total_amount'] as num?)?.toDouble() ?? 0.0,
+      subtotal: (json['subtotal'] as num?)?.toDouble() ?? 0.0,
       shippingFee: (json['shipping_fee'] as num?)?.toDouble() ?? 0.0,
-      discount: (json['discount_amount'] as num?)?.toDouble() ?? 0.0,
+      discount: (json['discount'] as num?)?.toDouble() ?? (json['discount_amount'] as num?)?.toDouble() ?? 0.0,
       paymentMethod: (json['payment_method'] as String? ?? 'COD').toUpperCase(),
       courierName: courierName,
       courierRating: 4.9,
@@ -336,6 +376,34 @@ class OrderService extends ChangeNotifier {
   }
 
   /// Fetch orders from Laravel backend API
+  /// Place order on Laravel backend API
+  Future<List<Map<String, dynamic>>> placeOrderRemote({
+    required int addressId,
+    String paymentMethod = 'cod',
+    int? platformVoucherId,
+    int? shippingVoucherId,
+    int? storeVoucherId,
+  }) async {
+    final idempotencyKey = 'chk_${DateTime.now().millisecondsSinceEpoch}';
+    final res = await ApiClient.instance.post(
+      ApiConstants.buyerCheckout,
+      headers: {'Idempotency-Key': idempotencyKey},
+      body: {
+        'address_id': addressId,
+        'shipping_address_id': addressId,
+        'payment_method': paymentMethod,
+        if (platformVoucherId != null) 'platform_voucher_id': platformVoucherId,
+        if (shippingVoucherId != null) 'shipping_voucher_id': shippingVoucherId,
+        if (storeVoucherId != null) 'store_voucher_id': storeVoucherId,
+      },
+    );
+    await fetchOrdersRemote();
+    if (res['data'] is Map && res['data']['orders'] is List) {
+      return (res['data']['orders'] as List).cast<Map<String, dynamic>>();
+    }
+    return [];
+  }
+
   Future<void> fetchOrdersRemote([String tab = 'all']) async {
     if (!ApiClient.instance.hasToken) return;
     try {

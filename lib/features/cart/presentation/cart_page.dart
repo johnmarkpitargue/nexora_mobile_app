@@ -48,7 +48,14 @@ class _CartPageState extends State<CartPage> {
   }
 
   void _toggleStore(String storeName, bool checked) {
-    _cartService.toggleStoreChecked(storeName, checked);
+    final storeItems =
+        _cartService.items.where((i) => i.storeName == storeName).toList();
+    final sellerId = storeItems.isNotEmpty ? storeItems.first.sellerId : null;
+    if (sellerId != null) {
+      _cartService.toggleStoreCheckedRemote(sellerId, checked, storeName: storeName);
+    } else {
+      _cartService.toggleStoreChecked(storeName, checked);
+    }
   }
 
   bool _isStoreAllChecked(String storeName) {

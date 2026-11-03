@@ -14,11 +14,11 @@ class ChatMessageModel {
   });
 
   factory ChatMessageModel.fromApiJson(Map<String, dynamic> json) {
-    final isMine = json['is_mine'] == true || json['sender_type'] == 'buyer';
+    final isMine = json['is_me'] == true || json['is_mine'] == true || json['sender_type'] == 'buyer';
     return ChatMessageModel(
       sender: isMine ? 'user' : 'other',
-      text: json['message'] as String? ?? '',
-      time: json['created_at'] != null ? json['created_at'].toString().split(' ').last : 'Now',
+      text: json['body'] as String? ?? json['message'] as String? ?? '',
+      time: json['time_ago'] as String? ?? (json['created_at'] != null ? json['created_at'].toString().split(' ').last : 'Now'),
     );
   }
 
@@ -96,13 +96,12 @@ class ChatConversationModel {
   }
 
   factory ChatConversationModel.fromApiJson(Map<String, dynamic> json) {
-    final seller = json['seller'] as Map<String, dynamic>? ?? {};
-    final storeName = seller['store_name'] as String? ?? 'Seller';
+    final other = json['other_participant'] as Map<String, dynamic>? ?? json['seller'] as Map<String, dynamic>? ?? {};
+    final storeName = other['name'] as String? ?? other['store_name'] as String? ?? json['subject'] as String? ?? 'Seller';
+    final avatarUrl = other['avatar_url'] as String?;
     final lastMsg = json['last_message'] as Map<String, dynamic>?;
-    final lastMsgText = lastMsg?['message'] as String? ?? 'No messages yet';
-    final timeStr = lastMsg?['created_at'] != null
-        ? lastMsg!['created_at'].toString().split(' ').last
-        : 'Now';
+    final lastMsgText = lastMsg?['body'] as String? ?? lastMsg?['message'] as String? ?? 'No messages yet';
+    final timeStr = lastMsg?['created_at'] as String? ?? (lastMsg?['time_ago'] as String? ?? 'Now');
 
     return ChatConversationModel(
       id: json['id'].toString(),
@@ -111,6 +110,7 @@ class ChatConversationModel {
       subtitle: lastMsgText,
       brandTag: 'BRAND',
       time: timeStr,
+      avatarUrl: avatarUrl,
       avatarIcon: Icons.storefront_rounded,
       avatarBg: const Color(0xFF0066FF),
       messages: [],
@@ -133,11 +133,9 @@ class ChatService extends ChangeNotifier {
       final data = res['data'];
       final List list = data is List ? data : (data is Map && data['data'] is List ? data['data'] : []);
       final parsed = list.map((c) => ChatConversationModel.fromApiJson(c as Map<String, dynamic>)).toList();
-      if (parsed.isNotEmpty) {
-        _conversations.removeWhere((c) => parsed.any((p) => p.id == c.id));
-        _conversations.insertAll(0, parsed);
-        notifyListeners();
-      }
+      _conversations.clear();
+      _conversations.addAll(parsed);
+      notifyListeners();
       return conversations;
     } catch (e) {
       debugPrint('fetchConversationsRemote error: $e');
@@ -198,7 +196,7 @@ class ChatService extends ChangeNotifier {
     try {
       final res = await ApiClient.instance.post(
         ApiConstants.buyerChatMessage(conversationId),
-        body: {'message': text},
+        body: {'body': text, 'message': text},
       );
       if (res['data'] is Map<String, dynamic>) {
         return ChatMessageModel.fromApiJson(res['data'] as Map<String, dynamic>);

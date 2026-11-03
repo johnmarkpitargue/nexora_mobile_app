@@ -693,12 +693,14 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                     const Icon(Icons.star_rounded, size: 16, color: Color(0xFFF59E0B)),
                     const SizedBox(width: 4),
                     Text(
-                      _productArg?.rating.toStringAsFixed(1) ?? '4.9',
+                      _productArg?.rating != null && _productArg!.rating > 0
+                          ? _productArg!.rating.toStringAsFixed(1)
+                          : '0.0',
                       style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      '• ${_productArg?.reviews?.length == 1 ? '1 review' : '${_productArg?.reviews?.length ?? 520} reviews'}',
+                      '• ${_productArg?.reviews?.length == 1 ? '1 review' : '${_productArg?.reviews?.length ?? 0} reviews'}',
                       style: const TextStyle(
                         color: Color(0xFF0066FF),
                         fontWeight: FontWeight.w700,
@@ -708,7 +710,7 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      '• 🏆 ${_cleanSoldCount(_productArg?.soldCount ?? '1.2k+')}',
+                      '• 🏆 ${_cleanSoldCount(_productArg?.soldCount ?? '0')}',
                       style: const TextStyle(
                         color: Color(0xFF0891B2),
                         fontWeight: FontWeight.bold,
@@ -1926,9 +1928,9 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
   Widget _buildReviewsSection() {
     final List<ProductReviewModel> reviews =
         _productArg?.reviews ?? const [];
-    final ratingVal = _productArg?.rating ?? 4.9;
+    final ratingVal = _productArg?.rating ?? 0.0;
     final breakdown = _productArg?.ratingBreakdown ??
-        {5: 0.88, 4: 0.09, 3: 0.02, 2: 0.01, 1: 0.0};
+        {5: 0.0, 4: 0.0, 3: 0.0, 2: 0.0, 1: 0.0};
 
     List<ProductReviewModel> filtered = reviews;
     if (_selectedReviewFilter == 'With Photos') {

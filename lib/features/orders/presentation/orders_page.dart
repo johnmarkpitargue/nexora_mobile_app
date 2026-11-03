@@ -12,14 +12,25 @@ class OrdersPage extends StatefulWidget {
 }
 
 class _OrdersPageState extends State<OrdersPage>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   late TabController _tabController;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _tabController = TabController(length: 7, vsync: this);
     OrderService.instance.fetchOrdersRemote();
+    OrderService.instance.startPolling();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      OrderService.instance.startPolling();
+    } else {
+      OrderService.instance.stopPolling();
+    }
   }
 
   bool _initializedTab = false;
@@ -44,6 +55,8 @@ class _OrdersPageState extends State<OrdersPage>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    OrderService.instance.stopPolling();
     _tabController.dispose();
     super.dispose();
   }
