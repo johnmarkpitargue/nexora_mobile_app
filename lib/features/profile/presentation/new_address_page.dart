@@ -720,7 +720,7 @@ class _NewAddressPageState extends State<NewAddressPage> {
     );
   }
 
-  void _handleSubmit() {
+  Future<void> _handleSubmit() async {
     setState(() => _validationError = null);
     final name = _nameController.text.trim();
     final phone = _phoneController.text.trim();
@@ -786,7 +786,7 @@ class _NewAddressPageState extends State<NewAddressPage> {
         latitude: lat,
         longitude: lng,
       );
-      final res = AddressService.instance.updateAddress(updated);
+      final res = await AddressService.instance.updateAddressRemote(updated);
       if (!res.success) {
         setState(() => _validationError = res.message);
         return;
@@ -821,7 +821,7 @@ class _NewAddressPageState extends State<NewAddressPage> {
         longitude: lng,
       );
 
-      final res = AddressService.instance.addAddress(newAddr);
+      final res = await AddressService.instance.addAddressRemote(newAddr);
       if (!res.success) {
         setState(() => _validationError = res.message);
         return;
@@ -841,6 +841,7 @@ class _NewAddressPageState extends State<NewAddressPage> {
       _showToast('New address saved successfully');
     }
 
+    if (!mounted) return;
     Navigator.pop(context);
   }
 
@@ -879,11 +880,12 @@ class _NewAddressPageState extends State<NewAddressPage> {
     );
   }
 
-  void _handleDelete() {
+  Future<void> _handleDelete() async {
     if (widget.editAddress == null) return;
 
-    final res = AddressService.instance.deleteAddress(widget.editAddress!.id);
+    final res = await AddressService.instance.deleteAddressRemote(widget.editAddress!.id);
     if (!res.success) {
+      if (!mounted) return;
       setState(() => _validationError = res.message);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -894,6 +896,7 @@ class _NewAddressPageState extends State<NewAddressPage> {
       return;
     }
 
+    if (!mounted) return;
     _showToast('Address deleted successfully');
     Navigator.pop(context);
   }

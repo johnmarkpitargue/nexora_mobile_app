@@ -2187,39 +2187,9 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
     );
   }
 
-  List<ProductReviewModel> get _defaultFallbackReviews => [
-        ProductReviewModel(
-          id: 'fb_rev1',
-          userName: 'Kiko Valenzuela',
-          initials: 'KV',
-          avatarColor: const Color(0xFF5038ED),
-          rating: 5.0,
-          date: '2d ago',
-          variantName: 'Chalk White / Violet',
-          comment:
-              'Hands down the cleanest sounding stock board I have ever tested. The switches came factory lubricated to absolute perfection. Zero rattle on the spacebar and the violet knob is super tactile!',
-          reviewImages: [
-            'https://images.unsplash.com/photo-1587829741301-dc798b83add3?auto=format&fit=crop&w=300&q=80',
-          ],
-          helpfulCount: 38,
-        ),
-        ProductReviewModel(
-          id: 'fb_rev2',
-          userName: 'Marianne Cruz',
-          initials: 'MC',
-          avatarColor: const Color(0xFF00B4D8),
-          rating: 5.0,
-          date: '5d ago',
-          variantName: 'Chalk White / Violet',
-          comment:
-              'Arrived in less than 24 hours in BGC! Packaged in heavy luxury matte presentation box with switch pullers and coiled lavender cable included. Typing experience is pillowy and deep.',
-          helpfulCount: 24,
-        ),
-      ];
-
   Widget _buildReviewsSection() {
     final List<ProductReviewModel> reviews =
-        _productArg?.reviews ?? _defaultFallbackReviews;
+        _productArg?.reviews ?? const [];
     final ratingVal = _productArg?.rating ?? 4.9;
     final breakdown = _productArg?.ratingBreakdown ??
         {5: 0.88, 4: 0.09, 3: 0.02, 2: 0.01, 1: 0.0};

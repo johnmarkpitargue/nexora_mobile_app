@@ -15,6 +15,12 @@ class _CartPageState extends State<CartPage> {
   bool _isEditMode = false;
   final CartService _cartService = CartService.instance;
 
+  @override
+  void initState() {
+    super.initState();
+    _cartService.loadCartRemote();
+  }
+
   // Dynamic Real-time Calculations
   int get _checkedCount => _cartService.selectedCount;
   int get _checkedItemsCount => _cartService.selectedItemsCount;
@@ -24,7 +30,7 @@ class _CartPageState extends State<CartPage> {
   double get _subtotal => _cartService.subtotal;
   double get _originalSubtotal => _cartService.originalSubtotal;
 
-  double get _voucherDiscount => _checkedCount > 0 ? 150.0 : 0.0;
+  double get _voucherDiscount => 0.0;
 
   double get _totalSaved {
     if (_checkedCount == 0) return 0.0;
@@ -38,7 +44,7 @@ class _CartPageState extends State<CartPage> {
   }
 
   void _toggleSelectAll(bool? val) {
-    _cartService.toggleSelectAll(val ?? false);
+    _cartService.selectAllRemote(val ?? false);
   }
 
   void _toggleStore(String storeName, bool checked) {
@@ -52,19 +58,19 @@ class _CartPageState extends State<CartPage> {
   }
 
   void _incrementQty(CartItemModel item) {
-    _cartService.updateQuantity(item.id, item.quantity + 1);
+    _cartService.updateQuantityRemote(item.id, item.quantity + 1);
   }
 
   void _decrementQty(CartItemModel item) {
     if (item.quantity > 1) {
-      _cartService.updateQuantity(item.id, item.quantity - 1);
+      _cartService.updateQuantityRemote(item.id, item.quantity - 1);
     } else {
       _deleteItem(item);
     }
   }
 
   void _deleteItem(CartItemModel item) {
-    _cartService.removeItem(item.id);
+    _cartService.removeItemRemote(item.id);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('Removed "${item.title}" from cart.'),
@@ -85,7 +91,7 @@ class _CartPageState extends State<CartPage> {
     }
 
     final count = _checkedItemsCount;
-    _cartService.removeSelectedItems();
+    _cartService.removeSelectedItemsRemote();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('Successfully deleted $count item(s) from cart.'),
@@ -190,13 +196,15 @@ class _CartPageState extends State<CartPage> {
           ),
           body: Stack(
             children: [
-              SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Top Free Shipping Banner matching reference image
-                    _buildFreeShippingPromoBanner(),
+              RefreshIndicator(
+                onRefresh: () => _cartService.loadCartRemote(),
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Top Free Shipping Banner matching reference image
+                      _buildFreeShippingPromoBanner(),
 
                     Padding(
                       padding: const EdgeInsets.symmetric(
@@ -268,6 +276,7 @@ class _CartPageState extends State<CartPage> {
                     ),
                   ],
                 ),
+              ),
               ),
 
               // Bottom Fixed Action Dock with Real-time Checkout & Edit Mode
@@ -594,7 +603,7 @@ class _CartPageState extends State<CartPage> {
             child: _buildCircularCheckbox(
               isChecked: item.isChecked,
               onTap: () =>
-                  _cartService.toggleItemChecked(item.id, !item.isChecked),
+                  _cartService.toggleItemCheckedRemote(item.id, !item.isChecked),
             ),
           ),
           const SizedBox(width: 10),

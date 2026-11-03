@@ -107,6 +107,14 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
       _messageController.addListener(_onBuyerTextChanged);
     } else {
       if (widget.conversationId != null) {
+        ChatService.instance.fetchMessagesRemote(widget.conversationId!).then((msgs) {
+          if (mounted && msgs.isNotEmpty) {
+            setState(() {
+              _messages = msgs.map((m) => m.toMap()).toList();
+            });
+            _scrollToBottom();
+          }
+        });
         final conv = ChatService.instance.getConversationById(widget.conversationId!);
         if (conv != null && conv.messages.isNotEmpty) {
           _messages = conv.messages.map((m) => m.toMap()).toList();
@@ -611,7 +619,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
     });
 
     if (widget.conversationId != null) {
-      ChatService.instance.sendUserMessage(widget.conversationId!, trimmed);
+      ChatService.instance.sendMessageRemote(widget.conversationId!, trimmed);
     }
 
     _scrollToBottom();

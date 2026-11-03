@@ -79,7 +79,10 @@ class ProductModel {
     this.isDeleted = false,
   });
 
-  factory ProductModel.fromApiJson(Map<String, dynamic> json) {
+  factory ProductModel.fromApiJson(Map<String, dynamic> inputJson) {
+    final json = inputJson.containsKey('product') && inputJson['product'] is Map<String, dynamic>
+        ? inputJson['product'] as Map<String, dynamic>
+        : inputJson;
     final seller = json['seller'] as Map<String, dynamic>?;
     final primaryImg = json['image'] as String? ?? json['primary_image'] as String?;
     final gallery = (json['gallery'] as List?)?.map((e) => e.toString()).toList() ?? [];

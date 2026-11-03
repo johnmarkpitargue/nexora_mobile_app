@@ -1089,7 +1089,7 @@ class _ShippedOrderDetailsPageState extends State<ShippedOrderDetailsPage> {
                   } else if (isOutForDelivery) {
                     Navigator.pushNamed(context, AppRoutes.chat);
                   } else {
-                    OrderService.instance.cancelOrder(orderId);
+                    OrderService.instance.cancelOrderRemote(orderId);
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('Order Cancelled')),
                     );
@@ -1138,7 +1138,7 @@ class _ShippedOrderDetailsPageState extends State<ShippedOrderDetailsPage> {
                           ElevatedButton(
                             onPressed: () {
                               Navigator.pop(dialogCtx);
-                              OrderService.instance.receiveOrder(orderId);
+                              OrderService.instance.confirmReceiptRemote(orderId);
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
                                   content: Text('Order marked as received! Moved to Completed.'),

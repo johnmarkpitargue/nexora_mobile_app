@@ -127,14 +127,18 @@ class _WishlistPageState extends State<WishlistPage> {
                                 style: const TextStyle(color: Color(0xFF64748B), fontSize: 13),
                               ),
                             )
-                          : ListView.separated(
-                              padding: const EdgeInsets.all(16),
-                              itemCount: filteredItems.length,
-                              separatorBuilder: (_, _) => const SizedBox(height: 14),
-                              itemBuilder: (context, index) {
-                                final product = filteredItems[index];
-                                return _buildWishlistItemCard(context, product);
-                              },
+                          : RefreshIndicator(
+                              onRefresh: () => WishlistService.instance.refreshWishlistRemote(),
+                              child: ListView.separated(
+                                physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+                                padding: const EdgeInsets.all(16),
+                                itemCount: filteredItems.length,
+                                separatorBuilder: (_, _) => const SizedBox(height: 14),
+                                itemBuilder: (context, index) {
+                                  final product = filteredItems[index];
+                                  return _buildWishlistItemCard(context, product);
+                                },
+                              ),
                             ),
                     ),
                   ],

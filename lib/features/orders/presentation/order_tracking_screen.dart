@@ -548,8 +548,9 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
     final s = o.statusText.toLowerCase();
     final eta = o.etaText.toLowerCase();
     if (s.contains('pay') || s.contains('unpaid')) return 'pending';
-    if (s.contains('complete') || s.contains('delivered') || o.progress >= 1.0)
+    if (s.contains('complete') || s.contains('delivered') || o.progress >= 1.0) {
       return 'delivered';
+    }
     if (s.contains('cancel')) return 'cancelled';
     if (s.contains('transit') ||
         s.contains('out for delivery') ||
@@ -559,8 +560,9 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
         o.progress >= 0.7) {
       return 'in_transit';
     }
-    if (eta.contains('arrived at merchant') || eta.contains('scanning'))
+    if (eta.contains('arrived at merchant') || eta.contains('scanning')) {
       return 'at_store';
+    }
     if (o.isRiderAccepted || eta.contains('accepted')) return 'accepted';
     if (o.progress >= 0.45) return 'preparing';
     return 'pending';

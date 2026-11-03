@@ -23,6 +23,7 @@ class _ChatPageState extends State<ChatPage> {
   @override
   void initState() {
     super.initState();
+    ChatService.instance.fetchConversationsRemote();
     ChatService.instance.addListener(_onChatServiceChanged);
     OrderChatService.instance.addListener(_onChatServiceChanged);
     OrderService.instance.addListener(_onChatServiceChanged);

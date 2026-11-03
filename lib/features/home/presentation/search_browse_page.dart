@@ -78,12 +78,24 @@ class _SearchBrowsePageState extends State<SearchBrowsePage> {
       sortBy: _currentSort,
     );
 
-    final res = await ShopService.instance.searchAndFilterRemote(params);
-    if (mounted) {
-      setState(() {
-        _searchResult = res;
-        _isLoading = false;
-      });
+    try {
+      final res = await ShopService.instance.searchAndFilterRemote(params);
+      if (mounted) {
+        setState(() {
+          _searchResult = res;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _searchResult = const SearchResult(
+            products: [],
+            errorMessage: 'Failed to load search results. Please check your connection and try again.',
+          );
+          _isLoading = false;
+        });
+      }
     }
   }
 

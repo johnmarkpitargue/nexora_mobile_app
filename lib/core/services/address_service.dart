@@ -240,48 +240,7 @@ class AddressService extends ChangeNotifier {
     );
   }
 
-  static List<AddressModel> _createDemoAddresses() {
-    return [
-      AddressModel(
-        id: 'addr_1',
-        fullName: 'John Mark Pitargue',
-        phone: '(+63) 9759632035',
-        region: 'South Luzon',
-        province: 'Laguna',
-        city: 'Liliw',
-        barangay: 'Tuy-Baanan',
-        streetBuilding: '192',
-        regionCity: 'South Luzon, Laguna, Liliw, Tuy-Baanan',
-        postalCode: '4004',
-        label: 'Home',
-        isDefault: true,
-        latitude: 14.1332,
-        longitude: 121.4367,
-      ),
-      AddressModel(
-        id: 'addr_2',
-        fullName: 'Ma. Sofia Ballescas',
-        phone: '09496923307',
-        region: 'National Capital Region (NCR)',
-        city: 'Quezon City',
-        barangay: 'Holy Spirit',
-        streetBuilding: '355 Sta Catalina, Holy Spirit',
-        regionCity: 'Quezon City, Metro Manila',
-        postalCode: '1127',
-        label: 'Work',
-        isDefault: false,
-        latitude: 14.6836,
-        longitude: 121.0772,
-      ),
-    ];
-  }
-
   List<AddressModel> _createInitialAddressesForUser(String key) {
-    // Only pre-seeded demo accounts have pre-filled addresses.
-    // Real newcomers, newly registered accounts, and new guest sessions start with 0 addresses!
-    if (key == 'alex.rivera@nexora.io' || key == 'juanmiguel.delacruz@example.com') {
-      return _createDemoAddresses();
-    }
     return [];
   }
 
@@ -477,7 +436,7 @@ class AddressService extends ChangeNotifier {
   /// Reset address state for clean tests
   void resetState() {
     _userAddresses.clear();
-    _userAddresses[_currentUserKey] = _createDemoAddresses();
+    _userAddresses[_currentUserKey] = [];
     _syncDefaultWithProfile();
     notifyListeners();
   }

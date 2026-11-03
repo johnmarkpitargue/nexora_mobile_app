@@ -9,9 +9,9 @@ import 'package:nexora_flutter_app/core/services/wishlist_service.dart';
 import 'package:nexora_flutter_app/core/services/buyer_account_service.dart';
 import 'package:nexora_flutter_app/core/services/payment_method_service.dart';
 import 'package:nexora_flutter_app/core/services/shop_service.dart';
-import 'package:nexora_flutter_app/core/services/supabase_auth_service.dart';
 
 import '../../../app/routes/app_routes.dart';
+import '../../../core/network/api_client.dart';
 import '../../../core/utils/guest_auth_guard.dart';
 import 'account_security_modal.dart';
 
@@ -271,6 +271,20 @@ class _ProfilePageState extends State<ProfilePage> {
   void initState() {
     super.initState();
     _darkMode = widget.isDarkMode;
+    ProfileService.instance.addListener(_onProfileServiceChange);
+    BuyerAccountService.instance.addListener(_onProfileServiceChange);
+    BuyerAccountService.instance.syncRemoteUser();
+  }
+
+  @override
+  void dispose() {
+    ProfileService.instance.removeListener(_onProfileServiceChange);
+    BuyerAccountService.instance.removeListener(_onProfileServiceChange);
+    super.dispose();
+  }
+
+  void _onProfileServiceChange() {
+    if (mounted) setState(() {});
   }
 
   void _showEditProfileSheet() {
@@ -670,16 +684,26 @@ class _ProfilePageState extends State<ProfilePage> {
                       borderRadius: BorderRadius.circular(24),
                     ),
                     child: ElevatedButton(
-                      onPressed: () {
+                      onPressed: () async {
                         setSheetState(() => sheetError = null);
-                        final valRes = BuyerAccountService.instance.editProfile(
-                          firstName: firstNameCtrl.text,
-                          lastName: lastNameCtrl.text,
-                        );
-
-                        if (!valRes.success) {
-                          setSheetState(() => sheetError = valRes.message);
-                          return;
+                        if (ApiClient.instance.hasToken) {
+                          final remoteRes = await BuyerAccountService.instance.updateProfileRemote(
+                            firstName: firstNameCtrl.text,
+                            lastName: lastNameCtrl.text,
+                          );
+                          if (!remoteRes.success) {
+                            setSheetState(() => sheetError = remoteRes.message);
+                            return;
+                          }
+                        } else {
+                          final valRes = BuyerAccountService.instance.editProfile(
+                            firstName: firstNameCtrl.text,
+                            lastName: lastNameCtrl.text,
+                          );
+                          if (!valRes.success) {
+                            setSheetState(() => sheetError = valRes.message);
+                            return;
+                          }
                         }
 
                         ProfileService.instance.updateProfile(
@@ -688,7 +712,9 @@ class _ProfilePageState extends State<ProfilePage> {
                           username: usernameCtrl.text,
                           address: addressCtrl.text,
                         );
+                        if (!sheetContext.mounted) return;
                         Navigator.pop(sheetContext);
+                        if (!mounted) return;
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
                             content: Row(
@@ -1003,10 +1029,11 @@ class _ProfilePageState extends State<ProfilePage> {
       );
     }
 
-    final displayName = session?.fullName ?? profile.name;
-    final displayUsername = session != null
+    final rawName = session?.fullName ?? profile.name;
+    final displayName = rawName.trim().isNotEmpty ? rawName.trim() : (session?.email.split('@').first ?? 'Buyer');
+    final displayUsername = session != null && session.email.contains('@')
         ? '@${session.email.split('@').first}'
-        : profile.username;
+        : (profile.username.isNotEmpty ? profile.username : '@buyer');
 
     return Row(
       children: [
@@ -2126,8 +2153,8 @@ class _ProfilePageState extends State<ProfilePage> {
                 child: ElevatedButton(
                   onPressed: () async {
                     Navigator.pop(dialogCtx);
-                    // Clear session from BuyerAccount, Supabase, and Google Play Services cache
-                    await SupabaseAuthService.instance.signOut();
+                    // Clear session from Laravel API token, BuyerAccount, and cache
+                    await BuyerAccountService.instance.logoutRemote();
                     if (!context.mounted) return;
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(

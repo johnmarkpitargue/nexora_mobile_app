@@ -776,7 +776,7 @@ class OrderDetailsPage extends StatelessWidget {
               Expanded(
                 child: OutlinedButton(
                   onPressed: () {
-                    OrderService.instance.cancelOrder(orderId);
+                    OrderService.instance.cancelOrderRemote(orderId);
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('Order Cancelled')),
                     );

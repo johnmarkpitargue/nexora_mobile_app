@@ -12,6 +12,12 @@ class MyAddressesPage extends StatefulWidget {
 class _MyAddressesPageState extends State<MyAddressesPage> {
   final _addressService = AddressService.instance;
 
+  @override
+  void initState() {
+    super.initState();
+    _addressService.loadAddressesFromApi();
+  }
+
   void _openAddAddress() {
     if (!_addressService.canAddAddress) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -103,7 +109,9 @@ class _MyAddressesPageState extends State<MyAddressesPage> {
           body: Column(
             children: [
               Expanded(
-                child: ListView(
+                child: RefreshIndicator(
+                  onRefresh: () => _addressService.loadAddressesFromApi(),
+                  child: ListView(
                   padding: EdgeInsets.zero,
                   children: [
                     // Section Header
@@ -159,7 +167,7 @@ class _MyAddressesPageState extends State<MyAddressesPage> {
                           children: [
                             InkWell(
                               onTap: () {
-                                _addressService.setDefaultAddress(item.id);
+                                _addressService.setDefaultAddressRemote(item.id);
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
                                     content: Text('${item.fullName} set as default address'),
@@ -359,6 +367,7 @@ class _MyAddressesPageState extends State<MyAddressesPage> {
                     ),
                     const SizedBox(height: 24),
                   ],
+                ),
                 ),
               ),
 

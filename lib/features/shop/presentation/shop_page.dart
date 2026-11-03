@@ -137,7 +137,7 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
   void _handleFollowTap() async {
     await _followAnimController.reverse();
     await _followAnimController.forward();
-    _shopService.toggleFollow(_shop.id);
+    await _shopService.toggleFollowRemote(_shop.id);
 
     final isNowFollowing = _shopService.isFollowing(_shop.id);
     if (!mounted) return;

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../constants/api_constants.dart';
@@ -94,9 +95,19 @@ class ApiClient {
           sanitizedParams[key] = value.toString();
         }
       });
-      return uri.replace(queryParameters: sanitizedParams);
+      return uri.replace(queryParameters: {
+        ...uri.queryParameters,
+        ...sanitizedParams,
+      });
     }
     return uri;
+  }
+
+  void _logRequest(String method, Uri uri, int statusCode, int elapsedMs) {
+    if (kDebugMode) {
+      final pathWithQuery = uri.hasQuery ? '${uri.path}?${uri.query}' : uri.path;
+      debugPrint('[API] $method $pathWithQuery -> $statusCode (${elapsedMs}ms)');
+    }
   }
 
   Map<String, String> _buildHeaders({
@@ -130,10 +141,13 @@ class ApiClient {
     Map<String, String>? headers,
   }) async {
     final uri = _buildUri(path, queryParams);
+    final sw = Stopwatch()..start();
     final response = await _client.get(
       uri,
       headers: _buildHeaders(extraHeaders: headers ?? extraHeaders),
     );
+    sw.stop();
+    _logRequest('GET', uri, response.statusCode, sw.elapsedMilliseconds);
     return _handleResponse(response);
   }
 
@@ -159,6 +173,7 @@ class ApiClient {
     String? idempotencyKey,
     Map<String, String>? headers,
   }) async {
+    final sw = Stopwatch()..start();
     final response = await _client.post(
       uri,
       headers: _buildHeaders(
@@ -167,6 +182,8 @@ class ApiClient {
       ),
       body: body != null ? jsonEncode(body) : null,
     );
+    sw.stop();
+    _logRequest('POST', uri, response.statusCode, sw.elapsedMilliseconds);
     return _handleResponse(response);
   }
 
@@ -177,11 +194,14 @@ class ApiClient {
     Map<String, String>? headers,
   }) async {
     final uri = _buildUri(path);
+    final sw = Stopwatch()..start();
     final response = await _client.put(
       uri,
       headers: _buildHeaders(extraHeaders: headers ?? extraHeaders),
       body: body != null ? jsonEncode(body) : null,
     );
+    sw.stop();
+    _logRequest('PUT', uri, response.statusCode, sw.elapsedMilliseconds);
     return _handleResponse(response);
   }
 
@@ -192,11 +212,14 @@ class ApiClient {
     Map<String, String>? headers,
   }) async {
     final uri = _buildUri(path);
+    final sw = Stopwatch()..start();
     final response = await _client.patch(
       uri,
       headers: _buildHeaders(extraHeaders: headers ?? extraHeaders),
       body: body != null ? jsonEncode(body) : null,
     );
+    sw.stop();
+    _logRequest('PATCH', uri, response.statusCode, sw.elapsedMilliseconds);
     return _handleResponse(response);
   }
 
@@ -207,11 +230,14 @@ class ApiClient {
     Map<String, String>? headers,
   }) async {
     final uri = _buildUri(path);
+    final sw = Stopwatch()..start();
     final response = await _client.delete(
       uri,
       headers: _buildHeaders(extraHeaders: headers ?? extraHeaders),
       body: body != null ? jsonEncode(body) : null,
     );
+    sw.stop();
+    _logRequest('DELETE', uri, response.statusCode, sw.elapsedMilliseconds);
     return _handleResponse(response);
   }
 
@@ -237,8 +263,11 @@ class ApiClient {
       request.files.addAll(files);
     }
 
+    final sw = Stopwatch()..start();
     final streamedResponse = await _client.send(request);
     final response = await http.Response.fromStream(streamedResponse);
+    sw.stop();
+    _logRequest(method.toUpperCase(), uri, response.statusCode, sw.elapsedMilliseconds);
     return _handleResponse(response);
   }
 

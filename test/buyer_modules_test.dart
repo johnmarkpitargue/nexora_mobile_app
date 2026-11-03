@@ -277,6 +277,36 @@ void main() {
     setUp(() {
       addressService = AddressService.instance;
       addressService.resetToDefaults();
+      addressService.addAddress(
+        AddressModel(
+          id: 'test_addr_1',
+          fullName: 'Test User 1',
+          phone: '09171112233',
+          region: 'NCR',
+          city: 'Makati City',
+          barangay: 'Poblacion',
+          streetBuilding: '100 Main St',
+          regionCity: 'Makati, NCR',
+          postalCode: '1200',
+          label: 'Home',
+          isDefault: true,
+        ),
+      );
+      addressService.addAddress(
+        AddressModel(
+          id: 'test_addr_2',
+          fullName: 'Test User 2',
+          phone: '09172223344',
+          region: 'NCR',
+          city: 'Quezon City',
+          barangay: 'Diliman',
+          streetBuilding: '200 Second St',
+          regionCity: 'Quezon City, NCR',
+          postalCode: '1100',
+          label: 'Work',
+          isDefault: false,
+        ),
+      );
     });
 
     test('BUY-ADDR-001: Add new address with complete valid fields', () {

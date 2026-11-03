@@ -90,23 +90,25 @@ class _AccountSecurityBottomSheetState extends State<AccountSecurityBottomSheet>
     });
   }
 
-  void _handleChangePassword() {
+  Future<void> _handleChangePassword() async {
     setState(() => _passwordError = null);
     final current = _currentPasswordCtrl.text;
     final newPass = _newPasswordCtrl.text;
     final confirm = _confirmPasswordCtrl.text;
 
-    final result = BuyerAccountService.instance.changePassword(
-      oldPassword: current,
+    final result = await BuyerAccountService.instance.updatePasswordRemote(
+      currentPassword: current,
       newPassword: newPass,
       confirmPassword: confirm,
     );
 
     if (!result.success) {
+      if (!mounted) return;
       setState(() => _passwordError = result.message);
       return;
     }
 
+    if (!mounted) return;
     Navigator.pop(context);
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(

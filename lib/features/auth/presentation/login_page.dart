@@ -52,21 +52,10 @@ class _LoginPageState extends State<LoginPage> {
       await Future.delayed(const Duration(milliseconds: 400));
       if (!mounted) return;
 
-      var result = await BuyerAccountService.instance.loginRemote(
+      final result = await BuyerAccountService.instance.loginRemote(
         emailOrPhone: _emailController.text,
         password: _passwordController.text,
       );
-
-      // If remote failed due to network or demo credentials, fallback to local test registry
-      if (!result.success && !result.message.contains('unverified') && !result.message.contains('suspended')) {
-        final localRes = BuyerAccountService.instance.loginBuyer(
-          emailOrPhone: _emailController.text,
-          password: _passwordController.text,
-        );
-        if (localRes.success) {
-          result = localRes;
-        }
-      }
 
       if (!mounted) return;
       setState(() {

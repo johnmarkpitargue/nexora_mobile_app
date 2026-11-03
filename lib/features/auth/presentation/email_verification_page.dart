@@ -85,7 +85,6 @@ class _EmailVerificationPageState extends State<EmailVerificationPage> {
             email: _userEmail,
             phone: buyer?.mobileNumber ?? '',
           );
-          ProfileService.instance.updateWalletBalance(150.0);
           _showVoucherClaimModal();
         }
       });
@@ -191,26 +190,10 @@ class _EmailVerificationPageState extends State<EmailVerificationPage> {
 
     if (!mounted) return;
 
-    var result = widget.isLoginMode
-        ? BuyerAccountService.instance.verifyLoginOtp(
-            emailOrPhone: _userEmail,
-            inputOtp: code,
-          )
-        : await BuyerAccountService.instance.verifyOtpRemote(
-            email: _userEmail,
-            inputOtp: code,
-          );
-
-    // If remote fails, fallback to local verification
-    if (!result.success) {
-      final localRes = BuyerAccountService.instance.verifyOtp(
-        email: _userEmail,
-        inputOtp: code,
-      );
-      if (localRes.success) {
-        result = localRes;
-      }
-    }
+    final result = await BuyerAccountService.instance.verifyOtpRemote(
+      email: _userEmail,
+      inputOtp: code,
+    );
 
     setState(() {
       _isLoading = false;
@@ -241,7 +224,6 @@ class _EmailVerificationPageState extends State<EmailVerificationPage> {
           email: result.buyer!.email,
           phone: result.buyer!.mobileNumber,
         );
-        ProfileService.instance.updateWalletBalance(150.0);
       }
 
       // Show celebratory voucher claim modal (TC-BUY-028, TC-BUY-029)

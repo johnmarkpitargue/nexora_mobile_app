@@ -127,3 +127,30 @@ class ShopModel {
     this.guaranteeText = '100% Authentic Guaranteed • 24-Month Warranty',
   });
 }
+
+/// Dynamic marketplace category retrieved from Laravel /api/mobile/v1/buyer/categories
+class AppCategoryModel {
+  final int id;
+  final String name;
+  final String slug;
+  final String? icon;
+  final String? description;
+
+  const AppCategoryModel({
+    required this.id,
+    required this.name,
+    required this.slug,
+    this.icon,
+    this.description,
+  });
+
+  factory AppCategoryModel.fromJson(Map<String, dynamic> json) {
+    return AppCategoryModel(
+      id: json['id'] is int ? json['id'] as int : int.tryParse(json['id']?.toString() ?? '') ?? 0,
+      name: json['name'] as String? ?? '',
+      slug: json['slug'] as String? ?? '',
+      icon: json['icon'] as String?,
+      description: json['description'] as String?,
+    );
+  }
+}

@@ -885,7 +885,7 @@ class _OrdersPageState extends State<OrdersPage>
                     ] else if (isToPay) ...[
                       OutlinedButton(
                         onPressed: () {
-                          OrderService.instance.cancelOrder(order.orderId);
+                          OrderService.instance.cancelOrderRemote(order.orderId);
                           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Order Cancelled')));
                         },
                         style: OutlinedButton.styleFrom(
@@ -951,7 +951,7 @@ class _OrdersPageState extends State<OrdersPage>
                                 ElevatedButton(
                                   onPressed: () {
                                     Navigator.pop(dialogCtx);
-                                    OrderService.instance.receiveOrder(order.orderId);
+                                    OrderService.instance.confirmReceiptRemote(order.orderId);
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
                                         content: const Text('Order marked as received! You can now rate the product & delivery rider.'),
@@ -996,7 +996,7 @@ class _OrdersPageState extends State<OrdersPage>
                     ] else if (isToShip) ...[
                       OutlinedButton(
                         onPressed: () {
-                          OrderService.instance.cancelOrder(order.orderId);
+                          OrderService.instance.cancelOrderRemote(order.orderId);
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(content: Text('Order Cancelled')),
                           );

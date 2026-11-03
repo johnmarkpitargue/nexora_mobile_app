@@ -303,32 +303,31 @@ class OrderService extends ChangeNotifier {
   OrderService._internal() {
     _initInitialOrders();
     _initSupabaseRealtimeSync();
-    _startPeriodicOrderSync();
     BuyerAccountService.instance.addListener(_onBuyerAccountChanged);
   }
 
   /// Explicit initialization hook callable from main.dart after Supabase.initialize
   void ensureInitialized() {
     _initSupabaseRealtimeSync();
-    _startPeriodicOrderSync();
-    fetchOrdersRemote();
   }
 
-  void _startPeriodicOrderSync() {
+  void startPolling() {
     _pollingTimer?.cancel();
     if (!kIsWeb && Platform.environment.containsKey('FLUTTER_TEST')) {
       return;
     }
-    // Periodic fallback poll (throttled to 15s to keep egress minimal while realtime streams handle instant updates)
+    fetchOrdersRemote();
     _pollingTimer = Timer.periodic(const Duration(seconds: 15), (_) {
       fetchOrdersRemote();
     });
   }
 
-  void cancelPeriodicTimer() {
+  void stopPolling() {
     _pollingTimer?.cancel();
     _pollingTimer = null;
   }
+
+  void cancelPeriodicTimer() => stopPolling();
 
   void _onBuyerAccountChanged() {
     _pruneForeignOrdersForCurrentUser();
@@ -1628,6 +1627,18 @@ class OrderService extends ChangeNotifier {
         });
       } catch (e) {
         debugPrint('⚠️ submitRiderRating Supabase broadcast notice: $e');
+      }
+    }
+
+    if (ApiClient.instance.hasToken) {
+      try {
+        await submitReviewRemote(
+          orderId,
+          rating: productRating > 0 ? productRating : 5,
+          comment: productReview,
+        );
+      } catch (e) {
+        debugPrint('submitReviewRemote notice: ');
       }
     }
 

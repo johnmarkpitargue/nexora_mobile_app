@@ -240,7 +240,7 @@ class _RegisterPageState extends State<RegisterPage> {
 
     if (!mounted) return;
 
-    var result = await BuyerAccountService.instance.registerRemote(
+    final result = await BuyerAccountService.instance.registerRemote(
       firstName: _firstNameController.text,
       lastName: _lastNameController.text,
       email: _emailController.text,
@@ -252,40 +252,11 @@ class _RegisterPageState extends State<RegisterPage> {
       referralCode: _referralController.text,
     );
 
-    // Fallback to local validator/registry if offline or local testing
-    if (!result.success && result.fieldErrors == null) {
-      final localRes = BuyerAccountService.instance.registerBuyer(
-        firstName: _firstNameController.text,
-        lastName: _lastNameController.text,
-        email: _emailController.text,
-        mobileNumber: combinedPhone,
-        dateOfBirth: dob,
-        password: _passwordController.text,
-        confirmPassword: _confirmPasswordController.text,
-        agreeTerms: _agreeTerms,
-        referralCode: _referralController.text,
-      );
-      if (localRes.success) {
-        result = localRes;
-      }
-    }
-
     setState(() {
       _isLoading = false;
     });
 
     if (result.success) {
-      // Optionally provision account in Supabase database in background
-      try {
-        SupabaseAuthService.instance.signUpWithEmail(
-          email: _emailController.text,
-          password: _passwordController.text,
-          firstName: _firstNameController.text,
-          lastName: _lastNameController.text,
-          phone: combinedPhone,
-        ).catchError((_) => SupabaseAuthResult.fail(''));
-      } catch (_) {}
-
       if (!mounted) return;
 
       // Fire OS system-level external notification (no in-app overlay)

@@ -142,7 +142,12 @@ class BuyerAccountRecord {
     this.resetOtpAttemptsRemaining = 3,
   });
 
-  String get fullName => '$firstName $lastName';
+  String get fullName {
+    final parts = [firstName.trim(), lastName.trim()].where((s) => s.isNotEmpty).toList();
+    if (parts.isNotEmpty) return parts.join(' ');
+    if (email.isNotEmpty && email.contains('@')) return email.split('@').first;
+    return 'Buyer';
+  }
   bool get isVerified => accountStatus == 'Active';
 
   Map<String, dynamic> toJson() => {
@@ -170,10 +175,10 @@ class BuyerAccountRecord {
   factory BuyerAccountRecord.fromJson(Map<String, dynamic> json) {
     return BuyerAccountRecord(
       id: json['id'] as String? ?? 'BUY-${DateTime.now().millisecondsSinceEpoch}',
-      firstName: json['firstName'] as String? ?? '',
-      lastName: json['lastName'] as String? ?? '',
+      firstName: (json['firstName'] ?? json['first_name'] ?? '').toString().trim(),
+      lastName: (json['lastName'] ?? json['last_name'] ?? '').toString().trim(),
       email: (json['email'] as String? ?? '').toLowerCase(),
-      mobileNumber: json['mobileNumber'] as String? ?? '',
+      mobileNumber: (json['mobileNumber'] ?? json['contact_number'] ?? json['phone'] ?? '').toString().trim(),
       dateOfBirth: DateTime.tryParse(json['dateOfBirth'] as String? ?? '') ?? DateTime(1995, 1, 1),
       accountStatus: json['accountStatus'] as String? ?? 'Active',
       otpCode: json['otpCode'] as String? ?? '123456',
@@ -296,6 +301,9 @@ class BuyerAccountService extends ChangeNotifier {
           otpExpiresAt: DateTime.now().add(const Duration(days: 365)),
           password: '',
         );
+        buyer.firstName = finalFirst;
+        buyer.lastName = finalLast;
+        if (phone.isNotEmpty) buyer.mobileNumber = phone;
         buyer.accountStatus = 'Active';
         _buyers[email] = buyer;
         _currentBuyerSession = buyer;
@@ -303,6 +311,7 @@ class BuyerAccountService extends ChangeNotifier {
           name: buyer.fullName,
           email: email,
           phone: phone.isNotEmpty ? phone : buyer.mobileNumber,
+          avatarUrl: user['avatar_url'] as String?,
         );
         _saveToPersistence();
         notifyListeners();
@@ -1434,6 +1443,34 @@ class BuyerAccountService extends ChangeNotifier {
   String? get pendingNewEmail => _pendingNewEmail;
   String? get pendingNewPhone => _pendingNewPhone;
 
+  /// Update profile remotely on Laravel backend
+  Future<BuyerOpResult> updateProfileRemote({
+    required String firstName,
+    required String lastName,
+    String? phone,
+    String? sex,
+    String? birthday,
+  }) async {
+    try {
+      final res = await ApiClient.instance.put(
+        ApiConstants.updateProfile,
+        body: {
+          'first_name': firstName.trim(),
+          'last_name': lastName.trim(),
+          if (phone != null && phone.isNotEmpty) 'contact_number': phone.trim(),
+          if (sex != null && sex.isNotEmpty) 'sex': sex,
+          if (birthday != null && birthday.isNotEmpty) 'birthday': birthday,
+        },
+      );
+      await syncRemoteUser();
+      return BuyerOpResult.ok(message: res['message'] as String? ?? 'Profile updated successfully');
+    } on ApiException catch (e) {
+      return BuyerOpResult.fail(e.message, fieldErrors: e.errors?.map((k, v) => MapEntry(k, v.toString())));
+    } catch (e) {
+      return BuyerOpResult.fail('Failed to update profile: $e');
+    }
+  }
+
   /// Edit Profile validation and save (BUY-ACCT-001, BUY-ACCT-002, BUY-ACCT-010)
   BuyerOpResult editProfile({
     required String firstName,
@@ -1481,6 +1518,36 @@ class BuyerAccountService extends ChangeNotifier {
     }
 
     return BuyerOpResult.ok(message: 'Profile updated successfully!');
+  }
+
+  /// Change Password on Laravel backend API
+  Future<BuyerOpResult> updatePasswordRemote({
+    required String currentPassword,
+    required String newPassword,
+    required String confirmPassword,
+  }) async {
+    if (ApiClient.instance.hasToken) {
+      try {
+        final res = await ApiClient.instance.put(
+          ApiConstants.updatePassword,
+          body: {
+            'current_password': currentPassword,
+            'password': newPassword,
+            'password_confirmation': confirmPassword,
+          },
+        );
+        return BuyerOpResult.ok(message: res['message'] as String? ?? 'Password updated successfully');
+      } on ApiException catch (e) {
+        return BuyerOpResult.fail(e.message);
+      } catch (e) {
+        return BuyerOpResult.fail(e.toString());
+      }
+    }
+    return changePassword(
+      currentPassword: currentPassword,
+      newPassword: newPassword,
+      confirmPassword: confirmPassword,
+    );
   }
 
   /// Change Password (BUY-ACCT-003, BUY-ACCT-004, BUY-ACCT-005, BUY-ACCT-011)

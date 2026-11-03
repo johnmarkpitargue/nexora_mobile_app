@@ -217,6 +217,22 @@ class CartService extends ChangeNotifier {
     }
   }
 
+  /// Remove all checked items on backend API
+  Future<void> removeSelectedItemsRemote() async {
+    final toRemove = _items.where((i) => i.isChecked).toList();
+    removeSelectedItems();
+    if (ApiClient.instance.hasToken) {
+      for (final item in toRemove) {
+        try {
+          await ApiClient.instance.delete(ApiConstants.buyerCartItem(item.id));
+        } catch (e) {
+          debugPrint('removeSelectedItemsRemote item error: $e');
+        }
+      }
+      await loadCartRemote();
+    }
+  }
+
   final Map<String, List<CartItemModel>> _userItems = {};
   final Map<String, Map<String, int>> _userPurchaseHistory = {};
 

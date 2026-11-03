@@ -6,16 +6,15 @@ class ProfileService extends ChangeNotifier {
   static final ProfileService instance = ProfileService._internal();
   ProfileService._internal();
 
-  String _name = 'Alex Rivera';
-  String _username = '@alexrivera';
-  String _email = 'alex.rivera@nexora.io';
-  String _phone = '+63 917 123 4567';
+  String _name = '';
+  String _username = '';
+  String _email = '';
+  String _phone = '';
   String _address = '';
-  String _avatarUrl =
-      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80';
+  String _avatarUrl = '';
   Uint8List? _avatarBytes;
-  double _walletBalance = 1850.50;
-  final int _voucherCount = 1;
+  double _walletBalance = 0.0;
+  final int _voucherCount = 0;
 
   // Getters
   String get name => _name;

@@ -56,8 +56,21 @@ class ShopService extends ChangeNotifier {
   bool _isLoadingCatalog = false;
   bool get isLoadingCatalog => _isLoadingCatalog;
 
-  List<ProductModel> get products =>
-      _remoteProducts.isNotEmpty ? _remoteProducts : allAppProducts;
+  List<ProductModel> get products => _remoteProducts;
+  List<AppCategoryModel> _remoteCategories = [];
+  List<AppCategoryModel> get categories => _remoteCategories;
+  String? _catalogError;
+  String? get catalogError => _catalogError;
+
+  /// Fetch categories list dynamically from Laravel backend
+  Future<List<AppCategoryModel>> fetchCategoriesRemote() async {
+    final res = await ApiClient.instance.get(ApiConstants.categories);
+    final data = res['data'];
+    final List list = data is List ? data : (data is Map && data['data'] is List ? data['data'] : []);
+    _remoteCategories = list.map((item) => AppCategoryModel.fromJson(item as Map<String, dynamic>)).toList();
+    notifyListeners();
+    return _remoteCategories;
+  }
 
   /// Loads catalog from remote Laravel backend and updates listeners
   Future<List<ProductModel>> loadCatalogRemote({
@@ -79,10 +92,12 @@ class ShopService extends ChangeNotifier {
         maxPrice: maxPrice,
         sellerId: sellerId,
       );
-      if (fetched.isNotEmpty) {
-        _remoteProducts = fetched;
-      }
+      _remoteProducts = fetched;
       return fetched;
+    } catch (e) {
+      _catalogError = e.toString();
+      _remoteProducts = [];
+      rethrow;
     } finally {
       _isLoadingCatalog = false;
       notifyListeners();
@@ -120,13 +135,11 @@ class ShopService extends ChangeNotifier {
               ProductModel.fromApiJson(item as Map<String, dynamic>))
           .toList();
 
-      if (remoteList.isNotEmpty) {
-        return SearchResult(products: remoteList);
-      }
+      return SearchResult(products: remoteList);
     } catch (e) {
       debugPrint('searchAndFilterRemote error: $e');
+      rethrow;
     }
-    return searchAndFilter(params);
   }
 
   /// Fetch store detail from Laravel backend API
