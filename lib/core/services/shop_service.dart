@@ -142,26 +142,84 @@ class ShopService extends ChangeNotifier {
     }
   }
 
+  final Map<String, ShopModel> _remoteShopsCache = {};
+  final Map<String, List<ProductModel>> _remoteShopProducts = {};
+
   /// Fetch store detail from Laravel backend API
   Future<ShopModel?> fetchStoreRemote(String sellerId) async {
     try {
       final res =
           await ApiClient.instance.get(ApiConstants.buyerStore(sellerId));
       if (res['data'] is Map<String, dynamic>) {
-        final d = res['data'] as Map<String, dynamic>;
-        final storeName = d['name'] as String? ?? 'Seller Store';
+        final data = res['data'] as Map<String, dynamic>;
+        final d = data['store'] is Map<String, dynamic>
+            ? data['store'] as Map<String, dynamic>
+            : data;
+        final storeName = d['name'] as String? ??
+            d['store_name'] as String? ??
+            d['business_name'] as String? ??
+            'Seller Store';
         final initial = storeName.isNotEmpty ? storeName[0].toUpperCase() : 'S';
-        return ShopModel(
+        final rawProducts = data['products'] as List?;
+        final storeProducts = rawProducts != null
+            ? rawProducts
+                .map((p) => ProductModel.fromApiJson(p as Map<String, dynamic>))
+                .toList()
+            : <ProductModel>[];
+
+        final storeCategories = (d['categories'] as List?)
+                ?.map((c) => ShopCategoryModel(
+                      id: c['id'].toString(),
+                      title: c['name'].toString(),
+                      itemCount: 0,
+                      imageUrl: '',
+                    ))
+                .toList() ??
+            [];
+
+        final rawVouchers = data['vouchers'] as List?;
+        final storeVouchers = rawVouchers != null
+            ? rawVouchers.map((v) {
+                final vMap = v as Map<String, dynamic>;
+                return ShopVoucherModel(
+                  id: vMap['id'].toString(),
+                  discountTitle: vMap['title']?.toString() ?? 'Store Voucher',
+                  tag: 'Store Voucher',
+                  minSpend: 'Min. spend ₱${vMap['min_spend'] ?? 0}',
+                  expiry: vMap['expires_at']?.toString() ?? '',
+                  buttonColor: const Color(0xFF0066FF),
+                  discountAmount: (vMap['discount_value'] as num?)?.toDouble() ?? 0.0,
+                );
+              }).toList()
+            : <ShopVoucherModel>[];
+
+        final isVacation = d['is_vacation_mode'] == true;
+        final shop = ShopModel(
           id: d['id'].toString(),
           name: storeName,
-          badge: 'VERIFIED SELLER',
+          badge: isVacation ? 'ON VACATION' : 'OFFICIAL STORE',
           followers: '${d['followers_count'] ?? 0}',
           initials: initial,
           avatarBg: const Color(0xFF0066FF),
+          avatarUrl: d['avatar_url'] as String?,
+          bannerUrl: d['banner_url'] as String?,
+          isFollowing: d['is_following'] == true,
+          isVacationMode: isVacation,
           categoryGroupTitle: d['category'] as String? ?? 'STORE MERCHANDISE',
-          categories: [],
-          vouchers: [],
+          categories: storeCategories,
+          vouchers: storeVouchers,
+          products: storeProducts,
         );
+
+        _remoteShopsCache[sellerId] = shop;
+        _remoteShopProducts[sellerId] = storeProducts;
+        if (d['is_following'] == true) {
+          _currentFollowedShops.add(sellerId);
+        } else {
+          _currentFollowedShops.remove(sellerId);
+        }
+        notifyListeners();
+        return shop;
       }
     } catch (e) {
       debugPrint('fetchStoreRemote error: $e');
@@ -270,11 +328,20 @@ class ShopService extends ChangeNotifier {
 
   /// Toggle follow store on Laravel backend API
   Future<bool> toggleFollowRemote(String sellerId) async {
-    toggleFollow(sellerId);
-    if (!ApiClient.instance.hasToken) return isFollowing(sellerId);
+    if (!ApiClient.instance.hasToken) {
+      toggleFollow(sellerId);
+      return isFollowing(sellerId);
+    }
     try {
       final res = await ApiClient.instance.post(ApiConstants.buyerStoreFollowToggle(sellerId));
-      return res['data']?['following'] == true;
+      final following = res['data']?['following'] == true || res['data']?['is_following'] == true;
+      if (following) {
+        _currentFollowedShops.add(sellerId);
+      } else {
+        _currentFollowedShops.remove(sellerId);
+      }
+      notifyListeners();
+      return following;
     } catch (e) {
       debugPrint('toggleFollowRemote error: $e');
       return isFollowing(sellerId);
@@ -472,13 +539,35 @@ class ShopService extends ChangeNotifier {
       ];
 
   ShopModel getShopById(String? shopId) {
-    if (shopId == null || shopId.isEmpty) return nexoraOfficialStore;
+    if (shopId == null || shopId.isEmpty) {
+      return const ShopModel(
+        id: '1',
+        name: 'Nexora Store',
+        followers: '0',
+        initials: 'N',
+        categoryGroupTitle: 'MERCHANDISE',
+        categories: [],
+        vouchers: [],
+      );
+    }
+    if (_remoteShopsCache.containsKey(shopId)) {
+      return _remoteShopsCache[shopId]!;
+    }
     final lower = shopId.toLowerCase();
     if (lower == 'logitech_hub') return apexGamingStore;
     if (lower == 'craft_ph' || lower == 'green_tropics') return nexoraLivingStore;
-    return allShops.firstWhere(
-      (s) => s.id.toLowerCase() == lower,
-      orElse: () => nexoraOfficialStore,
+    final found = allShops.where((s) => s.id.toLowerCase() == lower).firstOrNull;
+    if (found != null) return found;
+
+    return ShopModel(
+      id: shopId,
+      name: 'Seller Store',
+      badge: 'OFFICIAL STORE',
+      followers: '0',
+      initials: 'S',
+      categoryGroupTitle: 'MERCHANDISE',
+      categories: const [],
+      vouchers: const [],
     );
   }
 
@@ -876,6 +965,10 @@ class ShopService extends ChangeNotifier {
   // PRODUCTS REPOSITORY
   // -------------------------------------------------------------
   List<ProductModel> getProductsByShop(String shopId) {
+    if (_remoteShopProducts.containsKey(shopId) &&
+        _remoteShopProducts[shopId]!.isNotEmpty) {
+      return _remoteShopProducts[shopId]!;
+    }
     return allAppProducts.where((p) => p.shopId.toLowerCase() == shopId.toLowerCase()).toList();
   }
 

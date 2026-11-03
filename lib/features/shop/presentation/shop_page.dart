@@ -49,7 +49,7 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
   void initState() {
     super.initState();
     _shop = widget.initialShop ??
-        _shopService.getShopById(widget.shopId ?? 'nexora_official');
+        _shopService.getShopById(widget.shopId ?? '1');
 
     _tabController = TabController(length: 3, vsync: this);
 
@@ -241,7 +241,9 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
-    final products = _shopService.getProductsByShop(_shop.id);
+    final products = _shop.products.isNotEmpty
+        ? _shop.products
+        : _shopService.getProductsByShop(_shop.id);
     final isFollowing = _shopService.isFollowing(_shop.id);
 
     return Scaffold(
@@ -393,19 +395,37 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
                     ),
                   ],
                 ),
-                child: Center(
-                  child: Text(
-                    _shop.initials,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w900,
-                      fontSize: 13,
-                      height: 1.1,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                ),
+                child: _shop.avatarUrl != null && _shop.avatarUrl!.isNotEmpty
+                    ? ClipOval(
+                        child: Image.network(
+                          _shop.avatarUrl!,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) => Center(
+                            child: Text(
+                              _shop.initials,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w900,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ),
+                      )
+                    : Center(
+                        child: Text(
+                          _shop.initials,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 13,
+                            height: 1.1,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ),
               ),
               const SizedBox(width: 12),
 

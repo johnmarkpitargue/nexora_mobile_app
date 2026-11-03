@@ -1106,11 +1106,21 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
   }
 
   Widget _buildShopStoreBanner() {
-    final shop = ShopService.instance.getShopById(_productArg?.shopId);
+    final sellerId = _productArg?.shopId ?? '';
+    final sellerName = _productArg?.shopName ?? '';
+    final shop = ShopService.instance.getShopById(sellerId);
+    final displayName = sellerName.isNotEmpty && sellerName != 'Nexora Store'
+        ? sellerName
+        : shop.name;
+    final displayInitial = displayName.isNotEmpty ? displayName[0].toUpperCase() : 'S';
 
     return GestureDetector(
       onTap: () {
-        Navigator.pushNamed(context, AppRoutes.shop, arguments: shop);
+        Navigator.pushNamed(
+          context,
+          AppRoutes.shop,
+          arguments: sellerId.isNotEmpty ? sellerId : shop,
+        );
       },
       child: Container(
         padding: const EdgeInsets.all(14),
@@ -1138,13 +1148,12 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
               ),
               child: Center(
                 child: Text(
-                  shop.initials,
+                  displayInitial,
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.w900,
-                    fontSize: 10.5,
-                    height: 1.1,
+                    fontSize: 16,
                   ),
                 ),
               ),
@@ -1158,7 +1167,7 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                     children: [
                       Flexible(
                         child: Text(
-                          shop.name,
+                          displayName,
                           style: const TextStyle(
                             fontWeight: FontWeight.w800,
                             fontSize: 14,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../features/home/presentation/widgets/product_card.dart';
 
 /// Individual option in a variant group (e.g., "Matte Black", "Chalk White")
 class ProductVariantOption {
@@ -120,6 +121,11 @@ class ShopModel {
   final List<ShopCategoryModel> categories;
   final List<ShopVoucherModel> vouchers;
   final String guaranteeText;
+  final String? avatarUrl;
+  final String? bannerUrl;
+  final bool isFollowing;
+  final bool isVacationMode;
+  final List<ProductModel> products;
 
   const ShopModel({
     required this.id,
@@ -133,6 +139,11 @@ class ShopModel {
     required this.categories,
     required this.vouchers,
     this.guaranteeText = '100% Authentic Guaranteed • 24-Month Warranty',
+    this.avatarUrl,
+    this.bannerUrl,
+    this.isFollowing = false,
+    this.isVacationMode = false,
+    this.products = const [],
   });
 }
 
