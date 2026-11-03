@@ -78,103 +78,13 @@ class _AddToCartBottomSheetState extends State<AddToCartBottomSheet> {
     }
   }
 
-  /// Provides variant groups from the product, or generates clean defaults if none exist
-  /// ensuring this modal works consistently "regardless of what type of product it is".
+  /// Provides variant groups from the product
   List<ProductVariantGroup> get _effectiveVariantGroups {
     if (widget.product.variantGroups != null &&
         widget.product.variantGroups!.isNotEmpty) {
       return widget.product.variantGroups!;
     }
-
-    // Dynamic fallback variant groups based on category
-    final cat = widget.product.category.toLowerCase();
-    if (cat.contains('apparel') || cat.contains('fashion')) {
-      return const [
-        ProductVariantGroup(
-          groupName: 'Color',
-          options: [
-            ProductVariantOption(
-              id: 'col_blk',
-              name: 'Midnight Black',
-              colorHex: Color(0xFF1E293B),
-              stock: 35,
-            ),
-            ProductVariantOption(
-              id: 'col_wht',
-              name: 'Pure White',
-              colorHex: Color(0xFFF8FAFC),
-              stock: 40,
-            ),
-            ProductVariantOption(
-              id: 'col_gry',
-              name: 'Heather Grey',
-              colorHex: Color(0xFF94A3B8),
-              stock: 25,
-            ),
-          ],
-        ),
-        ProductVariantGroup(
-          groupName: 'Size',
-          options: [
-            ProductVariantOption(id: 'sz_s', name: 'S', stock: 20),
-            ProductVariantOption(id: 'sz_m', name: 'M', stock: 35),
-            ProductVariantOption(id: 'sz_l', name: 'L', stock: 30),
-            ProductVariantOption(id: 'sz_xl', name: 'XL', stock: 15),
-          ],
-        ),
-      ];
-    } else if (cat.contains('gaming')) {
-      return const [
-        ProductVariantGroup(
-          groupName: 'Edition',
-          options: [
-            ProductVariantOption(
-              id: 'ed_std',
-              name: 'Standard Edition',
-              stock: 40,
-            ),
-            ProductVariantOption(
-              id: 'ed_rgb',
-              name: 'RGB Pro Edition',
-              priceOffset: 250,
-              stock: 25,
-            ),
-          ],
-        ),
-      ];
-    } else if (cat.contains('home')) {
-      return const [
-        ProductVariantGroup(
-          groupName: 'Variant',
-          options: [
-            ProductVariantOption(
-              id: 'hm_std',
-              name: 'Standard Artisan Size',
-              stock: 30,
-            ),
-            ProductVariantOption(
-              id: 'hm_lrg',
-              name: 'Large Family Size',
-              priceOffset: 120,
-              stock: 20,
-            ),
-          ],
-        ),
-      ];
-    }
-
-    return const [
-      ProductVariantGroup(
-        groupName: 'Option',
-        options: [
-          ProductVariantOption(
-            id: 'opt_std',
-            name: 'Default Package',
-            stock: 50,
-          ),
-        ],
-      ),
-    ];
+    return const [];
   }
 
   double get _basePrice {
@@ -203,7 +113,19 @@ class _AddToCartBottomSheetState extends State<AddToCartBottomSheet> {
     return offset;
   }
 
-  double get _effectivePrice => _basePrice + _variantOffset;
+  double get _effectivePrice {
+    final groups = _effectiveVariantGroups;
+    for (int i = 0; i < groups.length; i++) {
+      final sel = _selectedIndices[i];
+      if (sel != null && sel < groups[i].options.length) {
+        final opt = groups[i].options[sel];
+        if (opt.price != null && opt.price! > 0) {
+          return opt.price!;
+        }
+      }
+    }
+    return _basePrice + _variantOffset;
+  }
 
   int get _currentStock {
     final groups = _effectiveVariantGroups;
@@ -245,7 +167,45 @@ class _AddToCartBottomSheetState extends State<AddToCartBottomSheet> {
   }
 
   void _onAddToCartPressed() {
+    Map<String, dynamic>? variantPayload;
+    final groups = _effectiveVariantGroups;
+    if (groups.isNotEmpty) {
+      final parts = <String>[];
+      String? optSize;
+      String? optColor;
+      String? optImage;
+      for (int i = 0; i < groups.length; i++) {
+        final sel = _selectedIndices[i];
+        if (sel != null && sel < groups[i].options.length) {
+          final opt = groups[i].options[sel];
+          parts.add(opt.name);
+          if (opt.size != null && opt.size!.isNotEmpty) optSize = opt.size;
+          if (opt.color != null && opt.color!.isNotEmpty) optColor = opt.color;
+          if (opt.imageUrl != null && opt.imageUrl!.isNotEmpty) optImage = opt.imageUrl;
+        }
+      }
+      if (parts.isNotEmpty) {
+        variantPayload = {
+          'variation': parts.join(' • '),
+          if (optSize != null) 'size': optSize,
+          if (optColor != null) 'color': optColor,
+          if (optImage != null) 'image': optImage,
+        };
+      }
+    }
+
+    final pId = int.tryParse(widget.product.id) ?? 0;
+    if (pId > 0) {
+      CartService.instance.addItemRemote(
+        productId: pId,
+        quantity: _quantity,
+        variant: variantPayload,
+      );
+    }
+
     CartService.instance.addToCart(
+      productId: pId > 0 ? pId : null,
+      variantPayload: variantPayload,
       title: widget.product.title,
       variant: _currentVariantSummary,
       price: _effectivePrice,

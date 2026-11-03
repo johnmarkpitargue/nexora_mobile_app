@@ -38,49 +38,11 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
   int _selectedImageIndex = 0;
   late final PageController _pageController;
   late final TextEditingController _quantityController;
-  int _selectedColorIndex = 0;
-  int _selectedSwitchIndex = 0;
-  int _selectedLayoutIndex = 0;
   int _quantity = 1;
   final Map<int, int> _selectedVariantGroupIndices = {};
   String _selectedReviewFilter = 'All';
 
   final List<String> _productImages = [];
-
-  final List<Map<String, dynamic>> _colorVariants = [
-    {
-      'name': 'Chalk White & Violet',
-      'circleColor': const Color(0xFFC4B5FD),
-      'label': 'Chalk / Violet',
-    },
-    {
-      'name': 'Midnight Navy',
-      'circleColor': const Color(0xFF0F172A),
-      'label': 'Midnight Navy',
-    },
-    {
-      'name': 'Phantom Black',
-      'circleColor': const Color(0xFF18181B),
-      'label': 'Phantom Black',
-    },
-  ];
-
-  final List<Map<String, String>> _switchOptions = [
-    {
-      'title': 'Gateron Pro Yellow',
-      'subtitle': 'Smooth linear feel • 50g operating force',
-    },
-    {
-      'title': 'Kailh Box White',
-      'subtitle': 'Crisp acoustic clickbar • 45g force',
-    },
-    {
-      'title': 'Silent Red Linear',
-      'subtitle': 'Silenced dampeners for studio work • 45g force',
-    },
-  ];
-
-  final List<String> _formFactors = ['75% Compact', 'TKL (80%)', 'Full 100%'];
 
   @override
   void initState() {
@@ -211,7 +173,22 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
     return offset;
   }
 
-  double get _effectivePrice => _productBasePrice + _currentPriceOffset;
+  double get _effectivePrice {
+    if (_productArg?.variantGroups != null &&
+        _productArg!.variantGroups!.isNotEmpty) {
+      for (int i = 0; i < _productArg!.variantGroups!.length; i++) {
+        final grp = _productArg!.variantGroups![i];
+        final selIdx = _selectedVariantGroupIndices[i];
+        if (selIdx != null && selIdx < grp.options.length) {
+          final opt = grp.options[selIdx];
+          if (opt.price != null && opt.price! > 0) {
+            return opt.price!;
+          }
+        }
+      }
+    }
+    return _productBasePrice + _currentPriceOffset;
+  }
 
   String get _currentVariantSummary {
     if (_productArg?.variantGroups != null && _productArg!.variantGroups!.isNotEmpty) {
@@ -225,9 +202,7 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
       }
       return parts.join(' • ');
     }
-    final selectedColor = _colorVariants[_selectedColorIndex]['label'] as String;
-    final selectedSwitch = _switchOptions[_selectedSwitchIndex]['title'] as String;
-    return '$selectedColor, $selectedSwitch';
+    return 'Standard';
   }
 
   String? _validateQuantityInput(String input) {
@@ -350,12 +325,43 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
         }
       }
 
+      Map<String, dynamic>? variantPayload;
+      if (_productArg?.variantGroups != null && _productArg!.variantGroups!.isNotEmpty) {
+        final parts = <String>[];
+        String? optSize;
+        String? optColor;
+        String? optImage;
+        for (int i = 0; i < _productArg!.variantGroups!.length; i++) {
+          final grp = _productArg!.variantGroups![i];
+          final sel = _selectedVariantGroupIndices[i];
+          if (sel != null && sel < grp.options.length) {
+            final opt = grp.options[sel];
+            parts.add(opt.name);
+            if (opt.size != null && opt.size!.isNotEmpty) optSize = opt.size;
+            if (opt.color != null && opt.color!.isNotEmpty) optColor = opt.color;
+            if (opt.imageUrl != null && opt.imageUrl!.isNotEmpty) optImage = opt.imageUrl;
+          }
+        }
+        if (parts.isNotEmpty) {
+          variantPayload = {
+            'variation': parts.join(' • '),
+            if (optSize != null) 'size': optSize,
+            if (optColor != null) 'color': optColor,
+            if (optImage != null) 'image': optImage,
+          };
+        }
+      }
+
+      final pId = int.tryParse(_productArg?.id ?? '') ?? 0;
+
       CartService.instance.addToCart(
+        productId: pId > 0 ? pId : null,
+        variantPayload: variantPayload,
         title: _productTitle,
         variant: _currentVariantSummary,
         price: _effectivePrice,
         originalPrice: _productOriginalPrice,
-        imageUrl: _productImages.first,
+        imageUrl: _productImages.isNotEmpty ? _productImages.first : '',
         storeName: _productArg?.shopName ?? (_productArg?.isMall == true ? 'Nexora Official Store' : 'Nexora Preferred Store'),
         storeBadge: _productArg?.shopBadge ?? (_productArg?.isMall == true ? 'MALL' : 'OFFICIAL STORE'),
         quantity: _quantity,
@@ -1016,275 +1022,6 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
     );
   }
 
-  Widget _buildColorPaletteSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text(
-              'Color Palette',
-              style: TextStyle(
-                fontWeight: FontWeight.w800,
-                fontSize: 14,
-                color: Color(0xFF0F172A),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Flexible(
-              child: Text(
-                _colorVariants[_selectedColorIndex]['name'] as String,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 12,
-                  color: Color(0xFF0066FF),
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          physics: const BouncingScrollPhysics(),
-          child: Row(
-            children: List.generate(_colorVariants.length, (index) {
-              final isSelected = _selectedColorIndex == index;
-              final variant = _colorVariants[index];
-
-              return Padding(
-                padding: const EdgeInsets.only(right: 12),
-                child: GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      _selectedColorIndex = index;
-                    });
-                  },
-                  child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? const Color(0xFFE0F7FA)
-                          : Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: isSelected
-                            ? const Color(0xFF00D2FF)
-                            : const Color(0xFFE2E8F0),
-                        width: 1.5,
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 20,
-                          height: 20,
-                          decoration: BoxDecoration(
-                            color: variant['circleColor'] as Color,
-                            shape: BoxShape.circle,
-                          ),
-                          child: isSelected
-                              ? const Icon(Icons.check,
-                                  size: 13, color: Colors.white)
-                              : null,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          variant['label'] as String,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight:
-                                isSelected ? FontWeight.w800 : FontWeight.w600,
-                            color: const Color(0xFF0F172A),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              );
-            }),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSwitchOptionsSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text(
-              'Mechanical Switches',
-              style: TextStyle(
-                fontWeight: FontWeight.w800,
-                fontSize: 14,
-                color: Color(0xFF0F172A),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Flexible(
-              child: Text(
-                _switchOptions[_selectedSwitchIndex]['title']!,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 11.5,
-                  color: Color(0xFF0066FF),
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-
-        Column(
-          children: List.generate(_switchOptions.length, (index) {
-            final isSelected = _selectedSwitchIndex == index;
-            final opt = _switchOptions[index];
-
-            return GestureDetector(
-              onTap: () {
-                setState(() {
-                  _selectedSwitchIndex = index;
-                });
-              },
-              child: Container(
-                margin: const EdgeInsets.only(bottom: 8),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? const Color(0xFF050B28)
-                      : Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: isSelected
-                        ? const Color(0xFF00D2FF)
-                        : const Color(0xFFE2E8F0),
-                    width: 1.5,
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 18,
-                      height: 18,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: isSelected
-                            ? const Color(0xFF00D2FF)
-                            : Colors.transparent,
-                        border: isSelected
-                            ? null
-                            : Border.all(
-                                color: const Color(0xFFCBD5E1), width: 2),
-                      ),
-                      child: isSelected
-                          ? const Icon(Icons.check,
-                              size: 12, color: Color(0xFF050B28))
-                          : null,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            opt['title']!,
-                            style: TextStyle(
-                              fontWeight: FontWeight.w800,
-                              fontSize: 13,
-                              color: isSelected ? Colors.white : const Color(0xFF0F172A),
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            opt['subtitle']!,
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: isSelected
-                                  ? const Color(0xFF94A3B8)
-                                  : Colors.grey.shade600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildFormFactorSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Form Factor',
-          style: TextStyle(
-            fontWeight: FontWeight.w800,
-            fontSize: 14,
-            color: Color(0xFF0F172A),
-          ),
-        ),
-        const SizedBox(height: 10),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          physics: const BouncingScrollPhysics(),
-          child: Row(
-            children: List.generate(_formFactors.length, (index) {
-              final isSelected = _selectedLayoutIndex == index;
-              return Padding(
-                padding: const EdgeInsets.only(right: 10),
-                child: GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      _selectedLayoutIndex = index;
-                    });
-                  },
-                  child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? const Color(0xFF00D2FF)
-                          : const Color(0xFFEEF2FF),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Text(
-                      _formFactors[index],
-                      style: TextStyle(
-                        fontWeight:
-                            isSelected ? FontWeight.w900 : FontWeight.w600,
-                        fontSize: 11.5,
-                        color: isSelected
-                            ? Colors.white
-                            : const Color(0xFF475569),
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            }),
-          ),
-        ),
-      ],
-    );
-  }
-
   Widget _buildQuantitySection() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -1501,17 +1238,7 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
 
   Widget _buildDynamicVariantsSection() {
     if (_productArg?.variantGroups == null || _productArg!.variantGroups!.isEmpty) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildColorPaletteSection(),
-          const SizedBox(height: 18),
-          _buildSwitchOptionsSection(),
-          const SizedBox(height: 18),
-          _buildFormFactorSection(),
-          const SizedBox(height: 18),
-        ],
-      );
+      return const SizedBox.shrink();
     }
 
     final groups = _productArg!.variantGroups!;

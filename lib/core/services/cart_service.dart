@@ -5,10 +5,12 @@ import '../network/api_client.dart';
 
 class CartItemModel {
   final String id;
+  final String? productId;
   final String storeName;
   final String storeBadge; // 'MALL', 'PREFERRED+', or ''
   final String title;
   final String variant;
+  final dynamic variantData;
   final String imageUrl;
   final double price;
   final double? originalPrice;
@@ -23,10 +25,12 @@ class CartItemModel {
 
   CartItemModel({
     required this.id,
+    this.productId,
     required this.storeName,
     this.storeBadge = '',
     required this.title,
     required this.variant,
+    this.variantData,
     required this.imageUrl,
     required this.price,
     this.originalPrice,
@@ -42,10 +46,12 @@ class CartItemModel {
 
   CartItemModel copyWith({
     String? id,
+    String? productId,
     String? storeName,
     String? storeBadge,
     String? title,
     String? variant,
+    dynamic variantData,
     String? imageUrl,
     double? price,
     double? originalPrice,
@@ -60,10 +66,12 @@ class CartItemModel {
   }) {
     return CartItemModel(
       id: id ?? this.id,
+      productId: productId ?? this.productId,
       storeName: storeName ?? this.storeName,
       storeBadge: storeBadge ?? this.storeBadge,
       title: title ?? this.title,
       variant: variant ?? this.variant,
+      variantData: variantData ?? this.variantData,
       imageUrl: imageUrl ?? this.imageUrl,
       price: price ?? this.price,
       originalPrice: originalPrice ?? this.originalPrice,
@@ -81,26 +89,60 @@ class CartItemModel {
   factory CartItemModel.fromApiJson(Map<String, dynamic> json) {
     final product = json['product'] as Map<String, dynamic>? ?? {};
     final seller = json['seller'] as Map<String, dynamic>? ?? {};
-    final priceVal = (json['price'] as num?)?.toDouble() ??
-        (product['price'] as num?)?.toDouble() ??
-        0.0;
-    final primaryImg = product['primary_image'] as String? ??
+
+    final id = json['id'].toString();
+    final pId = json['product_id']?.toString() ?? product['id']?.toString();
+    final name = json['name'] as String? ??
+        product['title'] as String? ??
+        product['name'] as String? ??
+        'Product';
+    final primaryImg = json['image'] as String? ??
+        product['primary_image'] as String? ??
         (product['images'] is List && (product['images'] as List).isNotEmpty
             ? product['images'][0].toString()
             : '');
+    final priceVal = (json['price'] as num?)?.toDouble() ??
+        (product['price'] as num?)?.toDouble() ??
+        0.0;
+    final regularPrice = (json['regular_price'] as num?)?.toDouble() ??
+        (product['regular_price'] as num?)?.toDouble();
+    final qty = (json['quantity'] as num?)?.toInt() ?? 1;
+    final isSelected = json['selected'] == true ||
+        json['selected'] == 1 ||
+        json['is_selected'] == true ||
+        json['is_selected'] == 1;
+
+    final sellerName = json['seller_name'] as String? ??
+        seller['store_name'] as String? ??
+        seller['name'] as String? ??
+        'Nexora Store';
+
+    String variantStr = 'Standard';
+    final rawVariant = json['variant'];
+    if (rawVariant is Map) {
+      variantStr = rawVariant['variation']?.toString() ??
+          rawVariant['name']?.toString() ??
+          rawVariant['size']?.toString() ??
+          'Standard';
+    } else if (rawVariant is String && rawVariant.isNotEmpty) {
+      variantStr = rawVariant;
+    }
 
     return CartItemModel(
-      id: json['id'].toString(),
-      storeName: seller['store_name'] as String? ?? 'Nexora Store',
+      id: id,
+      productId: pId,
+      storeName: sellerName,
       storeBadge: 'MALL',
-      title: product['title'] as String? ?? product['name'] as String? ?? 'Product',
-      variant: 'Standard',
+      title: name,
+      variant: variantStr,
+      variantData: rawVariant,
       imageUrl: primaryImg.isNotEmpty
           ? primaryImg
           : 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=300&q=80',
       price: priceVal,
-      quantity: (json['quantity'] as num?)?.toInt() ?? 1,
-      isChecked: json['is_selected'] == true || json['is_selected'] == 1,
+      originalPrice: regularPrice,
+      quantity: qty,
+      isChecked: isSelected,
     );
   }
 }
@@ -117,9 +159,14 @@ class CartService extends ChangeNotifier {
     notifyListeners();
   }
 
+  bool _isLoadingCart = false;
+  bool get isLoadingCart => _isLoadingCart;
+
   /// Load cart from backend API
   Future<void> loadCartRemote() async {
     if (!ApiClient.instance.hasToken) return;
+    if (_isLoadingCart) return;
+    _isLoadingCart = true;
     try {
       final res = await ApiClient.instance.get(ApiConstants.buyerCart);
       if (res['data'] is Map<String, dynamic>) {
@@ -134,19 +181,29 @@ class CartService extends ChangeNotifier {
       }
     } catch (e) {
       debugPrint('loadCartRemote error: $e');
+    } finally {
+      _isLoadingCart = false;
     }
   }
 
   /// Add item to cart on backend API
-  Future<void> addItemRemote({required int productId, int quantity = 1}) async {
+  Future<void> addItemRemote({
+    required int productId,
+    int quantity = 1,
+    Map<String, dynamic>? variant,
+  }) async {
     if (ApiClient.instance.hasToken) {
       try {
+        final body = <String, dynamic>{
+          'product_id': productId,
+          'quantity': quantity,
+        };
+        if (variant != null && variant.isNotEmpty) {
+          body['variant'] = variant;
+        }
         await ApiClient.instance.post(
           ApiConstants.buyerCartItems,
-          body: {
-            'product_id': productId,
-            'quantity': quantity,
-          },
+          body: body,
         );
         await loadCartRemote();
         return;
@@ -179,7 +236,7 @@ class CartService extends ChangeNotifier {
       try {
         await ApiClient.instance.patch(
           ApiConstants.buyerCartItem(id),
-          body: {'is_selected': checked},
+          body: {'selected': checked},
         );
         await loadCartRemote();
       } catch (e) {
@@ -208,7 +265,7 @@ class CartService extends ChangeNotifier {
       try {
         await ApiClient.instance.patch(
           ApiConstants.buyerCartSelectAll,
-          body: {'is_selected': selected},
+          body: {'selected': selected},
         );
         await loadCartRemote();
       } catch (e) {
@@ -274,6 +331,8 @@ class CartService extends ChangeNotifier {
       });
 
   void addItem({
+    String? productId,
+    dynamic variantData,
     required String title,
     required String variant,
     required double price,
@@ -284,8 +343,9 @@ class CartService extends ChangeNotifier {
     String? discountTag,
     int quantity = 1,
   }) {
-    final existingIndex =
-        _items.indexWhere((i) => i.title == title && i.variant == variant);
+    final existingIndex = _items.indexWhere((i) =>
+        (productId != null && i.productId == productId && i.variant == variant) ||
+        (i.title == title && i.variant == variant));
     if (existingIndex >= 0) {
       _items[existingIndex].quantity += quantity;
       _items[existingIndex].isChecked = true;
@@ -294,10 +354,12 @@ class CartService extends ChangeNotifier {
         0,
         CartItemModel(
           id: 'c_${DateTime.now().millisecondsSinceEpoch}',
+          productId: productId,
           storeName: storeName,
           storeBadge: storeBadge,
           title: title,
           variant: variant,
+          variantData: variantData,
           imageUrl: imageUrl,
           price: price,
           originalPrice: originalPrice,
@@ -403,6 +465,8 @@ class CartService extends ChangeNotifier {
   }
 
   void addToCart({
+    int? productId,
+    Map<String, dynamic>? variantPayload,
     required String title,
     required String variant,
     required double price,
@@ -413,7 +477,16 @@ class CartService extends ChangeNotifier {
     String? discountTag,
     int quantity = 1,
   }) {
+    if (productId != null && ApiClient.instance.hasToken) {
+      addItemRemote(
+        productId: productId,
+        quantity: quantity,
+        variant: variantPayload,
+      );
+    }
     addItem(
+      productId: productId?.toString(),
+      variantData: variantPayload,
       title: title,
       variant: variant,
       price: price,

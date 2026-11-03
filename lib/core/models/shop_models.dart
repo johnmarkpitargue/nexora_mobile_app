@@ -7,8 +7,12 @@ class ProductVariantOption {
   final Color? colorHex;
   final String? subtitle;
   final double priceOffset;
+  final double? price;
   final int stock;
   final String? imageUrl;
+  final String? sku;
+  final String? color;
+  final String? size;
 
   const ProductVariantOption({
     required this.id,
@@ -16,8 +20,12 @@ class ProductVariantOption {
     this.colorHex,
     this.subtitle,
     this.priceOffset = 0.0,
+    this.price,
     this.stock = 50,
     this.imageUrl,
+    this.sku,
+    this.color,
+    this.size,
   });
 }
 

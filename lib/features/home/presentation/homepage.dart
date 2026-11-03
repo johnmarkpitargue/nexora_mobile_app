@@ -22,7 +22,8 @@ class NexoraHomePage extends StatefulWidget {
   State<NexoraHomePage> createState() => _NexoraHomePageState();
 }
 
-class _NexoraHomePageState extends State<NexoraHomePage> with WidgetsBindingObserver {
+class _NexoraHomePageState extends State<NexoraHomePage>
+    with WidgetsBindingObserver {
   int _currentIndex = 0;
   final Set<int> _loadedTabs = {0};
   String? _selectedCategory;
@@ -32,7 +33,6 @@ class _NexoraHomePageState extends State<NexoraHomePage> with WidgetsBindingObse
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    ShopService.instance.loadCatalogRemote().catchError((_) => <ProductModel>[]);
     _updateOrdersPolling();
   }
 
@@ -62,10 +62,14 @@ class _NexoraHomePageState extends State<NexoraHomePage> with WidgetsBindingObse
   Widget _buildHomeTab() {
     return RefreshIndicator(
       onRefresh: () async {
-        await ShopService.instance.loadCatalogRemote(category: _selectedCategory);
+        await ShopService.instance.loadCatalogRemote(
+          category: _selectedCategory,
+        );
       },
       child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+        physics: const AlwaysScrollableScrollPhysics(
+          parent: BouncingScrollPhysics(),
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -79,7 +83,9 @@ class _NexoraHomePageState extends State<NexoraHomePage> with WidgetsBindingObse
                 setState(() {
                   _selectedCategory = categorySlug;
                 });
-                ShopService.instance.loadCatalogRemote(category: categorySlug).catchError((_) => <ProductModel>[]);
+                ShopService.instance
+                    .loadCatalogRemote(category: categorySlug)
+                    .catchError((_) => <ProductModel>[]);
               },
             ),
 
@@ -113,13 +119,20 @@ class _NexoraHomePageState extends State<NexoraHomePage> with WidgetsBindingObse
         children: [
           _buildHomeTab(),
           _loadedTabs.contains(1) ? const CartPage() : const SizedBox.shrink(),
-          _loadedTabs.contains(2) ? const OrdersPage() : const SizedBox.shrink(),
+          _loadedTabs.contains(2)
+              ? const OrdersPage()
+              : const SizedBox.shrink(),
           _loadedTabs.contains(3) ? const ChatPage() : const SizedBox.shrink(),
-          _loadedTabs.contains(4) ? const ProfilePage() : const SizedBox.shrink(),
+          _loadedTabs.contains(4)
+              ? const ProfilePage()
+              : const SizedBox.shrink(),
         ],
       ),
       bottomNavigationBar: AnimatedBuilder(
-        animation: Listenable.merge([CartService.instance, ChatService.instance]),
+        animation: Listenable.merge([
+          CartService.instance,
+          ChatService.instance,
+        ]),
         builder: (context, _) {
           final cartCount = CartService.instance.itemCount;
           final chatUnread = ChatService.instance.totalUnreadCount;

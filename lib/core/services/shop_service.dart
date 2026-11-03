@@ -229,8 +229,21 @@ class ShopService extends ChangeNotifier {
     }
   }
 
-  /// Fetch single product detail from Laravel backend API
-  Future<ProductModel?> fetchProductRemote(String id) async {
+  final Map<String, Future<ProductModel?>> _productRequestsInFlight = {};
+
+  /// Fetch single product detail from Laravel backend API with in-flight deduplication
+  Future<ProductModel?> fetchProductRemote(String id) {
+    if (_productRequestsInFlight.containsKey(id)) {
+      return _productRequestsInFlight[id]!;
+    }
+
+    final future = _fetchProductRemoteInternal(id);
+    _productRequestsInFlight[id] = future;
+    future.whenComplete(() => _productRequestsInFlight.remove(id));
+    return future;
+  }
+
+  Future<ProductModel?> _fetchProductRemoteInternal(String id) async {
     try {
       final res = await ApiClient.instance.get(ApiConstants.buyerProduct(id));
       if (res['data'] is Map<String, dynamic>) {

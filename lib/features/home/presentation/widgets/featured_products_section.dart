@@ -45,6 +45,7 @@ class _DailyDiscoverSectionState extends State<DailyDiscoverSection> {
   }
 
   void _loadCatalog() {
+    if (ShopService.instance.isLoadingCatalog) return;
     ShopService.instance.loadCatalogRemote(category: widget.selectedCategory).catchError((_) => <ProductModel>[]);
   }
 

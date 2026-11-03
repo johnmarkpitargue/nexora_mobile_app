@@ -118,16 +118,35 @@ class ProductModel {
     if (json['variants_data'] is List && (json['variants_data'] as List).isNotEmpty) {
       final vList = json['variants_data'] as List;
       final options = vList.map((v) {
+        if (v is! Map) {
+          final optStr = v.toString();
+          return ProductVariantOption(
+            id: optStr,
+            name: optStr,
+            stock: (json['stock'] as num?)?.toInt() ?? 50,
+          );
+        }
         final optName = v['name']?.toString() ??
+            v['sku']?.toString() ??
             v['color']?.toString() ??
-            v['size']?.toString() ??
-            'Default';
+            'Option';
+        final optStock = (v['stock'] as num?)?.toInt() ??
+            (json['stock'] as num?)?.toInt() ??
+            0;
+        final optPrice = (v['price'] as num?)?.toDouble();
+        final optImg = v['image']?.toString();
+        final optColor = v['color']?.toString();
+        final optSize = v['size']?.toString();
+        final optSku = v['sku']?.toString();
         return ProductVariantOption(
-          id: v['id']?.toString() ?? optName,
+          id: optSku != null && optSku.isNotEmpty ? optSku : optName,
           name: optName,
-          stock: (v['stock'] as num?)?.toInt() ??
-              (json['stock'] as num?)?.toInt() ??
-              50,
+          price: optPrice,
+          stock: optStock,
+          imageUrl: optImg,
+          color: optColor,
+          size: optSize,
+          sku: optSku,
         );
       }).toList();
       variantGroups = [
@@ -136,6 +155,57 @@ class ProductModel {
           options: options,
         )
       ];
+    } else {
+      final colors = (json['colors'] as List?)
+              ?.map((c) => c.toString())
+              .where((c) => c.isNotEmpty)
+              .toList() ??
+          [];
+      final sizes = (json['sizes'] as List?)
+              ?.map((s) => s.toString())
+              .where((s) => s.isNotEmpty)
+              .toList() ??
+          [];
+      final fallbackStock = (json['stock'] as num?)?.toInt() ?? 50;
+
+      if (colors.isNotEmpty && sizes.isNotEmpty) {
+        variantGroups = [
+          ProductVariantGroup(
+            groupName: 'Color',
+            options: colors
+                .map((c) => ProductVariantOption(
+                    id: c, name: c, stock: fallbackStock, color: c))
+                .toList(),
+          ),
+          ProductVariantGroup(
+            groupName: 'Size',
+            options: sizes
+                .map((s) => ProductVariantOption(
+                    id: s, name: s, stock: fallbackStock, size: s))
+                .toList(),
+          ),
+        ];
+      } else if (colors.isNotEmpty) {
+        variantGroups = [
+          ProductVariantGroup(
+            groupName: 'Color',
+            options: colors
+                .map((c) => ProductVariantOption(
+                    id: c, name: c, stock: fallbackStock, color: c))
+                .toList(),
+          ),
+        ];
+      } else if (sizes.isNotEmpty) {
+        variantGroups = [
+          ProductVariantGroup(
+            groupName: 'Size',
+            options: sizes
+                .map((s) => ProductVariantOption(
+                    id: s, name: s, stock: fallbackStock, size: s))
+                .toList(),
+          ),
+        ];
+      }
     }
 
     // Reviews if provided
