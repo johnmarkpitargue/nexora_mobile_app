@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import '../../../app/routes/app_routes.dart';
+import '../../../core/network/api_client.dart';
 import '../../../core/services/cart_service.dart';
 import '../../../core/services/wishlist_service.dart';
+import '../../../core/utils/guest_auth_guard.dart';
+import '../../../core/widgets/add_to_cart_bottom_sheet.dart';
 import '../../../core/widgets/added_to_cart_hud.dart';
 import '../../home/presentation/widgets/product_card.dart';
 
@@ -14,6 +17,7 @@ class WishlistPage extends StatefulWidget {
 
 class _WishlistPageState extends State<WishlistPage> {
   String _selectedCategory = 'All';
+  final Set<String> _addingProductIds = {};
 
   @override
   void initState() {
@@ -387,30 +391,95 @@ class _WishlistPageState extends State<WishlistPage> {
                             ],
                           ),
                           ElevatedButton.icon(
-                            onPressed: () {
-                              final cleanPrice = double.tryParse(
-                                product.price.replaceAll(RegExp(r'[^0-9.]'), ''),
-                              ) ?? 1500.0;
-                              final cleanOriginalPrice = product.originalPrice != null
-                                  ? double.tryParse(
-                                      product.originalPrice!.replaceAll(RegExp(r'[^0-9.]'), ''),
-                                    )
-                                  : null;
+                                  onPressed: _addingProductIds.contains(product.id)
+                                      ? null
+                                      : () async {
+                                          if (!await GuestAuthGuard.requireLogin(
+                                            context,
+                                          )) {
+                                            return;
+                                          }
+                                          if (!context.mounted) return;
 
-                              CartService.instance.addItem(
-                                title: product.title,
-                                variant: 'Standard Edition',
-                                price: cleanPrice,
-                                originalPrice: cleanOriginalPrice,
-                                imageUrl: product.imageUrl,
-                                storeName: product.isMall ? 'Nexora Official Flagship' : 'Nexora Store',
-                                storeBadge: product.isMall ? 'MALL' : '',
-                              );
+                                          if (product.variantGroups != null &&
+                                              product
+                                                  .variantGroups!
+                                                  .isNotEmpty) {
+                                            await AddToCartBottomSheet.show(
+                                              context,
+                                              product: product,
+                                            );
+                                            return;
+                                          }
 
-                              AddedToCartHUD.show(context);
-                            },
+                                          final pId = int.tryParse(product.id);
+                                          if (pId == null || pId <= 0) {
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).showSnackBar(
+                                              const SnackBar(
+                                                content: Text(
+                                                  'Please open the product page to add this item.',
+                                                ),
+                                                backgroundColor: Color(
+                                                  0xFFDC2626,
+                                                ),
+                                              ),
+                                            );
+                                            return;
+                                          }
+
+                                          setState(
+                                            () => _addingProductIds.add(
+                                              product.id,
+                                            ),
+                                          );
+                                          try {
+                                            await CartService.instance
+                                                .addToCart(
+                                                  productId: pId,
+                                                  quantity: 1,
+                                                );
+                                            if (!context.mounted) return;
+                                            AddedToCartHUD.show(context);
+                                          } catch (e) {
+                                            if (!context.mounted) return;
+                                            final msg = e is ApiException
+                                                ? e.message
+                                                : e.toString().replaceFirst(
+                                                    'Exception: ',
+                                                    '',
+                                                  );
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).showSnackBar(
+                                              SnackBar(
+                                                content: Text(msg),
+                                                backgroundColor: const Color(
+                                                  0xFFDC2626,
+                                                ),
+                                              ),
+                                            );
+                                          } finally {
+                                            if (mounted) {
+                                              setState(
+                                                () => _addingProductIds.remove(
+                                                  product.id,
+                                                ),
+                                              );
+                                            }
+                                          }
+                                        },
                             icon: const Icon(Icons.shopping_bag_outlined, size: 14),
-                            label: const Text('Add to Cart', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                            label: Text(
+                              _addingProductIds.contains(product.id)
+                                  ? 'Adding...'
+                                  : 'Add to Cart',
+                              style: const TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFF0F172A),
                               foregroundColor: Colors.white,

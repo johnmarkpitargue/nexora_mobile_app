@@ -274,6 +274,9 @@ class _ProfilePageState extends State<ProfilePage> {
     ProfileService.instance.addListener(_onProfileServiceChange);
     BuyerAccountService.instance.addListener(_onProfileServiceChange);
     BuyerAccountService.instance.syncRemoteUser();
+    if (ApiClient.instance.hasToken) {
+      OrderService.instance.fetchOrdersRemote();
+    }
   }
 
   @override
@@ -1127,10 +1130,9 @@ class _ProfilePageState extends State<ProfilePage> {
   Widget _buildQuickStatsRow() {
     final isLoggedIn = BuyerAccountService.instance.isLoggedIn;
     final profile = ProfileService.instance;
-    final orderCount = OrderService.instance.activeOrders.length;
+    final orderCount = OrderService.instance.totalOrderCount;
     final followCount = ShopService.instance.followedShopCount;
-    final voucherDisplay =
-        '${profile.voucherCount > 0 ? profile.voucherCount : 5}';
+    final voucherDisplay = '${profile.voucherCount}';
 
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
@@ -1311,42 +1313,9 @@ class _ProfilePageState extends State<ProfilePage> {
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               _buildPurchaseStatusItem(
-                'To Pay',
-                Icons.credit_card_outlined,
-                isLoggedIn
-                    ? OrderService.instance.activeOrders
-                          .where(
-                            (o) =>
-                                o.statusText.toLowerCase() == 'to pay' ||
-                                o.statusText.toLowerCase() == 'unpaid',
-                          )
-                          .length
-                    : 0,
-                () {
-                  if (!isLoggedIn) {
-                    GuestAuthGuard.requireLogin(context, title: 'My Purchases');
-                    return;
-                  }
-                  Navigator.pushReplacementNamed(
-                    context,
-                    AppRoutes.orders,
-                    arguments: {'initialIndex': 1},
-                  );
-                },
-                isHighlighted: false,
-              ),
-              _buildPurchaseStatusItem(
                 'To Ship',
                 Icons.inventory_2_outlined,
-                isLoggedIn
-                    ? OrderService.instance.activeOrders
-                          .where(
-                            (o) =>
-                                o.statusText.toLowerCase() == 'to ship' ||
-                                o.statusText.toLowerCase() == 'processing',
-                          )
-                          .length
-                    : 0,
+                isLoggedIn ? OrderService.instance.tabCounts.toShip : 0,
                 () {
                   if (!isLoggedIn) {
                     GuestAuthGuard.requireLogin(context, title: 'My Purchases');
@@ -1355,7 +1324,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   Navigator.pushReplacementNamed(
                     context,
                     AppRoutes.orders,
-                    arguments: {'initialIndex': 2},
+                    arguments: {'initialTab': 'to_ship'},
                   );
                 },
                 isHighlighted: false,
@@ -1363,19 +1332,7 @@ class _ProfilePageState extends State<ProfilePage> {
               _buildPurchaseStatusItem(
                 'To Receive',
                 Icons.local_shipping_outlined,
-                isLoggedIn
-                    ? OrderService.instance.activeOrders
-                          .where(
-                            (o) =>
-                                o.statusText.toLowerCase() == 'to receive' ||
-                                o.statusText.toLowerCase() == 'shipping' ||
-                                o.statusText.toLowerCase() == 'shipped' ||
-                                o.statusText.toLowerCase() == 'in transit' ||
-                                o.statusText.toLowerCase() ==
-                                    'out for delivery',
-                          )
-                          .length
-                    : 0,
+                isLoggedIn ? OrderService.instance.tabCounts.toReceive : 0,
                 () {
                   if (!isLoggedIn) {
                     GuestAuthGuard.requireLogin(context, title: 'My Purchases');
@@ -1384,32 +1341,15 @@ class _ProfilePageState extends State<ProfilePage> {
                   Navigator.pushReplacementNamed(
                     context,
                     AppRoutes.orders,
-                    arguments: {'initialIndex': 3},
+                    arguments: {'initialTab': 'to_receive'},
                   );
                 },
-                isHighlighted:
-                    isLoggedIn &&
-                    OrderService.instance.activeOrders.any(
-                      (o) =>
-                          o.statusText.toLowerCase() == 'to receive' ||
-                          o.statusText.toLowerCase() == 'shipping' ||
-                          o.statusText.toLowerCase() == 'shipped' ||
-                          o.statusText.toLowerCase() == 'in transit' ||
-                          o.statusText.toLowerCase() == 'out for delivery',
-                    ),
+                isHighlighted: isLoggedIn && OrderService.instance.tabCounts.toReceive > 0,
               ),
               _buildPurchaseStatusItem(
                 'Completed',
-                Icons.rate_review_outlined,
-                isLoggedIn
-                    ? OrderService.instance.activeOrders
-                          .where(
-                            (o) =>
-                                o.statusText.toLowerCase() == 'completed' ||
-                                o.statusText.toLowerCase() == 'delivered',
-                          )
-                          .length
-                    : 0,
+                Icons.check_circle_outline,
+                isLoggedIn ? OrderService.instance.tabCounts.completed : 0,
                 () {
                   if (!isLoggedIn) {
                     GuestAuthGuard.requireLogin(context, title: 'My Purchases');
@@ -1418,7 +1358,24 @@ class _ProfilePageState extends State<ProfilePage> {
                   Navigator.pushReplacementNamed(
                     context,
                     AppRoutes.orders,
-                    arguments: {'initialIndex': 4},
+                    arguments: {'initialTab': 'completed'},
+                  );
+                },
+                isHighlighted: false,
+              ),
+              _buildPurchaseStatusItem(
+                'Return / Refund',
+                Icons.assignment_return_outlined,
+                isLoggedIn ? OrderService.instance.tabCounts.returnRefund : 0,
+                () {
+                  if (!isLoggedIn) {
+                    GuestAuthGuard.requireLogin(context, title: 'My Purchases');
+                    return;
+                  }
+                  Navigator.pushReplacementNamed(
+                    context,
+                    AppRoutes.orders,
+                    arguments: {'initialTab': 'return_refund'},
                   );
                 },
                 isHighlighted: false,
@@ -1430,16 +1387,7 @@ class _ProfilePageState extends State<ProfilePage> {
           if (isLoggedIn)
             Builder(
               builder: (context) {
-                final inTransitOrders = OrderService.instance.activeOrders
-                    .where(
-                      (o) =>
-                          o.statusText.toLowerCase() == 'to receive' ||
-                          o.statusText.toLowerCase() == 'shipping' ||
-                          o.statusText.toLowerCase() == 'shipped' ||
-                          o.statusText.toLowerCase() == 'in transit' ||
-                          o.statusText.toLowerCase() == 'out for delivery',
-                    )
-                    .toList();
+                final inTransitOrders = OrderService.instance.ordersForTab('to_receive');
 
                 if (inTransitOrders.isEmpty) {
                   return const SizedBox.shrink();
@@ -1480,7 +1428,7 @@ class _ProfilePageState extends State<ProfilePage> {
                             Text(
                               activeOrder.etaTime.isNotEmpty
                                   ? activeOrder.etaTime
-                                  : 'Parcel arriving today',
+                                  : 'Parcel arriving soon',
                               style: const TextStyle(
                                 fontWeight: FontWeight.w800,
                                 fontSize: 12.5,
@@ -1502,7 +1450,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         onPressed: () {
                           Navigator.pushNamed(
                             context,
-                            AppRoutes.orderTracking,
+                            AppRoutes.shippedOrderDetails,
                             arguments: activeOrder,
                           );
                         },

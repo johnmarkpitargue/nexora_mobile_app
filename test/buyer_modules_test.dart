@@ -1,11 +1,18 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:nexora_flutter_app/core/constants/api_constants.dart';
+import 'package:nexora_flutter_app/core/network/api_client.dart';
 import 'package:nexora_flutter_app/core/services/buyer_account_service.dart';
 import 'package:nexora_flutter_app/core/services/address_service.dart';
 import 'package:nexora_flutter_app/core/services/shop_service.dart';
 import 'package:nexora_flutter_app/core/services/cart_service.dart';
+import 'package:nexora_flutter_app/core/widgets/added_to_cart_hud.dart';
 import 'package:nexora_flutter_app/features/home/presentation/widgets/product_card.dart';
 import 'package:nexora_flutter_app/features/product_details/presentation/product_details_page.dart';
 import 'package:nexora_flutter_app/app/routes/app_routes.dart';
@@ -609,15 +616,284 @@ void main() {
   });
 
   // =========================================================================
-  // MODULE 4: PRODUCT DETAIL PAGE (BUY-PDP-001 to BUY-PDP-010)
+  // MODULE 4: PRODUCT DETAIL PAGE (BUY-PDP-001 to BUY-PDP-010) + B1/B2/B8
   // =========================================================================
   group('Module 4: Product Detail Page (PDP) Test Suite', () {
     late CartService cartService;
+    late List<Map<String, dynamic>> serverCartItems;
+    late int nextCartItemId;
+    late List<Map<String, dynamic>> recordedAddRequests;
+    String? forceAddErrorMessage;
+    int forceAddStatusCode = 422;
 
-    setUp(() {
+    ProductModel cloneWithNumericId(ProductModel src, String numericId) {
+      return ProductModel(
+        id: numericId,
+        title: src.title,
+        imageUrl: src.imageUrl,
+        category: src.category,
+        isMall: src.isMall,
+        discountTag: src.discountTag,
+        price: src.price,
+        originalPrice: src.originalPrice,
+        rating: src.rating,
+        soldCount: src.soldCount,
+        shippingTag: src.shippingTag,
+        hasPayLater: src.hasPayLater,
+        hasVoucher: src.hasVoucher,
+        shopId: src.shopId.isNotEmpty ? src.shopId : '12',
+        shopName: src.shopName,
+        shopBadge: src.shopBadge,
+        shopAvatarUrl: src.shopAvatarUrl,
+        stockQuantity: src.stockQuantity,
+        variantGroups: src.variantGroups,
+        reviews: src.reviews,
+        ratingBreakdown: src.ratingBreakdown,
+        galleryImages: src.galleryImages,
+        specs: src.specs,
+        description: src.description,
+        isActive: src.isActive,
+        isOnVacation: src.isOnVacation,
+        location: src.location,
+        perBuyerLimit: src.perBuyerLimit,
+        isFlashSale: src.isFlashSale,
+        flashSalePrice: src.flashSalePrice,
+        flashSaleStockRemaining: src.flashSaleStockRemaining,
+        flashSaleTotalStock: src.flashSaleTotalStock,
+        flashSaleTimeRemaining: src.flashSaleTimeRemaining,
+        claimableVouchers: src.claimableVouchers,
+        combinationStock: src.combinationStock,
+        isDeleted: src.isDeleted,
+      );
+    }
+
+    setUp(() async {
+      SharedPreferences.setMockInitialValues({});
+      BuyerAccountService.instance.resetState();
+      BuyerAccountService.instance.seedLoggedInBuyer(
+        firstName: 'Juan',
+        lastName: 'Dela Cruz',
+        email: 'pdp.buyer@nexora.com',
+        mobileNumber: '09171234567',
+        password: 'Password@123',
+      );
+      await ApiClient.instance.saveToken('test-pdp-token');
+
+      serverCartItems = [];
+      nextCartItemId = 500;
+      recordedAddRequests = [];
+      forceAddErrorMessage = null;
+      forceAddStatusCode = 422;
+
+      ApiClient.instance.setMockClient(
+        MockClient((request) async {
+          final path = request.url.path;
+
+          if (path.endsWith('/buyer/cart') && request.method == 'GET') {
+            return http.Response(
+              jsonEncode({
+                'success': true,
+                'data': {'items': serverCartItems},
+              }),
+              200,
+            );
+          }
+
+          if (path.endsWith('/buyer/cart/items') && request.method == 'POST') {
+            if (forceAddErrorMessage != null) {
+              return http.Response(
+                jsonEncode({'success': false, 'message': forceAddErrorMessage}),
+                forceAddStatusCode,
+              );
+            }
+            final body = jsonDecode(request.body) as Map<String, dynamic>;
+            recordedAddRequests.add(body);
+            final pid = body['product_id'];
+            final qty = (body['quantity'] as num?)?.toInt() ?? 1;
+            final variant = body['variant'];
+            final variantKey = variant != null ? jsonEncode(variant) : '';
+
+            final existingIdx = serverCartItems.indexWhere(
+              (e) =>
+                  e['product_id'].toString() == pid.toString() &&
+                  (e['variant'] != null ? jsonEncode(e['variant']) : '') ==
+                      variantKey,
+            );
+            late Map<String, dynamic> targetItem;
+            if (existingIdx >= 0) {
+              targetItem = serverCartItems[existingIdx];
+              targetItem['quantity'] =
+                  (targetItem['quantity'] as int) + qty;
+            } else {
+              final newId = nextCartItemId++;
+              targetItem = {
+                'id': newId,
+                'product_id': pid,
+                'seller_id': 12,
+                'seller_name': 'Aura Streetwear Official',
+                'store_badge': 'MALL',
+                'name': 'Product $pid',
+                'image': 'https://example.com/item.jpg',
+                'price': 199.0,
+                'regular_price': 299.0,
+                'quantity': qty,
+                'selected': true,
+                'variant': variant,
+                'stock': 25,
+                'is_vacation_mode': false,
+              };
+              serverCartItems.add(targetItem);
+            }
+            return http.Response(
+              jsonEncode({
+                'success': true,
+                'data': {
+                  'cart_item_id': targetItem['id'],
+                  'item': targetItem,
+                  'items': serverCartItems,
+                },
+              }),
+              201,
+            );
+          }
+
+          if (path.contains('/buyer/cart/items/') && request.method == 'PATCH') {
+            if (forceAddErrorMessage != null) {
+              return http.Response(
+                jsonEncode({'success': false, 'message': forceAddErrorMessage}),
+                forceAddStatusCode,
+              );
+            }
+            final idStr = path.split('/').last;
+            final body = jsonDecode(request.body) as Map<String, dynamic>;
+            final idx = serverCartItems
+                .indexWhere((e) => e['id'].toString() == idStr);
+            if (idx < 0) {
+              return http.Response(
+                jsonEncode({'message': 'Cart item not found.'}),
+                404,
+              );
+            }
+            if (body.containsKey('quantity')) {
+              serverCartItems[idx]['quantity'] =
+                  (body['quantity'] as num).toInt();
+            }
+            if (body.containsKey('selected')) {
+              serverCartItems[idx]['selected'] = body['selected'] == true;
+            }
+            return http.Response(
+              jsonEncode({
+                'success': true,
+                'data': {'items': serverCartItems},
+              }),
+              200,
+            );
+          }
+
+          if (path.endsWith('/buyer/cart/select-all') &&
+              request.method == 'PATCH') {
+            if (forceAddErrorMessage != null) {
+              return http.Response(
+                jsonEncode({'success': false, 'message': forceAddErrorMessage}),
+                forceAddStatusCode,
+              );
+            }
+            final body = jsonDecode(request.body) as Map<String, dynamic>;
+            final sel = body['selected'] == true;
+            for (final item in serverCartItems) {
+              item['selected'] = sel;
+            }
+            return http.Response(
+              jsonEncode({
+                'success': true,
+                'data': {'items': serverCartItems},
+              }),
+              200,
+            );
+          }
+
+          if (path.contains('/buyer/cart/items/') &&
+              request.method == 'DELETE') {
+            if (forceAddErrorMessage != null) {
+              return http.Response(
+                jsonEncode({'success': false, 'message': forceAddErrorMessage}),
+                forceAddStatusCode,
+              );
+            }
+            final idStr = path.split('/').last;
+            serverCartItems.removeWhere((e) => e['id'].toString() == idStr);
+            return http.Response(
+              jsonEncode({
+                'success': true,
+                'data': {'items': serverCartItems},
+              }),
+              200,
+            );
+          }
+
+          if (path.endsWith('/buyer/products/201') && request.method == 'GET') {
+            return http.Response(
+              jsonEncode({
+                'success': true,
+                'data': {
+                  'id': 201,
+                  'name': 'Dual Variant Canvas Tote',
+                  'price': 350.0,
+                  'compare_price': 450.0,
+                  'stock': 20,
+                  'is_active': true,
+                  'seller': {
+                    'id': 77,
+                    'store_name': 'Laguna Craft Co',
+                    'business_name': 'Laguna Craft Co',
+                    'city': 'Sta. Cruz',
+                    'is_vacation_mode': false,
+                    'followers_count': 42,
+                    'is_following': false,
+                  },
+                  'gallery': ['https://example.com/tote-main.jpg'],
+                  'variants_data': [
+                    {
+                      'name': 'Crimson Red',
+                      'price': 350.0,
+                      'stock': 4,
+                      'image': 'https://example.com/tote-red.jpg',
+                    },
+                    {
+                      'name': 'Midnight Blue',
+                      'price': 390.0,
+                      'stock': 8,
+                      'image': 'https://example.com/tote-blue.jpg',
+                    },
+                  ],
+                  'sizes': ['S', 'M'],
+                },
+              }),
+              200,
+            );
+          }
+
+          if (path.contains('/buyer/products/') && request.method == 'GET') {
+            // Preserve local P-01/P-02/P-07 test fixtures when already passed via args
+            return http.Response(
+              jsonEncode({'message': 'Mock skip overwrite'}),
+              500,
+            );
+          }
+
+          return http.Response(jsonEncode({'success': true, 'data': {}}), 200);
+        }),
+      );
+
       cartService = CartService.instance;
       cartService.clearCart();
       cartService.resetPurchaseHistory();
+    });
+
+    tearDown(() async {
+      AddedToCartHUD.dismiss();
+      ApiClient.instance.setMockClient(http.Client());
+      await ApiClient.instance.clearToken();
     });
 
     testWidgets('BUY-PDP-001: All variation types must be selected before Add to Cart or Buy Now',
@@ -626,7 +902,10 @@ void main() {
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() => tester.view.resetPhysicalSize());
 
-      final p01 = ShopService.instance.getProductById('P-01')!;
+      final p01 = cloneWithNumericId(
+        ShopService.instance.getProductById('P-01')!,
+        '101',
+      );
 
       await tester.pumpWidget(createTestPDP(p01));
       await tester.pumpAndSettle();
@@ -668,11 +947,15 @@ void main() {
       hideCurrentSnack();
       await tester.pump();
       await tester.tap(addToCartBtn, warnIfMissed: false);
-      await tester.pump();
+      await tester.pumpAndSettle();
       expect(find.textContaining('Added 1x'), findsOneWidget);
       expect(cartService.cartItemCount, equals(1));
+      expect(recordedAddRequests.last['variant'], isA<Map>());
+      expect(recordedAddRequests.last['variant']['variation'], equals('Natural'));
+      expect(recordedAddRequests.last['variant']['size'], equals('S'));
 
       // 4. Test Buy Now with unselected variants
+      serverCartItems.clear();
       cartService.clearCart();
       await tester.pumpWidget(createTestPDP(p01, key: const ValueKey('buy_now_fresh')));
       await tester.pumpAndSettle();
@@ -703,7 +986,10 @@ void main() {
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() => tester.view.resetPhysicalSize());
 
-      final p01 = ShopService.instance.getProductById('P-01')!;
+      final p01 = cloneWithNumericId(
+        ShopService.instance.getProductById('P-01')!,
+        '101',
+      );
       await tester.pumpWidget(createTestPDP(p01));
       await tester.pumpAndSettle();
 
@@ -738,7 +1024,10 @@ void main() {
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() => tester.view.resetPhysicalSize());
 
-      final p01 = ShopService.instance.getProductById('P-01')!;
+      final p01 = cloneWithNumericId(
+        ShopService.instance.getProductById('P-01')!,
+        '101',
+      );
       await tester.pumpWidget(createTestPDP(p01));
       await tester.pumpAndSettle();
 
@@ -761,7 +1050,10 @@ void main() {
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() => tester.view.resetPhysicalSize());
 
-      final p02 = ShopService.instance.getProductById('P-02')!;
+      final p02 = cloneWithNumericId(
+        ShopService.instance.getProductById('P-02')!,
+        '102',
+      );
       await tester.pumpWidget(createTestPDP(p02));
       await tester.pumpAndSettle();
 
@@ -787,11 +1079,13 @@ void main() {
         hideCurrentSnack();
         await tester.pump();
         await tester.tap(addToCartBtn, warnIfMissed: false);
-        await tester.pump();
+        await tester.pumpAndSettle();
 
         if (shouldAccept) {
           expect(cartService.cartItemCount, greaterThan(initialCartCount));
+          serverCartItems.clear();
           cartService.clearCart();
+          AddedToCartHUD.dismiss();
         } else {
           expect(cartService.cartItemCount, equals(initialCartCount));
         }
@@ -844,7 +1138,10 @@ void main() {
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() => tester.view.resetPhysicalSize());
 
-      final p07 = ShopService.instance.getProductById('P-07')!;
+      final p07 = cloneWithNumericId(
+        ShopService.instance.getProductById('P-07')!,
+        '107',
+      );
       await tester.pumpWidget(createTestPDP(p07));
       await tester.pumpAndSettle();
 
@@ -855,14 +1152,16 @@ void main() {
       await tester.enterText(qtyInput, '2');
       await tester.pumpAndSettle();
       await tester.tap(addToCartBtn, warnIfMissed: false);
-      await tester.pump();
+      await tester.pumpAndSettle();
       expect(cartService.items.length, equals(1));
       expect(cartService.items.first.quantity, equals(2));
       expect(cartService.cartItemCount, equals(2));
 
       // Buyer purchases them
-      cartService.recordPurchase('P-07', 2);
+      cartService.recordPurchase('107', 2);
+      serverCartItems.clear();
       cartService.clearCart();
+      AddedToCartHUD.dismiss();
 
       // 2. Try to add 1 more P-07
       final pState = tester.element(find.byType(ProductDetailsPage));
@@ -910,44 +1209,138 @@ void main() {
       expect(find.text('Claimed'), findsOneWidget);
     });
 
-    test('BUY-PDP-007: Buy Now checks out only that item, cart stays untouched', () {
-      final p05 = ShopService.instance.getProductById('P-05')!;
-      cartService.addToCart(
-        title: p05.title,
-        variant: 'Standard',
-        price: 490.0,
-        originalPrice: 490.0,
-        imageUrl: p05.imageUrl,
-        storeName: 'Accessories Hub',
-        storeBadge: 'PREFERRED',
+    test('BUY-PDP-007: Buy Now checks out only that item with real product/seller/variant ids', () async {
+      await cartService.addToCart(
+        productId: 105,
         quantity: 1,
       );
 
       expect(cartService.cartItemCount, equals(1));
-      expect(cartService.items.first.title, equals(p05.title));
+      expect(cartService.items.first.productId, equals('105'));
 
-      // Buy Now P-01 Natural-M
+      // Buy Now P-01 Natural-M retains real IDs and payload
       cartService.buyNow(
+        productId: '101',
+        sellerId: 12,
+        variantData: const {
+          'variation': 'Natural',
+          'size': 'M',
+          'image': 'https://example.com/p01.jpg',
+        },
         title: 'Nexora Tailored Linen Blend Shirt P-01',
         variant: 'Natural • M',
         price: 199.0,
         originalPrice: 299.0,
         imageUrl: 'https://example.com/p01.jpg',
-        storeName: 'Nexora Official Store',
-        storeBadge: 'MALL',
+        storeName: 'Aura Streetwear Official',
+        storeBadge: 'OFFICIAL STORE',
         quantity: 1,
       );
 
-      // Checkout contains only P-01
+      // Checkout contains only P-01 with full server IDs
       final checkoutItems = cartService.checkoutItems;
       expect(checkoutItems.length, equals(1));
-      expect(checkoutItems.first.title, contains('P-01'));
+      expect(checkoutItems.first.productId, equals('101'));
+      expect(checkoutItems.first.sellerId, equals(12));
       expect(checkoutItems.first.variant, equals('Natural • M'));
+      expect(checkoutItems.first.variantData?['variation'], equals('Natural'));
+      expect(checkoutItems.first.variantData?['size'], equals('M'));
 
       // P-05 stays in cart and is not in checkout
       expect(cartService.items.length, equals(1));
-      expect(cartService.items.first.title, equals(p05.title));
-      expect(checkoutItems.any((i) => i.title == p05.title), isFalse);
+      expect(cartService.items.first.productId, equals('105'));
+      expect(checkoutItems.any((i) => i.productId == '105'), isFalse);
+    });
+
+    testWidgets('B1-CART-ERR: Server error surfaces ApiException message and never fakes Added to cart HUD', (tester) async {
+      tester.view.physicalSize = const Size(1080, 2400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+
+      forceAddErrorMessage = 'Seller is currently in vacation mode.';
+      forceAddStatusCode = 422;
+
+      final p02 = cloneWithNumericId(
+        ShopService.instance.getProductById('P-02')!,
+        '102',
+      );
+      await tester.pumpWidget(createTestPDP(p02));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Add to Cart'), warnIfMissed: false);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('Seller is currently in vacation mode.'),
+        findsOneWidget,
+      );
+      expect(find.text('Added to cart'), findsNothing);
+      expect(cartService.cartItemCount, equals(0));
+    });
+
+    test('B1-CART-TRUTH: Overlapping load queues trailing reload, failures roll back, logout clears cart', () async {
+      await cartService.addToCart(productId: 105, quantity: 1);
+      expect(cartService.items.length, equals(1));
+      final itemId = cartService.items.first.id;
+
+      // Failure on updateQuantityRemote rethrows ApiException and keeps server quantity
+      forceAddErrorMessage = 'Requested quantity exceeds stock (1 left).';
+      await expectLater(
+        () => cartService.updateQuantityRemote(itemId, 5),
+        throwsA(isA<ApiException>()),
+      );
+      expect(cartService.items.first.quantity, equals(1));
+
+      // Clear forced error and test overlapping loadCartRemote trailing queue
+      forceAddErrorMessage = null;
+      await Future.wait([
+        cartService.loadCartRemote(),
+        cartService.loadCartRemote(),
+      ]);
+      expect(cartService.items.length, equals(1));
+
+      // Logout clears cart and never leaves 'guest' items behind
+      await ApiClient.instance.clearToken();
+      BuyerAccountService.instance.resetState();
+      expect(cartService.items, isEmpty);
+      await expectLater(
+        () => cartService.addToCart(productId: 105, quantity: 1),
+        throwsA(isA<ApiException>()),
+      );
+    });
+
+    testWidgets('B8-VARIANTS: API product parses dual Variation + Size, min stock, and posts {variation, size, image}', (tester) async {
+      tester.view.physicalSize = const Size(1080, 2400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+
+      await tester.pumpWidget(createTestPDP('201'));
+      await tester.pumpAndSettle();
+
+      // Both groups start unselected (each has 2 options) -> displays 'Select a Variation' and 'Select a Size' badges
+      expect(find.text('Dual Variant Canvas Tote'), findsOneWidget);
+      expect(find.text('Crimson Red'), findsOneWidget);
+      expect(find.text('Midnight Blue'), findsOneWidget);
+      expect(find.text('S'), findsOneWidget);
+      expect(find.text('M'), findsOneWidget);
+
+      // Select Midnight Blue (₱390, stock 8) + M (stock 20) -> min stock 8, price ₱390.00
+      await tester.tap(find.text('Midnight Blue'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('M'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('₱390.00'), findsWidgets);
+      expect(find.textContaining('Only 8 left in stock'), findsOneWidget);
+
+      await tester.tap(find.text('Add to Cart'), warnIfMissed: false);
+      await tester.pumpAndSettle();
+
+      expect(recordedAddRequests, isNotEmpty);
+      final sentVariant = recordedAddRequests.last['variant'] as Map<String, dynamic>;
+      expect(sentVariant['variation'], equals('Midnight Blue'));
+      expect(sentVariant['size'], equals('M'));
+      expect(sentVariant['image'], equals('https://example.com/tote-blue.jpg'));
     });
 
     testWidgets('BUY-PDP-008: Product screen of an unavailable product (deleted or inactive)', (tester) async {
@@ -1052,7 +1445,10 @@ void main() {
       await tester.pump();
 
       // Shows copied snackbar with deep link URL
-      expect(find.textContaining('https://nexora.app/products/P-02'), findsOneWidget);
+      expect(
+        find.textContaining('${ApiConstants.baseUrl}/products/P-02'),
+        findsOneWidget,
+      );
 
       // Open P-02 via app route /products/P-02
       await tester.pumpWidget(MaterialApp(

@@ -1,6 +1,8 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
+import '../../../core/network/api_client.dart';
 import '../../../core/services/cart_service.dart';
 import '../../../core/services/order_service.dart';
 
@@ -43,6 +45,9 @@ class _RateProductPageState extends State<RateProductPage> {
   // Attached user photos/media
   final List<ReviewMediaItem> _uploadedPhotos = [];
   bool _isPickingMedia = false;
+  bool _isSubmitting = false;
+
+  bool get _isEdit => _resolvedOrder?.review != null;
 
   final List<String> _courierTags = [
     'Friendly',
@@ -72,7 +77,9 @@ class _RateProductPageState extends State<RateProductPage> {
       'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?auto=format&fit=crop&w=150&q=80';
 
   OrderItemModel? _resolvedOrder;
+  // ignore: unused_field
   String _courierName = 'Pedro Jose Garcia';
+  // ignore: unused_field
   String _orderId = '#NX-8942-ORD';
   bool _initializedArgs = false;
 
@@ -99,7 +106,22 @@ class _RateProductPageState extends State<RateProductPage> {
         if (orderArg.courierName.isNotEmpty) {
           _courierName = orderArg.courierName;
         }
-        if (orderArg.isRated) {
+        if (orderArg.review != null) {
+          _productRating = orderArg.review!.rating > 0 ? orderArg.review!.rating : 5;
+          if (orderArg.review!.comment != null && orderArg.review!.comment!.isNotEmpty) {
+            _reviewController.text = orderArg.review!.comment!;
+          }
+          if (orderArg.review!.photos.isNotEmpty) {
+            for (final pUrl in orderArg.review!.photos) {
+              _uploadedPhotos.add(
+                ReviewMediaItem(
+                  url: pUrl,
+                  name: pUrl.split('/').last,
+                ),
+              );
+            }
+          }
+        } else if (orderArg.isRated) {
           if (orderArg.buyerDriverRating != null) {
             _driverRating = orderArg.buyerDriverRating!;
           }
@@ -385,71 +407,69 @@ class _RateProductPageState extends State<RateProductPage> {
       return;
     }
 
-    final newRiderRating = await OrderService.instance.submitRiderRating(
-      orderId: _orderId,
-      driverRating: _driverRating,
-      deliveryRating: _deliveryRating,
-      productRating: _productRating,
-      sellerRating: _sellerRating,
-      courierComment: _courierCommentController.text.trim(),
-      courierTags: _selectedCourierTags.toList(),
-      productReview: _reviewController.text.trim(),
-      courierName: _courierName,
-    );
+    final serverId = _resolvedOrder?.serverId ?? 0;
+    if (serverId <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cannot submit review: numeric order ID is unavailable.')),
+      );
+      return;
+    }
 
-    if (!mounted) return;
+    setState(() => _isSubmitting = true);
 
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: const [
-            Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 28),
-            SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                'Review Submitted Successfully!',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-              ),
+    try {
+      final multipartFiles = <http.MultipartFile>[];
+      for (final p in _uploadedPhotos) {
+        if (p.bytes != null) {
+          multipartFiles.add(
+            http.MultipartFile.fromBytes(
+              'photos[]',
+              p.bytes!,
+              filename: p.name.isNotEmpty ? p.name : 'photo.jpg',
             ),
-          ],
+          );
+        }
+      }
+
+      final updated = await OrderService.instance.submitReviewRemote(
+        serverId,
+        rating: _productRating,
+        comment: _reviewController.text.trim(),
+        photoFiles: multipartFiles,
+      );
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(_isEdit
+              ? 'Review updated successfully!'
+              : 'Thank you for your rating and feedback!'),
+          backgroundColor: const Color(0xFF10B981),
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Thank you for sharing your feedback. Your product review and rider rating help keep our marketplace safe and reliable.',
-              style: TextStyle(fontSize: 13.5, color: Color(0xFF475569), height: 1.45),
-            ),
-            if (_uploadedPhotos.isNotEmpty) ...[
-              const SizedBox(height: 10),
-              Text(
-                '✓ ${_uploadedPhotos.length} photo(s) attached.',
-                style: const TextStyle(fontSize: 12, color: Color(0xFF0066FF), fontWeight: FontWeight.w600),
-              ),
-            ],
-          ],
+      );
+      Navigator.pop(context, updated);
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.message),
+          backgroundColor: const Color(0xFFDC2626),
         ),
-        actions: [
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              Navigator.pop(context, newRiderRating); // Return to Orders / Order Details
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF0066FF),
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
-            ),
-            child: const Text('Done', style: TextStyle(fontWeight: FontWeight.bold)),
-          ),
-        ],
-      ),
-    );
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to submit review: $e'),
+          backgroundColor: const Color(0xFFDC2626),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
+    }
   }
 
   @override
@@ -486,7 +506,7 @@ class _RateProductPageState extends State<RateProductPage> {
         child: Column(
           children: [
             _buildProductSection(),
-            _buildCourierSection(),
+            // Courier/rider rating has no web equivalent (Rule 4 & B5): hidden
             const SizedBox(height: 24),
           ],
         ),
@@ -806,6 +826,7 @@ class _RateProductPageState extends State<RateProductPage> {
     );
   }
 
+  // ignore: unused_element
   Widget _buildCourierSection() {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -986,21 +1007,33 @@ class _RateProductPageState extends State<RateProductPage> {
           width: double.infinity,
           height: 48,
           child: ElevatedButton(
-            onPressed: _handleSubmit,
+            onPressed: _isSubmitting ? null : _handleSubmit,
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF0066FF),
               foregroundColor: Colors.white,
               elevation: 0,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: const [
-                Text('Submit Review', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-                SizedBox(width: 8),
-                Icon(Icons.arrow_forward, size: 16),
-              ],
-            ),
+            child: _isSubmitting
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        _isEdit ? 'Update Review' : 'Submit Review',
+                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(width: 8),
+                      const Icon(Icons.arrow_forward, size: 16),
+                    ],
+                  ),
           ),
         ),
       ),

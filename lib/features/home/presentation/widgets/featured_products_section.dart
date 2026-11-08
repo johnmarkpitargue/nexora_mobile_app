@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import 'product_card.dart';
 import '../../../../core/services/shop_service.dart';
 
@@ -46,7 +47,9 @@ class _DailyDiscoverSectionState extends State<DailyDiscoverSection> {
 
   void _loadCatalog() {
     if (ShopService.instance.isLoadingCatalog) return;
-    ShopService.instance.loadCatalogRemote(category: widget.selectedCategory).catchError((_) => <ProductModel>[]);
+    ShopService.instance
+        .loadCatalogRemote(category: widget.selectedCategory)
+        .catchError((_) => <ProductModel>[]);
   }
 
   @override
@@ -122,12 +125,19 @@ class _DailyDiscoverSectionState extends State<DailyDiscoverSection> {
               ),
               child: Column(
                 children: [
-                  const Icon(Icons.error_outline, color: Colors.redAccent, size: 36),
+                  const Icon(
+                    Icons.error_outline,
+                    color: Colors.redAccent,
+                    size: 36,
+                  ),
                   const SizedBox(height: 8),
                   Text(
                     'Unable to load products: $error',
                     textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 12.5, color: Color(0xFF64748B)),
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      color: Color(0xFF64748B),
+                    ),
                   ),
                   const SizedBox(height: 12),
                   ElevatedButton.icon(
@@ -138,7 +148,9 @@ class _DailyDiscoverSectionState extends State<DailyDiscoverSection> {
                       backgroundColor: const Color(0xFF0066FF),
                       foregroundColor: Colors.white,
                       elevation: 0,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
                     ),
                   ),
                 ],
@@ -155,11 +167,19 @@ class _DailyDiscoverSectionState extends State<DailyDiscoverSection> {
               ),
               child: Column(
                 children: [
-                  const Icon(Icons.inventory_2_outlined, color: Color(0xFF94A3B8), size: 40),
+                  const Icon(
+                    Icons.inventory_2_outlined,
+                    color: Color(0xFF94A3B8),
+                    size: 40,
+                  ),
                   const SizedBox(height: 8),
                   const Text(
                     'No products found in this category',
-                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: Color(0xFF64748B)),
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                      color: Color(0xFF64748B),
+                    ),
                   ),
                   const SizedBox(height: 6),
                   TextButton(
@@ -179,7 +199,7 @@ class _DailyDiscoverSectionState extends State<DailyDiscoverSection> {
                 crossAxisCount: 2,
                 crossAxisSpacing: 10,
                 mainAxisSpacing: 10,
-                childAspectRatio: 0.50,
+                childAspectRatio: 0.68,
               ),
               itemBuilder: (context, index) {
                 return ProductCard(product: products[index]);
@@ -193,7 +213,10 @@ class _DailyDiscoverSectionState extends State<DailyDiscoverSection> {
                   onTap: widget.onLoadMore,
                   borderRadius: BorderRadius.circular(20),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 10,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(20),

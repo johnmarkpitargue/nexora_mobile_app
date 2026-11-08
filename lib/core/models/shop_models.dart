@@ -22,7 +22,7 @@ class ProductVariantOption {
     this.subtitle,
     this.priceOffset = 0.0,
     this.price,
-    this.stock = 50,
+    this.stock = 0,
     this.imageUrl,
     this.sku,
     this.color,

@@ -31,15 +31,13 @@ class _SearchBrowsePageState extends State<SearchBrowsePage> {
   SearchResult _searchResult = const SearchResult(products: []);
   bool _isLoading = false;
 
-  final List<String> _categories = [
-    'All',
-    'Home & Living',
-    'Audio',
-    'Tech & Gadgets',
-    'Gaming',
-    'Jewelry',
-    'Fashion',
-  ];
+  List<String> get _categories {
+    final remoteCats = ShopService.instance.categories.map((c) => c.name).toList();
+    if (remoteCats.isEmpty) {
+      return const ['All'];
+    }
+    return ['All', ...remoteCats];
+  }
 
   final Map<String, String> _sortOptions = {
     'relevance': 'Relevance',
@@ -56,6 +54,11 @@ class _SearchBrowsePageState extends State<SearchBrowsePage> {
     if (widget.initialCategory != null) {
       _currentCategory = widget.initialCategory!;
     }
+    if (ShopService.instance.categories.isEmpty) {
+      ShopService.instance.fetchCategoriesRemote().then((_) {
+        if (mounted) setState(() {});
+      }).catchError((_) {});
+    }
     _executeSearch();
   }
 
@@ -68,9 +71,20 @@ class _SearchBrowsePageState extends State<SearchBrowsePage> {
 
   Future<void> _executeSearch() async {
     setState(() => _isLoading = true);
+    final String? catParam;
+    if (_currentCategory == 'All') {
+      catParam = null;
+    } else {
+      final matched = ShopService.instance.categories.where(
+        (c) => c.name.toLowerCase() == _currentCategory.toLowerCase() ||
+               c.slug.toLowerCase() == _currentCategory.toLowerCase(),
+      );
+      catParam = matched.isNotEmpty ? matched.first.slug : _currentCategory;
+    }
+
     final params = SearchFilterParams(
       query: _searchController.text.trim(),
-      category: _currentCategory == 'All' ? null : _currentCategory,
+      category: catParam,
       minPrice: _minPrice,
       maxPrice: _maxPrice,
       minRating: _minRating,

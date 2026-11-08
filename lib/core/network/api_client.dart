@@ -9,7 +9,7 @@ class ApiException implements Exception {
   final int statusCode;
   final Map<String, dynamic>? errors;
 
-  ApiException({
+  const ApiException({
     required this.message,
     required this.statusCode,
     this.errors,
@@ -56,6 +56,8 @@ class ApiClient {
   void setMockClient(http.Client client) {
     _client = client;
   }
+
+  set client(http.Client client) => _client = client;
 
   Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();

@@ -120,7 +120,7 @@ class _NexoraHomePageState extends State<NexoraHomePage>
           _buildHomeTab(),
           _loadedTabs.contains(1) ? const CartPage() : const SizedBox.shrink(),
           _loadedTabs.contains(2)
-              ? const OrdersPage()
+              ? OrdersPage(isActiveTab: _currentIndex == 2)
               : const SizedBox.shrink(),
           _loadedTabs.contains(3) ? const ChatPage() : const SizedBox.shrink(),
           _loadedTabs.contains(4)

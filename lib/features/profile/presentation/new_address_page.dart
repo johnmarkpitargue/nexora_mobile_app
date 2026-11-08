@@ -6,8 +6,8 @@ import '../../../app/theme/nexora_theme.dart';
 import '../../../core/services/address_service.dart';
 import '../../../core/services/buyer_account_service.dart';
 import '../../../core/services/laguna_places_service.dart';
-import '../../../core/services/order_service.dart';
 import '../../../core/services/ph_location_service.dart';
+import '../../../core/services/psgc_location_service.dart';
 import 'region_selector_page.dart';
 
 class NewAddressPage extends StatefulWidget {
@@ -31,11 +31,16 @@ class _NewAddressPageState extends State<NewAddressPage> {
   late final TextEditingController _phoneController;
   late final TextEditingController _postalController;
   late final TextEditingController _streetController;
+  late final TextEditingController _houseNumberController;
 
   String? _selectedRegion;
+  String? _selectedRegionCode;
   String? _selectedProvince;
+  String? _selectedProvinceCode;
   String? _selectedCity;
+  String? _selectedMunicipalityCode;
   String? _selectedBarangay;
+  String? _selectedBarangayCode;
 
   bool _isDefault = false;
   String _selectedLabel = 'Home'; // 'Work' or 'Home'
@@ -53,12 +58,17 @@ class _NewAddressPageState extends State<NewAddressPage> {
     _phoneController = TextEditingController(text: item?.phone ?? '');
     _postalController = TextEditingController(text: item?.postalCode ?? '');
     _streetController = TextEditingController(text: item?.streetBuilding ?? '');
+    _houseNumberController = TextEditingController(text: item?.houseNumber ?? '');
 
     if (item != null) {
       _selectedRegion = item.region.isNotEmpty ? item.region : null;
+      _selectedRegionCode = item.regionCode.isNotEmpty ? item.regionCode : null;
       _selectedProvince = item.province.isNotEmpty ? item.province : null;
+      _selectedProvinceCode = item.provinceCode.isNotEmpty ? item.provinceCode : null;
       _selectedCity = item.city.isNotEmpty ? item.city : null;
+      _selectedMunicipalityCode = item.municipalityCode.isNotEmpty ? item.municipalityCode : null;
       _selectedBarangay = item.barangay.isNotEmpty ? item.barangay : null;
+      _selectedBarangayCode = item.barangayCode.isNotEmpty ? item.barangayCode : null;
       _latitude = item.latitude;
       _longitude = item.longitude;
       _pinpointPlaceName = '${item.barangay}, ${item.city}, ${item.province}';
@@ -67,9 +77,13 @@ class _NewAddressPageState extends State<NewAddressPage> {
     } else {
       // Clean blank state for adding a NEW address
       _selectedRegion = null;
+      _selectedRegionCode = null;
       _selectedProvince = null;
+      _selectedProvinceCode = null;
       _selectedCity = null;
+      _selectedMunicipalityCode = null;
       _selectedBarangay = null;
+      _selectedBarangayCode = null;
       _latitude = null;
       _longitude = null;
       _pinpointPlaceName = null;
@@ -84,6 +98,7 @@ class _NewAddressPageState extends State<NewAddressPage> {
     _phoneController.dispose();
     _postalController.dispose();
     _streetController.dispose();
+    _houseNumberController.dispose();
     super.dispose();
   }
 
@@ -107,9 +122,13 @@ class _NewAddressPageState extends State<NewAddressPage> {
     if (result != null) {
       setState(() {
         _selectedRegion = result.region;
+        _selectedRegionCode = result.regionCode;
         _selectedProvince = result.province;
+        _selectedProvinceCode = result.provinceCode;
         _selectedCity = result.city;
+        _selectedMunicipalityCode = result.municipalityCode;
         _selectedBarangay = result.barangay;
+        _selectedBarangayCode = result.barangayCode;
         _postalController.text = result.postalCode;
         _latitude = result.latitude;
         _longitude = result.longitude;
@@ -753,7 +772,6 @@ class _NewAddressPageState extends State<NewAddressPage> {
     }
 
     final regionCity = '$_selectedRegion, ${_selectedProvince ?? ''}, $_selectedCity, $_selectedBarangay';
-    final fullAddrStr = '$street, ${_selectedBarangay ?? ''}, ${_selectedCity ?? ''}, ${_selectedProvince ?? ''} $postal';
 
     double lat;
     double lng;
@@ -770,17 +788,38 @@ class _NewAddressPageState extends State<NewAddressPage> {
       lng = resolved.longitude;
     }
 
+    if (widget.editAddress == null && !AddressService.instance.canAddAddress) {
+      setState(() => _validationError =
+          'Maximum 10 addresses reached. Please edit or delete an existing address.');
+      return;
+    }
+
+    final regCode = _selectedRegionCode ??
+        PsgcLocationService.resolveRegionCode(_selectedRegion!, _selectedProvince);
+    final provCode = _selectedProvinceCode ??
+        PsgcLocationService.resolveProvinceCode(_selectedProvince ?? '');
+    final cityCode = _selectedMunicipalityCode ??
+        PsgcLocationService.resolveCityCode(_selectedCity!, provCode);
+    final brgyCode = _selectedBarangayCode ??
+        PsgcLocationService.resolveBarangayCode(_selectedBarangay!, cityCode);
+    final houseNum = _houseNumberController.text.trim();
+
     if (widget.editAddress != null) {
       final updated = widget.editAddress!.copyWith(
         fullName: name,
         phone: phone,
         region: _selectedRegion!,
+        regionCode: regCode,
         province: _selectedProvince ?? '',
+        provinceCode: provCode,
         city: _selectedCity!,
+        municipalityCode: cityCode,
         barangay: _selectedBarangay!,
+        barangayCode: brgyCode,
         regionCity: regionCity,
         postalCode: postal,
         streetBuilding: street,
+        houseNumber: houseNum,
         label: _selectedLabel,
         isDefault: _isDefault,
         latitude: lat,
@@ -792,16 +831,6 @@ class _NewAddressPageState extends State<NewAddressPage> {
         return;
       }
 
-      // Sync updated pin to active orders
-      for (final order in OrderService.instance.activeOrders) {
-        OrderService.instance.updateOrderDeliveryPin(
-          orderId: order.orderId,
-          lat: lat,
-          lng: lng,
-          address: fullAddrStr,
-        );
-      }
-
       _showToast('Address updated successfully');
     } else {
       final newAddr = AddressModel(
@@ -809,12 +838,17 @@ class _NewAddressPageState extends State<NewAddressPage> {
         fullName: name,
         phone: phone,
         region: _selectedRegion!,
+        regionCode: regCode,
         province: _selectedProvince ?? '',
+        provinceCode: provCode,
         city: _selectedCity!,
+        municipalityCode: cityCode,
         barangay: _selectedBarangay!,
+        barangayCode: brgyCode,
         regionCity: regionCity,
         postalCode: postal,
         streetBuilding: street,
+        houseNumber: houseNum,
         label: _selectedLabel,
         isDefault: _isDefault,
         latitude: lat,
@@ -825,17 +859,6 @@ class _NewAddressPageState extends State<NewAddressPage> {
       if (!res.success) {
         setState(() => _validationError = res.message);
         return;
-      }
-
-      if (_isDefault) {
-        for (final order in OrderService.instance.activeOrders) {
-          OrderService.instance.updateOrderDeliveryPin(
-            orderId: order.orderId,
-            lat: lat,
-            lng: lng,
-            address: fullAddrStr,
-          );
-        }
       }
 
       _showToast('New address saved successfully');

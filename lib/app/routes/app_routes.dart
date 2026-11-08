@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../features/splash/presentation/splash_page.dart';
 import '../../features/auth/presentation/landing_page.dart';
@@ -109,7 +110,7 @@ class AppRoutes {
           }
           return const ShopPage();
         },
-        customerMockOrder: (context) => const CustomerMockOrderScreen(),
+        if (!kReleaseMode) customerMockOrder: (context) => const CustomerMockOrderScreen(),
         orderDetails: (context) {
           final args = ModalRoute.of(context)?.settings.arguments;
           if (args is OrderItemModel) {

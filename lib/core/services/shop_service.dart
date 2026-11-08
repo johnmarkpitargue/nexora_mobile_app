@@ -303,15 +303,53 @@ class ShopService extends ChangeNotifier {
 
   Future<ProductModel?> _fetchProductRemoteInternal(String id) async {
     try {
-      final res = await ApiClient.instance.get(ApiConstants.buyerProduct(id));
-      if (res['data'] is Map<String, dynamic>) {
-        return ProductModel.fromApiJson(res['data'] as Map<String, dynamic>);
-      }
-      return null;
+      return await fetchProductDetailOrThrow(id);
     } catch (e) {
       debugPrint('fetchProductRemote error: $e');
       return null;
     }
+  }
+
+  /// Fetch single product detail or throw ApiException for Retry error UI.
+  Future<ProductModel> fetchProductDetailOrThrow(String id) async {
+    final res = await ApiClient.instance.get(ApiConstants.buyerProduct(id));
+    final data = res['data'];
+    if (data is! Map<String, dynamic>) {
+      throw const ApiException(statusCode: 500, message: 'Invalid product response.');
+    }
+    final productJson = data['product'] is Map<String, dynamic>
+        ? data['product'] as Map<String, dynamic>
+        : data;
+    final sellerJson = productJson['seller'];
+    if (sellerJson is Map<String, dynamic> && sellerJson['id'] != null) {
+      final sId = sellerJson['id'].toString();
+      final sName = (sellerJson['store_name'] as String?)?.trim().isNotEmpty == true
+          ? sellerJson['store_name'].toString().trim()
+          : ((sellerJson['business_name'] as String?)?.trim().isNotEmpty == true
+              ? sellerJson['business_name'].toString().trim()
+              : (sellerJson['name'] as String?)?.trim() ?? '');
+      final isVac = sellerJson['is_vacation_mode'] == true;
+      _remoteShopsCache[sId] = ShopModel(
+        id: sId,
+        name: sName,
+        badge: isVac ? 'ON VACATION' : '',
+        rating: (productJson['rating'] as num?)?.toDouble() ?? 0.0,
+        followers: '${sellerJson['followers_count'] ?? 0}',
+        initials: sName.isNotEmpty ? sName[0].toUpperCase() : 'S',
+        avatarUrl: sellerJson['avatar_url'] as String?,
+        isFollowing: sellerJson['is_following'] == true,
+        isVacationMode: isVac,
+        categoryGroupTitle: '',
+        categories: const [],
+        vouchers: const [],
+      );
+      if (sellerJson['is_following'] == true) {
+        _currentFollowedShops.add(sId);
+      } else {
+        _currentFollowedShops.remove(sId);
+      }
+    }
+    return ProductModel.fromApiJson(data);
   }
 
   /// Toggle wishlist on Laravel backend API
@@ -582,6 +620,11 @@ class ShopService extends ChangeNotifier {
         (p) => p.id.toLowerCase() == id.toLowerCase(),
       );
     } catch (_) {
+      for (final shopProds in _remoteShopProducts.values) {
+        for (final p in shopProds) {
+          if (p.id.toLowerCase() == id.toLowerCase()) return p;
+        }
+      }
       try {
         return allAppProducts.firstWhere(
           (p) => p.id.toLowerCase() == id.toLowerCase(),

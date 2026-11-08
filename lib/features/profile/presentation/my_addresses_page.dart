@@ -22,7 +22,8 @@ class _MyAddressesPageState extends State<MyAddressesPage> {
     if (!_addressService.canAddAddress) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Address limit reached. You can only save up to 10 addresses.'),
+          content: Text(
+              'Maximum 10 addresses reached. Please edit or delete an existing address.'),
           backgroundColor: Colors.redAccent,
         ),
       );

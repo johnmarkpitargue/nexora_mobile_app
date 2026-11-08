@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+
 import '../../../../app/routes/app_routes.dart';
 import '../../../../app/theme/nexora_theme.dart';
 import '../../../../core/services/wishlist_service.dart';
 import '../../../../core/models/shop_models.dart';
 import '../../../../core/utils/image_url_helper.dart';
+import '../../../../core/utils/variant_helper.dart';
 
 class ProductModel {
   final String id;
@@ -22,6 +24,7 @@ class ProductModel {
   final String shopId;
   final String shopName;
   final String shopBadge;
+  final String? shopAvatarUrl;
   final int stockQuantity;
   final List<ProductVariantGroup>? variantGroups;
   final List<ProductReviewModel>? reviews;
@@ -47,19 +50,20 @@ class ProductModel {
     required this.title,
     required this.imageUrl,
     required this.category,
-    this.isMall = true,
+    this.isMall = false,
     this.discountTag,
     required this.price,
     this.originalPrice,
     required this.rating,
     required this.soldCount,
     required this.shippingTag,
-    this.hasPayLater = true,
+    this.hasPayLater = false,
     this.hasVoucher = false,
-    this.shopId = 'nexora_official',
-    this.shopName = 'Nexora Official Store',
-    this.shopBadge = 'NEXORA MALL',
-    this.stockQuantity = 150,
+    this.shopId = '',
+    this.shopName = '',
+    this.shopBadge = '',
+    this.shopAvatarUrl,
+    this.stockQuantity = 0,
     this.variantGroups,
     this.reviews,
     this.ratingBreakdown,
@@ -68,7 +72,7 @@ class ProductModel {
     this.description,
     this.isActive = true,
     this.isOnVacation = false,
-    this.location = 'Metro Manila',
+    this.location = '',
     this.perBuyerLimit,
     this.isFlashSale = false,
     this.flashSalePrice,
@@ -81,141 +85,91 @@ class ProductModel {
   });
 
   factory ProductModel.fromApiJson(Map<String, dynamic> inputJson) {
-    final json = inputJson.containsKey('product') && inputJson['product'] is Map<String, dynamic>
+    final json =
+        inputJson.containsKey('product') &&
+            inputJson['product'] is Map<String, dynamic>
         ? inputJson['product'] as Map<String, dynamic>
         : inputJson;
     final seller = json['seller'] as Map<String, dynamic>?;
-    final primaryImg = ImageUrlHelper.resolve(json['image'] as String? ?? json['primary_image'] as String?);
-    final gallery = (json['gallery'] as List?)
+    final primaryImg = ImageUrlHelper.resolve(
+      json['image'] as String? ?? json['primary_image'] as String?,
+    );
+    final gallery =
+        (json['gallery'] as List?)
             ?.map((e) => ImageUrlHelper.resolve(e))
             .where((e) => e.isNotEmpty)
             .toList() ??
         [];
-    final imagesList = (json['images'] as List?)
+    final imagesList =
+        (json['images'] as List?)
             ?.map((e) => ImageUrlHelper.resolve(e))
             .where((e) => e.isNotEmpty)
             .toList() ??
         [];
-    final allImages = [...gallery, ...imagesList];
-    final imgUrl = primaryImg.isNotEmpty ? primaryImg : (allImages.isNotEmpty ? allImages.first : '');
-
-    final priceVal = json['price'];
-    final compareVal = json['compare_price'] ?? json['regular_price'];
-    final formattedPrice = json['formatted_price'] ??
-        (priceVal != null
-            ? '₱${priceVal is num ? (priceVal % 1 == 0 ? priceVal.toInt().toString() : priceVal.toStringAsFixed(2)) : priceVal}'
-            : '₱0.00');
-    final formattedOriginal = compareVal != null && compareVal != priceVal
-        ? '₱${compareVal is num ? (compareVal % 1 == 0 ? compareVal.toInt().toString() : compareVal.toStringAsFixed(2)) : compareVal}'
-        : null;
-
-    final sellerId = seller?['id']?.toString() ?? json['seller_id']?.toString() ?? '1';
-    final sellerName = seller?['name'] as String? ??
-        seller?['business_name'] as String? ??
-        seller?['store_name'] as String? ??
-        json['seller_name'] as String? ??
-        'Nexora Store';
-
-    final categoryName = json['category_name'] as String? ??
-        json['category'] as String? ??
-        (json['category_slug'] != null ? json['category_slug'].toString() : 'General');
-
-    final isVacation = seller?['is_vacation_mode'] == true || json['is_vacation_mode'] == true;
-
-    // Variants data if provided by product detail endpoint
-    List<ProductVariantGroup>? variantGroups;
-    if (json['variants_data'] is List && (json['variants_data'] as List).isNotEmpty) {
-      final vList = json['variants_data'] as List;
-      final options = vList.map((v) {
-        if (v is! Map) {
-          final optStr = v.toString();
-          return ProductVariantOption(
-            id: optStr,
-            name: optStr,
-            stock: (json['stock'] as num?)?.toInt() ?? 50,
-          );
-        }
-        final optName = v['name']?.toString() ??
-            v['sku']?.toString() ??
-            v['color']?.toString() ??
-            'Option';
-        final optStock = (v['stock'] as num?)?.toInt() ??
-            (json['stock'] as num?)?.toInt() ??
-            0;
-        final optPrice = (v['price'] as num?)?.toDouble();
-        final optImg = ImageUrlHelper.resolve(v['image']);
-        final optColor = v['color']?.toString();
-        final optSize = v['size']?.toString();
-        final optSku = v['sku']?.toString();
-        return ProductVariantOption(
-          id: optSku != null && optSku.isNotEmpty ? optSku : optName,
-          name: optName,
-          price: optPrice,
-          stock: optStock,
-          imageUrl: optImg,
-          color: optColor,
-          size: optSize,
-          sku: optSku,
-        );
-      }).toList();
-      variantGroups = [
-        ProductVariantGroup(
-          groupName: 'Variation',
-          options: options,
-        )
-      ];
-    } else {
-      final colors = (json['colors'] as List?)
-              ?.map((c) => c.toString())
-              .where((c) => c.isNotEmpty)
-              .toList() ??
-          [];
-      final sizes = (json['sizes'] as List?)
-              ?.map((s) => s.toString())
-              .where((s) => s.isNotEmpty)
-              .toList() ??
-          [];
-      final fallbackStock = (json['stock'] as num?)?.toInt() ?? 50;
-
-      if (colors.isNotEmpty && sizes.isNotEmpty) {
-        variantGroups = [
-          ProductVariantGroup(
-            groupName: 'Color',
-            options: colors
-                .map((c) => ProductVariantOption(
-                    id: c, name: c, stock: fallbackStock, color: c))
-                .toList(),
-          ),
-          ProductVariantGroup(
-            groupName: 'Size',
-            options: sizes
-                .map((s) => ProductVariantOption(
-                    id: s, name: s, stock: fallbackStock, size: s))
-                .toList(),
-          ),
-        ];
-      } else if (colors.isNotEmpty) {
-        variantGroups = [
-          ProductVariantGroup(
-            groupName: 'Color',
-            options: colors
-                .map((c) => ProductVariantOption(
-                    id: c, name: c, stock: fallbackStock, color: c))
-                .toList(),
-          ),
-        ];
-      } else if (sizes.isNotEmpty) {
-        variantGroups = [
-          ProductVariantGroup(
-            groupName: 'Size',
-            options: sizes
-                .map((s) => ProductVariantOption(
-                    id: s, name: s, stock: fallbackStock, size: s))
-                .toList(),
-          ),
-        ];
-      }
+    final allImages = <String>[];
+    for (final img in [...gallery, ...imagesList]) {
+      if (!allImages.contains(img)) allImages.add(img);
     }
+    final imgUrl = primaryImg.isNotEmpty
+        ? primaryImg
+        : (allImages.isNotEmpty ? allImages.first : '');
+
+    final priceNum = (json['price'] as num?)?.toDouble();
+    final compareNum =
+        (json['compare_price'] as num?)?.toDouble() ??
+        (json['regular_price'] as num?)?.toDouble();
+    final formattedPrice =
+        json['formatted_price'] as String? ??
+        (priceNum != null
+            ? '₱${priceNum % 1 == 0 ? priceNum.toInt().toString() : priceNum.toStringAsFixed(2)}'
+            : '₱0.00');
+    final formattedOriginal =
+        (compareNum != null && priceNum != null && compareNum > priceNum)
+        ? '₱${compareNum % 1 == 0 ? compareNum.toInt().toString() : compareNum.toStringAsFixed(2)}'
+        : null;
+    String? discountTag = json['discount_tag'] as String?;
+    if (discountTag == null &&
+        compareNum != null &&
+        priceNum != null &&
+        compareNum > priceNum &&
+        compareNum > 0) {
+      final pct = (((compareNum - priceNum) / compareNum) * 100).round();
+      if (pct > 0) discountTag = '-$pct%';
+    }
+
+    final sellerId =
+        seller?['id']?.toString() ?? json['seller_id']?.toString() ?? '';
+    final sellerName =
+        (seller?['store_name'] as String?)?.trim().isNotEmpty == true
+        ? seller!['store_name'].toString().trim()
+        : ((seller?['business_name'] as String?)?.trim().isNotEmpty == true
+              ? seller!['business_name'].toString().trim()
+              : ((seller?['name'] as String?)?.trim().isNotEmpty == true
+                    ? seller!['name'].toString().trim()
+                    : (json['seller_name'] as String?)?.trim() ?? ''));
+    final sellerCity = (seller?['city'] as String?)?.trim() ?? '';
+    final sellerAvatar = ImageUrlHelper.resolve(seller?['avatar_url']);
+    final shopBadge =
+        (seller?['badge'] as String?)?.trim() ??
+        (json['shop_badge'] as String?)?.trim() ??
+        '';
+    final isMall = seller?['is_mall'] == true || json['is_mall'] == true;
+
+    final categoryName =
+        json['category_name'] as String? ??
+        json['category'] as String? ??
+        (json['category_slug'] != null ? json['category_slug'].toString() : '');
+
+    final isVacation =
+        seller?['is_vacation_mode'] == true || json['is_vacation_mode'] == true;
+    final parsedStock = (json['stock'] as num?)?.toInt() ?? 0;
+
+    final variantGroups = VariantHelper.buildVariantGroups(
+      variantsData: json['variants_data'],
+      colors: json['colors'],
+      sizes: json['sizes'],
+      defaultStock: parsedStock,
+    );
 
     // Reviews if provided
     List<ProductReviewModel>? reviews;
@@ -224,7 +178,11 @@ class ProductModel {
         final reviewer = r['buyer_name'] as String? ?? 'Shopper';
         final initial = reviewer.isNotEmpty ? reviewer[0].toUpperCase() : 'S';
         final photos =
-            (r['photos'] as List?)?.map((p) => p.toString()).toList() ?? [];
+            (r['photos'] as List?)
+                ?.map((p) => ImageUrlHelper.resolve(p))
+                .where((p) => p.isNotEmpty)
+                .toList() ??
+            [];
         return ProductReviewModel(
           id: r['id']?.toString() ?? 'rev-1',
           userName: reviewer,
@@ -232,34 +190,57 @@ class ProductModel {
           avatarColor: const Color(0xFF0066FF),
           rating: (r['rating'] as num?)?.toDouble() ?? 5.0,
           date: r['created_at'] as String? ?? 'Recently',
-          variantName: 'Standard',
+          variantName: VariantHelper.formatVariantDisplay(r['variant']),
           comment: r['comment'] as String? ?? '',
           reviewImages: photos,
         );
       }).toList();
     }
 
+    final int flashSeconds =
+        (json['flash_sale_remaining_seconds'] as num?)?.toInt() ?? 0;
+
+    final rawSoldCount =
+        json['sold_count'] ?? json['sales_count'] ?? json['reviews_count'] ?? 0;
+    final int soldNum = (rawSoldCount is num)
+        ? rawSoldCount.toInt()
+        : (int.tryParse(
+                rawSoldCount.toString().replaceAll(RegExp(r'[^0-9]'), ''),
+              ) ??
+              0);
+    final soldStr = '$soldNum sold';
+
     return ProductModel(
       id: json['id'].toString(),
       title: json['name'] as String? ?? json['title'] as String? ?? '',
       imageUrl: imgUrl,
       category: categoryName,
+      isMall: isMall,
+      discountTag: discountTag,
       price: formattedPrice,
       originalPrice: formattedOriginal,
-      rating: (json['rating'] as num?)?.toDouble() ?? 5.0,
-      soldCount: '${json['sold_count'] ?? json['reviews_count'] ?? 0} sold',
-      shippingTag: 'Fast Delivery',
+      rating: (json['rating'] as num?)?.toDouble() ?? 0.0,
+      soldCount: soldStr,
+      shippingTag: (json['shipping_tag'] as String?)?.trim() ?? sellerCity,
       shopId: sellerId,
       shopName: sellerName,
-      shopBadge: 'OFFICIAL STORE',
-      stockQuantity: (json['stock'] as num?)?.toInt() ?? 50,
+      shopBadge: shopBadge,
+      shopAvatarUrl: sellerAvatar.isNotEmpty ? sellerAvatar : null,
+      stockQuantity: parsedStock,
       description: json['description'] as String? ?? '',
-      galleryImages: allImages.isNotEmpty ? allImages : (imgUrl.isNotEmpty ? [imgUrl] : []),
-      location: seller?['city'] as String? ?? 'Metro Manila',
+      galleryImages: allImages.isNotEmpty
+          ? allImages
+          : (imgUrl.isNotEmpty ? [imgUrl] : []),
+      location: sellerCity,
       isActive: json['is_active'] != false && json['status'] != 'inactive',
       isOnVacation: isVacation,
       isFlashSale: json['is_flash_sale'] == true,
-      flashSalePrice: json['flash_sale_price'] != null ? '₱${json['flash_sale_price']}' : null,
+      flashSalePrice: json['flash_sale_price'] != null
+          ? '₱${json['flash_sale_price']}'
+          : null,
+      flashSaleTimeRemaining: flashSeconds > 0
+          ? Duration(seconds: flashSeconds)
+          : null,
       perBuyerLimit: (json['max_purchase_limit'] as num?)?.toInt(),
       variantGroups: variantGroups,
       reviews: reviews,
@@ -270,10 +251,7 @@ class ProductModel {
 class ProductCard extends StatefulWidget {
   final ProductModel product;
 
-  const ProductCard({
-    super.key,
-    required this.product,
-  });
+  const ProductCard({super.key, required this.product});
 
   @override
   State<ProductCard> createState() => _ProductCardState();
@@ -288,7 +266,11 @@ class _ProductCardState extends State<ProductCard> {
 
     return GestureDetector(
       onTap: () {
-        Navigator.pushNamed(context, AppRoutes.productDetails, arguments: product);
+        Navigator.pushNamed(
+          context,
+          AppRoutes.productDetails,
+          arguments: product,
+        );
       },
       child: Container(
         decoration: BoxDecoration(
@@ -355,10 +337,14 @@ class _ProductCardState extends State<ProductCard> {
                         if (product.isMall)
                           Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 2),
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
                             margin: const EdgeInsets.only(bottom: 3),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF0066FF), // Nexora Brand Theme Electric Blue
+                              color: const Color(
+                                0xFF0066FF,
+                              ), // Nexora Brand Theme Electric Blue
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: const Text(
@@ -374,11 +360,15 @@ class _ProductCardState extends State<ProductCard> {
                         if (product.discountTag != null)
                           Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 2),
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
                               color: product.isMall
                                   ? const Color(0xFF050B28) // Dark Navy accent when paired with Mall badge
-                                  : const Color(0xFF0066FF), // Nexora Electric Blue discount tag
+                                  : const Color(
+                                      0xFF0066FF,
+                                    ), // Nexora Electric Blue discount tag
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
@@ -401,7 +391,8 @@ class _ProductCardState extends State<ProductCard> {
                     child: AnimatedBuilder(
                       animation: WishlistService.instance,
                       builder: (context, _) {
-                        final isFavorite = WishlistService.instance.isInWishlist(product.title);
+                        final isFavorite = WishlistService.instance
+                            .isInWishlist(product.title);
                         return GestureDetector(
                           onTap: () {
                             WishlistService.instance.toggleWishlist(product);
@@ -432,7 +423,9 @@ class _ProductCardState extends State<ProductCard> {
                               ],
                             ),
                             child: Icon(
-                              isFavorite ? Icons.favorite : Icons.favorite_border,
+                              isFavorite
+                                  ? Icons.favorite
+                                  : Icons.favorite_border,
                               size: 16,
                               color: isFavorite
                                   ? const Color(0xFFE11D48)
@@ -450,176 +443,183 @@ class _ProductCardState extends State<ProductCard> {
             // Content Details Area
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 5.0),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8.0,
+                  vertical: 5.0,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Flexible(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          // Tags Row: Clean Voucher or Category Highlight
-                          if (product.hasVoucher)
-                            SingleChildScrollView(
-                              scrollDirection: Axis.horizontal,
-                              child: Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 5, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFEFF6FF),
-                                      borderRadius: BorderRadius.circular(4),
-                                      border: Border.all(color: const Color(0xFFDBEAFE)),
-                                    ),
-                                    child: const Text(
-                                      'Voucher Available',
-                                      style: TextStyle(
-                                        color: Color(0xFF0066FF),
-                                        fontSize: 8.5,
-                                        fontWeight: FontWeight.w700,
-                                      ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Tags Row: Clean Voucher or Category Highlight
+                        if (product.hasVoucher)
+                          SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 5,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFEFF6FF),
+                                    borderRadius: BorderRadius.circular(4),
+                                    border: Border.all(
+                                      color: const Color(0xFFDBEAFE),
                                     ),
                                   ),
-                                ],
-                              ),
-                            ),
-
-                          const SizedBox(height: 3),
-
-                          // Title with [Mall] Prefix
-                          Flexible(
-                            child: RichText(
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              text: TextSpan(
-                                children: [
-                                  if (product.isMall)
-                                    const TextSpan(
-                                      text: '[Mall] ',
-                                      style: TextStyle(
-                                        color: Color(0xFF0066FF),
-                                        fontWeight: FontWeight.w800,
-                                        fontSize: 11.5,
-                                      ),
-                                    ),
-                                  TextSpan(
-                                    text: product.title,
-                                    style: const TextStyle(
-                                      color: Color(0xFF0F172A),
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 11.5,
-                                      height: 1.25,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-
-                          const SizedBox(height: 4),
-
-                          // Price Row
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.baseline,
-                            textBaseline: TextBaseline.alphabetic,
-                            children: [
-                              Flexible(
-                                child: Text(
-                                  product.price,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    color: NexoraTheme.price,
-                                    fontWeight: FontWeight.w900,
-                                    fontSize: 14.5,
-                                  ),
-                                ),
-                              ),
-                              if (product.originalPrice != null) ...[
-                                const SizedBox(width: 4),
-                                Flexible(
-                                  child: Text(
-                                    product.originalPrice!,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      color: Color(0xFF94A3B8),
-                                      decoration: TextDecoration.lineThrough,
-                                      fontSize: 9.5,
+                                  child: const Text(
+                                    'Voucher Available',
+                                    style: TextStyle(
+                                      color: Color(0xFF0066FF),
+                                      fontSize: 8.5,
+                                      fontWeight: FontWeight.w700,
                                     ),
                                   ),
                                 ),
                               ],
-                            ],
+                            ),
                           ),
 
-                          const SizedBox(height: 2),
+                        const SizedBox(height: 3),
 
-                          // Rating & Sold Count
-                          Row(
-                            children: [
-                              const Icon(
-                                Icons.star,
-                                size: 11,
-                                color: Color(0xFFF59E0B),
-                              ),
-                              const SizedBox(width: 2),
-                              Text(
-                                '${product.rating}',
+                        // Title with [Mall] Prefix
+                        Flexible(
+                          child: RichText(
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            text: TextSpan(
+                              children: [
+                                if (product.isMall)
+                                  const TextSpan(
+                                    text: '[Mall] ',
+                                    style: TextStyle(
+                                      color: Color(0xFF0066FF),
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 11.5,
+                                    ),
+                                  ),
+                                TextSpan(
+                                  text: product.title,
+                                  style: const TextStyle(
+                                    color: Color(0xFF0F172A),
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 11.5,
+                                    height: 1.25,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(height: 4),
+
+                        // Price Row
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.baseline,
+                          textBaseline: TextBaseline.alphabetic,
+                          children: [
+                            Flexible(
+                              child: Text(
+                                product.price,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
-                                  color: Color(0xFFD97706),
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 10,
+                                  color: NexoraTheme.price,
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 14.5,
                                 ),
                               ),
-                              const SizedBox(width: 6),
+                            ),
+                            if (product.originalPrice != null) ...[
+                              const SizedBox(width: 4),
                               Flexible(
                                 child: Text(
-                                  product.soldCount.toLowerCase().contains('sold')
-                                      ? product.soldCount
-                                      : '${product.soldCount} sold',
+                                  product.originalPrice!,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: const TextStyle(
-                                    color: Color(0xFF64748B),
+                                    color: Color(0xFF94A3B8),
+                                    decoration: TextDecoration.lineThrough,
                                     fontSize: 9.5,
                                   ),
                                 ),
                               ),
                             ],
-                          ),
-                        ],
-                      ),
-                    ),
+                          ],
+                        ),
 
-                    // Shipping Tag Footer
-                    Padding(
-                      padding: const EdgeInsets.only(top: 2.0),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.local_shipping_outlined,
-                            size: 11,
-                            color: Color(0xFF0066FF),
-                          ),
-                          const SizedBox(width: 3),
-                          Expanded(
-                            child: Text(
-                              product.shippingTag,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                        const SizedBox(height: 2),
+
+                        // Rating & Sold Count
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.star,
+                              size: 11,
+                              color: Color(0xFFF59E0B),
+                            ),
+                            const SizedBox(width: 2),
+                            Text(
+                              '${product.rating}',
                               style: const TextStyle(
-                                color: Color(0xFF64748B),
-                                fontSize: 9,
+                                color: Color(0xFFD97706),
+                                fontWeight: FontWeight.w700,
+                                fontSize: 10,
                               ),
                             ),
-                          ),
-                        ],
-                      ),
+                            const SizedBox(width: 6),
+                            Flexible(
+                              child: Text(
+                                product.soldCount.toLowerCase().contains('sold')
+                                    ? product.soldCount
+                                    : '${product.soldCount} sold',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Color(0xFF64748B),
+                                  fontSize: 9.5,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
+
+                    const Spacer(),
+
+                    // Shipping Tag Footer
+                    if (product.shippingTag.trim().isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2.0),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.local_shipping_outlined,
+                              size: 11,
+                              color: Color(0xFF0066FF),
+                            ),
+                            const SizedBox(width: 3),
+                            Expanded(
+                              child: Text(
+                                product.shippingTag,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Color(0xFF64748B),
+                                  fontSize: 9,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                   ],
                 ),
               ),

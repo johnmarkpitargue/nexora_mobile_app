@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
 
 import '../models/shop_models.dart';
+import '../network/api_client.dart';
 import '../services/cart_service.dart';
+import '../utils/guest_auth_guard.dart';
+import '../utils/variant_helper.dart';
 import 'added_to_cart_hud.dart';
 import '../../features/home/presentation/widgets/product_card.dart';
 
-/// Interactive Add to Cart Bottom Sheet modal matching Shopee/TikTok Shop standard.
-/// Displays product thumbnail, dynamic price, stock, variant selectors (Color, Size, etc.),
-/// quantity stepper, fast delivery notice, and a prominent "Add to Cart" button.
-/// Strictly excludes SPayLater and Sulit Deal clutter for a clean, premium design.
+/// Interactive Add to Cart Bottom Sheet modal.
+/// Displays product thumbnail, dynamic price, stock, variant selectors (Variation, Size),
+/// quantity stepper, and mandatory variant validation matching the website.
 class AddToCartBottomSheet extends StatefulWidget {
   final ProductModel product;
   final VoidCallback? onAdded;
@@ -57,6 +59,7 @@ class AddToCartBottomSheet extends StatefulWidget {
 class _AddToCartBottomSheetState extends State<AddToCartBottomSheet> {
   late int _quantity;
   late final Map<int, int> _selectedIndices;
+  bool _isSubmitting = false;
 
   @override
   void initState() {
@@ -68,17 +71,17 @@ class _AddToCartBottomSheetState extends State<AddToCartBottomSheet> {
         widget.initialSelectedIndices!.isNotEmpty) {
       _selectedIndices.addAll(widget.initialSelectedIndices!);
     } else {
-      // Auto-select first option for each variant group so user can immediately add or tap to switch
+      // Auto-select only when a group has a single available option (matching web show.blade.php).
       final groups = _effectiveVariantGroups;
       for (int i = 0; i < groups.length; i++) {
-        if (groups[i].options.isNotEmpty) {
+        if (groups[i].options.length == 1 &&
+            groups[i].options.first.stock > 0) {
           _selectedIndices[i] = 0;
         }
       }
     }
   }
 
-  /// Provides variant groups from the product
   List<ProductVariantGroup> get _effectiveVariantGroups {
     if (widget.product.variantGroups != null &&
         widget.product.variantGroups!.isNotEmpty) {
@@ -89,76 +92,57 @@ class _AddToCartBottomSheetState extends State<AddToCartBottomSheet> {
 
   double get _basePrice {
     final clean = widget.product.price.replaceAll(RegExp(r'[^0-9.]'), '');
-    return double.tryParse(clean) ?? 999.0;
+    return double.tryParse(clean) ?? 0.0;
   }
 
-  double get _originalPriceVal {
-    if (widget.product.originalPrice == null) return _basePrice * 1.25;
+  double? get _originalPriceVal {
+    if (widget.product.originalPrice == null) return null;
     final clean = widget.product.originalPrice!.replaceAll(
       RegExp(r'[^0-9.]'),
       '',
     );
-    return double.tryParse(clean) ?? (_basePrice * 1.25);
+    return double.tryParse(clean);
   }
 
-  double get _variantOffset {
-    double offset = 0.0;
+  double get _effectivePrice => VariantHelper.resolvePrice(
+    basePrice: _basePrice,
+    groups: _effectiveVariantGroups,
+    selectedIndices: _selectedIndices,
+  );
+
+  int get _currentStock => VariantHelper.resolveStock(
+    product: widget.product,
+    groups: _effectiveVariantGroups,
+    selectedIndices: _selectedIndices,
+  );
+
+  String? get _missingSelectionLabel => VariantHelper.missingRequiredGroupLabel(
+    _effectiveVariantGroups,
+    _selectedIndices,
+  );
+
+  bool get _hasAnyAvailableOption {
     final groups = _effectiveVariantGroups;
-    for (int i = 0; i < groups.length; i++) {
-      final sel = _selectedIndices[i];
-      if (sel != null && sel < groups[i].options.length) {
-        offset += groups[i].options[sel].priceOffset;
+    if (groups.isEmpty) return widget.product.stockQuantity > 0;
+    for (final grp in groups) {
+      if (grp.options.isNotEmpty && grp.options.every((o) => o.stock <= 0)) {
+        return false;
       }
     }
-    return offset;
+    return true;
   }
 
-  double get _effectivePrice {
-    final groups = _effectiveVariantGroups;
-    for (int i = 0; i < groups.length; i++) {
-      final sel = _selectedIndices[i];
-      if (sel != null && sel < groups[i].options.length) {
-        final opt = groups[i].options[sel];
-        if (opt.price != null && opt.price! > 0) {
-          return opt.price!;
-        }
-      }
-    }
-    return _basePrice + _variantOffset;
-  }
-
-  int get _currentStock {
-    final groups = _effectiveVariantGroups;
-    for (int i = 0; i < groups.length; i++) {
-      final sel = _selectedIndices[i];
-      if (sel != null && sel < groups[i].options.length) {
-        return groups[i].options[sel].stock;
-      }
-    }
-    return widget.product.stockQuantity > 0 ? widget.product.stockQuantity : 45;
-  }
-
-  String get _currentVariantSummary {
-    final parts = <String>[];
-    final groups = _effectiveVariantGroups;
-    for (int i = 0; i < groups.length; i++) {
-      final sel = _selectedIndices[i];
-      if (sel != null && sel < groups[i].options.length) {
-        parts.add(groups[i].options[sel].name);
-      }
-    }
-    return parts.isEmpty ? 'Standard' : parts.join(' • ');
-  }
+  String get _currentVariantSummary => VariantHelper.buildSelection(
+    groups: _effectiveVariantGroups,
+    selectedIndices: _selectedIndices,
+  ).displaySummary;
 
   String get _currentThumbnailUrl {
-    final groups = _effectiveVariantGroups;
-    for (int i = 0; i < groups.length; i++) {
-      final sel = _selectedIndices[i];
-      if (sel != null && sel < groups[i].options.length) {
-        final optImg = groups[i].options[sel].imageUrl;
-        if (optImg != null && optImg.isNotEmpty) return optImg;
-      }
-    }
+    final variantImg = VariantHelper.resolveSelectedImage(
+      groups: _effectiveVariantGroups,
+      selectedIndices: _selectedIndices,
+    );
+    if (variantImg != null && variantImg.isNotEmpty) return variantImg;
     if (widget.product.galleryImages != null &&
         widget.product.galleryImages!.isNotEmpty) {
       return widget.product.galleryImages!.first;
@@ -167,73 +151,96 @@ class _AddToCartBottomSheetState extends State<AddToCartBottomSheet> {
   }
 
   Future<void> _onAddToCartPressed() async {
-    Map<String, dynamic>? variantPayload;
-    final groups = _effectiveVariantGroups;
-    if (groups.isNotEmpty) {
-      final parts = <String>[];
-      String? optSize;
-      String? optColor;
-      String? optImage;
-      for (int i = 0; i < groups.length; i++) {
-        final sel = _selectedIndices[i];
-        if (sel != null && sel < groups[i].options.length) {
-          final opt = groups[i].options[sel];
-          parts.add(opt.name);
-          if (opt.size != null && opt.size!.isNotEmpty) optSize = opt.size;
-          if (opt.color != null && opt.color!.isNotEmpty) optColor = opt.color;
-          if (opt.imageUrl != null && opt.imageUrl!.isNotEmpty) optImage = opt.imageUrl;
-        }
-      }
-      if (parts.isNotEmpty) {
-        variantPayload = {
-          'variation': parts.join(' • '),
-          if (optSize != null) 'size': optSize,
-          if (optColor != null) 'color': optColor,
-          if (optImage != null) 'image': optImage,
-        };
-      }
+    if (_isSubmitting) return;
+    final missingLabel = _missingSelectionLabel;
+    if (missingLabel != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(missingLabel),
+          backgroundColor: const Color(0xFFDC2626),
+        ),
+      );
+      return;
     }
 
+    final loggedIn = await GuestAuthGuard.requireLogin(
+      context,
+      title: 'Sign In to Add to Cart',
+      message:
+          'Please sign in or create an account to save items to your cart.',
+    );
+    if (!loggedIn || !mounted) return;
+
+    final groups = _effectiveVariantGroups;
+    final selection = VariantHelper.buildSelection(
+      groups: groups,
+      selectedIndices: _selectedIndices,
+    );
+
     final pId = int.tryParse(widget.product.id) ?? 0;
+    if (pId <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Invalid product ID. Please refresh and try again.'),
+          backgroundColor: Color(0xFFDC2626),
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
     try {
       await CartService.instance.addToCart(
-        productId: pId > 0 ? pId : null,
-        variantPayload: variantPayload,
-        title: widget.product.title,
-        variant: _currentVariantSummary,
-        price: _effectivePrice,
-        originalPrice: _originalPriceVal,
-        imageUrl: _currentThumbnailUrl,
-        storeName: widget.product.shopName.isNotEmpty
-            ? widget.product.shopName
-            : (widget.product.isMall
-                  ? 'Nexora Official Store'
-                  : 'Nexora Preferred Store'),
-        storeBadge: widget.product.shopBadge.isNotEmpty
-            ? widget.product.shopBadge
-            : (widget.product.isMall ? 'MALL' : 'OFFICIAL STORE'),
+        productId: pId,
+        variantPayload: selection.payload,
         quantity: _quantity,
       );
       if (!mounted) return;
       widget.onAdded?.call();
       Navigator.pop(context, true);
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.message),
+          backgroundColor: const Color(0xFFDC2626),
+        ),
+      );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Could not add to cart: $e'),
+          content: Text(e.toString().replaceFirst('Exception: ', '')),
           backgroundColor: const Color(0xFFDC2626),
         ),
       );
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final groups = _effectiveVariantGroups;
-    final maxAllowed = _currentStock > 20
-        ? 20
+    final missingLabel = _missingSelectionLabel;
+    final bool allOutOfStock = !_hasAnyAvailableOption;
+    final bool canPurchaseNow =
+        !allOutOfStock && missingLabel == null && _currentStock > 0;
+    final String buttonLabel = allOutOfStock
+        ? 'Out of Stock'
+        : (missingLabel ??
+              (_currentStock <= 0 ? 'Out of Stock' : 'Add to Cart'));
+
+    final limit = widget.product.perBuyerLimit;
+    final maxAllowed = (limit != null && limit > 0)
+        ? (limit < _currentStock ? limit : _currentStock)
         : (_currentStock > 0 ? _currentStock : 1);
+
+    final shippingInfo = widget.product.shippingTag.trim().isNotEmpty
+        ? widget.product.shippingTag.trim()
+        : widget.product.location.trim();
 
     return Container(
       constraints: BoxConstraints(
@@ -278,15 +285,21 @@ class _AddToCartBottomSheetState extends State<AddToCartBottomSheet> {
                       border: Border.all(color: const Color(0xFFE2E8F0)),
                     ),
                     clipBehavior: Clip.antiAlias,
-                    child: Image.network(
-                      _currentThumbnailUrl,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, error, stackTrace) => const Icon(
-                        Icons.shopping_bag_outlined,
-                        size: 36,
-                        color: Color(0xFF94A3B8),
-                      ),
-                    ),
+                    child: _currentThumbnailUrl.isNotEmpty
+                        ? Image.network(
+                            _currentThumbnailUrl,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, error, stackTrace) => const Icon(
+                              Icons.shopping_bag_outlined,
+                              size: 36,
+                              color: Color(0xFF94A3B8),
+                            ),
+                          )
+                        : const Icon(
+                            Icons.shopping_bag_outlined,
+                            size: 36,
+                            color: Color(0xFF94A3B8),
+                          ),
                   ),
                   const SizedBox(width: 14),
 
@@ -301,18 +314,19 @@ class _AddToCartBottomSheetState extends State<AddToCartBottomSheet> {
                           textBaseline: TextBaseline.alphabetic,
                           children: [
                             Text(
-                              '₱${_effectivePrice.toStringAsFixed(0)}',
+                              '₱${_effectivePrice.toStringAsFixed(2)}',
                               style: const TextStyle(
-                                fontSize: 22,
+                                fontSize: 20,
                                 fontWeight: FontWeight.w900,
                                 color: Colors.black,
                                 letterSpacing: -0.5,
                               ),
                             ),
-                            if (widget.product.originalPrice != null) ...[
+                            if (_originalPriceVal != null &&
+                                _originalPriceVal! > _effectivePrice) ...[
                               const SizedBox(width: 6),
                               Text(
-                                '₱${_originalPriceVal.toStringAsFixed(0)}',
+                                '₱${_originalPriceVal!.toStringAsFixed(2)}',
                                 style: const TextStyle(
                                   fontSize: 12,
                                   color: Color(0xFF94A3B8),
@@ -335,12 +349,16 @@ class _AddToCartBottomSheetState extends State<AddToCartBottomSheet> {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          'Selected: $_currentVariantSummary',
+                          missingLabel != null
+                              ? 'Please $missingLabel'
+                              : 'Selected: $_currentVariantSummary',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 11,
-                            color: Color(0xFF0F172A),
+                            color: missingLabel != null
+                                ? const Color(0xFFDC2626)
+                                : const Color(0xFF0F172A),
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -368,49 +386,46 @@ class _AddToCartBottomSheetState extends State<AddToCartBottomSheet> {
 
             const Divider(height: 1, color: Color(0xFFF1F5F9)),
 
-            // Delivery Tag Banner - Aligned to Nexora Brand Blue theme (No "Order before 2PM")
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              child: Container(
+            if (shippingInfo.isNotEmpty) ...[
+              Padding(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 8,
+                  horizontal: 16,
+                  vertical: 10,
                 ),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEFF6FF),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: const Color(0xFFDBEAFE)),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.local_shipping_rounded,
-                      size: 16,
-                      color: Color(0xFF0066FF),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        widget.product.shippingTag.isNotEmpty
-                            ? (widget.product.shippingTag
-                                      .toLowerCase()
-                                      .contains('tomorrow')
-                                  ? widget.product.shippingTag
-                                  : '${widget.product.shippingTag} • Tomorrow')
-                            : 'Tomorrow',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF0066FF),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEFF6FF),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFDBEAFE)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.local_shipping_rounded,
+                        size: 16,
+                        color: Color(0xFF0066FF),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Ships from $shippingInfo',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF0066FF),
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
-
-            const Divider(height: 1, color: Color(0xFFF1F5F9)),
+              const Divider(height: 1, color: Color(0xFFF1F5F9)),
+            ],
 
             // Scrollable Variant Selection Body
             Flexible(
@@ -423,13 +438,9 @@ class _AddToCartBottomSheetState extends State<AddToCartBottomSheet> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Dynamic Variant Groups (e.g. Color, Size, Finish)
                     ...List.generate(groups.length, (grpIdx) {
                       final grp = groups[grpIdx];
                       final selectedOptIdx = _selectedIndices[grpIdx];
-                      final isApparelSize = grp.groupName
-                          .toLowerCase()
-                          .contains('size');
 
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -445,26 +456,14 @@ class _AddToCartBottomSheetState extends State<AddToCartBottomSheet> {
                                   color: Color(0xFF0F172A),
                                 ),
                               ),
-                              if (isApparelSize)
-                                InkWell(
-                                  onTap: () {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text(
-                                          'Standard Asian/US Size Chart: S(36-38), M(38-40), L(40-42), XL(42-44)',
-                                        ),
-                                        duration: Duration(seconds: 2),
-                                      ),
-                                    );
-                                  },
-                                  child: const Text(
-                                    'Size Guide',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w600,
-                                      color: Color(0xFF64748B),
-                                      decoration: TextDecoration.underline,
-                                    ),
+                              if (selectedOptIdx != null &&
+                                  selectedOptIdx < grp.options.length)
+                                Text(
+                                  grp.options[selectedOptIdx].name,
+                                  style: const TextStyle(
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFF0066FF),
                                   ),
                                 ),
                             ],
@@ -480,7 +479,14 @@ class _AddToCartBottomSheetState extends State<AddToCartBottomSheet> {
                             ) {
                               final opt = grp.options[optIdx];
                               final isSelected = selectedOptIdx == optIdx;
-                              final isOutOfStock = opt.stock <= 0;
+                              final isOutOfStock =
+                                  VariantHelper.isOptionOutOfStock(
+                                    product: widget.product,
+                                    groups: groups,
+                                    selectedIndices: _selectedIndices,
+                                    groupIndex: grpIdx,
+                                    optionIndex: optIdx,
+                                  );
 
                               return InkWell(
                                 onTap: isOutOfStock
@@ -488,10 +494,10 @@ class _AddToCartBottomSheetState extends State<AddToCartBottomSheet> {
                                     : () {
                                         setState(() {
                                           _selectedIndices[grpIdx] = optIdx;
-                                          if (_quantity > opt.stock) {
-                                            _quantity = opt.stock > 0
-                                                ? opt.stock
-                                                : 1;
+                                          final nextStock = _currentStock;
+                                          if (nextStock > 0 &&
+                                              _quantity > nextStock) {
+                                            _quantity = nextStock;
                                           }
                                         });
                                       },
@@ -516,7 +522,23 @@ class _AddToCartBottomSheetState extends State<AddToCartBottomSheet> {
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      if (opt.colorHex != null) ...[
+                                      if (opt.imageUrl != null &&
+                                          opt.imageUrl!.isNotEmpty) ...[
+                                        ClipRRect(
+                                          borderRadius: BorderRadius.circular(
+                                            4,
+                                          ),
+                                          child: Image.network(
+                                            opt.imageUrl!,
+                                            width: 18,
+                                            height: 18,
+                                            fit: BoxFit.cover,
+                                            errorBuilder: (_, _, _) =>
+                                                const SizedBox.shrink(),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 6),
+                                      ] else if (opt.colorHex != null) ...[
                                         Container(
                                           width: 12,
                                           height: 12,
@@ -666,23 +688,35 @@ class _AddToCartBottomSheetState extends State<AddToCartBottomSheet> {
               child: SizedBox(
                 height: 48,
                 child: ElevatedButton(
-                  onPressed: _currentStock <= 0 ? null : _onAddToCartPressed,
+                  onPressed: (!canPurchaseNow || _isSubmitting)
+                      ? null
+                      : _onAddToCartPressed,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF0066FF),
                     foregroundColor: Colors.white,
                     disabledBackgroundColor: const Color(0xFFCBD5E1),
+                    disabledForegroundColor: const Color(0xFF475569),
                     elevation: 0,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
                   ),
-                  child: Text(
-                    _currentStock <= 0 ? 'Out of Stock' : 'Add to Cart',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w900,
-                      fontSize: 15,
-                    ),
-                  ),
+                  child: _isSubmitting
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : Text(
+                          buttonLabel,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w900,
+                            fontSize: 15,
+                          ),
+                        ),
                 ),
               ),
             ),

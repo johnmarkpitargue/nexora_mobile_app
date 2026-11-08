@@ -9,7 +9,6 @@ import 'core/services/in_app_notification_service.dart';
 import 'core/services/buyer_account_service.dart';
 import 'core/services/supabase_auth_service.dart';
 import 'core/services/order_chat_service.dart';
-import 'core/services/order_service.dart';
 import 'core/network/api_client.dart';
 
 Future<void> main() async {
@@ -33,7 +32,6 @@ Future<void> main() async {
     );
     SupabaseAuthService.instance.initAuthStateListener();
     OrderChatService.instance.ensureInitialized();
-    OrderService.instance.ensureInitialized();
   } catch (e) {
     debugPrint('Supabase initialization notice: $e');
   }

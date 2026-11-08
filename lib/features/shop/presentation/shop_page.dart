@@ -2,8 +2,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../app/routes/app_routes.dart';
 import '../../../core/models/shop_models.dart';
+import '../../../core/network/api_client.dart';
+import '../../../core/services/buyer_account_service.dart';
 import '../../../core/services/chat_service.dart';
 import '../../../core/services/shop_service.dart';
+import '../../../core/utils/guest_auth_guard.dart';
 import '../../chat/presentation/chat_detail_page.dart';
 import '../../home/presentation/widgets/product_card.dart';
 
@@ -167,9 +170,46 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
   }
 
   void _handleChatTap() async {
+    if (!ApiClient.instance.hasToken || !BuyerAccountService.instance.isLoggedIn) {
+      final loggedIn = await GuestAuthGuard.requireLogin(
+        context,
+        title: 'Sign In to Chat',
+        message: 'Please sign in or create an account to chat with stores.',
+      );
+      if (!loggedIn || !mounted) return;
+    }
+
     await _chatAnimController.reverse();
     await _chatAnimController.forward();
     if (!mounted) return;
+
+    final sellerId = int.tryParse(_shop.id);
+    if (sellerId != null && sellerId > 0 && ApiClient.instance.hasToken) {
+      try {
+        final remoteConv = await ChatService.instance.startConversationRemote(sellerId);
+        if (remoteConv != null && mounted) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ChatDetailPage(
+                conversationId: remoteConv.id,
+                title: remoteConv.title.isNotEmpty ? remoteConv.title : _shop.name,
+                subtitle: _shop.badge,
+                avatarIcon: remoteConv.avatarIcon,
+                avatarBgColor: remoteConv.avatarBg,
+                initialMessages: remoteConv.messages.map((m) => m.toMap()).toList(),
+              ),
+            ),
+          );
+          return;
+        }
+      } catch (_) {
+        // Fallback below
+      }
+    }
+
+    if (!mounted) return;
+
     final conv = ChatService.instance.getOrCreateShopConversation(
       shopId: _shop.id,
       shopName: _shop.name,

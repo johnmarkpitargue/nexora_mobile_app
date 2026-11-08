@@ -1,20 +1,29 @@
 import 'package:flutter/material.dart';
 import '../../../core/services/ph_location_service.dart';
+import '../../../core/services/psgc_location_service.dart';
 
 class RegionSelectionResult {
   final String region;
+  final String regionCode;
   final String province;
+  final String provinceCode;
   final String city;
+  final String municipalityCode;
   final String barangay;
+  final String barangayCode;
   final String postalCode;
   final double latitude;
   final double longitude;
 
   const RegionSelectionResult({
     required this.region,
+    this.regionCode = '',
     required this.province,
+    this.provinceCode = '',
     required this.city,
+    this.municipalityCode = '',
     required this.barangay,
+    this.barangayCode = '',
     required this.postalCode,
     required this.latitude,
     required this.longitude,
@@ -46,9 +55,13 @@ class _RegionSelectorPageState extends State<RegionSelectorPage> {
   String _searchQuery = '';
 
   String? _selectedRegion;
+  String? _selectedRegionCode;
   String? _selectedProvince;
+  String? _selectedProvinceCode;
   String? _selectedCity;
+  String? _selectedCityCode;
   String? _selectedBarangay;
+  String? _selectedBarangayCode;
 
   @override
   void initState() {
@@ -57,6 +70,18 @@ class _RegionSelectorPageState extends State<RegionSelectorPage> {
     _selectedProvince = widget.initialProvince;
     _selectedCity = widget.initialCity;
     _selectedBarangay = widget.initialBarangay;
+    if (_selectedRegion != null) {
+      _selectedRegionCode = PsgcLocationService.resolveRegionCode(_selectedRegion!, _selectedProvince);
+    }
+    if (_selectedProvince != null) {
+      _selectedProvinceCode = PsgcLocationService.resolveProvinceCode(_selectedProvince!);
+    }
+    if (_selectedCity != null) {
+      _selectedCityCode = PsgcLocationService.resolveCityCode(_selectedCity!, _selectedProvinceCode);
+    }
+    if (_selectedBarangay != null && _selectedCityCode != null) {
+      _selectedBarangayCode = PsgcLocationService.resolveBarangayCode(_selectedBarangay!, _selectedCityCode!);
+    }
   }
 
   @override
@@ -68,9 +93,13 @@ class _RegionSelectorPageState extends State<RegionSelectorPage> {
   void _resetAll() {
     setState(() {
       _selectedRegion = null;
+      _selectedRegionCode = null;
       _selectedProvince = null;
+      _selectedProvinceCode = null;
       _selectedCity = null;
+      _selectedCityCode = null;
       _selectedBarangay = null;
+      _selectedBarangayCode = null;
       _searchController.clear();
       _searchQuery = '';
     });
@@ -130,21 +159,31 @@ class _RegionSelectorPageState extends State<RegionSelectorPage> {
       switch (_currentStep) {
         case 0:
           _selectedRegion = item;
+          _selectedRegionCode = PsgcLocationService.resolveRegionCode(item);
           _selectedProvince = null;
+          _selectedProvinceCode = null;
           _selectedCity = null;
+          _selectedCityCode = null;
           _selectedBarangay = null;
+          _selectedBarangayCode = null;
           break;
         case 1:
           _selectedProvince = item;
+          _selectedProvinceCode = PsgcLocationService.resolveProvinceCode(item);
           _selectedCity = null;
+          _selectedCityCode = null;
           _selectedBarangay = null;
+          _selectedBarangayCode = null;
           break;
         case 2:
           _selectedCity = item;
+          _selectedCityCode = PsgcLocationService.resolveCityCode(item, _selectedProvinceCode);
           _selectedBarangay = null;
+          _selectedBarangayCode = null;
           break;
         case 3:
           _selectedBarangay = item;
+          _selectedBarangayCode = PsgcLocationService.resolveBarangayCode(item, _selectedCityCode ?? '043426000');
           _finishSelection();
           break;
       }
@@ -161,11 +200,24 @@ class _RegionSelectorPageState extends State<RegionSelectorPage> {
     final postal = PhLocationHierarchy.getDefaultPostalCode(_selectedCity!);
     final coords = PhLocationHierarchy.getCoordinates(_selectedCity!, _selectedBarangay!);
 
+    final regCode = _selectedRegionCode ??
+        PsgcLocationService.resolveRegionCode(_selectedRegion!, _selectedProvince);
+    final provCode = _selectedProvinceCode ??
+        PsgcLocationService.resolveProvinceCode(_selectedProvince!);
+    final cityCode = _selectedCityCode ??
+        PsgcLocationService.resolveCityCode(_selectedCity!, provCode);
+    final brgyCode = _selectedBarangayCode ??
+        PsgcLocationService.resolveBarangayCode(_selectedBarangay!, cityCode);
+
     final result = RegionSelectionResult(
       region: _selectedRegion!,
+      regionCode: regCode,
       province: _selectedProvince!,
+      provinceCode: provCode,
       city: _selectedCity!,
+      municipalityCode: cityCode,
       barangay: _selectedBarangay!,
+      barangayCode: brgyCode,
       postalCode: postal,
       latitude: coords.$1,
       longitude: coords.$2,
@@ -190,11 +242,20 @@ class _RegionSelectorPageState extends State<RegionSelectorPage> {
                 province.toLowerCase().contains(q) ||
                 postal.contains(q)) {
               final coords = PhLocationHierarchy.getCoordinates(city, b);
+              final regCode = PsgcLocationService.resolveRegionCode(region, province);
+              final provCode = PsgcLocationService.resolveProvinceCode(province);
+              final cityCode = PsgcLocationService.resolveCityCode(city, provCode);
+              final brgyCode = PsgcLocationService.resolveBarangayCode(b, cityCode);
+
               results.add(RegionSelectionResult(
                 region: region,
+                regionCode: regCode,
                 province: province,
+                provinceCode: provCode,
                 city: city,
+                municipalityCode: cityCode,
                 barangay: b,
+                barangayCode: brgyCode,
                 postalCode: postal,
                 latitude: coords.$1,
                 longitude: coords.$2,

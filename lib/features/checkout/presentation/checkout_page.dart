@@ -3,7 +3,6 @@ import 'package:nexora_flutter_app/app/routes/app_routes.dart';
 import 'package:nexora_flutter_app/core/services/cart_service.dart';
 import 'package:nexora_flutter_app/core/services/order_service.dart';
 import 'package:nexora_flutter_app/core/services/address_service.dart';
-import 'package:nexora_flutter_app/core/services/laguna_places_service.dart';
 import 'package:nexora_flutter_app/core/services/profile_service.dart';
 import 'package:nexora_flutter_app/core/services/buyer_account_service.dart';
 import 'package:nexora_flutter_app/core/services/payment_method_service.dart';
@@ -11,7 +10,6 @@ import 'package:nexora_flutter_app/core/services/external_notification_service.d
 import 'package:nexora_flutter_app/core/services/shop_service.dart';
 import 'package:nexora_flutter_app/core/models/shop_models.dart';
 import 'package:nexora_flutter_app/core/utils/guest_auth_guard.dart';
-import 'package:nexora_flutter_app/core/constants/api_constants.dart';
 import 'package:nexora_flutter_app/core/network/api_client.dart';
 import 'package:nexora_flutter_app/features/profile/presentation/new_address_page.dart';
 import 'widgets/shipping_option_modal.dart';
@@ -25,14 +23,10 @@ class CheckoutPage extends StatefulWidget {
 
 class _CheckoutPageState extends State<CheckoutPage> {
   int _selectedPaymentIndex = 0;
+  String? _currentAttemptIdempotencyKey;
 
   List<Map<String, dynamic>> get _paymentOptions {
-    final gcash = PaymentMethodService.instance.gcashMethod;
-    final isGcashLinked = gcash != null && gcash.isLinked;
-    final cards = PaymentMethodService.instance.methods
-        .where((m) => m.type == PaymentType.card && m.isLinked)
-        .toList();
-
+    // The web backend only supports Cash on Delivery (COD). Non-web options are hidden per Rule B3 & Rule 4.
     return [
       {
         'id': 'cod',
@@ -44,28 +38,6 @@ class _CheckoutPageState extends State<CheckoutPage> {
         'tag': 'Supported',
         'isLinked': true,
       },
-      {
-        'id': 'gcash',
-        'name': isGcashLinked ? 'GCash (${gcash.formattedDisplay})' : 'GCash',
-        'shortName': 'GCash',
-        'desc': isGcashLinked
-            ? 'Account: ${gcash.accountHolder.isNotEmpty ? gcash.accountHolder : gcash.formattedDisplay}'
-            : 'Not linked yet • Tap to link your GCash account first',
-        'icon': Icons.account_balance_wallet_rounded,
-        'color': const Color(0xFF005CE6),
-        'tag': isGcashLinked ? 'Connected' : 'Link Required',
-        'isLinked': isGcashLinked,
-      },
-      ...cards.map((card) => {
-            'id': card.id,
-            'name': '${card.name} (${card.accountNumber})',
-            'shortName': card.name,
-            'desc': '${card.accountNumber} (${card.accountHolder.isNotEmpty ? card.accountHolder : "BSP Secured"})',
-            'icon': Icons.credit_card_rounded,
-            'color': const Color(0xFF1E293B),
-            'tag': 'Secured',
-            'isLinked': true,
-          }),
     ];
   }
 
@@ -942,6 +914,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
       _isPlacingOrder = true;
     });
 
+    _currentAttemptIdempotencyKey ??=
+        'chk_${DateTime.now().millisecondsSinceEpoch}_${DateTime.now().microsecondsSinceEpoch % 10000}';
+
     String orderId = '';
     String selectedPayment = 'Cash on Delivery';
 
@@ -952,35 +927,54 @@ class _CheckoutPageState extends State<CheckoutPage> {
           : 0;
       selectedPayment = (options[safeIndex]['name'] ?? 'Cash on Delivery').toString();
 
-      // If Buy Now direct item, add to remote cart first so backend has it selected
+      List<int>? cartItemIds;
+      // If Buy Now direct item, add to remote cart first and checkout ONLY that item (B2)
       if (_cartService.directBuyItem != null) {
         final dItem = _cartService.directBuyItem!;
         final pId = int.tryParse(dItem.productId ?? '') ?? 0;
-        if (pId > 0) {
-          await _cartService.addItemRemote(
-            productId: pId,
-            quantity: dItem.quantity,
-            variant: dItem.variantData is Map<String, dynamic> ? dItem.variantData : null,
+        if (pId <= 0) {
+          throw const ApiException(
+            message: 'Invalid product selected for checkout.',
+            statusCode: 400,
           );
         }
+        final createdCartItemId = await _cartService.addItemRemote(
+          productId: pId,
+          quantity: dItem.quantity,
+          variant: dItem.variantData is Map<String, dynamic> ? dItem.variantData : null,
+        );
+        if (createdCartItemId == null || createdCartItemId <= 0) {
+          throw const ApiException(
+            message: 'Unable to prepare item for checkout.',
+            statusCode: 500,
+          );
+        }
+        cartItemIds = [createdCartItemId];
       }
 
       // Hit Laravel POST /api/mobile/v1/buyer/checkout
       final orders = await _orderService.placeOrderRemote(
         addressId: addrId,
         paymentMethod: 'cod',
+        idempotencyKey: _currentAttemptIdempotencyKey,
+        cartItemIds: cartItemIds,
       );
 
-      if (orders.isNotEmpty) {
-        final firstOrd = orders[0];
-        orderId = firstOrd['order_number'] ?? '#${firstOrd['id']}';
-      } else {
-        orderId = '#NX-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}';
+      if (orders.isEmpty) {
+        throw const ApiException(
+          message: 'Checkout did not create any orders.',
+          statusCode: 500,
+        );
       }
 
-      // Cleanup local direct-buy and refresh cart from server
+      final firstOrd = orders[0];
+      orderId = (firstOrd['order_number'] ?? '#${firstOrd['id']}').toString();
+
+      // Reset idempotency key on success and synchronize state from server
+      _currentAttemptIdempotencyKey = null;
       _cartService.clearDirectBuy();
       await _cartService.loadCartRemote();
+      await _orderService.fetchOrdersRemote();
 
     } catch (e, st) {
       debugPrint('⚠️ Checkout error: $e\n$st');
@@ -1095,7 +1089,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                     Navigator.pushReplacementNamed(
                       context,
                       AppRoutes.orders,
-                      arguments: {'initialIndex': 2},
+                      arguments: {'initialTab': 'to_ship', 'initialIndex': 1},
                     );
                   },
                   style: ElevatedButton.styleFrom(

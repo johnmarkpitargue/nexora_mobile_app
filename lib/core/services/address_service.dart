@@ -9,12 +9,17 @@ class AddressModel {
   final String fullName;
   final String phone;
   final String region;
+  final String regionCode;
   final String province;
+  final String provinceCode;
   final String city;
+  final String municipalityCode;
   final String barangay;
+  final String barangayCode;
   final String regionCity;
   final String postalCode;
   final String streetBuilding;
+  final String houseNumber;
   final String label; // 'Home' or 'Work'
   final bool isDefault;
   final double? latitude;
@@ -25,12 +30,17 @@ class AddressModel {
     required this.fullName,
     required this.phone,
     this.region = '',
+    this.regionCode = '',
     this.province = '',
+    this.provinceCode = '',
     this.city = '',
+    this.municipalityCode = '',
     this.barangay = '',
+    this.barangayCode = '',
     required this.regionCity,
     required this.postalCode,
     required this.streetBuilding,
+    this.houseNumber = '',
     required this.label,
     this.isDefault = false,
     this.latitude,
@@ -41,6 +51,7 @@ class AddressModel {
 
   String get fullAddress {
     final locationParts = [
+      if (houseNumber.isNotEmpty) houseNumber,
       streetBuilding,
       barangay,
       city,
@@ -55,12 +66,17 @@ class AddressModel {
     String? fullName,
     String? phone,
     String? region,
+    String? regionCode,
     String? province,
+    String? provinceCode,
     String? city,
+    String? municipalityCode,
     String? barangay,
+    String? barangayCode,
     String? regionCity,
     String? postalCode,
     String? streetBuilding,
+    String? houseNumber,
     String? label,
     bool? isDefault,
     double? latitude,
@@ -71,12 +87,17 @@ class AddressModel {
       fullName: fullName ?? this.fullName,
       phone: phone ?? this.phone,
       region: region ?? this.region,
+      regionCode: regionCode ?? this.regionCode,
       province: province ?? this.province,
+      provinceCode: provinceCode ?? this.provinceCode,
       city: city ?? this.city,
+      municipalityCode: municipalityCode ?? this.municipalityCode,
       barangay: barangay ?? this.barangay,
+      barangayCode: barangayCode ?? this.barangayCode,
       regionCity: regionCity ?? this.regionCity,
       postalCode: postalCode ?? this.postalCode,
       streetBuilding: streetBuilding ?? this.streetBuilding,
+      houseNumber: houseNumber ?? this.houseNumber,
       label: label ?? this.label,
       isDefault: isDefault ?? this.isDefault,
       latitude: latitude ?? this.latitude,
@@ -89,16 +110,17 @@ class AddressModel {
     'recipient_name': fullName,
     'recipient_phone': phone,
     'phone': phone,
+    if (regionCode.isNotEmpty) 'region_code': regionCode,
+    if (region.isNotEmpty) 'region_name': region,
+    'province_code': provinceCode,
+    'province_name': province,
+    'municipality_code': municipalityCode,
+    'municipality_name': city,
+    'barangay_code': barangayCode,
+    'barangay_name': barangay,
+    if (houseNumber.isNotEmpty) 'house_number': houseNumber,
     'street': streetBuilding.isNotEmpty ? streetBuilding : fullAddress,
-    'barangay_name': barangay.isNotEmpty ? barangay : 'Central',
-    'barangay': barangay.isNotEmpty ? barangay : 'Central',
-    'municipality_name': city.isNotEmpty ? city : 'Makati',
-    'city': city.isNotEmpty ? city : 'Makati',
-    'province_name': province.isNotEmpty ? province : 'Laguna',
-    'province': province.isNotEmpty ? province : 'Laguna',
-    'region_name': region.isNotEmpty ? region : 'Region IV-A (CALABARZON)',
-    'region': region,
-    'postal_code': postalCode.isNotEmpty ? postalCode : '4004',
+    if (postalCode.isNotEmpty) 'postal_code': postalCode,
     'is_default': isDefault,
     if (latitude != null) 'latitude': latitude,
     if (longitude != null) 'longitude': longitude,
@@ -108,9 +130,14 @@ class AddressModel {
     final recipientName = json['recipient_name'] as String? ?? json['fullName'] as String? ?? '';
     final phone = json['recipient_phone'] as String? ?? json['phone'] as String? ?? '';
     final region = json['region_name'] as String? ?? json['region'] as String? ?? '';
+    final regionCode = json['region_code'] as String? ?? '';
     final province = json['province_name'] as String? ?? json['province'] as String? ?? '';
+    final provinceCode = json['province_code'] as String? ?? '';
     final city = json['municipality_name'] as String? ?? json['city'] as String? ?? '';
+    final municipalityCode = json['municipality_code'] as String? ?? '';
     final barangay = json['barangay_name'] as String? ?? json['barangay'] as String? ?? '';
+    final barangayCode = json['barangay_code'] as String? ?? '';
+    final houseNumber = json['house_number'] as String? ?? '';
     final fullAddr = json['full_address'] as String? ??
         [region, province, city, barangay].where((s) => s.isNotEmpty).join(', ');
 
@@ -119,12 +146,17 @@ class AddressModel {
       fullName: recipientName,
       phone: phone,
       region: region,
+      regionCode: regionCode,
       province: province,
+      provinceCode: provinceCode,
       city: city,
+      municipalityCode: municipalityCode,
       barangay: barangay,
+      barangayCode: barangayCode,
       regionCity: fullAddr,
       postalCode: json['postal_code'] as String? ?? json['postalCode'] as String? ?? '',
       streetBuilding: json['street'] as String? ?? json['streetBuilding'] as String? ?? '',
+      houseNumber: houseNumber,
       label: json['label'] as String? ?? 'Home',
       isDefault: json['is_default'] == true || json['is_default'] == 1 || json['isDefault'] == true,
       latitude: (json['latitude'] as num?)?.toDouble(),

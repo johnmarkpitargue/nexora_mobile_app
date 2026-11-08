@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import '../../app/routes/app_routes.dart';
+import '../network/api_client.dart';
 import '../services/buyer_account_service.dart';
 
 class GuestAuthGuard {
   GuestAuthGuard._();
 
-  /// Checks if the buyer is logged in.
+  /// Checks if the buyer is logged in with an active API token.
   /// If logged in, returns true immediately.
   /// If guest/unauthenticated, displays an elegant bottom sheet modal requiring login before proceeding.
   /// Returns true if the user successfully logged in, or false if dismissed/cancelled.
@@ -14,7 +15,7 @@ class GuestAuthGuard {
     String title = 'Sign In to Proceed',
     String message = 'Please sign in or create an account to proceed with your order, secure delivery addresses, and track real-time courier updates.',
   }) async {
-    if (BuyerAccountService.instance.isLoggedIn) {
+    if (BuyerAccountService.instance.isLoggedIn && ApiClient.instance.hasToken) {
       return true;
     }
 
@@ -29,7 +30,8 @@ class GuestAuthGuard {
       ),
     );
 
-    return (result == true) || BuyerAccountService.instance.isLoggedIn;
+    return ((result == true) || BuyerAccountService.instance.isLoggedIn) &&
+        ApiClient.instance.hasToken;
   }
 }
 
