@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'buyer_account_service.dart';
 import '../constants/api_constants.dart';
 import '../network/api_client.dart';
+import '../utils/image_url_helper.dart';
 
 class CartItemModel {
   final String id;
@@ -102,11 +103,12 @@ class CartItemModel {
         product['title'] as String? ??
         product['name'] as String? ??
         'Product';
-    final primaryImg = json['image'] as String? ??
+    final rawPrimaryImg = json['image'] as String? ??
         product['primary_image'] as String? ??
         (product['images'] is List && (product['images'] as List).isNotEmpty
             ? product['images'][0].toString()
             : '');
+    final primaryImg = ImageUrlHelper.resolve(rawPrimaryImg);
     final priceVal = (json['price'] as num?)?.toDouble() ??
         (product['price'] as num?)?.toDouble() ??
         0.0;

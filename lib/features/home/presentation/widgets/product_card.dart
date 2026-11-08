@@ -3,6 +3,7 @@ import '../../../../app/routes/app_routes.dart';
 import '../../../../app/theme/nexora_theme.dart';
 import '../../../../core/services/wishlist_service.dart';
 import '../../../../core/models/shop_models.dart';
+import '../../../../core/utils/image_url_helper.dart';
 
 class ProductModel {
   final String id;
@@ -84,11 +85,19 @@ class ProductModel {
         ? inputJson['product'] as Map<String, dynamic>
         : inputJson;
     final seller = json['seller'] as Map<String, dynamic>?;
-    final primaryImg = json['image'] as String? ?? json['primary_image'] as String?;
-    final gallery = (json['gallery'] as List?)?.map((e) => e.toString()).toList() ?? [];
-    final imagesList = (json['images'] as List?)?.map((e) => e.toString()).toList() ?? [];
+    final primaryImg = ImageUrlHelper.resolve(json['image'] as String? ?? json['primary_image'] as String?);
+    final gallery = (json['gallery'] as List?)
+            ?.map((e) => ImageUrlHelper.resolve(e))
+            .where((e) => e.isNotEmpty)
+            .toList() ??
+        [];
+    final imagesList = (json['images'] as List?)
+            ?.map((e) => ImageUrlHelper.resolve(e))
+            .where((e) => e.isNotEmpty)
+            .toList() ??
+        [];
     final allImages = [...gallery, ...imagesList];
-    final imgUrl = primaryImg ?? (allImages.isNotEmpty ? allImages.first : '');
+    final imgUrl = primaryImg.isNotEmpty ? primaryImg : (allImages.isNotEmpty ? allImages.first : '');
 
     final priceVal = json['price'];
     final compareVal = json['compare_price'] ?? json['regular_price'];
@@ -134,7 +143,7 @@ class ProductModel {
             (json['stock'] as num?)?.toInt() ??
             0;
         final optPrice = (v['price'] as num?)?.toDouble();
-        final optImg = v['image']?.toString();
+        final optImg = ImageUrlHelper.resolve(v['image']);
         final optColor = v['color']?.toString();
         final optSize = v['size']?.toString();
         final optSku = v['sku']?.toString();
@@ -306,25 +315,33 @@ class _ProductCardState extends State<ProductCard> {
                   Positioned.fill(
                     child: Container(
                       color: const Color(0xFFE2E8F0),
-                      child: Image.network(
-                        product.imageUrl,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return Container(
-                            color: const Color(0xFFCBD5E1),
-                            child: const Center(
-                              child: Text(
-                                'img',
-                                style: TextStyle(
-                                  color: Color(0xFF64748B),
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 13,
+                      child: product.imageUrl.isNotEmpty
+                          ? Image.network(
+                              product.imageUrl,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) {
+                                return Container(
+                                  color: const Color(0xFFF1F5F9),
+                                  child: const Center(
+                                    child: Icon(
+                                      Icons.image_outlined,
+                                      color: Color(0xFF94A3B8),
+                                      size: 32,
+                                    ),
+                                  ),
+                                );
+                              },
+                            )
+                          : Container(
+                              color: const Color(0xFFF1F5F9),
+                              child: const Center(
+                                child: Icon(
+                                  Icons.image_outlined,
+                                  color: Color(0xFF94A3B8),
+                                  size: 32,
                                 ),
                               ),
                             ),
-                          );
-                        },
-                      ),
                     ),
                   ),
 
