@@ -18,8 +18,12 @@ class ApiConstants {
   static const String riderProfile = profile;
   static const String availability = '/api/mobile/v1/rider/availability';
   static const String toggleAvailability = availability;
+  static const String hubs = '/api/mobile/v1/rider/hubs';
+  static const String selectHub = '/api/mobile/v1/rider/hub/select';
   static const String offers = '/api/mobile/v1/rider/offers';
   static const String riderOffers = offers;
+  static const String availableDeliveries =
+      '/api/mobile/v1/rider/deliveries/available';
   static String acceptOffer(dynamic offerId) =>
       '/api/mobile/v1/rider/offers/$offerId/accept';
   static String declineOffer(dynamic offerId) =>
@@ -30,8 +34,12 @@ class ApiConstants {
       '/api/mobile/v1/rider/deliveries/active';
   static const String deliveryHistory =
       '/api/mobile/v1/rider/deliveries/history';
+  static String showDelivery(dynamic orderId) =>
+      '/api/mobile/v1/rider/deliveries/$orderId';
   static String completeDelivery(dynamic orderId) =>
       '/api/mobile/v1/rider/deliveries/$orderId/complete';
+  static String deliver(dynamic orderId) =>
+      '/api/mobile/v1/rider/deliveries/$orderId/deliver';
   static String failDelivery(dynamic orderId) =>
       '/api/mobile/v1/rider/deliveries/$orderId/fail';
   static const String earnings = '/api/mobile/v1/rider/earnings';

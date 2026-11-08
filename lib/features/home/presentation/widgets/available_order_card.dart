@@ -110,6 +110,30 @@ class AvailableOrderCard extends StatelessWidget {
                         ],
                       ),
                     ),
+                    if (order.acceptanceCountdownSec > 0)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFEF2F2),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFFFCA5A5)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.timer_outlined, size: 13, color: Color(0xFFDC2626)),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${order.acceptanceCountdownSec}s remaining',
+                              style: const TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w800,
+                                color: Color(0xFFDC2626),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                   ],
                 ),
               ),

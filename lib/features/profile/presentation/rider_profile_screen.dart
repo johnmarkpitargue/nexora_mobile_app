@@ -87,6 +87,7 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
   @override
   void initState() {
     super.initState();
+    RiderService.instance.fetchProfileRemote();
     if (widget.initialRiderId != null &&
         widget.initialRiderId != RiderService.instance.profile.id) {
       _unauthorizedViewId = widget.initialRiderId;
@@ -1388,20 +1389,48 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                             children: [
                               ClipRRect(
                                 borderRadius: BorderRadius.circular(14),
-                                child: Image.network(
-                                  profile.avatarUrl,
-                                  width: 58,
-                                  height: 58,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (ctx, error, stackTrace) =>
-                                      Container(
-                                    width: 58,
-                                    height: 58,
-                                    color: const Color(0xFF0066FF),
-                                    child: const Icon(Icons.person,
-                                        color: Colors.white, size: 32),
-                                  ),
-                                ),
+                                child: (profile.avatarUrl.isNotEmpty && !profile.avatarUrl.contains('unsplash.com'))
+                                    ? Image.network(
+                                        profile.avatarUrl,
+                                        width: 58,
+                                        height: 58,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (ctx, error, stackTrace) =>
+                                            Container(
+                                          width: 58,
+                                          height: 58,
+                                          color: const Color(0xFF0066FF),
+                                          child: Center(
+                                            child: Text(
+                                              profile.name.isNotEmpty
+                                                  ? profile.name[0].toUpperCase()
+                                                  : 'R',
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 22,
+                                                fontWeight: FontWeight.w900,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      )
+                                    : Container(
+                                        width: 58,
+                                        height: 58,
+                                        color: const Color(0xFF0066FF),
+                                        child: Center(
+                                          child: Text(
+                                            profile.name.isNotEmpty
+                                                ? profile.name[0].toUpperCase()
+                                                : 'R',
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 22,
+                                              fontWeight: FontWeight.w900,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
                               ),
                               Positioned(
                                 bottom: -2,
@@ -1893,7 +1922,9 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    profile.vehicleModel,
+                                    profile.vehicleType.isNotEmpty
+                                        ? profile.vehicleType
+                                        : 'Motorcycle',
                                     style: const TextStyle(
                                       fontSize: 14,
                                       fontWeight: FontWeight.w900,
@@ -1901,7 +1932,9 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                                     ),
                                   ),
                                   Text(
-                                    profile.vehicleSub,
+                                    profile.plateNumber.isNotEmpty
+                                        ? 'Registered • ${profile.plateNumber}'
+                                        : 'Verified Vehicle',
                                     style: const TextStyle(
                                       fontSize: 11,
                                       color: Color(0xFF64748B),

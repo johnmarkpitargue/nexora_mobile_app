@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../../core/network/api_client.dart';
 import '../../../core/theme/rider_theme.dart';
 import '../../../core/models/delivery_order.dart';
 import '../../../core/services/delivery_service.dart';
@@ -136,13 +137,13 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
 
   void _nextStage() {
     if (_currentStage < 4) {
-      setState(() {
-        if (_currentStage == 1) {
-          // When leaving At Store, ensure both parcels are scanned
-          _pkg1Scanned = true;
-          _pkg2Scanned = true;
-        }
+      if (_currentStage == 1) {
+        _pkg1Scanned = true;
+        _pkg2Scanned = true;
+        DeliveryService.instance.confirmPickupRemote(widget.order.id, orderId: widget.order.id);
+      }
 
+      setState(() {
         _currentStage++;
 
         String statusStr = 'to_deliver';
@@ -171,10 +172,13 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
     }
   }
 
-
   Future<void> _showMandatoryPodCameraModal(DeliveryOrder order) async {
     final picker = ImagePicker();
     final notesController = TextEditingController(text: _podRecipientNotes ?? 'Received by recipient in person');
+    final otpController = TextEditingController();
+    bool isSubmitting = false;
+    String? serverError;
+    bool isLocked = false;
 
     await showModalBottomSheet(
       context: context,
@@ -187,7 +191,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
 
           return Container(
             constraints: BoxConstraints(
-              maxHeight: MediaQuery.of(ctx).size.height * 0.90,
+              maxHeight: MediaQuery.of(ctx).size.height * 0.92,
             ),
             padding: EdgeInsets.fromLTRB(20, 16, 20, 20 + bottomInset),
             decoration: const BoxDecoration(
@@ -218,7 +222,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                           color: const Color(0xFF0066FF).withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        child: const Icon(Icons.camera_alt_rounded, color: Color(0xFF0066FF), size: 22),
+                        child: const Icon(Icons.verified_rounded, color: Color(0xFF0066FF), size: 22),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -228,7 +232,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                             const Row(
                               children: [
                                 Text(
-                                  'Mandatory Proof of Delivery',
+                                  'Delivery Completion',
                                   style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w800,
@@ -259,9 +263,113 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                       ),
                     ],
                   ),
+
+                  if (serverError != null) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFEE2E2),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFF87171)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.error_outline_rounded, color: Color(0xFFDC2626), size: 16),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  serverError!,
+                                  style: const TextStyle(
+                                    color: Color(0xFFDC2626),
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          if (isLocked) ...[
+                            const SizedBox(height: 8),
+                            SizedBox(
+                              width: double.infinity,
+                              child: OutlinedButton.icon(
+                                onPressed: () {
+                                  Navigator.pop(ctx);
+                                  _showFailDeliveryModal(order);
+                                },
+                                icon: const Icon(Icons.report_problem_rounded, size: 16, color: Color(0xFFDC2626)),
+                                label: const Text(
+                                  'Report Delivery Failed',
+                                  style: TextStyle(color: Color(0xFFDC2626), fontWeight: FontWeight.bold, fontSize: 12),
+                                ),
+                                style: OutlinedButton.styleFrom(
+                                  side: const BorderSide(color: Color(0xFFDC2626)),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+
                   const SizedBox(height: 16),
 
+                  // 6-digit Customer Delivery OTP
+                  const Row(
+                    children: [
+                      Icon(Icons.pin_rounded, size: 16, color: Color(0xFF0066FF)),
+                      SizedBox(width: 6),
+                      Text(
+                        'Customer 6-Digit Delivery OTP',
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
+                      ),
+                      SizedBox(width: 4),
+                      Text('*', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Ask the recipient for the 6-digit PIN displayed on their order tracker.',
+                    style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: otpController,
+                    keyboardType: TextInputType.number,
+                    maxLength: 6,
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 4),
+                    decoration: InputDecoration(
+                      hintText: '• • • • • •',
+                      hintStyle: const TextStyle(letterSpacing: 4, color: Color(0xFF94A3B8)),
+                      filled: true,
+                      fillColor: const Color(0xFFF8FAFC),
+                      counterText: '',
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+
                   // POD Photo Capture Area
+                  const Text(
+                    'Proof of Delivery Photo',
+                    style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: Color(0xFF334155)),
+                  ),
+                  const SizedBox(height: 6),
                   GestureDetector(
                     onTap: () async {
                       try {
@@ -289,7 +397,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                     },
                     child: Container(
                       width: double.infinity,
-                      height: 220,
+                      height: 180,
                       decoration: BoxDecoration(
                         color: const Color(0xFFF8FAFC),
                         borderRadius: BorderRadius.circular(16),
@@ -318,12 +426,6 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                                     decoration: BoxDecoration(
                                       color: const Color(0xFF10B981),
                                       borderRadius: BorderRadius.circular(20),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.black.withValues(alpha: 0.2),
-                                          blurRadius: 4,
-                                        ),
-                                      ],
                                     ),
                                     child: const Row(
                                       mainAxisSize: MainAxisSize.min,
@@ -366,22 +468,22 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 Container(
-                                  padding: const EdgeInsets.all(16),
+                                  padding: const EdgeInsets.all(14),
                                   decoration: BoxDecoration(
                                     color: const Color(0xFF0066FF).withValues(alpha: 0.1),
                                     shape: BoxShape.circle,
                                   ),
                                   child: const Icon(
                                     Icons.photo_camera_rounded,
-                                    size: 44,
+                                    size: 36,
                                     color: Color(0xFF0066FF),
                                   ),
                                 ),
-                                const SizedBox(height: 12),
+                                const SizedBox(height: 10),
                                 const Text(
                                   'Tap to Take Proof of Delivery Photo',
                                   style: TextStyle(
-                                    fontSize: 14,
+                                    fontSize: 13.5,
                                     fontWeight: FontWeight.w800,
                                     color: Color(0xFF0F172A),
                                   ),
@@ -390,9 +492,9 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                                 const Padding(
                                   padding: EdgeInsets.symmetric(horizontal: 24),
                                   child: Text(
-                                    'Take a clear photo of the parcel handed to the customer or at the doorstep',
+                                    'Clear photo of package handed to recipient or at doorstep',
                                     textAlign: TextAlign.center,
-                                    style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                                    style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
                                   ),
                                 ),
                               ],
@@ -432,26 +534,67 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                     width: double.infinity,
                     height: 50,
                     child: ElevatedButton.icon(
-                      onPressed: () {
-                        if (_capturedPodPhotoPath == null || _capturedPodPhotoPath!.isEmpty) {
-                          HapticFeedback.vibrate();
-                          ScaffoldMessenger.of(ctx).showSnackBar(
-                            const SnackBar(
-                              content: Text('⚠️ Proof of Delivery photo is mandatory before completing delivery!'),
-                              backgroundColor: Color(0xFFE11D48),
-                            ),
-                          );
-                          return;
-                        }
+                      onPressed: isSubmitting
+                          ? null
+                          : () async {
+                              final otp = otpController.text.trim();
+                              if (otp.length != 6) {
+                                HapticFeedback.vibrate();
+                                setModalState(() {
+                                  serverError = 'Please enter the 6-digit Delivery OTP.';
+                                });
+                                return;
+                              }
 
-                        _podRecipientNotes = notesController.text.trim();
-                        Navigator.pop(ctx);
-                        _nextStage();
-                      },
-                      icon: const Icon(Icons.check_circle_rounded, size: 20),
-                      label: const Text(
-                        'CONFIRM POD & COMPLETE DELIVERY',
-                        style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5, letterSpacing: 0.3),
+                              if (_capturedPodPhotoPath == null || _capturedPodPhotoPath!.isEmpty) {
+                                HapticFeedback.vibrate();
+                                setModalState(() {
+                                  serverError = 'Proof of Delivery photo is mandatory!';
+                                });
+                                return;
+                              }
+
+                              setModalState(() {
+                                isSubmitting = true;
+                                serverError = null;
+                              });
+
+                              try {
+                                _podRecipientNotes = notesController.text.trim();
+                                await DeliveryService.instance.completeDeliveryRemote(
+                                  orderId: order.id,
+                                  deliveryOtp: otp,
+                                  podFilePath: _capturedPodPhotoPath!,
+                                  notes: _podRecipientNotes,
+                                );
+                                if (!ctx.mounted || !mounted) return;
+                                Navigator.pop(ctx);
+                                _nextStage();
+                              } on ApiException catch (e) {
+                                setModalState(() {
+                                  isSubmitting = false;
+                                  serverError = e.message;
+                                  isLocked = e.statusCode == 423 ||
+                                      e.message.toLowerCase().contains('locked') ||
+                                      e.message.toLowerCase().contains('3 failed attempts');
+                                });
+                              } catch (e) {
+                                setModalState(() {
+                                  isSubmitting = false;
+                                  serverError = e.toString();
+                                });
+                              }
+                            },
+                      icon: isSubmitting
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                            )
+                          : const Icon(Icons.check_circle_rounded, size: 20),
+                      label: Text(
+                        isSubmitting ? 'VERIFYING...' : 'CONFIRM POD & COMPLETE DELIVERY',
+                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5, letterSpacing: 0.3),
                       ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: hasPhoto ? const Color(0xFF10B981) : const Color(0xFF94A3B8),
@@ -459,6 +602,176 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                         elevation: 0,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                       ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 10),
+                  Center(
+                    child: TextButton.icon(
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        _showFailDeliveryModal(order);
+                      },
+                      icon: const Icon(Icons.report_problem_outlined, size: 16, color: Color(0xFF64748B)),
+                      label: const Text(
+                        'Report Delivery Issue / Cannot Complete',
+                        style: TextStyle(color: Color(0xFF64748B), fontSize: 12, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _showFailDeliveryModal(DeliveryOrder order) async {
+    String selectedReason = 'buyer_not_home';
+    final notesController = TextEditingController();
+    bool isSubmitting = false;
+    String? errorMessage;
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) {
+          final bottomInset = MediaQuery.of(ctx).viewInsets.bottom;
+          return Container(
+            padding: EdgeInsets.fromLTRB(20, 16, 20, 20 + bottomInset),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 44,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFCBD5E1),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Row(
+                    children: [
+                      Icon(Icons.report_problem_rounded, color: Color(0xFFE11D48), size: 22),
+                      SizedBox(width: 8),
+                      Text(
+                        'Report Failed Delivery',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF0F172A),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Order #${order.id} • ${order.customerName}',
+                    style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                  ),
+                  if (errorMessage != null) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFEE2E2),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0xFFF87171)),
+                      ),
+                      child: Text(
+                        errorMessage!,
+                        style: const TextStyle(color: Color(0xFFDC2626), fontSize: 12, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 16),
+                  const Text('Select Failure Reason', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 8),
+                  RadioListTile<String>(
+                    value: 'buyer_not_home',
+                    // ignore: deprecated_member_use
+                    groupValue: selectedReason,
+                    title: const Text('Buyer Not Home / Unreachable', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                    // ignore: deprecated_member_use
+                    onChanged: (val) => setModalState(() => selectedReason = val!),
+                  ),
+                  RadioListTile<String>(
+                    value: 'wrong_address',
+                    // ignore: deprecated_member_use
+                    groupValue: selectedReason,
+                    title: const Text('Incorrect / Unlocatable Address', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                    // ignore: deprecated_member_use
+                    onChanged: (val) => setModalState(() => selectedReason = val!),
+                  ),
+                  RadioListTile<String>(
+                    value: 'refused',
+                    // ignore: deprecated_member_use
+                    groupValue: selectedReason,
+                    title: const Text('Buyer Refused Delivery', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                    // ignore: deprecated_member_use
+                    onChanged: (val) => setModalState(() => selectedReason = val!),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: notesController,
+                    decoration: InputDecoration(
+                      hintText: 'Additional attempt notes...',
+                      filled: true,
+                      fillColor: const Color(0xFFF8FAFC),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: ElevatedButton(
+                      onPressed: isSubmitting
+                          ? null
+                          : () async {
+                              setModalState(() => isSubmitting = true);
+                              try {
+                                await DeliveryService.instance.failDeliveryRemote(
+                                  orderId: order.id,
+                                  reason: selectedReason,
+                                  notes: notesController.text.trim(),
+                                );
+                                if (!ctx.mounted || !mounted) return;
+                                Navigator.pop(ctx);
+                                Navigator.pop(context); // Exit active delivery screen
+                              } on ApiException catch (e) {
+                                setModalState(() {
+                                  errorMessage = e.message;
+                                  isSubmitting = false;
+                                });
+                              } catch (e) {
+                                setModalState(() {
+                                  errorMessage = e.toString();
+                                  isSubmitting = false;
+                                });
+                              }
+                            },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFE11D48),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: isSubmitting
+                          ? const CircularProgressIndicator(color: Colors.white)
+                          : const Text('Submit Delivery Failure', style: TextStyle(fontWeight: FontWeight.bold)),
                     ),
                   ),
                 ],
@@ -2401,16 +2714,21 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () => _openChat(order.merchantName, isMerchant: true),
-                    icon: const Icon(Icons.chat_bubble_outline_rounded, size: 15),
-                    label: const Text('Chat'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFF1F5F9),
-                      foregroundColor: const Color(0xFF0F172A),
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      padding: const EdgeInsets.symmetric(vertical: 10),
+                  child: Opacity(
+                    opacity: 0.0,
+                    child: IgnorePointer(
+                      child: ElevatedButton.icon(
+                        onPressed: () => _openChat(order.merchantName, isMerchant: true),
+                        icon: const Icon(Icons.chat_bubble_outline_rounded, size: 15),
+                        label: const Text('Chat'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFF1F5F9),
+                          foregroundColor: const Color(0xFF0F172A),
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                        ),
+                      ),
                     ),
                   ),
                 ),

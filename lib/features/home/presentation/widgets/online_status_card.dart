@@ -169,7 +169,7 @@ class OnlineStatusCard extends StatelessWidget {
                             size: 16, color: RiderTheme.secondary),
                         const SizedBox(width: 6),
                         Text(
-                          profile.vehicleModel,
+                          profile.vehicleType.isNotEmpty ? profile.vehicleType : 'Motorcycle',
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 12,

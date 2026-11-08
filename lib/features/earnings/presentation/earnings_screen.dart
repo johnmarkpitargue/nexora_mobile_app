@@ -17,6 +17,12 @@ class EarningsScreen extends StatefulWidget {
 class _EarningsScreenState extends State<EarningsScreen> {
   String _selectedTxnFilter = 'All';
 
+  @override
+  void initState() {
+    super.initState();
+    EarningsService.instance.fetchEarningsRemote();
+  }
+
   void _openCashOut(BuildContext context) {
     Navigator.push(
       context,
@@ -229,18 +235,6 @@ class _EarningsScreenState extends State<EarningsScreen> {
                     const Text(
                       'All Cash on Delivery payments have been remitted. Your dispatch standing is 100% active with zero holds.',
                       style: TextStyle(fontSize: 12, color: Color(0xFF10B981)),
-                    ),
-                    const SizedBox(height: 8),
-                    TextButton.icon(
-                      onPressed: () {
-                        EarningsService.instance.resetCodBalanceForTest(640.0);
-                        Navigator.pop(ctx);
-                      },
-                      icon: const Icon(Icons.refresh_rounded, size: 14),
-                      label: const Text(
-                        'Reset Sample ₱640 COD for Testing',
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
-                      ),
                     ),
                   ],
                 ),
@@ -1275,6 +1269,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
     );
   }
 
+  // ignore: unused_element
   void _openQuestDialog(BuildContext context) {
     showModalBottomSheet(
       context: context,
@@ -1817,170 +1812,75 @@ class _EarningsScreenState extends State<EarningsScreen> {
                 ),
                 const SizedBox(height: 12),
 
-                // 3. Two Mini Cards: Quest Bonus & Withdrawal Accounts
-                Row(
-                  children: [
-                    // Quest Bonus
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () => _openQuestDialog(context),
-                        child: Container(
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(18),
-                            border: Border.all(color: const Color(0xFFE2E8F0)),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.02),
-                                blurRadius: 10,
-                                offset: const Offset(0, 3),
-                              ),
-                            ],
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Container(
-                                    width: 34,
-                                    height: 34,
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFDCFCE7),
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    child: const Icon(
-                                      Icons.bolt_rounded,
-                                      color: Color(0xFF10B981),
-                                      size: 18,
-                                    ),
-                                  ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 7, vertical: 3),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFDCFCE7),
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    child: const Text(
-                                      '14/18 Trips',
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w800,
-                                        color: Color(0xFF10B981),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-                              const Text(
-                                'Quest Bonus',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w900,
-                                  color: Color(0xFF0F172A),
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              const Text(
-                                '+₱450 Weekend Surge',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w800,
-                                  color: Color(0xFF10B981),
-                                ),
-                              ),
-                            ],
-                          ),
+                // 3. Withdrawal Accounts Card (Quest Bonus hidden per Rule 4)
+                GestureDetector(
+                  onTap: () => _openAccountsDialog(context),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.02),
+                          blurRadius: 10,
+                          offset: const Offset(0, 3),
                         ),
-                      ),
+                      ],
                     ),
-                    const SizedBox(width: 12),
-
-                    // Withdrawal Accounts
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () => _openAccountsDialog(context),
-                        child: Container(
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(18),
-                            border: Border.all(color: const Color(0xFFE2E8F0)),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.02),
-                                blurRadius: 10,
-                                offset: const Offset(0, 3),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF3E8FF),
+                                borderRadius: BorderRadius.circular(12),
                               ),
-                            ],
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Container(
-                                    width: 34,
-                                    height: 34,
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFF3E8FF),
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    child: const Icon(
-                                      Icons.account_balance_rounded,
-                                      color: Color(0xFF7C3AED),
-                                      size: 18,
-                                    ),
+                              child: const Icon(
+                                Icons.account_balance_rounded,
+                                color: Color(0xFF7C3AED),
+                                size: 20,
+                              ),
+                            ),
+                            const SizedBox(width: 14),
+                            const Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Withdrawal Accounts',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w900,
+                                    color: Color(0xFF0F172A),
                                   ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 7, vertical: 3),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFF3E8FF),
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    child: const Text(
-                                      '2 Linked',
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w800,
-                                        color: Color(0xFF7C3AED),
-                                      ),
-                                    ),
+                                ),
+                                SizedBox(height: 2),
+                                Text(
+                                  'GCash ••8291, BDO UniBank',
+                                  style: TextStyle(
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF64748B),
                                   ),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-                              const Text(
-                                'Withdrawal Accounts',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w900,
-                                  color: Color(0xFF0F172A),
                                 ),
-                              ),
-                              const SizedBox(height: 2),
-                              const Text(
-                                'GCash, BDO UniBank',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w500,
-                                  color: Color(0xFF64748B),
-                                ),
-                              ),
-                            ],
-                          ),
+                              ],
+                            ),
+                          ],
                         ),
-                      ),
+                        const Icon(
+                          Icons.arrow_forward_ios_rounded,
+                          size: 14,
+                          color: Color(0xFF94A3B8),
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
                 const SizedBox(height: 16),
 

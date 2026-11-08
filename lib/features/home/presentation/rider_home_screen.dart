@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/rider_theme.dart';
 import '../../../core/models/delivery_order.dart';
+import '../../../core/network/api_client.dart';
 import '../../../core/services/rider_service.dart';
 import '../../../core/services/delivery_service.dart';
+import '../../../core/services/earnings_service.dart';
 import '../../delivery/presentation/active_delivery_screen.dart';
 import 'widgets/online_status_card.dart';
 import 'widgets/earnings_summary_card.dart';
@@ -37,7 +39,9 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
     ExternalNotificationService.requestPermissionAsync();
     // Initialize accurate rider phone GPS fix immediately
     RiderLocationService.instance.getCurrentLocation();
-    // Ensure latest orders from Buyer App are synced
+    // Fetch profile, earnings, and sync latest active deliveries and offers
+    RiderService.instance.fetchProfileRemote();
+    EarningsService.instance.fetchEarningsRemote();
     DeliveryService.instance.refreshAvailableOrders();
   }
 
@@ -558,7 +562,7 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
                     return AvailableOrderCard(
                       key: ValueKey('order_${order.id}'),
                       order: order,
-                      onAccept: () {
+                      onAccept: () async {
                         final currentActive = DeliveryService.instance.activeOrder;
                         if (currentActive != null) {
                           InAppNotificationService.instance.showNotification(
@@ -571,30 +575,55 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
                           return;
                         }
 
-                        DeliveryService.instance.acceptOrder(order.id);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Accepted Order ${order.id}! Heading to store.'),
-                            backgroundColor: RiderTheme.onlineGreen,
-                          ),
-                        );
-                        // Open Active Delivery Screen
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (ctx) => ActiveDeliveryScreen(
-                              order: order.copyWith(status: DeliveryStatus.accepted),
+                        try {
+                          final effectiveOfferId = order.offerId ?? order.id;
+                          await DeliveryService.instance.acceptOrderRemote(order.id, offerId: effectiveOfferId);
+                          if (!context.mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Accepted Order ${order.id}! Heading to store.'),
+                              backgroundColor: RiderTheme.onlineGreen,
                             ),
-                          ),
-                        );
+                          );
+                          // Open Active Delivery Screen
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (ctx) => ActiveDeliveryScreen(
+                                order: DeliveryService.instance.activeOrder ??
+                                    order.copyWith(status: DeliveryStatus.accepted),
+                              ),
+                            ),
+                          );
+                        } on ApiException catch (e) {
+                          if (!context.mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(e.message),
+                              backgroundColor: RiderTheme.errorRed,
+                            ),
+                          );
+                        } catch (e) {
+                          if (!context.mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Failed to accept order: $e'),
+                              backgroundColor: RiderTheme.errorRed,
+                            ),
+                          );
+                        }
                       },
-                      onDecline: () {
-                        DeliveryService.instance.declineOrder(order.id);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Order ${order.id} declined.'),
-                          ),
-                        );
+                      onDecline: () async {
+                        try {
+                          final effectiveOfferId = order.offerId ?? order.id;
+                          await DeliveryService.instance.declineOrderRemote(order.id, offerId: effectiveOfferId);
+                          if (!context.mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Order ${order.id} declined.'),
+                            ),
+                          );
+                        } catch (_) {}
                       },
                     );
                   }),

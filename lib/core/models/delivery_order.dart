@@ -93,6 +93,8 @@ class DeliveryOrder {
   final double packageWeightKg;
   final bool isFragile;
   final bool fitsInsulatedBag;
+  final String? offerId;
+  final int? serverOrderId;
 
   const DeliveryOrder({
     required this.id,
@@ -123,6 +125,8 @@ class DeliveryOrder {
     this.packageWeightKg = 2.4,
     this.isFragile = true,
     this.fitsInsulatedBag = true,
+    this.offerId,
+    this.serverOrderId,
   });
 
   double get riderEarnings => deliveryFee + tip;
@@ -165,6 +169,8 @@ class DeliveryOrder {
     double? packageWeightKg,
     bool? isFragile,
     bool? fitsInsulatedBag,
+    String? offerId,
+    int? serverOrderId,
   }) {
     return DeliveryOrder(
       id: id ?? this.id,
@@ -195,6 +201,8 @@ class DeliveryOrder {
       packageWeightKg: packageWeightKg ?? this.packageWeightKg,
       isFragile: isFragile ?? this.isFragile,
       fitsInsulatedBag: fitsInsulatedBag ?? this.fitsInsulatedBag,
+      offerId: offerId ?? this.offerId,
+      serverOrderId: serverOrderId ?? this.serverOrderId,
     );
   }
 
@@ -204,6 +212,10 @@ class DeliveryOrder {
     final codAmount = (json['cod_amount'] as num?)?.toDouble() ?? 0.0;
     final expectedPay = (json['expected_pay'] as num?)?.toDouble() ?? 50.0;
     final expiresIn = (json['expires_in_seconds'] as num?)?.toInt() ?? 60;
+    final rawOfferId = json['id']?.toString();
+    final serverOrderId = (json['order_id'] ?? orderObj?['id']) is num
+        ? ((json['order_id'] ?? orderObj?['id']) as num).toInt()
+        : int.tryParse((json['order_id'] ?? orderObj?['id'] ?? '').toString());
 
     return DeliveryOrder(
       id: orderId,
@@ -229,11 +241,14 @@ class DeliveryOrder {
       createdAt: DateTime.now(),
       status: DeliveryStatus.available,
       acceptanceCountdownSec: expiresIn,
+      offerId: rawOfferId,
+      serverOrderId: serverOrderId,
     );
   }
 
   factory DeliveryOrder.fromApiOrder(Map<String, dynamic> json) {
     final orderId = (json['order_number'] ?? json['id']).toString();
+    final serverOrderId = json['id'] is num ? (json['id'] as num).toInt() : int.tryParse(json['id'].toString());
     final itemsList = json['items'] as List<dynamic>? ?? [];
     final items = itemsList.map((it) {
       final m = it as Map<String, dynamic>;
@@ -253,11 +268,11 @@ class DeliveryOrder {
         status = DeliveryStatus.accepted;
         break;
       case 'picked_up':
+      case 'assigned_to_rider':
         status = DeliveryStatus.pickedUp;
         break;
       case 'in_transit':
       case 'out_for_delivery':
-      case 'assigned_to_rider':
         status = DeliveryStatus.atCustomer;
         break;
       case 'delivered':
@@ -296,6 +311,7 @@ class DeliveryOrder {
       estimatedMinutes: 18,
       createdAt: json['created_at'] != null ? DateTime.tryParse(json['created_at'].toString()) ?? DateTime.now() : DateTime.now(),
       status: status,
+      serverOrderId: serverOrderId,
     );
   }
 }

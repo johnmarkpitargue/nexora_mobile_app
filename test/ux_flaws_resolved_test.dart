@@ -123,8 +123,8 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Verify vehicle model and plate number text are present with high contrast
-      expect(find.text('Honda Click 150i'), findsOneWidget);
+      // Verify vehicle type and plate number text are present with high contrast
+      expect(find.text('Motorcycle'), findsOneWidget);
       expect(find.text('123ABC'), findsOneWidget);
     });
 

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../constants/api_constants.dart';
 import '../network/api_client.dart';
@@ -98,62 +99,7 @@ class DeliveryService extends ChangeNotifier {
     _deliveryCompletedTime = null;
     _availableOrders.clear();
     _notifiedOrderIds.clear();
-
-    // Past Completed Orders History
-    _completedOrders.addAll([
-      DeliveryOrder(
-        id: 'NX-8720-ORD',
-        customerName: 'Clara Del Rosario',
-        customerPhone: '+63 927 334 1122',
-        customerAddress: 'San Lorenzo Village, Makati City',
-        merchantName: 'Sephora Beauty Nexora Annex',
-        merchantAddress: 'Power Plant Mall, Rockwell, Makati',
-        merchantPhone: '+63 2 8111 2233',
-        items: const [
-          OrderItemDetail(
-            name: 'Glow Recipe Watermelon Dew Drops',
-            quantity: 2,
-            price: 2150.00,
-            imageUrl: 'https://images.unsplash.com/photo-1571781926291-c477ebfd024b?w=200',
-          ),
-        ],
-        deliveryFee: 130.00,
-        tip: 30.00,
-        orderTotal: 4460.00,
-        paymentType: 'Prepaid',
-        distanceKm: 2.9,
-        estimatedMinutes: 16,
-        createdAt: DateTime.now().subtract(const Duration(hours: 2)),
-        status: DeliveryStatus.delivered,
-        recipientNotes: 'Received by homeowner directly.',
-      ),
-      DeliveryOrder(
-        id: 'NX-8641-ORD',
-        customerName: 'David Lee',
-        customerPhone: '+63 919 778 9911',
-        customerAddress: 'Century City Mall Residences, Poblacion, Makati',
-        merchantName: 'Logitech Official Store',
-        merchantAddress: 'Glorietta 2, Ayala Center, Makati',
-        merchantPhone: '+63 2 8444 5555',
-        items: const [
-          OrderItemDetail(
-            name: 'Logitech MX Master 3S Ergonomic Mouse',
-            quantity: 1,
-            price: 6195.00,
-            imageUrl: 'https://images.unsplash.com/photo-1615663245857-ac93bb7c39e7?w=200',
-          ),
-        ],
-        deliveryFee: 150.00,
-        tip: 20.00,
-        orderTotal: 6365.00,
-        paymentType: 'Prepaid',
-        distanceKm: 3.2,
-        estimatedMinutes: 20,
-        createdAt: DateTime.now().subtract(const Duration(hours: 4)),
-        status: DeliveryStatus.delivered,
-        recipientNotes: 'Left with condo concierge as instructed.',
-      ),
-    ]);
+    _completedOrders.clear();
   }
 
   bool get isSupabaseReady {
@@ -170,9 +116,10 @@ class DeliveryService extends ChangeNotifier {
     // 1. Fetch remote job offers from Laravel Sanctum API if authenticated
     if (ApiClient.instance.isAuthenticated) {
       try {
+        await fetchActiveDeliveriesRemote();
         final res = await ApiClient.instance.get(ApiConstants.riderOffers);
         final list = res.data as List<dynamic>? ?? [];
-        bool addedAny = false;
+        final fetched = <DeliveryOrder>[];
         for (final item in list) {
           final map = item as Map<String, dynamic>;
           final offerId = map['id']?.toString() ?? '';
@@ -181,18 +128,16 @@ class DeliveryService extends ChangeNotifier {
           if (_declinedOrderIds.contains(clean) || _declinedOrderIds.contains(offerId)) {
             continue;
           }
-          final availIdx = _availableOrders.indexWhere(
-            (o) => o.id == orderCode || o.id.replaceAll('#', '').trim() == clean,
-          );
-          if (availIdx < 0) {
-            _availableOrders.insert(0, DeliveryOrder.fromApiOffer(map));
-            addedAny = true;
-          }
+          fetched.add(DeliveryOrder.fromApiOffer(map));
         }
-        if (addedAny) {
-          notifyListeners();
-        }
-      } catch (_) {}
+        _availableOrders.clear();
+        _availableOrders.addAll(fetched);
+        _hasCompletedInitialFetch = true;
+        notifyListeners();
+        return;
+      } catch (e) {
+        debugPrint('Refresh available orders error: $e');
+      }
     }
 
     if (!isSupabaseReady) return;
@@ -881,16 +826,30 @@ class DeliveryService extends ChangeNotifier {
     final effectiveOfferId = offerId ?? clean;
 
     if (ApiClient.instance.isAuthenticated) {
+      final idempotencyKey = 'accept_${clean}_${DateTime.now().millisecondsSinceEpoch}';
       try {
-        final idempotencyKey = 'accept_${clean}_${DateTime.now().millisecondsSinceEpoch}';
         await ApiClient.instance.post(
           ApiConstants.acceptOffer(effectiveOfferId),
           headers: {'Idempotency-Key': idempotencyKey},
         );
-      } catch (_) {}
+      } on ApiException {
+        // Remove expired/taken offer from local list
+        _availableOrders.removeWhere(
+          (o) =>
+              o.id == orderId ||
+              o.id.replaceAll('#', '').trim() == clean ||
+              o.offerId == effectiveOfferId,
+        );
+        notifyListeners();
+        rethrow;
+      }
     }
 
     acceptOrder(orderId);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('rider_active_order_id', clean);
+    } catch (_) {}
     return true;
   }
 
@@ -908,20 +867,19 @@ class DeliveryService extends ChangeNotifier {
     return true;
   }
 
-  Future<bool> confirmPickupRemote(String trackingNumber) async {
+  Future<bool> confirmPickupRemote(String trackingNumber, {String? orderId}) async {
     if (ApiClient.instance.isAuthenticated) {
-      try {
-        final idempotencyKey = 'pickup_${trackingNumber}_${DateTime.now().millisecondsSinceEpoch}';
-        await ApiClient.instance.post(
-          ApiConstants.pickup,
-          body: {'tracking_number': trackingNumber.trim()},
-          headers: {'Idempotency-Key': idempotencyKey},
-        );
-        updateActiveOrderStage(2);
-        return true;
-      } catch (e) {
-        debugPrint('Confirm pickup remote notice: $e');
-      }
+      final idempotencyKey = 'pickup_${trackingNumber}_${DateTime.now().millisecondsSinceEpoch}';
+      final path = orderId != null && orderId.isNotEmpty
+          ? '/api/mobile/v1/rider/deliveries/$orderId/pickup'
+          : ApiConstants.pickup;
+      await ApiClient.instance.post(
+        path,
+        body: {'tracking_number': trackingNumber.trim()},
+        headers: {'Idempotency-Key': idempotencyKey},
+      );
+      updateActiveOrderStage(2);
+      return true;
     }
     updateActiveOrderStage(2);
     return true;
@@ -933,26 +891,31 @@ class DeliveryService extends ChangeNotifier {
     required String podFilePath,
     String? notes,
   }) async {
+    final clean = orderId.replaceAll('#', '').trim();
+    final effectiveId = _activeOrder?.serverOrderId?.toString() ?? clean;
+
     if (ApiClient.instance.isAuthenticated) {
+      final idempotencyKey = 'complete_${effectiveId}_${DateTime.now().millisecondsSinceEpoch}';
+      final multipartFile = await http.MultipartFile.fromPath('pod_photo', podFilePath);
+
+      await ApiClient.instance.multipartPost(
+        ApiConstants.completeDelivery(effectiveId),
+        fields: {
+          'delivery_otp': deliveryOtp.trim(),
+          if (notes != null && notes.isNotEmpty) 'notes': notes,
+        },
+        files: {'pod_photo': multipartFile},
+        headers: {'Idempotency-Key': idempotencyKey},
+      );
+
+      completeCurrentDelivery(photoPath: podFilePath, notes: notes);
       try {
-        final idempotencyKey = 'complete_${orderId}_${DateTime.now().millisecondsSinceEpoch}';
-        final multipartFile = await http.MultipartFile.fromPath('pod_image', podFilePath);
-
-        await ApiClient.instance.multipartPost(
-          ApiConstants.completeDelivery(orderId),
-          fields: {
-            'delivery_otp': deliveryOtp.trim(),
-            if (notes != null && notes.isNotEmpty) 'notes': notes,
-          },
-          files: {'pod_image': multipartFile},
-          headers: {'Idempotency-Key': idempotencyKey},
-        );
-
-        completeCurrentDelivery(photoPath: podFilePath, notes: notes);
-        return true;
-      } catch (e) {
-        debugPrint('Complete delivery remote notice: $e');
-      }
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove('rider_active_order_id');
+      } catch (_) {}
+      await EarningsService.instance.fetchEarningsRemote();
+      await fetchDeliveryHistoryRemote();
+      return true;
     }
 
     completeCurrentDelivery(photoPath: podFilePath, notes: notes);
@@ -964,32 +927,66 @@ class DeliveryService extends ChangeNotifier {
     required String reason,
     String? notes,
   }) async {
+    final clean = orderId.replaceAll('#', '').trim();
+    final effectiveId = _activeOrder?.serverOrderId?.toString() ?? clean;
+
     if (ApiClient.instance.isAuthenticated) {
+      final idempotencyKey = 'fail_${effectiveId}_${DateTime.now().millisecondsSinceEpoch}';
+      await ApiClient.instance.post(
+        ApiConstants.failDelivery(effectiveId),
+        body: {
+          'reason': reason,
+          if (notes != null && notes.isNotEmpty) 'notes': notes,
+        },
+        headers: {'Idempotency-Key': idempotencyKey},
+      );
+      _activeOrder = null;
+      _activeOrderStage = 0;
+      notifyListeners();
       try {
-        final idempotencyKey = 'fail_${orderId}_${DateTime.now().millisecondsSinceEpoch}';
-        await ApiClient.instance.post(
-          ApiConstants.failDelivery(orderId),
-          body: {
-            'reason': reason,
-            if (notes != null && notes.isNotEmpty) 'notes': notes,
-          },
-          headers: {'Idempotency-Key': idempotencyKey},
-        );
-      } catch (e) {
-        debugPrint('Fail delivery remote notice: $e');
-      }
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove('rider_active_order_id');
+      } catch (_) {}
+      await fetchActiveDeliveriesRemote();
+      return true;
     }
+    _activeOrder = null;
+    _activeOrderStage = 0;
+    notifyListeners();
     return true;
   }
 
   Future<List<DeliveryOrder>> fetchActiveDeliveriesRemote() async {
-    if (!ApiClient.instance.isAuthenticated) return [];
+    if (!ApiClient.instance.isAuthenticated) return _activeOrder != null ? [_activeOrder!] : [];
     try {
       final res = await ApiClient.instance.get(ApiConstants.activeDeliveries);
       final list = res.data as List<dynamic>? ?? [];
-      return list.map((item) => DeliveryOrder.fromApiOrder(item as Map<String, dynamic>)).toList();
+      final orders = list.map((item) => DeliveryOrder.fromApiOrder(item as Map<String, dynamic>)).toList();
+      if (orders.isNotEmpty) {
+        _activeOrder = orders.first;
+        final status = _activeOrder!.status;
+        if (status == DeliveryStatus.accepted) {
+          _activeOrderStage = 0;
+        } else if (status == DeliveryStatus.atMerchant) {
+          _activeOrderStage = 1;
+        } else if (status == DeliveryStatus.pickedUp) {
+          _activeOrderStage = 2;
+        } else if (status == DeliveryStatus.atCustomer) {
+          _activeOrderStage = 3;
+        } else if (status == DeliveryStatus.delivered) {
+          _activeOrderStage = 4;
+        }
+        notifyListeners();
+      } else {
+        if (_activeOrder != null && _activeOrderStage != 4) {
+          _activeOrder = null;
+          _activeOrderStage = 0;
+          notifyListeners();
+        }
+      }
+      return orders;
     } catch (_) {
-      return [];
+      return _activeOrder != null ? [_activeOrder!] : [];
     }
   }
 
@@ -1008,6 +1005,38 @@ class DeliveryService extends ChangeNotifier {
     } catch (_) {
       return _completedOrders;
     }
+  }
+
+  Future<List<Map<String, dynamic>>> fetchHubsRemote() async {
+    if (!ApiClient.instance.isAuthenticated) return [];
+    try {
+      final res = await ApiClient.instance.get(ApiConstants.hubs);
+      final list = res.data as List<dynamic>? ?? [];
+      return list.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<bool> selectHubRemote(int hubId) async {
+    if (!ApiClient.instance.isAuthenticated) return true;
+    await ApiClient.instance.post(
+      ApiConstants.selectHub,
+      body: {'hub_id': hubId},
+    );
+    await refreshAvailableOrders();
+    return true;
+  }
+
+  Future<void> restoreAndVerifyActiveDelivery() async {
+    if (!ApiClient.instance.isAuthenticated) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedId = prefs.getString('rider_active_order_id');
+      if (savedId != null && savedId.isNotEmpty) {
+        await fetchActiveDeliveriesRemote();
+      }
+    } catch (_) {}
   }
 
   void addSimulatedNewDispatch() {

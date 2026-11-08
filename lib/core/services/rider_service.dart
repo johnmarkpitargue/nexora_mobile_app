@@ -28,33 +28,32 @@ class RiderService extends ChangeNotifier {
     name: 'Pedro Jose Garcia',
     phone: '+63 918 555 0192',
     email: 'pedro.garcia@bilishatid.ph',
-    avatarUrl:
-        'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
-    rating: 4.98,
-    totalDeliveries: 1248,
-    completionRate: 99.4,
+    avatarUrl: '',
+    rating: 5.0,
+    totalDeliveries: 0,
+    completionRate: 100.0,
     tier: 'Tier 1 Rider',
     vehicleType: 'Motorcycle',
-    vehicleModel: 'Honda Click 150i',
-    vehicleSub: 'Liquid Cooled • 2023 Edition',
+    vehicleModel: '',
+    vehicleSub: '',
     plateNumber: '123ABC',
-    assignedHub: 'Pasig Central Sorting Hub (Cluster 4B)',
+    assignedHub: 'Central Sorting Hub',
     company: 'Bilis Hatid Express Inc.',
     accountStatus: 'Active',
     licenseNumber: 'N01-23-456789',
     licenseExpiry: '03/22/2030',
     licenseDocName: 'driver_license_front.jpg',
     orCrDocName: 'or_cr_receipt.pdf',
-    inspectionStatus: 'Pasig Hub Validated',
-    inspectionExpiry: 'Expires Dec 2025',
+    inspectionStatus: 'Hub Validated',
+    inspectionExpiry: 'Expires Dec 2026',
     vehicleReverificationStatus: 'Validated',
     thermalBag: 'Verified 65L Heavy-Duty',
     thermalBagSub: 'Cold-Chain Approved',
     maintenanceSchedule: 'In 1,240 km',
-    walletBalance: 3035.50,
-    todayEarnings: 1420.00,
-    todayDeliveries: 9,
-    onlineHoursToday: 5.2,
+    walletBalance: 0.0,
+    todayEarnings: 0.0,
+    todayDeliveries: 0,
+    onlineHoursToday: 0.0,
     isOnline: true,
     preferredNavigation: 'Google',
     audioPromptsEnabled: true,
@@ -146,26 +145,7 @@ class RiderService extends ChangeNotifier {
   set _declinedOrdersCount(int v) => _declinedOrdersCountVal = v;
 
   List<RiderReview>? _reviewsList;
-  List<RiderReview> get _reviews => _reviewsList ??= [
-    RiderReview(
-      orderId: 'NX-8819-ORD',
-      customerName: 'Elena Gilbert',
-      driverRating: 5,
-      deliveryRating: 5,
-      comment: 'Very polite rider and delivered ahead of schedule!',
-      tags: const ['Polite & Friendly', 'Fast Delivery', 'Handled with Care'],
-      createdAt: DateTime.now().subtract(const Duration(hours: 2)),
-    ),
-    RiderReview(
-      orderId: 'NX-8641-ORD',
-      customerName: 'David Lee',
-      driverRating: 5,
-      deliveryRating: 5,
-      comment: 'Followed condo drop-off instructions accurately.',
-      tags: const ['Followed Instructions', 'Good Communication'],
-      createdAt: DateTime.now().subtract(const Duration(hours: 5)),
-    ),
-  ];
+  List<RiderReview> get _reviews => _reviewsList ??= [];
 
   List<RiderReview> get reviews => List.unmodifiable(_reviews);
 
@@ -291,11 +271,20 @@ class RiderService extends ChangeNotifier {
     required String phone,
     required String plateNumber,
     required String vehicleType,
+    String? vehicleModel,
+    String? vehicleSub,
+    String? company,
+    String? assignedHub,
+    String? licenseNumber,
+    String? licenseExpiry,
+    String? avatarUrl,
     bool isOnline = true,
     double rating = 5.0,
     double walletBalance = 0.0,
     int todayDeliveries = 0,
     double todayEarnings = 0.0,
+    int totalDeliveries = 0,
+    int reviewsCount = 0,
   }) {
     _profile = _profile.copyWith(
       id: id,
@@ -304,11 +293,20 @@ class RiderService extends ChangeNotifier {
       phone: phone,
       plateNumber: plateNumber,
       vehicleType: vehicleType,
+      vehicleModel: vehicleModel ?? _profile.vehicleModel,
+      vehicleSub: vehicleSub ?? _profile.vehicleSub,
+      company: company ?? _profile.company,
+      assignedHub: assignedHub ?? _profile.assignedHub,
+      licenseNumber: licenseNumber ?? _profile.licenseNumber,
+      licenseExpiry: licenseExpiry ?? _profile.licenseExpiry,
+      avatarUrl: avatarUrl ?? _profile.avatarUrl,
       isOnline: isOnline,
       rating: rating,
       walletBalance: walletBalance,
       todayDeliveries: todayDeliveries,
       todayEarnings: todayEarnings,
+      totalDeliveries: totalDeliveries,
+      reviewsCount: reviewsCount,
     );
     notifyListeners();
   }
@@ -324,17 +322,51 @@ class RiderService extends ChangeNotifier {
       final user = data['user'] as Map<String, dynamic>?;
       final courierProfile = data['courier_profile'] as Map<String, dynamic>?;
 
+      final ratingVal = (data['rating'] as num?)?.toDouble() ??
+          (courierProfile?['rating'] as num?)?.toDouble() ??
+          _profile.rating;
+      final totalDeliveriesVal = (data['total_deliveries'] as num?)?.toInt() ??
+          (courierProfile?['total_deliveries'] as num?)?.toInt() ??
+          _profile.totalDeliveries;
+      final reviewsCountVal = (data['reviews_count'] as num?)?.toInt() ??
+          (courierProfile?['reviews_count'] as num?)?.toInt() ??
+          _profile.reviewsCount;
+
+      final serverAvatar = (user?['avatar_url'] ?? '').toString();
+      final cleanAvatar = serverAvatar.contains('unsplash.com') ? '' : serverAvatar;
+
       updateProfileFromApi(
         id: (user?['id'] ?? _profile.id).toString(),
-        name: (user?['full_name'] ?? _profile.name).toString(),
+        name: (user?['full_name'] ?? user?['name'] ?? _profile.name).toString(),
         email: (user?['email'] ?? _profile.email).toString(),
-        phone: (user?['contact_number'] ?? _profile.phone).toString(),
+        phone: (user?['contact_number'] ?? user?['phone'] ?? _profile.phone).toString(),
         plateNumber: (courierProfile?['plate_number'] ?? _profile.plateNumber).toString(),
         vehicleType: (courierProfile?['vehicle_type'] ?? _profile.vehicleType).toString(),
+        vehicleModel: '',
+        vehicleSub: '',
+        company: (courierProfile?['company_name'] ?? courierProfile?['company'] ?? _profile.company).toString(),
+        assignedHub: (courierProfile?['assigned_hub'] ?? courierProfile?['sorting_center'] ?? _profile.assignedHub).toString(),
+        licenseNumber: (courierProfile?['license_number'] ?? _profile.licenseNumber).toString(),
+        licenseExpiry: (courierProfile?['license_expiry_date'] ?? _profile.licenseExpiry).toString(),
+        avatarUrl: cleanAvatar,
         isOnline: data['is_online'] == true,
+        rating: ratingVal,
+        totalDeliveries: totalDeliveriesVal,
+        reviewsCount: reviewsCountVal,
         walletBalance: (data['earnings_balance'] as num?)?.toDouble() ?? _profile.walletBalance,
       );
 
+      final recentReviewsList = data['recent_reviews'] as List<dynamic>?;
+      if (recentReviewsList != null) {
+        _reviews.clear();
+        for (final item in recentReviewsList) {
+          if (item is Map<String, dynamic>) {
+            _reviews.add(RiderReview.fromApiJson(item));
+          }
+        }
+      }
+
+      notifyListeners();
       return OperationResult.ok(res.message);
     } catch (e) {
       return OperationResult.fail(e.toString());

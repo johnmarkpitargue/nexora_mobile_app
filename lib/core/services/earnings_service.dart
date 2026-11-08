@@ -14,7 +14,11 @@ class EarningsService extends ChangeNotifier {
 
   List<EarningTransaction> get transactions => List.unmodifiable(_transactions);
 
-  final List<DayEarnings> weeklyData = const [
+  List<DayEarnings> _weeklyData = [];
+  List<DayEarnings> get weeklyData =>
+      _weeklyData.isNotEmpty ? List.unmodifiable(_weeklyData) : _fallbackWeeklyData;
+
+  static const List<DayEarnings> _fallbackWeeklyData = [
     DayEarnings(
       dayName: 'Mon',
       amount: 1620.00,
@@ -238,7 +242,7 @@ class EarningsService extends ChangeNotifier {
     return true;
   }
 
-  double _codHeldBalance = 640.00;
+  double _codHeldBalance = 0.0;
   double get codHeldBalance => _codHeldBalance;
 
   void remitCodCash({
@@ -278,8 +282,76 @@ class EarningsService extends ChangeNotifier {
       final unremitted = (data['unremitted_cod_balance'] as num?)?.toDouble();
       if (unremitted != null) {
         _codHeldBalance = unremitted;
-        notifyListeners();
       }
+
+      final todaySummary = data['today_summary'] as Map<String, dynamic>?;
+      final todayPay = (todaySummary?['total_pay'] as num?)?.toDouble() ?? 0.0;
+      final todayTrips = ((todaySummary?['pickups'] as num?)?.toInt() ?? 0) +
+          ((todaySummary?['deliveries'] as num?)?.toInt() ?? 0);
+
+      final balance = (data['earnings_balance'] as num?)?.toDouble();
+      if (balance != null) {
+        RiderService.instance.updateProfileFromApi(
+          id: RiderService.instance.profile.id,
+          name: RiderService.instance.profile.name,
+          email: RiderService.instance.profile.email,
+          phone: RiderService.instance.profile.phone,
+          plateNumber: RiderService.instance.profile.plateNumber,
+          vehicleType: RiderService.instance.profile.vehicleType,
+          isOnline: RiderService.instance.profile.isOnline,
+          rating: RiderService.instance.profile.rating,
+          walletBalance: balance,
+          todayDeliveries: todayTrips,
+          todayEarnings: todayPay,
+        );
+      }
+
+      // Parse 7-day performance breakdown for weekly performance chart
+      final past7Days = data['past_7_days'] as List<dynamic>?;
+      if (past7Days != null && past7Days.isNotEmpty) {
+        final parsed = <DayEarnings>[];
+        for (int i = 0; i < past7Days.length; i++) {
+          final item = past7Days[i] as Map<String, dynamic>;
+          parsed.add(DayEarnings(
+            dayName: item['day']?.toString() ?? 'Day',
+            amount: (item['amount'] as num?)?.toDouble() ?? 0.0,
+            ordersCount: (item['trips'] as num?)?.toInt() ?? 0,
+            hoursWorked: 0.0,
+            tipsAmount: 0.0,
+            dateLabel: item['date']?.toString() ?? '',
+            isCurrent: i == past7Days.length - 1,
+          ));
+        }
+        _weeklyData = parsed;
+      }
+
+      // Parse real transaction history from server
+      final recentEarnings = data['recent_earnings'] as List<dynamic>?;
+      if (recentEarnings != null) {
+        _transactions.clear();
+        for (final item in recentEarnings) {
+          if (item is Map<String, dynamic>) {
+            final typeStr = (item['type'] ?? '').toString();
+            final isPickup = typeStr == 'pickup';
+            final orderNum = item['order_number']?.toString() ?? '';
+            final desc = (item['description'] ?? '').toString();
+
+            _transactions.add(EarningTransaction(
+              id: 'TXN-${item['id']}',
+              title: desc.isNotEmpty ? desc : (isPickup ? 'Pickup Pay' : 'Delivery Pay'),
+              subtitle: orderNum.isNotEmpty
+                  ? 'Order #$orderNum'
+                  : (isPickup ? 'Store Parcel Pickup' : 'Customer Delivery'),
+              amount: (item['amount'] as num?)?.toDouble() ?? 0.0,
+              timestamp: DateTime.tryParse(item['earned_at']?.toString() ?? '') ?? DateTime.now(),
+              type: TransactionType.deliveryFee,
+              relatedOrderId: orderNum.isNotEmpty ? orderNum : null,
+            ));
+          }
+        }
+      }
+
+      notifyListeners();
       return data;
     } catch (_) {
       return null;
@@ -293,26 +365,22 @@ class EarningsService extends ChangeNotifier {
     if (amount <= 0) return false;
 
     if (ApiClient.instance.isAuthenticated) {
-      try {
-        final idempotencyKey = 'remit_${DateTime.now().millisecondsSinceEpoch}';
-        final res = await ApiClient.instance.post(
-          ApiConstants.remittance,
-          body: {
-            'amount': amount,
-            if (notes != null && notes.isNotEmpty) 'notes': notes,
-          },
-          headers: {'Idempotency-Key': idempotencyKey},
-        );
-        remitCodCash(
-          amount: amount,
-          method: 'Mobile Remittance',
-          referenceNumber: (res.data as Map<String, dynamic>?)?['remittance_number']?.toString(),
-        );
-        return true;
-      } catch (e) {
-        debugPrint('Submit remittance remote error: $e');
-        return false;
-      }
+      final idempotencyKey = 'remit_${DateTime.now().millisecondsSinceEpoch}';
+      final res = await ApiClient.instance.post(
+        ApiConstants.remittance,
+        body: {
+          'amount': amount,
+          if (notes != null && notes.isNotEmpty) 'notes': notes,
+        },
+        headers: {'Idempotency-Key': idempotencyKey},
+      );
+      remitCodCash(
+        amount: amount,
+        method: 'Mobile Remittance',
+        referenceNumber: (res.data as Map<String, dynamic>?)?['remittance_number']?.toString(),
+      );
+      await fetchEarningsRemote();
+      return true;
     }
 
     remitCodCash(amount: amount, method: 'Direct Hub');

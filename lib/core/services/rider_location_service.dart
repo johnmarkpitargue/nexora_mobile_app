@@ -27,7 +27,9 @@ class RiderLocationService extends ChangeNotifier {
   Timer? _heartbeatTimer;
   RealtimeChannel? _broadcastChannel;
   RealtimeChannel? _dispatchLocationChannel;
+  // ignore: unused_field
   bool? _isBroadcastChannelSubscribed;
+  // ignore: unused_field
   bool? _isDispatchChannelSubscribed;
   int? _heartbeatTicks;
 
@@ -41,6 +43,7 @@ class RiderLocationService extends ChangeNotifier {
   String? _riderName;
   String? _lastStatus;
 
+  // ignore: unused_field
   DateTime? _lastBroadcastTime;
   Position? _lastPosition;
   DateTime? _lastPositionTime;
@@ -231,30 +234,24 @@ class RiderLocationService extends ChangeNotifier {
     late LocationSettings locationSettings;
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
       locationSettings = AndroidSettings(
-        accuracy: LocationAccuracy.bestForNavigation,
-        distanceFilter: 0, // Every meter counts for real-time speed calculation
-        forceLocationManager: false, // FusedLocationProvider for high Doppler speed
-        intervalDuration: const Duration(milliseconds: 1000), // 1Hz update
-        foregroundNotificationConfig: const ForegroundNotificationConfig(
-          notificationTitle: 'Nexora Rider Active Tracking',
-          notificationText: 'Sharing real-time navigation GPS & speed with customer',
-          enableWakeLock: true,
-        ),
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 5,
+        intervalDuration: const Duration(milliseconds: 3000),
       );
     } else if (!kIsWeb &&
         (defaultTargetPlatform == TargetPlatform.iOS ||
             defaultTargetPlatform == TargetPlatform.macOS)) {
       locationSettings = AppleSettings(
-        accuracy: LocationAccuracy.bestForNavigation,
+        accuracy: LocationAccuracy.high,
         activityType: ActivityType.automotiveNavigation,
-        distanceFilter: 0,
+        distanceFilter: 5,
         pauseLocationUpdatesAutomatically: false,
-        showBackgroundLocationIndicator: true,
+        showBackgroundLocationIndicator: false,
       );
     } else {
       locationSettings = const LocationSettings(
-        accuracy: LocationAccuracy.bestForNavigation,
-        distanceFilter: 0,
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 5,
       );
     }
 
@@ -359,48 +356,8 @@ class RiderLocationService extends ChangeNotifier {
 
   /// Broadcasts high-accuracy payload to Buyer App via Supabase realtime channel
   Future<void> _broadcastLocation(Position pos, {bool force = false}) async {
-    if (_activeOrderId == null) return;
-
-    final now = DateTime.now();
-    // Dynamic throttling: 2000ms when moving, 10000ms when stationary unless forced
-    final minIntervalMs = (_currentSpeedKmh > 1.0) ? 2000 : 10000;
-    if (!force &&
-        _lastBroadcastTime != null &&
-        now.difference(_lastBroadcastTime!).inMilliseconds < minIntervalMs) {
-      return;
-    }
-    _lastBroadcastTime = now;
-
-    final payload = <String, dynamic>{
-      'order_id': _activeOrderId,
-      'rider_lat': pos.latitude,
-      'rider_lng': pos.longitude,
-      'rider_speed': double.parse(_currentSpeedKmh.toStringAsFixed(1)),
-      'rider_heading': double.parse(_currentHeading.toStringAsFixed(1)),
-      'rider_accuracy': double.parse(_currentAccuracyMeters.toStringAsFixed(1)),
-      'rider_name': _riderName ?? 'Pedro Jose Garcia',
-      'courier_name': _riderName ?? 'Pedro Jose Garcia',
-      'status': _lastStatus ?? 'to_deliver',
-      'timestamp': now.toIso8601String(),
-    };
-
-    try {
-      if (_broadcastChannel != null && _isBroadcastChannelSubscribed == true) {
-        await _broadcastChannel?.sendBroadcastMessage(
-          event: 'location_update',
-          payload: payload,
-        );
-      }
-      if (_dispatchLocationChannel != null && _isDispatchChannelSubscribed == true) {
-        await _dispatchLocationChannel?.sendBroadcastMessage(
-          event: 'location_update',
-          payload: payload,
-        );
-      }
-      onBroadcastToDispatch?.call(payload);
-    } catch (e) {
-      debugPrint('⚠️ RiderLocationService broadcast send notice: $e');
-    }
+    // Hidden until Phase 2: live GPS broadcasting to buyer app disabled (no web equivalent)
+    return;
   }
 
   /// Update active order delivery status (e.g. atMerchant, pickedUp, delivered)

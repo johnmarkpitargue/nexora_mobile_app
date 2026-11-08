@@ -32,7 +32,7 @@ void main() {
       expect(find.text('NX-RD-001 • Bilis Hatid Express Inc.'), findsOneWidget);
       expect(find.text('ACTIVE'), findsOneWidget);
       expect(find.text('123ABC'), findsOneWidget);
-      expect(find.text('Honda Click 150i'), findsOneWidget);
+      expect(find.text('Motorcycle'), findsOneWidget);
       expect(
           find.textContaining('License: N01-23-456789 (Exp: 03/22/2030)'),
           findsOneWidget);

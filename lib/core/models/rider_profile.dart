@@ -17,6 +17,22 @@ class RiderReview {
     required this.createdAt,
   });
 
+  factory RiderReview.fromApiJson(Map<String, dynamic> json) {
+    final rating = (json['rating'] as num?)?.toInt() ?? 5;
+    return RiderReview(
+      orderId: (json['order_number'] ?? json['order_id'] ?? '').toString(),
+      customerName: (json['buyer_name'] ?? json['customer_name'] ?? 'Customer')
+          .toString(),
+      driverRating: rating,
+      deliveryRating: rating,
+      comment: (json['comment'] ?? '').toString(),
+      tags: const [],
+      createdAt:
+          DateTime.tryParse(json['created_at']?.toString() ?? '') ??
+          DateTime.now(),
+    );
+  }
+
   double get averageScore => (driverRating * 0.7) + (deliveryRating * 0.3);
 }
 
@@ -53,7 +69,9 @@ class RiderProfile {
   final String licenseExpiry;
   final String licenseDocName;
   final String orCrDocName;
-  final String vehicleReverificationStatus; // 'Validated', 'Pending Re-verification'
+  final String
+  vehicleReverificationStatus; // 'Validated', 'Pending Re-verification'
+  final int reviewsCount;
 
   // Tools & Hardware settings
   final String preferredNavigation; // 'Google Maps'
@@ -72,12 +90,12 @@ class RiderProfile {
     required this.completionRate,
     this.tier = 'Tier 1 Rider',
     required this.vehicleType,
-    required this.vehicleModel,
-    this.vehicleSub = 'Liquid Cooled • 2023 Edition',
+    this.vehicleModel = '',
+    this.vehicleSub = '',
     required this.plateNumber,
     required this.assignedHub,
-    this.inspectionStatus = 'Pasig Hub Validated',
-    this.inspectionExpiry = 'Expires Dec 2025',
+    this.inspectionStatus = 'Hub Validated',
+    this.inspectionExpiry = 'Expires Dec 2026',
     this.thermalBag = 'Verified 65L Heavy-Duty',
     this.thermalBagSub = 'Cold-Chain Approved',
     this.maintenanceSchedule = 'In 1,240 km',
@@ -86,7 +104,7 @@ class RiderProfile {
     required this.todayDeliveries,
     required this.onlineHoursToday,
     required this.isOnline,
-    this.company = 'Bilis Hatid Express Inc.',
+    this.company = 'Logistics Partner',
     this.accountStatus = 'Active',
     this.licenseNumber = 'N01-23-456789',
     this.licenseExpiry = '03/22/2030',
@@ -97,6 +115,7 @@ class RiderProfile {
     this.audioPromptsEnabled = true,
     this.waybillAiActive = true,
     this.dialingMode = 'VoIP Masked',
+    this.reviewsCount = 0,
   });
 
   RiderProfile copyWith({
@@ -135,6 +154,7 @@ class RiderProfile {
     bool? audioPromptsEnabled,
     bool? waybillAiActive,
     String? dialingMode,
+    int? reviewsCount,
   }) {
     return RiderProfile(
       id: id ?? this.id,
@@ -173,6 +193,7 @@ class RiderProfile {
       audioPromptsEnabled: audioPromptsEnabled ?? this.audioPromptsEnabled,
       waybillAiActive: waybillAiActive ?? this.waybillAiActive,
       dialingMode: dialingMode ?? this.dialingMode,
+      reviewsCount: reviewsCount ?? this.reviewsCount,
     );
   }
 
@@ -213,58 +234,51 @@ class RiderProfile {
       'audioPromptsEnabled': audioPromptsEnabled,
       'waybillAiActive': waybillAiActive,
       'dialingMode': dialingMode,
+      'reviewsCount': reviewsCount,
     };
   }
 
   factory RiderProfile.fromJson(Map<String, dynamic> json) {
     return RiderProfile(
       id: json['id'] as String? ?? 'NX-RD-001',
-      name: json['name'] as String? ?? 'Pedro Jose Garcia',
-      phone: json['phone'] as String? ?? '+63 918 555 0192',
-      email: json['email'] as String? ?? 'pedro.garcia@bilishatid.ph',
-      avatarUrl: json['avatarUrl'] as String? ??
-          'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
-      rating: (json['rating'] as num?)?.toDouble() ?? 4.98,
-      totalDeliveries: json['totalDeliveries'] as int? ?? 1248,
-      completionRate: (json['completionRate'] as num?)?.toDouble() ?? 99.4,
-      tier: json['tier'] as String? ?? 'Tier 1 Rider',
+      name: json['name'] as String? ?? 'Rider',
+      phone: json['phone'] as String? ?? '',
+      email: json['email'] as String? ?? '',
+      avatarUrl: json['avatarUrl'] as String? ?? '',
+      rating: (json['rating'] as num?)?.toDouble() ?? 5.0,
+      totalDeliveries: json['totalDeliveries'] as int? ?? 0,
+      completionRate: (json['completionRate'] as num?)?.toDouble() ?? 100.0,
+      tier: json['tier'] as String? ?? 'Standard Rider',
       vehicleType: json['vehicleType'] as String? ?? 'Motorcycle',
-      vehicleModel: json['vehicleModel'] as String? ?? 'Honda Click 150i',
-      vehicleSub:
-          json['vehicleSub'] as String? ?? 'Liquid Cooled • 2023 Edition',
-      plateNumber: json['plateNumber'] as String? ?? '123ABC',
-      assignedHub: json['assignedHub'] as String? ??
-          'Pasig Central Sorting Hub (Cluster 4B)',
-      inspectionStatus:
-          json['inspectionStatus'] as String? ?? 'Pasig Hub Validated',
+      vehicleModel: json['vehicleModel'] as String? ?? '',
+      vehicleSub: json['vehicleSub'] as String? ?? '',
+      plateNumber: json['plateNumber'] as String? ?? '',
+      assignedHub: json['assignedHub'] as String? ?? '',
+      inspectionStatus: json['inspectionStatus'] as String? ?? 'Hub Validated',
       inspectionExpiry:
-          json['inspectionExpiry'] as String? ?? 'Expires Dec 2025',
-      thermalBag:
-          json['thermalBag'] as String? ?? 'Verified 65L Heavy-Duty',
-      thermalBagSub:
-          json['thermalBagSub'] as String? ?? 'Cold-Chain Approved',
+          json['inspectionExpiry'] as String? ?? 'Expires Dec 2026',
+      thermalBag: json['thermalBag'] as String? ?? 'Verified 65L Heavy-Duty',
+      thermalBagSub: json['thermalBagSub'] as String? ?? 'Cold-Chain Approved',
       maintenanceSchedule:
           json['maintenanceSchedule'] as String? ?? 'In 1,240 km',
-      walletBalance: (json['walletBalance'] as num?)?.toDouble() ?? 2840.50,
-      todayEarnings: (json['todayEarnings'] as num?)?.toDouble() ?? 1420.00,
-      todayDeliveries: json['todayDeliveries'] as int? ?? 9,
-      onlineHoursToday:
-          (json['onlineHoursToday'] as num?)?.toDouble() ?? 5.2,
-      isOnline: json['isOnline'] as bool? ?? true,
-      company: json['company'] as String? ?? 'Bilis Hatid Express Inc.',
+      walletBalance: (json['walletBalance'] as num?)?.toDouble() ?? 0.0,
+      todayEarnings: (json['todayEarnings'] as num?)?.toDouble() ?? 0.0,
+      todayDeliveries: json['todayDeliveries'] as int? ?? 0,
+      onlineHoursToday: (json['onlineHoursToday'] as num?)?.toDouble() ?? 0.0,
+      isOnline: json['isOnline'] as bool? ?? false,
+      company: json['company'] as String? ?? 'Logistics Partner',
       accountStatus: json['accountStatus'] as String? ?? 'Active',
-      licenseNumber: json['licenseNumber'] as String? ?? 'N01-23-456789',
-      licenseExpiry: json['licenseExpiry'] as String? ?? '03/22/2030',
-      licenseDocName:
-          json['licenseDocName'] as String? ?? 'license_front.jpg',
+      licenseNumber: json['licenseNumber'] as String? ?? '',
+      licenseExpiry: json['licenseExpiry'] as String? ?? '',
+      licenseDocName: json['licenseDocName'] as String? ?? 'license_front.jpg',
       orCrDocName: json['orCrDocName'] as String? ?? 'or_cr_receipt.pdf',
       vehicleReverificationStatus:
           json['vehicleReverificationStatus'] as String? ?? 'Validated',
-      preferredNavigation:
-          json['preferredNavigation'] as String? ?? 'Google',
+      preferredNavigation: json['preferredNavigation'] as String? ?? 'Google',
       audioPromptsEnabled: json['audioPromptsEnabled'] as bool? ?? true,
       waybillAiActive: json['waybillAiActive'] as bool? ?? true,
       dialingMode: json['dialingMode'] as String? ?? 'VoIP Masked',
+      reviewsCount: json['reviewsCount'] as int? ?? 0,
     );
   }
 }
