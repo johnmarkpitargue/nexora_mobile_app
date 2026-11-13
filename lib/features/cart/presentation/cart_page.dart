@@ -207,6 +207,9 @@ class _CartPageState extends State<CartPage> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return ListenableBuilder(
       listenable: _cartService,
       builder: (context, _) {
@@ -222,12 +225,13 @@ class _CartPageState extends State<CartPage> {
             ApiClient.instance.hasToken && BuyerAccountService.instance.isLoggedIn;
 
         return Scaffold(
-          backgroundColor: const Color(0xFFF6F8FC),
+          backgroundColor: theme.scaffoldBackgroundColor,
           appBar: AppBar(
-            backgroundColor: const Color(0xFFF6F8FC),
+            backgroundColor: theme.colorScheme.surfaceContainerLowest,
+            foregroundColor: theme.colorScheme.onSurface,
             elevation: 0,
             leading: IconButton(
-              icon: const Icon(Icons.arrow_back, color: Color(0xFF0F172A)),
+              icon: Icon(Icons.arrow_back, color: theme.colorScheme.onSurface),
               onPressed: () {
                 if (Navigator.canPop(context)) {
                   Navigator.pop(context);
@@ -236,10 +240,10 @@ class _CartPageState extends State<CartPage> {
                 }
               },
             ),
-            title: const Text(
+            title: Text(
               'Shopping Cart',
               style: TextStyle(
-                color: Color(0xFF0F172A),
+                color: theme.colorScheme.onSurface,
                 fontWeight: FontWeight.w800,
                 fontSize: 18,
               ),
@@ -255,8 +259,8 @@ class _CartPageState extends State<CartPage> {
                   },
                   child: Text(
                     _isEditMode ? 'Done' : 'Edit',
-                    style: const TextStyle(
-                      color: Color(0xFF0066FF),
+                    style: TextStyle(
+                      color: theme.colorScheme.primary,
                       fontWeight: FontWeight.w700,
                       fontSize: 14.5,
                     ),
@@ -266,13 +270,15 @@ class _CartPageState extends State<CartPage> {
                 icon: Container(
                   width: 32,
                   height: 32,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFF050B28),
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? theme.colorScheme.surfaceContainer
+                        : const Color(0xFF050B28),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.chat_bubble_outline_rounded,
-                    color: Colors.white,
+                    color: isDark ? theme.colorScheme.onSurface : Colors.white,
                     size: 16,
                   ),
                 ),
@@ -314,7 +320,7 @@ class _CartPageState extends State<CartPage> {
                           _buildEmptyCartView(context)
                         else
                           ...groupedItems.values
-                              .map((storeItems) => _buildStoreGroupCard(storeItems)),
+                              .map((storeItems) => _buildStoreGroupCard(storeItems, theme, isDark)),
                         const SizedBox(height: 120),
                       ],
                     ),
@@ -324,7 +330,7 @@ class _CartPageState extends State<CartPage> {
               if (hasSession && _cartService.items.isNotEmpty)
                 Align(
                   alignment: Alignment.bottomCenter,
-                  child: _buildBottomDock(),
+                  child: _buildBottomDock(theme, isDark),
                 ),
             ],
           ),
@@ -461,7 +467,7 @@ class _CartPageState extends State<CartPage> {
     );
   }
 
-  Widget _buildStoreGroupCard(List<CartItemModel> items) {
+  Widget _buildStoreGroupCard(List<CartItemModel> items, ThemeData theme, bool isDark) {
     final isStoreChecked = _isStoreAllChecked(items);
     final firstItem = items.first;
     final storeName =
@@ -471,15 +477,9 @@ class _CartPageState extends State<CartPage> {
       margin: const EdgeInsets.only(bottom: 14),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
-          ),
-        ],
+        color: theme.colorScheme.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -497,7 +497,7 @@ class _CartPageState extends State<CartPage> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF0066FF),
+                    color: theme.colorScheme.primary,
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
@@ -527,10 +527,10 @@ class _CartPageState extends State<CartPage> {
                       Expanded(
                         child: Text(
                           storeName,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontWeight: FontWeight.w800,
                             fontSize: 13.5,
-                            color: Color(0xFF0F172A),
+                            color: theme.colorScheme.onSurface,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -538,10 +538,10 @@ class _CartPageState extends State<CartPage> {
                       ),
                       if (firstItem.sellerId != null) ...[
                         const SizedBox(width: 4),
-                        const Icon(
+                        Icon(
                           Icons.chevron_right,
                           size: 16,
-                          color: Color(0xFF94A3B8),
+                          color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ],
                     ],
@@ -554,14 +554,16 @@ class _CartPageState extends State<CartPage> {
                 child: Container(
                   width: 26,
                   height: 26,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFEEF2FF),
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? theme.colorScheme.surfaceContainer
+                        : const Color(0xFFEEF2FF),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.chat_bubble_outline,
                     size: 13,
-                    color: Color(0xFF0066FF),
+                    color: theme.colorScheme.primary,
                   ),
                 ),
               ),
@@ -573,22 +575,22 @@ class _CartPageState extends State<CartPage> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
-                color: const Color(0xFFFFFBEB),
+                color: isDark ? const Color(0xFF78350F).withValues(alpha: 0.2) : const Color(0xFFFFFBEB),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFFFDE68A)),
+                border: Border.all(color: isDark ? const Color(0xFF78350F) : const Color(0xFFFDE68A)),
               ),
-              child: const Row(
+              child: Row(
                 children: [
                   Icon(Icons.beach_access_rounded,
-                      size: 14, color: Color(0xFFD97706)),
-                  SizedBox(width: 6),
+                      size: 14, color: isDark ? const Color(0xFFFBBF24) : const Color(0xFFD97706)),
+                  const SizedBox(width: 6),
                   Expanded(
                     child: Text(
                       'This seller is on vacation mode and cannot accept orders right now.',
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF92400E),
+                        color: isDark ? const Color(0xFFFDE68A) : const Color(0xFF92400E),
                       ),
                     ),
                   ),
@@ -600,13 +602,13 @@ class _CartPageState extends State<CartPage> {
           const SizedBox(height: 12),
 
           // Items in this store
-          ...items.map((item) => _buildCartItemTile(item)),
+          ...items.map((item) => _buildCartItemTile(item, theme, isDark)),
         ],
       ),
     );
   }
 
-  Widget _buildCartItemTile(CartItemModel item) {
+  Widget _buildCartItemTile(CartItemModel item, ThemeData theme, bool isDark) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
@@ -633,7 +635,9 @@ class _CartPageState extends State<CartPage> {
             height: 76,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
-              color: const Color(0xFFF1F5F9),
+              color: isDark
+                  ? theme.colorScheme.surfaceContainer
+                  : const Color(0xFFF1F5F9),
             ),
             clipBehavior: Clip.antiAlias,
             child: item.imageUrl.isNotEmpty
@@ -641,13 +645,17 @@ class _CartPageState extends State<CartPage> {
                     item.imageUrl,
                     fit: BoxFit.cover,
                     errorBuilder: (context, error, stackTrace) => Container(
-                      color: const Color(0xFFE2E8F0),
-                      child: const Icon(Icons.image, color: Colors.grey),
+                      color: isDark
+                          ? theme.colorScheme.surfaceContainer
+                          : const Color(0xFFE2E8F0),
+                      child: Icon(Icons.image, color: theme.colorScheme.onSurfaceVariant),
                     ),
                   )
                 : Container(
-                    color: const Color(0xFFE2E8F0),
-                    child: const Icon(Icons.image, color: Colors.grey),
+                    color: isDark
+                        ? theme.colorScheme.surfaceContainer
+                        : const Color(0xFFE2E8F0),
+                    child: Icon(Icons.image, color: theme.colorScheme.onSurfaceVariant),
                   ),
           ),
           const SizedBox(width: 10),
@@ -665,10 +673,10 @@ class _CartPageState extends State<CartPage> {
                         item.title,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12.5,
                           fontWeight: FontWeight.w700,
-                          color: Color(0xFF0F172A),
+                          color: theme.colorScheme.onSurface,
                           height: 1.25,
                         ),
                       ),
@@ -676,12 +684,12 @@ class _CartPageState extends State<CartPage> {
                     const SizedBox(width: 4),
                     GestureDetector(
                       onTap: () => _deleteItem(item),
-                      child: const Padding(
-                        padding: EdgeInsets.all(2),
+                      child: Padding(
+                        padding: const EdgeInsets.all(2),
                         child: Icon(
                           Icons.delete_outline_rounded,
                           size: 17,
-                          color: Color(0xFF94A3B8),
+                          color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
                     ),
@@ -694,16 +702,18 @@ class _CartPageState extends State<CartPage> {
                     padding:
                         const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF1F5F9),
+                      color: isDark
+                          ? theme.colorScheme.surfaceContainer
+                          : const Color(0xFFF1F5F9),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Text(
                       item.variant,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 10.5,
-                        color: Color(0xFF64748B),
+                        color: theme.colorScheme.onSurfaceVariant,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -721,10 +731,10 @@ class _CartPageState extends State<CartPage> {
                         children: [
                           Text(
                             '₱${item.price.toStringAsFixed(2)}',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.w900,
-                              color: Color(0xFF0F172A),
+                              color: theme.colorScheme.onSurface,
                             ),
                           ),
                           if (item.originalPrice != null)
@@ -732,7 +742,7 @@ class _CartPageState extends State<CartPage> {
                               '₱${item.originalPrice!.toStringAsFixed(2)}',
                               style: TextStyle(
                                 fontSize: 10.5,
-                                color: Colors.grey.shade400,
+                                color: theme.colorScheme.onSurfaceVariant,
                                 decoration: TextDecoration.lineThrough,
                               ),
                             ),
@@ -744,13 +754,15 @@ class _CartPageState extends State<CartPage> {
                     Container(
                       height: 30,
                       decoration: BoxDecoration(
-                        color: const Color(0xFFEEF2FF),
+                        color: isDark
+                            ? theme.colorScheme.surfaceContainer
+                            : const Color(0xFFEEF2FF),
                         borderRadius: BorderRadius.circular(15),
                       ),
                       child: Row(
                         children: [
                           IconButton(
-                            icon: const Icon(Icons.remove, size: 14),
+                            icon: Icon(Icons.remove, size: 14, color: theme.colorScheme.onSurface),
                             onPressed:
                                 _isMutating ? null : () => _decrementQty(item),
                             padding: EdgeInsets.zero,
@@ -763,15 +775,15 @@ class _CartPageState extends State<CartPage> {
                             padding: const EdgeInsets.symmetric(horizontal: 4),
                             child: Text(
                               '${item.quantity}',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontWeight: FontWeight.w900,
                                 fontSize: 12.5,
-                                color: Color(0xFF0F172A),
+                                color: theme.colorScheme.onSurface,
                               ),
                             ),
                           ),
                           IconButton(
-                            icon: const Icon(Icons.add, size: 14),
+                            icon: Icon(Icons.add, size: 14, color: theme.colorScheme.onSurface),
                             onPressed:
                                 _isMutating ? null : () => _incrementQty(item),
                             padding: EdgeInsets.zero,
@@ -807,13 +819,14 @@ class _CartPageState extends State<CartPage> {
     );
   }
 
-  Widget _buildBottomDock() {
+  Widget _buildBottomDock(ThemeData theme, bool isDark) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.colorScheme.surfaceContainerLowest,
+        border: Border(top: BorderSide(color: theme.colorScheme.outlineVariant)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
             blurRadius: 16,
             offset: const Offset(0, -4),
           ),
@@ -832,10 +845,10 @@ class _CartPageState extends State<CartPage> {
                 const SizedBox(width: 8),
                 Text(
                   _isEditMode ? 'All' : 'All\n($_checkedCount items)',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 11.5,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF0F172A),
+                    color: theme.colorScheme.onSurface,
                     height: 1.1,
                   ),
                 ),
@@ -846,8 +859,8 @@ class _CartPageState extends State<CartPage> {
               OutlinedButton(
                 onPressed: _isMutating ? null : _moveToMyLikes,
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFF334155),
-                  side: const BorderSide(color: Color(0xFFCBD5E1)),
+                  foregroundColor: theme.colorScheme.onSurface,
+                  side: BorderSide(color: theme.colorScheme.outlineVariant),
                   padding:
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                   shape: RoundedRectangleBorder(
@@ -888,19 +901,19 @@ class _CartPageState extends State<CartPage> {
                 children: [
                   Row(
                     children: [
-                      const Text(
+                      Text(
                         'Total: ',
                         style: TextStyle(
                           fontSize: 12,
-                          color: Color(0xFF64748B),
+                          color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
                       Text(
                         '₱${_subtotal.toStringAsFixed(2)}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 17,
                           fontWeight: FontWeight.w900,
-                          color: Color(0xFF0F172A),
+                          color: theme.colorScheme.onSurface,
                         ),
                       ),
                     ],
@@ -912,38 +925,23 @@ class _CartPageState extends State<CartPage> {
                         vertical: 2,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFE0F7FA),
+                        color: isDark ? theme.colorScheme.surfaceContainerHigh : const Color(0xFFF1F5F9),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
                         'Saved ₱${_totalSaved.toStringAsFixed(2)}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 9.5,
-                          fontWeight: FontWeight.w900,
-                          color: Color(0xFF00B4D8),
+                          fontWeight: FontWeight.w700,
+                          color: isDark ? const Color(0xFF7BDFF1) : const Color(0xFF0284C7),
                         ),
                       ),
                     ),
                 ],
               ),
               const SizedBox(width: 12),
-              Container(
+              SizedBox(
                 height: 44,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF00D2FF), Color(0xFF0066FF)],
-                    begin: Alignment.centerLeft,
-                    end: Alignment.centerRight,
-                  ),
-                  borderRadius: BorderRadius.circular(22),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF0066FF).withValues(alpha: 0.35),
-                      blurRadius: 8,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
                 child: ElevatedButton(
                   onPressed: (_checkedCount == 0 || _isMutating)
                       ? null
@@ -963,8 +961,9 @@ class _CartPageState extends State<CartPage> {
                           navigator.pushNamed(AppRoutes.checkout);
                         },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.transparent,
-                    shadowColor: Colors.transparent,
+                    backgroundColor: theme.colorScheme.primary,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(22),
@@ -973,7 +972,7 @@ class _CartPageState extends State<CartPage> {
                   child: Text(
                     'Check Out ($_checkedCount)',
                     style: const TextStyle(
-                      fontWeight: FontWeight.w900,
+                      fontWeight: FontWeight.w800,
                       fontSize: 13.5,
                       color: Colors.white,
                     ),

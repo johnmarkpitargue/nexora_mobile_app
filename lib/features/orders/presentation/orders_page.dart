@@ -117,14 +117,16 @@ class _OrdersPageState extends State<OrdersPage>
       builder: (context, child) {
         final counts = OrderService.instance.tabCounts;
         final isAuthenticated = ApiClient.instance.hasToken;
+        final theme = Theme.of(context);
 
         return Scaffold(
-          backgroundColor: const Color(0xFFF1F5F9),
+          backgroundColor: theme.scaffoldBackgroundColor,
           appBar: AppBar(
-            backgroundColor: Colors.white,
+            backgroundColor: theme.colorScheme.surfaceContainerLowest,
+            foregroundColor: theme.colorScheme.onSurface,
             elevation: 0,
             leading: IconButton(
-              icon: const Icon(Icons.arrow_back, color: Colors.black87),
+              icon: Icon(Icons.arrow_back, color: theme.colorScheme.onSurface),
               onPressed: () {
                 if (Navigator.canPop(context)) {
                   Navigator.pop(context);
@@ -133,10 +135,10 @@ class _OrdersPageState extends State<OrdersPage>
                 }
               },
             ),
-            title: const Text(
+            title: Text(
               'My Orders',
               style: TextStyle(
-                color: Colors.black87,
+                color: theme.colorScheme.onSurface,
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
               ),
@@ -144,9 +146,9 @@ class _OrdersPageState extends State<OrdersPage>
             actions: [
               if (isAuthenticated)
                 IconButton(
-                  icon: const Icon(
+                  icon: Icon(
                     Icons.refresh,
-                    color: Colors.black87,
+                    color: theme.colorScheme.onSurface,
                     size: 22,
                   ),
                   tooltip: 'Refresh Orders',
@@ -157,17 +159,17 @@ class _OrdersPageState extends State<OrdersPage>
             bottom: PreferredSize(
               preferredSize: const Size.fromHeight(44),
               child: Container(
-                color: Colors.white,
+                color: theme.colorScheme.surfaceContainerLowest,
                 child: TabBar(
                   controller: _tabController,
                   isScrollable: true,
                   tabAlignment: TabAlignment.start,
                   indicatorSize: TabBarIndicatorSize.label,
-                  indicatorColor: const Color(0xFF0066FF),
+                  indicatorColor: theme.colorScheme.primary,
                   indicatorWeight: 2,
                   dividerColor: Colors.transparent,
-                  labelColor: const Color(0xFF0066FF),
-                  unselectedLabelColor: Colors.black54,
+                  labelColor: theme.colorScheme.primary,
+                  unselectedLabelColor: theme.colorScheme.onSurfaceVariant,
                   labelPadding: const EdgeInsets.symmetric(horizontal: 16),
                   labelStyle: const TextStyle(
                     fontWeight: FontWeight.w600,
@@ -675,13 +677,15 @@ class _OrdersPageState extends State<OrdersPage>
     final canConfirmReceipt =
         order.rawStatus == 'out_for_delivery' || order.rawStatus == 'delivered';
     final firstProductId = firstItem?.productId;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
     return Container(
       margin: const EdgeInsets.only(top: 12, left: 12, right: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.colorScheme.surfaceContainerLowest,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
       ),
       child: Material(
         color: Colors.transparent,
@@ -696,10 +700,10 @@ class _OrdersPageState extends State<OrdersPage>
                 // Store & Order Number Header
                 Row(
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.storefront_outlined,
                       size: 16,
-                      color: Color(0xFF0066FF),
+                      color: theme.colorScheme.primary,
                     ),
                     const SizedBox(width: 6),
                     Expanded(
@@ -713,10 +717,10 @@ class _OrdersPageState extends State<OrdersPage>
                             : null,
                         child: Text(
                           storeName,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontWeight: FontWeight.w700,
                             fontSize: 13,
-                            color: Color(0xFF0F172A),
+                            color: theme.colorScheme.onSurface,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -730,7 +734,9 @@ class _OrdersPageState extends State<OrdersPage>
                         vertical: 3,
                       ),
                       decoration: BoxDecoration(
-                        color: order.statusColor.withValues(alpha: 0.12),
+                        color: order.statusColor.withValues(
+                          alpha: isDark ? 0.16 : 0.08,
+                        ),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
@@ -749,24 +755,26 @@ class _OrdersPageState extends State<OrdersPage>
                   children: [
                     Text(
                       order.orderId,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 11.5,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF64748B),
+                        color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
                     if (order.currentHubName != null) ...[
-                      const Text(
+                      Text(
                         ' • ',
-                        style: TextStyle(color: Color(0xFF94A3B8)),
+                        style: TextStyle(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
                       ),
                       Flexible(
                         child: Text(
                           order.currentHubName!,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 11.5,
                             fontWeight: FontWeight.w600,
-                            color: Color(0xFF4F46E5),
+                            color: theme.colorScheme.onSurfaceVariant,
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -784,9 +792,15 @@ class _OrdersPageState extends State<OrdersPage>
                       vertical: 8,
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFEFF6FF),
+                      color: isDark
+                          ? const Color(0xFF1E293B)
+                          : const Color(0xFFEFF6FF),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: const Color(0xFFBFDBFE)),
+                      border: Border.all(
+                        color: isDark
+                            ? const Color(0xFF334155)
+                            : const Color(0xFFBFDBFE),
+                      ),
                     ),
                     child: Row(
                       children: [
@@ -796,13 +810,15 @@ class _OrdersPageState extends State<OrdersPage>
                           color: Color(0xFF0066FF),
                         ),
                         const SizedBox(width: 8),
-                        const Expanded(
+                        Expanded(
                           child: Text(
                             'Delivery Verification OTP',
                             style: TextStyle(
                               fontSize: 11.5,
                               fontWeight: FontWeight.w600,
-                              color: Color(0xFF1E3A8A),
+                              color: isDark
+                                  ? const Color(0xFFA7C7FF)
+                                  : const Color(0xFF1E3A8A),
                             ),
                           ),
                         ),
@@ -826,9 +842,9 @@ class _OrdersPageState extends State<OrdersPage>
                 if (order.items.isEmpty)
                   Text(
                     order.etaText,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12.5,
-                      color: Color(0xFF475569),
+                      color: theme.colorScheme.onSurfaceVariant,
                     ),
                   )
                 else
@@ -844,23 +860,27 @@ class _OrdersPageState extends State<OrdersPage>
                               width: 70,
                               height: 70,
                               decoration: BoxDecoration(
-                                color: const Color(0xFFF8FAFC),
+                                color: isDark
+                                    ? theme.colorScheme.surfaceContainer
+                                    : const Color(0xFFF8FAFC),
                                 border: Border.all(
-                                  color: const Color(0xFFE2E8F0),
+                                  color: theme.colorScheme.outlineVariant,
                                 ),
                               ),
                               child: item.imageUrl.isNotEmpty
                                   ? Image.network(
                                       ImageUrlHelper.resolve(item.imageUrl),
                                       fit: BoxFit.cover,
-                                      errorBuilder: (_, _, _) => const Icon(
+                                      errorBuilder: (_, _, _) => Icon(
                                         Icons.inventory_2_outlined,
-                                        color: Color(0xFF94A3B8),
+                                        color:
+                                            theme.colorScheme.onSurfaceVariant,
                                       ),
                                     )
-                                  : const Icon(
+                                  : Icon(
                                       Icons.inventory_2_outlined,
-                                      color: Color(0xFF94A3B8),
+                                      color:
+                                          theme.colorScheme.onSurfaceVariant,
                                     ),
                             ),
                           ),
@@ -871,10 +891,10 @@ class _OrdersPageState extends State<OrdersPage>
                               children: [
                                 Text(
                                   item.title,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w600,
-                                    color: Color(0xFF0F172A),
+                                    color: theme.colorScheme.onSurface,
                                   ),
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
@@ -882,8 +902,8 @@ class _OrdersPageState extends State<OrdersPage>
                                 const SizedBox(height: 4),
                                 Text(
                                   item.variant,
-                                  style: const TextStyle(
-                                    color: Color(0xFF64748B),
+                                  style: TextStyle(
+                                    color: theme.colorScheme.onSurfaceVariant,
                                     fontSize: 11.5,
                                   ),
                                 ),
@@ -894,17 +914,18 @@ class _OrdersPageState extends State<OrdersPage>
                                   children: [
                                     Text(
                                       'Qty: x${item.quantity}',
-                                      style: const TextStyle(
-                                        color: Color(0xFF64748B),
+                                      style: TextStyle(
+                                        color:
+                                            theme.colorScheme.onSurfaceVariant,
                                         fontSize: 12,
                                       ),
                                     ),
                                     Text(
                                       '₱${item.price.toStringAsFixed(2)}',
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         fontWeight: FontWeight.bold,
                                         fontSize: 13,
-                                        color: Color(0xFF0F172A),
+                                        color: theme.colorScheme.onSurface,
                                       ),
                                     ),
                                   ],
@@ -917,7 +938,7 @@ class _OrdersPageState extends State<OrdersPage>
                     );
                   }),
 
-                const Divider(height: 18, color: Color(0xFFF1F5F9)),
+                Divider(height: 18, color: theme.colorScheme.outlineVariant),
 
                 // Order Total
                 Align(
@@ -927,17 +948,17 @@ class _OrdersPageState extends State<OrdersPage>
                     children: [
                       Text(
                         'Total (${order.items.length} ${order.items.length == 1 ? "item" : "items"}): ',
-                        style: const TextStyle(
-                          color: Color(0xFF64748B),
+                        style: TextStyle(
+                          color: theme.colorScheme.onSurfaceVariant,
                           fontSize: 12,
                         ),
                       ),
                       Text(
                         '₱${order.totalPrice.toStringAsFixed(2)}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 15,
-                          color: Color(0xFF0F172A),
+                          color: theme.colorScheme.onSurface,
                         ),
                       ),
                     ],
@@ -961,8 +982,12 @@ class _OrdersPageState extends State<OrdersPage>
                                 order,
                               ),
                           style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFFE11D48),
-                            side: const BorderSide(color: Color(0xFFFECDD3)),
+                            foregroundColor: theme.colorScheme.error,
+                            side: BorderSide(
+                              color: isDark
+                                  ? const Color(0xFF7F1D1D)
+                                  : const Color(0xFFFECDD3),
+                            ),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(6),
                             ),
@@ -993,8 +1018,11 @@ class _OrdersPageState extends State<OrdersPage>
                                 order,
                               ),
                           style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFF7C3AED),
-                            side: const BorderSide(color: Color(0xFFDDD6FE)),
+                            foregroundColor:
+                                theme.colorScheme.onSurfaceVariant,
+                            side: BorderSide(
+                              color: theme.colorScheme.outlineVariant,
+                            ),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(6),
                             ),
@@ -1036,7 +1064,7 @@ class _OrdersPageState extends State<OrdersPage>
                             ),
                           ),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF0066FF),
+                            backgroundColor: theme.colorScheme.primary,
                             foregroundColor: Colors.white,
                             elevation: 0,
                             shape: RoundedRectangleBorder(
@@ -1056,25 +1084,44 @@ class _OrdersPageState extends State<OrdersPage>
                     if (order.canBeReviewed &&
                         (order.review == null || order.review!.canBeEdited)) {
                       buttons.add(
-                        ElevatedButton.icon(
+                        OutlinedButton.icon(
                           onPressed: () => Navigator.pushNamed(
                             context,
                             AppRoutes.rateProduct,
                             arguments: order,
                           ),
-                          icon: const Icon(Icons.star_rounded, size: 14),
+                          icon: Icon(
+                            Icons.star_rounded,
+                            size: 14,
+                            color: isDark
+                                ? const Color(0xFFFBBF24)
+                                : const Color(0xFFD97706),
+                          ),
                           label: Text(
                             order.review != null
                                 ? 'Edit Review'
                                 : 'Rate & Review',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
+                              color: isDark
+                                  ? const Color(0xFFFBBF24)
+                                  : const Color(0xFFB45309),
                             ),
                           ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFF59E0B),
-                            foregroundColor: Colors.white,
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: isDark
+                                ? const Color(0xFFFBBF24)
+                                : const Color(0xFFB45309),
+                            backgroundColor: isDark
+                                ? const Color(0xFF78350F)
+                                    .withValues(alpha: 0.18)
+                                : const Color(0xFFFFFBEB),
+                            side: BorderSide(
+                              color: isDark
+                                  ? const Color(0xFF78350F)
+                                  : const Color(0xFFFDE68A),
+                            ),
                             elevation: 0,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(6),
@@ -1105,8 +1152,10 @@ class _OrdersPageState extends State<OrdersPage>
                             arguments: firstProductId,
                           ),
                           style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFF0F172A),
-                            side: const BorderSide(color: Color(0xFFCBD5E1)),
+                            foregroundColor: theme.colorScheme.onSurface,
+                            side: BorderSide(
+                              color: theme.colorScheme.outlineVariant,
+                            ),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(6),
                             ),
@@ -1132,8 +1181,10 @@ class _OrdersPageState extends State<OrdersPage>
                       OutlinedButton(
                         onPressed: () => _openOrderDetails(order),
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFF0066FF),
-                          side: const BorderSide(color: Color(0xFFBFDBFE)),
+                          foregroundColor: theme.colorScheme.primary,
+                          side: BorderSide(
+                            color: theme.colorScheme.outlineVariant,
+                          ),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(6),
                           ),

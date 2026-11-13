@@ -462,7 +462,7 @@ class OrderItemModel {
       return OrderStatusPresentation(
         statusText: 'Return / Refund Requested',
         tabBucket: 'return_refund',
-        statusColor: const Color(0xFF7C3AED),
+        statusColor: const Color(0xFF64748B),
         progress: 1.0,
         etaText: 'Return / refund request under review',
         etaTime: '-',
@@ -474,7 +474,7 @@ class OrderItemModel {
         return const OrderStatusPresentation(
           statusText: 'Order Placed',
           tabBucket: 'to_ship',
-          statusColor: Color(0xFF3B82F6),
+          statusColor: Color(0xFF2563EB),
           progress: 0.15,
           etaText: 'Order placed • Waiting for seller confirmation',
           etaTime: 'Estimated: 2-3 days',
@@ -483,7 +483,7 @@ class OrderItemModel {
         return const OrderStatusPresentation(
           statusText: 'Confirmed by Seller',
           tabBucket: 'to_ship',
-          statusColor: Color(0xFF3B82F6),
+          statusColor: Color(0xFF2563EB),
           progress: 0.25,
           etaText: 'Seller confirmed your order',
           etaTime: 'Estimated: 2-3 days',
@@ -503,7 +503,7 @@ class OrderItemModel {
         return const OrderStatusPresentation(
           statusText: 'Ready for Pickup',
           tabBucket: 'to_receive',
-          statusColor: Color(0xFFD97706),
+          statusColor: Color(0xFF2563EB),
           progress: 0.45,
           etaText: 'Parcel packed • Awaiting pickup rider',
           etaTime: 'Estimated: 1-3 days',
@@ -512,7 +512,7 @@ class OrderItemModel {
         return const OrderStatusPresentation(
           statusText: 'Picked Up',
           tabBucket: 'to_receive',
-          statusColor: Color(0xFF7C3AED),
+          statusColor: Color(0xFF2563EB),
           progress: 0.55,
           etaText: 'Rider picked up parcel from seller',
           etaTime: 'Estimated: 1-2 days',
@@ -527,7 +527,7 @@ class OrderItemModel {
               ? 'Received at Hub'
               : (s == 'sorted' ? 'Sorted at Hub' : 'At Logistics Hub'),
           tabBucket: 'to_receive',
-          statusColor: const Color(0xFF6366F1),
+          statusColor: const Color(0xFF2563EB),
           progress: 0.65,
           etaText: 'Parcel checked in at hub$hubSuffix',
           etaTime: 'Estimated: 1-2 days',
@@ -541,7 +541,7 @@ class OrderItemModel {
               ? 'In Transit Between Hubs'
               : 'In Transit',
           tabBucket: 'to_receive',
-          statusColor: const Color(0xFF8B5CF6),
+          statusColor: const Color(0xFF2563EB),
           progress: 0.72,
           etaText: s == 'in_transit_hub'
               ? 'Parcel is in transit between hubs$hubSuffix'
@@ -552,7 +552,7 @@ class OrderItemModel {
         return const OrderStatusPresentation(
           statusText: 'Assigned to Rider',
           tabBucket: 'to_receive',
-          statusColor: Color(0xFF0284C7),
+          statusColor: Color(0xFF2563EB),
           progress: 0.80,
           etaText: 'Parcel assigned to delivery rider',
           etaTime: 'Expected soon',
@@ -572,7 +572,7 @@ class OrderItemModel {
         return const OrderStatusPresentation(
           statusText: 'Delivery Failed',
           tabBucket: 'to_receive',
-          statusColor: Color(0xFFEA580C),
+          statusColor: Color(0xFFDC2626),
           progress: 0.75,
           etaText: 'Delivery attempt unsuccessful • Will retry or return to hub',
           etaTime: 'Pending re-delivery',
@@ -590,7 +590,7 @@ class OrderItemModel {
         return const OrderStatusPresentation(
           statusText: 'Completed',
           tabBucket: 'completed',
-          statusColor: Color(0xFF10B981),
+          statusColor: Color(0xFF059669),
           progress: 1.0,
           etaText: 'Order completed',
           etaTime: 'Received by recipient',
@@ -599,7 +599,7 @@ class OrderItemModel {
         return const OrderStatusPresentation(
           statusText: 'Cancelled',
           tabBucket: 'cancelled',
-          statusColor: Color(0xFFEF4444),
+          statusColor: Color(0xFF64748B),
           progress: 0.0,
           etaText: 'Order cancelled',
           etaTime: '-',
@@ -612,7 +612,7 @@ class OrderItemModel {
               ? 'Returned to Seller'
               : 'Return / Refund',
           tabBucket: 'return_refund',
-          statusColor: const Color(0xFF7C3AED),
+          statusColor: const Color(0xFF64748B),
           progress: 0.0,
           etaText: s == 'return_to_sender' || s == 'returned_to_sender'
               ? 'Parcel is returning to the seller'

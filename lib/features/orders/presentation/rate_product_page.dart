@@ -474,26 +474,30 @@ class _RateProductPageState extends State<RateProductPage> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0.5,
+        backgroundColor: theme.colorScheme.surfaceContainerLowest,
+        foregroundColor: theme.colorScheme.onSurface,
+        elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black87),
+          icon: Icon(Icons.arrow_back, color: theme.colorScheme.onSurface),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
+        title: Text(
           'Rate Product',
           style: TextStyle(
-            color: Colors.black87,
+            color: theme.colorScheme.onSurface,
             fontSize: 18,
             fontWeight: FontWeight.w700,
           ),
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.help_outline, color: Colors.black87),
+            icon: Icon(Icons.help_outline, color: theme.colorScheme.onSurface),
             onPressed: () {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('Reviews follow Nexora Community & Authenticity Guidelines.')),
@@ -505,24 +509,24 @@ class _RateProductPageState extends State<RateProductPage> {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            _buildProductSection(),
+            _buildProductSection(theme, isDark),
             // Courier/rider rating has no web equivalent (Rule 4 & B5): hidden
             const SizedBox(height: 24),
           ],
         ),
       ),
-      bottomNavigationBar: _buildBottomBar(),
+      bottomNavigationBar: _buildBottomBar(theme),
     );
   }
 
-  Widget _buildProductSection() {
+  Widget _buildProductSection(ThemeData theme, bool isDark) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.colorScheme.surfaceContainerLowest,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -541,8 +545,10 @@ class _RateProductPageState extends State<RateProductPage> {
                   errorBuilder: (context, error, stackTrace) => Container(
                     width: 52,
                     height: 52,
-                    color: const Color(0xFFF1F5F9),
-                    child: const Icon(Icons.image, color: Colors.grey),
+                    color: isDark
+                        ? theme.colorScheme.surfaceContainer
+                        : const Color(0xFFF1F5F9),
+                    child: Icon(Icons.image, color: theme.colorScheme.onSurfaceVariant),
                   ),
                 ),
               ),
@@ -553,14 +559,21 @@ class _RateProductPageState extends State<RateProductPage> {
                   children: [
                     Text(
                       _productTitle,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.black87),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                        color: theme.colorScheme.onSurface,
+                      ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 4),
                     Text(
                       _productVariant,
-                      style: const TextStyle(color: Colors.black54, fontSize: 12),
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurfaceVariant,
+                        fontSize: 12,
+                      ),
                     ),
                   ],
                 ),
@@ -568,11 +581,18 @@ class _RateProductPageState extends State<RateProductPage> {
             ],
           ),
           const SizedBox(height: 18),
-          const Divider(height: 1, color: Color(0xFFF1F5F9)),
+          Divider(height: 1, color: theme.colorScheme.outlineVariant),
           const SizedBox(height: 16),
 
           // Star Rating
-          const Text('Rate Product Quality', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: Colors.black87)),
+          Text(
+            'Rate Product Quality',
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 13,
+              color: theme.colorScheme.onSurface,
+            ),
+          ),
           const SizedBox(height: 10),
           Row(
             mainAxisAlignment: MainAxisAlignment.start,
@@ -599,13 +619,17 @@ class _RateProductPageState extends State<RateProductPage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 'Add Photos & Video',
-                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: Colors.black87),
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                  color: theme.colorScheme.onSurface,
+                ),
               ),
               Text(
                 '${_uploadedPhotos.length}/5 uploaded',
-                style: const TextStyle(color: Color(0xFF64748B), fontSize: 12),
+                style: TextStyle(color: theme.colorScheme.onSurfaceVariant, fontSize: 12),
               ),
             ],
           ),
@@ -620,25 +644,38 @@ class _RateProductPageState extends State<RateProductPage> {
                 width: double.infinity,
                 height: 96,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF8FAFC),
+                  color: isDark
+                      ? theme.colorScheme.surfaceContainer
+                      : const Color(0xFFF8FAFC),
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFFCBD5E1), style: BorderStyle.solid),
+                  border: Border.all(color: theme.colorScheme.outlineVariant),
                 ),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     if (_isPickingMedia)
-                      const SizedBox(
+                      SizedBox(
                         width: 24,
                         height: 24,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF0066FF)),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: theme.colorScheme.primary,
+                        ),
                       )
                     else
-                      const Icon(Icons.add_a_photo_outlined, color: Color(0xFF0066FF), size: 28),
+                      Icon(
+                        Icons.add_a_photo_outlined,
+                        color: theme.colorScheme.onSurfaceVariant,
+                        size: 28,
+                      ),
                     const SizedBox(height: 8),
                     Text(
                       _isPickingMedia ? 'Opening media picker...' : 'Tap to upload photos or video',
-                      style: const TextStyle(color: Color(0xFF475569), fontSize: 12.5, fontWeight: FontWeight.w600),
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurfaceVariant,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ],
                 ),
@@ -671,8 +708,10 @@ class _RateProductPageState extends State<RateProductPage> {
                                 : Container(
                                     width: 80,
                                     height: 80,
-                                    color: const Color(0xFFF1F5F9),
-                                    child: const Icon(Icons.image, color: Colors.grey),
+                                    color: isDark
+                                        ? theme.colorScheme.surfaceContainer
+                                        : const Color(0xFFF1F5F9),
+                                    child: Icon(Icons.image, color: theme.colorScheme.onSurfaceVariant),
                                   ),
                       ),
                       Positioned(
@@ -705,23 +744,35 @@ class _RateProductPageState extends State<RateProductPage> {
                       width: 80,
                       height: 80,
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF1F5F9),
+                        color: isDark
+                            ? theme.colorScheme.surfaceContainer
+                            : const Color(0xFFF1F5F9),
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: const Color(0xFFCBD5E1), style: BorderStyle.solid),
+                        border: Border.all(color: theme.colorScheme.outlineVariant),
                       ),
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           if (_isPickingMedia)
-                            const SizedBox(
+                            SizedBox(
                               width: 20,
                               height: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF0066FF)),
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: theme.colorScheme.primary,
+                              ),
                             )
                           else
-                            const Icon(Icons.add, color: Color(0xFF0066FF), size: 24),
+                            Icon(Icons.add, color: theme.colorScheme.primary, size: 24),
                           const SizedBox(height: 4),
-                          const Text('Add', style: TextStyle(fontSize: 11, color: Color(0xFF0066FF), fontWeight: FontWeight.bold)),
+                          Text(
+                            'Add',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: theme.colorScheme.primary,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -735,9 +786,13 @@ class _RateProductPageState extends State<RateProductPage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 'Write Your Review',
-                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: Colors.black87),
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                  color: theme.colorScheme.onSurface,
+                ),
               ),
               AnimatedBuilder(
                 animation: _reviewController,
@@ -746,7 +801,7 @@ class _RateProductPageState extends State<RateProductPage> {
                   return Text(
                     '$len characters',
                     style: TextStyle(
-                      color: len >= 20 ? const Color(0xFF059669) : Colors.black45,
+                      color: len >= 20 ? const Color(0xFF059669) : theme.colorScheme.onSurfaceVariant,
                       fontSize: 12,
                       fontWeight: len >= 20 ? FontWeight.bold : FontWeight.normal,
                     ),
@@ -757,24 +812,37 @@ class _RateProductPageState extends State<RateProductPage> {
           ),
           const SizedBox(height: 10),
 
-          // Interactive Review Input TextField
+          // Interactive Review Input TextField (Clean theme adaptation without black box)
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
-              color: const Color(0xFFF8FAFC),
+              color: isDark
+                  ? theme.colorScheme.surfaceContainer
+                  : const Color(0xFFF8FAFC),
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
+              border: Border.all(color: theme.colorScheme.outlineVariant),
             ),
             child: TextField(
               controller: _reviewController,
               maxLines: 5,
               minLines: 3,
-              style: const TextStyle(fontSize: 13.5, color: Color(0xFF0F172A), height: 1.45),
-              decoration: const InputDecoration(
+              style: TextStyle(
+                fontSize: 13.5,
+                color: theme.colorScheme.onSurface,
+                height: 1.45,
+              ),
+              decoration: InputDecoration(
+                filled: false,
                 hintText:
                     'Share your honest feedback on the product! Mention the quality, packaging, material, and how it matched your expectations.',
-                hintStyle: TextStyle(color: Color(0xFF94A3B8), fontSize: 12.5, height: 1.4),
+                hintStyle: TextStyle(
+                  color: theme.colorScheme.onSurfaceVariant,
+                  fontSize: 12.5,
+                  height: 1.4,
+                ),
                 border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
                 isDense: true,
                 contentPadding: EdgeInsets.zero,
               ),
@@ -782,7 +850,7 @@ class _RateProductPageState extends State<RateProductPage> {
           ),
           const SizedBox(height: 10),
 
-          // Quick Review Suggestion Chips
+          // Quick Review Suggestion Chips (Toned down neutral styling)
           Wrap(
             spacing: 6,
             runSpacing: 6,
@@ -790,11 +858,19 @@ class _RateProductPageState extends State<RateProductPage> {
               return ActionChip(
                 label: Text(
                   '+ $chip',
-                  style: const TextStyle(fontSize: 11, color: Color(0xFF00838F), fontWeight: FontWeight.w600),
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: isDark
+                        ? const Color(0xFFCBD5E1)
+                        : const Color(0xFF475569),
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
-                backgroundColor: const Color(0xFFE0F7FA),
+                backgroundColor: isDark
+                    ? theme.colorScheme.surfaceContainerHigh
+                    : const Color(0xFFF1F5F9),
                 side: BorderSide.none,
-                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 onPressed: () => _addQuickChip(chip),
               );
             }).toList(),
@@ -812,13 +888,20 @@ class _RateProductPageState extends State<RateProductPage> {
                     _reviewAnonymously = val ?? false;
                   });
                 },
-                activeColor: const Color(0xFF0066FF),
+                activeColor: theme.colorScheme.primary,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
                 materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 visualDensity: VisualDensity.compact,
               ),
               const SizedBox(width: 8),
-              const Text('Review Anonymously', style: TextStyle(color: Colors.black87, fontSize: 13, fontWeight: FontWeight.w500)),
+              Text(
+                'Review Anonymously',
+                style: TextStyle(
+                  color: theme.colorScheme.onSurface,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
             ],
           ),
         ],
@@ -989,11 +1072,12 @@ class _RateProductPageState extends State<RateProductPage> {
     );
   }
 
-  Widget _buildBottomBar() {
+  Widget _buildBottomBar(ThemeData theme) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.colorScheme.surfaceContainerLowest,
+        border: Border(top: BorderSide(color: theme.colorScheme.outlineVariant)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.05),
@@ -1009,7 +1093,7 @@ class _RateProductPageState extends State<RateProductPage> {
           child: ElevatedButton(
             onPressed: _isSubmitting ? null : _handleSubmit,
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF0066FF),
+              backgroundColor: theme.colorScheme.primary,
               foregroundColor: Colors.white,
               elevation: 0,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
