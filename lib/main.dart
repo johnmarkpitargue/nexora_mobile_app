@@ -51,14 +51,23 @@ class NexoraApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Nexora',
-      navigatorKey: InAppNotificationService.navigatorKey,
-      debugShowCheckedModeBanner: false,
-      theme: NexoraTheme.lightTheme,
-      initialRoute: AppRoutes.splash,
-      routes: AppRoutes.routes,
-      onGenerateRoute: AppRoutes.onGenerateRoute,
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: NexoraTheme.themeModeNotifier,
+      builder: (context, currentThemeMode, _) {
+        return MaterialApp(
+          title: 'Nexora',
+          navigatorKey: InAppNotificationService.navigatorKey,
+          debugShowCheckedModeBanner: false,
+          theme: NexoraTheme.lightTheme,
+          darkTheme: NexoraTheme.darkTheme,
+          themeMode: currentThemeMode,
+          themeAnimationDuration: NexoraTheme.themeAnimationDuration,
+          themeAnimationCurve: NexoraTheme.themeAnimationCurve,
+          initialRoute: AppRoutes.splash,
+          routes: AppRoutes.routes,
+          onGenerateRoute: AppRoutes.onGenerateRoute,
+        );
+      },
     );
   }
 }

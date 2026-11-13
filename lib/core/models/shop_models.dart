@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import '../../features/home/presentation/widgets/product_card.dart';
 
@@ -52,6 +53,7 @@ class ProductReviewModel {
   final String variantName;
   final String comment;
   final List<String> reviewImages;
+  final List<Uint8List> reviewImageBytes;
   int helpfulCount;
   bool hasLiked;
 
@@ -65,6 +67,7 @@ class ProductReviewModel {
     required this.variantName,
     required this.comment,
     this.reviewImages = const [],
+    this.reviewImageBytes = const [],
     this.helpfulCount = 0,
     this.hasLiked = false,
   });

@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import '../../features/home/presentation/widgets/product_card.dart';
 import '../../features/splash/presentation/splash_page.dart';
 import '../../features/auth/presentation/landing_page.dart';
 import '../../features/auth/presentation/login_page.dart';
@@ -12,6 +13,7 @@ import '../../features/chat/presentation/chat_page.dart';
 import '../../features/profile/presentation/profile_page.dart';
 import '../../features/checkout/presentation/checkout_page.dart';
 import '../../features/product_details/presentation/product_details_page.dart';
+import '../../features/product_details/presentation/product_reviews_page.dart';
 import '../../features/cart/presentation/cart_page.dart';
 
 import '../../core/services/order_service.dart';
@@ -26,9 +28,11 @@ import '../../features/orders/presentation/customer_mock_order_screen.dart';
 import '../../features/orders/presentation/order_tracking_screen.dart';
 import '../../features/shop/presentation/shop_page.dart';
 import '../../features/home/presentation/search_browse_page.dart';
+import '../../features/home/presentation/category_products_page.dart';
 import '../../features/profile/presentation/payment_methods_page.dart';
 import '../../features/profile/presentation/notification_preferences_page.dart';
 import '../../features/profile/presentation/followed_stores_page.dart';
+import '../../features/notifications/presentation/notifications_page.dart';
 
 /// Centralized application routes configuration located in lib/app/routes
 class AppRoutes {
@@ -44,6 +48,7 @@ class AppRoutes {
   static const String profile = '/profile';
   static const String checkout = '/checkout';
   static const String productDetails = '/product-details';
+  static const String productReviews = '/product-reviews';
   static const String cart = '/cart';
   static const String shop = '/shop';
   static const String orderDetails = '/order-details';
@@ -55,8 +60,10 @@ class AppRoutes {
   static const String wishlist = '/wishlist';
   static const String customerMockOrder = '/mock-order';
   static const String search = '/search';
+  static const String categoryProducts = '/category-products';
   static const String paymentMethods = '/payment-methods';
   static const String notificationPreferences = '/notification-preferences';
+  static const String notifications = '/notifications';
   static const String followedStores = '/followed-stores';
 
   static Map<String, WidgetBuilder> get routes => {
@@ -144,6 +151,36 @@ class AppRoutes {
         myAddresses: (context) => const MyAddressesPage(),
         newAddress: (context) => const NewAddressPage(),
         wishlist: (context) => const WishlistPage(),
+        categoryProducts: (context) {
+          final args = ModalRoute.of(context)?.settings.arguments;
+          if (args is Map) {
+            final cat = args['category']?.toString() ??
+                args['categoryName']?.toString() ??
+                args['query']?.toString() ??
+                'All';
+            final title = args['title']?.toString() ??
+                args['categoryTitle']?.toString() ??
+                args['label']?.toString();
+            return CategoryProductsPage(
+              category: cat,
+              categoryTitle: title,
+            );
+          } else if (args is String) {
+            return CategoryProductsPage(category: args);
+          }
+          return const CategoryProductsPage(category: 'All');
+        },
+        productReviews: (context) {
+          final args = ModalRoute.of(context)?.settings.arguments;
+          if (args is ProductModel) {
+            return ProductReviewsPage(product: args);
+          }
+          return Scaffold(
+            appBar: AppBar(title: const Text('Reviews')),
+            body: const Center(child: Text('Product not found')),
+          );
+        },
+        notifications: (context) => const NotificationsPage(),
         paymentMethods: (context) => const PaymentMethodsPage(),
         notificationPreferences: (context) => const NotificationPreferencesPage(),
         followedStores: (context) => const FollowedStoresPage(),

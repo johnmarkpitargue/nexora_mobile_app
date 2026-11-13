@@ -1199,6 +1199,39 @@ class OrderService extends ChangeNotifier {
     );
   }
 
+  OrderItemModel? getOrderById(String orderId) {
+    try {
+      return allOrders.firstWhere(
+        (o) =>
+            o.orderId == orderId ||
+            (o.serverId > 0 && o.serverId.toString() == orderId),
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Compatibility wrapper for UI action buttons to cancel order
+  Future<void> cancelOrder(String orderId, {String reason = 'Cancelled by buyer'}) async {
+    final order = getOrderById(orderId);
+    if (order != null && order.serverId > 0) {
+      await cancelOrderRemote(order.serverId, reason: reason);
+    } else if (order != null) {
+      _upsertOrder(order.copyWith(statusText: 'Cancelled', tabBucket: 'cancelled'));
+      notifyListeners();
+    }
+  }
+
+  /// Compatibility wrapper for UI action buttons to pay order
+  Future<void> payOrder(String orderId) async {
+    final order = getOrderById(orderId);
+    if (order != null) {
+      _upsertOrder(order.copyWith(statusText: 'To Ship', tabBucket: 'to_ship'));
+      notifyListeners();
+    }
+    unawaited(fetchOrdersRemote());
+  }
+
   /// Confirm delivery receipt via Laravel backend API FIRST.
   Future<OrderItemModel> confirmReceiptRemote(int serverId) async {
     if (!ApiClient.instance.hasToken) {

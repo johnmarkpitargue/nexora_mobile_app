@@ -11,6 +11,7 @@ import '../../../core/services/order_service.dart';
 import '../../../core/services/shop_service.dart';
 import 'widgets/product_card.dart';
 import 'widgets/header_app_bar.dart';
+import 'widgets/floating_nav_dock.dart';
 import 'widgets/promo_banners_section.dart';
 import 'widgets/category_section.dart';
 import 'widgets/featured_products_section.dart';
@@ -112,7 +113,7 @@ class _NexoraHomePageState extends State<NexoraHomePage>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F8FC),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: _currentIndex == 0 ? const HeaderAppBar() : null,
       body: IndexedStack(
         index: _currentIndex,
@@ -137,80 +138,18 @@ class _NexoraHomePageState extends State<NexoraHomePage>
           final cartCount = CartService.instance.itemCount;
           final chatUnread = ChatService.instance.totalUnreadCount;
 
-          return BottomNavigationBar(
+          return FloatingNavDock(
             currentIndex: _currentIndex,
+            cartCount: cartCount,
+            chatUnreadCount: chatUnread,
             onTap: (index) {
+              if (index == _currentIndex) return;
               setState(() {
                 _currentIndex = index;
                 _loadedTabs.add(index);
               });
               _updateOrdersPolling();
             },
-            type: BottomNavigationBarType.fixed,
-            backgroundColor: Colors.white,
-            selectedItemColor: const Color(0xFF0066FF),
-            unselectedItemColor: const Color(0xFF64748B),
-            selectedFontSize: 11,
-            unselectedFontSize: 11,
-            elevation: 8,
-            items: [
-              const BottomNavigationBarItem(
-                icon: Icon(Icons.storefront),
-                label: 'Home',
-              ),
-              BottomNavigationBarItem(
-                icon: Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    const Icon(Icons.shopping_cart_outlined),
-                    if (cartCount > 0)
-                      Positioned(
-                        top: -2,
-                        right: -4,
-                        child: Container(
-                          width: 8,
-                          height: 8,
-                          decoration: const BoxDecoration(
-                            color: Color(0xFF00D2FF),
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-                label: 'Cart',
-              ),
-              const BottomNavigationBarItem(
-                icon: Icon(Icons.local_shipping_outlined),
-                label: 'Orders',
-              ),
-              BottomNavigationBarItem(
-                icon: Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    const Icon(Icons.chat_bubble_outline),
-                    if (chatUnread > 0)
-                      Positioned(
-                        top: -2,
-                        right: -4,
-                        child: Container(
-                          width: 8,
-                          height: 8,
-                          decoration: const BoxDecoration(
-                            color: Color(0xFFE11D48),
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-                label: 'Chat',
-              ),
-              const BottomNavigationBarItem(
-                icon: Icon(Icons.person_outline),
-                label: 'Profile',
-              ),
-            ],
           );
         },
       ),

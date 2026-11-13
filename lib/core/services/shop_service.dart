@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import '../models/shop_models.dart';
 import '../../features/home/presentation/widgets/product_card.dart';
@@ -51,6 +52,107 @@ class ShopService extends ChangeNotifier {
   final Map<String, Set<String>> _userClaimedVoucherIds = {};
   final Map<String, int> _helpfulVotes = {};
   final Set<String> _userUpvotedReviews = {};
+
+  // Dynamic Product Ratings & Reviews Repository
+  final Map<String, List<ProductReviewModel>> _customProductReviews = {};
+
+  String _normalizeProductKey(String idOrTitle) =>
+      idOrTitle.trim().toLowerCase();
+
+  List<ProductReviewModel> getReviewsForProduct(
+    String productIdOrTitle, [
+    List<ProductReviewModel>? fallbackReviews,
+  ]) {
+    final key = _normalizeProductKey(productIdOrTitle);
+    if (_customProductReviews.containsKey(key)) {
+      return List.unmodifiable(_customProductReviews[key]!);
+    }
+    final prod = getProductById(productIdOrTitle) ??
+        allAppProducts.cast<ProductModel?>().firstWhere(
+              (p) => p != null && _normalizeProductKey(p.title) == key,
+              orElse: () => null,
+            );
+    if (prod?.reviews != null && prod!.reviews!.isNotEmpty) {
+      _customProductReviews[key] = List.from(prod.reviews!);
+      return List.unmodifiable(_customProductReviews[key]!);
+    }
+    if (fallbackReviews != null && fallbackReviews.isNotEmpty) {
+      _customProductReviews[key] = List.from(fallbackReviews);
+      return List.unmodifiable(_customProductReviews[key]!);
+    }
+    return const [];
+  }
+
+  void addProductReview({
+    required String productIdOrTitle,
+    required String userName,
+    required String initials,
+    required Color avatarColor,
+    required double rating,
+    required String comment,
+    required String variantName,
+    List<String> reviewImages = const [],
+    List<Uint8List> reviewImageBytes = const [],
+  }) {
+    final key = _normalizeProductKey(productIdOrTitle);
+    getReviewsForProduct(productIdOrTitle);
+    final list =
+        _customProductReviews.putIfAbsent(key, () => <ProductReviewModel>[]);
+    final newReview = ProductReviewModel(
+      id: 'rev_${DateTime.now().millisecondsSinceEpoch}',
+      userName: userName,
+      initials: initials,
+      avatarColor: avatarColor,
+      rating: rating,
+      date: 'Just now',
+      variantName: variantName,
+      comment: comment,
+      reviewImages: reviewImages,
+      reviewImageBytes: reviewImageBytes,
+      helpfulCount: 0,
+      hasLiked: false,
+    );
+    list.insert(0, newReview);
+    notifyListeners();
+  }
+
+  double getProductAverageRating(
+    String productIdOrTitle, [
+    double defaultRating = 4.9,
+  ]) {
+    final revs = getReviewsForProduct(productIdOrTitle);
+    if (revs.isEmpty) return defaultRating;
+    final total = revs.fold<double>(0.0, (sum, r) => sum + r.rating);
+    return total / revs.length;
+  }
+
+  int getProductReviewCount(
+    String productIdOrTitle, [
+    int defaultCount = 0,
+  ]) {
+    final revs = getReviewsForProduct(productIdOrTitle);
+    return revs.isNotEmpty ? revs.length : defaultCount;
+  }
+
+  Map<int, double> getProductRatingBreakdown(String productIdOrTitle) {
+    final revs = getReviewsForProduct(productIdOrTitle);
+    if (revs.isEmpty) {
+      return const {5: 0.85, 4: 0.12, 3: 0.03, 2: 0.0, 1: 0.0};
+    }
+    final counts = <int, int>{5: 0, 4: 0, 3: 0, 2: 0, 1: 0};
+    for (final r in revs) {
+      final star = r.rating.round().clamp(1, 5);
+      counts[star] = (counts[star] ?? 0) + 1;
+    }
+    final total = revs.length;
+    return {
+      5: (counts[5] ?? 0) / total,
+      4: (counts[4] ?? 0) / total,
+      3: (counts[3] ?? 0) / total,
+      2: (counts[2] ?? 0) / total,
+      1: (counts[1] ?? 0) / total,
+    };
+  }
 
   List<ProductModel> _remoteProducts = [];
   bool _isLoadingCatalog = false;
