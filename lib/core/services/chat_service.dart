@@ -125,6 +125,11 @@ class ChatService extends ChangeNotifier {
     _initConversations();
   }
 
+  void purgeMockConversations() {
+    _conversations.clear();
+    notifyListeners();
+  }
+
   /// Fetch buyer chat conversations from Laravel backend API
   Future<List<ChatConversationModel>> fetchConversationsRemote() async {
     if (!ApiClient.instance.hasToken) return conversations;

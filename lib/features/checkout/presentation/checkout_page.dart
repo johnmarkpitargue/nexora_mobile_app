@@ -325,6 +325,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
                                 color: Color(0xFF94A3B8),
                                 letterSpacing: 0,
                               ),
+                              filled: false,
+                              fillColor: Colors.transparent,
                               border: InputBorder.none,
                               isDense: true,
                               contentPadding: EdgeInsets.symmetric(vertical: 12),

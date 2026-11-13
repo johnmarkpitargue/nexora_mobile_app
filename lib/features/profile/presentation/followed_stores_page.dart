@@ -34,9 +34,58 @@ class _FollowedStoresPageState extends State<FollowedStoresPage> {
           style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
         ),
         centerTitle: true,
-        elevation: 0.5,
+        elevation: 0,
         backgroundColor: isDark ? const Color(0xFF181B20) : Colors.white,
         foregroundColor: isDark ? Colors.white : const Color(0xFF1E2024),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(56),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+            child: Container(
+              height: 42,
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF22262E) : const Color(0xFFF1F5F9),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isDark ? Colors.white12 : const Color(0xFFE2E8F0),
+                ),
+              ),
+              child: TextField(
+                controller: _searchController,
+                onChanged: (val) => setState(() => _filterText = val),
+                style: TextStyle(
+                  fontSize: 14,
+                  color: isDark ? Colors.white : Colors.black87,
+                ),
+                decoration: InputDecoration(
+                  filled: false,
+                  fillColor: Colors.transparent,
+                  hintText: 'Search followed stores...',
+                  hintStyle: TextStyle(
+                    fontSize: 13.5,
+                    color: isDark ? Colors.white38 : Colors.black38,
+                  ),
+                  prefixIcon: Icon(
+                    Icons.search_rounded,
+                    size: 20,
+                    color: isDark ? Colors.white54 : Colors.black45,
+                  ),
+                  suffixIcon: _filterText.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.close_rounded, size: 18),
+                          onPressed: () {
+                            _searchController.clear();
+                            setState(() => _filterText = '');
+                          },
+                        )
+                      : null,
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
       body: ListenableBuilder(
         listenable: shopService,
@@ -54,53 +103,6 @@ class _FollowedStoresPageState extends State<FollowedStoresPage> {
           return CustomScrollView(
             physics: const BouncingScrollPhysics(),
             slivers: [
-              // Search Header if user follows shops
-              if (followedIds.isNotEmpty)
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: isDark ? const Color(0xFF22262E) : Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: isDark ? Colors.white12 : Colors.black.withValues(alpha: 0.06),
-                        ),
-                      ),
-                      child: TextField(
-                        controller: _searchController,
-                        onChanged: (val) => setState(() => _filterText = val),
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: isDark ? Colors.white : Colors.black87,
-                        ),
-                        decoration: InputDecoration(
-                          hintText: 'Search followed stores...',
-                          hintStyle: TextStyle(
-                            fontSize: 14,
-                            color: isDark ? Colors.white38 : Colors.black38,
-                          ),
-                          prefixIcon: Icon(
-                            Icons.search_rounded,
-                            size: 20,
-                            color: isDark ? Colors.white54 : Colors.black45,
-                          ),
-                          suffixIcon: _filterText.isNotEmpty
-                              ? IconButton(
-                                  icon: const Icon(Icons.close_rounded, size: 18),
-                                  onPressed: () {
-                                    _searchController.clear();
-                                    setState(() => _filterText = '');
-                                  },
-                                )
-                              : null,
-                          border: InputBorder.none,
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
 
               // Followed stores count banner
               if (followedIds.isNotEmpty)

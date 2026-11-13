@@ -326,20 +326,68 @@ class ProductCard extends StatelessWidget {
                             fit: BoxFit.cover,
                             excludeFromSemantics: true,
                             errorBuilder: (context, error, stackTrace) {
-                              return Center(
-                                child: Icon(
-                                  Icons.image_not_supported_outlined,
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                  size: 30,
+                              return Container(
+                                color: isDark
+                                    ? const Color(0xFF131D38)
+                                    : const Color(0xFFF1F5F9),
+                                child: Center(
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.shopping_bag_outlined,
+                                        color: isDark
+                                            ? const Color(0xFF475569)
+                                            : const Color(0xFF94A3B8),
+                                        size: 32,
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        'Nexora',
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w700,
+                                          letterSpacing: 0.5,
+                                          color: isDark
+                                              ? const Color(0xFF475569)
+                                              : const Color(0xFF94A3B8),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               );
                             },
                           )
-                        : Center(
-                            child: Icon(
-                              Icons.image_not_supported_outlined,
-                              color: theme.colorScheme.onSurfaceVariant,
-                              size: 30,
+                        : Container(
+                            color: isDark
+                                ? const Color(0xFF131D38)
+                                : const Color(0xFFF1F5F9),
+                            child: Center(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.shopping_bag_outlined,
+                                    color: isDark
+                                        ? const Color(0xFF475569)
+                                        : const Color(0xFF94A3B8),
+                                    size: 32,
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Nexora',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: 0.5,
+                                      color: isDark
+                                          ? const Color(0xFF475569)
+                                          : const Color(0xFF94A3B8),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                   ),
@@ -394,9 +442,6 @@ class ProductCard extends StatelessWidget {
                               key: ValueKey('product-wishlist-$wishlistKey'),
                               onPressed: () =>
                                   _toggleWishlist(btnContext, isFavorite),
-                              tooltip: isFavorite
-                                  ? 'Remove from wishlist'
-                                  : 'Save to wishlist',
                               style: IconButton.styleFrom(
                                 foregroundColor: isFavorite
                                     ? NexoraTheme.tertiary

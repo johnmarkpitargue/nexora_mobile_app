@@ -77,11 +77,14 @@ class NexoraTheme {
 
   static const String fontFamily = 'Plus Jakarta Sans';
   static const List<String> fontFamilyFallback = [
+    'Segoe UI',
+    'Roboto',
     'Noto Sans',
+    'Arial',
+    'sans-serif',
     'Segoe UI Emoji',
     'Apple Color Emoji',
     'Noto Color Emoji',
-    'sans-serif',
   ];
 
   static ThemeData get lightTheme {

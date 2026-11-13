@@ -546,6 +546,11 @@ class _SearchBrowsePageState extends State<SearchBrowsePage> {
                     value: _currentSort,
                     underline: const SizedBox(),
                     isDense: true,
+                    dropdownColor: Theme.of(context).brightness == Brightness.dark
+                        ? const Color(0xFF0F1738)
+                        : Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    elevation: 4,
                     style: TextStyle(
                       fontFamily: NexoraTheme.fontFamily,
                       fontSize: 12.5,
@@ -555,13 +560,27 @@ class _SearchBrowsePageState extends State<SearchBrowsePage> {
                           : NexoraTheme.primary,
                     ),
                     icon: Icon(
-                      Icons.arrow_drop_down,
+                      Icons.keyboard_arrow_down_rounded,
+                      size: 20,
                       color: Theme.of(context).brightness == Brightness.dark
                           ? const Color(0xFF38BDF8)
                           : NexoraTheme.primary,
                     ),
                     items: _sortOptions.entries
-                        .map((e) => DropdownMenuItem(value: e.key, child: Text(e.value)))
+                        .map((e) => DropdownMenuItem(
+                              value: e.key,
+                              child: Text(
+                                e.value,
+                                style: TextStyle(
+                                  fontFamily: NexoraTheme.fontFamily,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: Theme.of(context).brightness == Brightness.dark
+                                      ? Colors.white
+                                      : const Color(0xFF0F172A),
+                                ),
+                              ),
+                            ))
                         .toList(),
                     onChanged: (val) {
                       if (val != null) {

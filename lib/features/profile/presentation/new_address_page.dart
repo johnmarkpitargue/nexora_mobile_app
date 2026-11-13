@@ -25,7 +25,6 @@ class NewAddressPage extends StatefulWidget {
 class _NewAddressPageState extends State<NewAddressPage> {
   static const Color primaryBlue = NexoraTheme.primary; // Color(0xFF0066FF)
   static const Color textDark = Color(0xFF0F172A);
-  static const Color labelGray = Color(0xFF64748B);
 
   late final TextEditingController _nameController;
   late final TextEditingController _phoneController;
@@ -937,27 +936,39 @@ class _NewAddressPageState extends State<NewAddressPage> {
   @override
   Widget build(BuildContext context) {
     final isEditing = widget.editAddress != null;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final scaffoldBg = isDark ? const Color(0xFF060914) : const Color(0xFFF8FAFC);
+    final cardBg = isDark ? const Color(0xFF0D1323) : Colors.white;
+    final cardBorder = isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0);
+    final textPrimary = isDark ? Colors.white : const Color(0xFF0F172A);
+    final textSecondary = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
+    final inputFill = isDark ? const Color(0xFF11192B) : const Color(0xFFF8FAFC);
+    final inputBorderColor = isDark ? const Color(0xFF28344A) : const Color(0xFFE2E8F0);
+    final bannerBg = isDark ? const Color(0xFF0C2140) : const Color(0xFFEFF6FF);
+    final bannerBorder = isDark ? const Color(0xFF1E3A8A) : const Color(0xFFDBEAFE);
+    final bannerText = isDark ? const Color(0xFFA7C7FF) : const Color(0xFF1E3A8A);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: scaffoldBg,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: cardBg,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: textDark, size: 22),
+          icon: Icon(Icons.arrow_back, color: textPrimary, size: 22),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
           isEditing ? 'Edit Address' : 'New Address',
-          style: const TextStyle(
-            color: textDark,
+          style: TextStyle(
+            color: textPrimary,
             fontWeight: FontWeight.w800,
             fontSize: 18,
           ),
         ),
-        bottom: const PreferredSize(
-          preferredSize: Size.fromHeight(1),
-          child: Divider(height: 1, color: Color(0xFFF1F5F9)),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Divider(height: 1, color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9)),
         ),
       ),
       body: SingleChildScrollView(
@@ -969,20 +980,20 @@ class _NewAddressPageState extends State<NewAddressPage> {
               margin: const EdgeInsets.fromLTRB(16, 12, 16, 8),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
-                color: const Color(0xFFEFF6FF),
+                color: bannerBg,
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: const Color(0xFFDBEAFE), width: 1),
+                border: Border.all(color: bannerBorder, width: 1),
               ),
-              child: const Row(
+              child: Row(
                 children: [
-                  Icon(Icons.info_outline_rounded, color: primaryBlue, size: 18),
-                  SizedBox(width: 10),
+                  const Icon(Icons.info_outline_rounded, color: primaryBlue, size: 18),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       'Please ensure your address details and delivery pin are accurate for fast and reliable courier delivery.',
                       style: TextStyle(
                         fontSize: 12,
-                        color: Color(0xFF1E3A8A),
+                        color: bannerText,
                         height: 1.35,
                         fontWeight: FontWeight.w500,
                       ),
@@ -1019,11 +1030,12 @@ class _NewAddressPageState extends State<NewAddressPage> {
             Container(
               margin: const EdgeInsets.fromLTRB(16, 6, 16, 14),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: cardBg,
                 borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: cardBorder, width: 1),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.03),
+                    color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
                     blurRadius: 10,
                     offset: const Offset(0, 3),
                   ),
@@ -1033,128 +1045,177 @@ class _NewAddressPageState extends State<NewAddressPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 18, 16, 0),
+                    padding: const EdgeInsets.fromLTRB(16, 18, 16, 14),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
+                        Text(
                           'Address Details',
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w800,
-                            color: textDark,
+                            color: textPrimary,
                           ),
                         ),
                         const SizedBox(height: 16),
 
                         // Full Name
-                        const Text('Full Name', style: TextStyle(fontSize: 12, color: labelGray, fontWeight: FontWeight.w600)),
-                        const SizedBox(height: 2),
+                        Text('Full Name', style: TextStyle(fontSize: 12, color: textSecondary, fontWeight: FontWeight.w600)),
+                        const SizedBox(height: 6),
                         TextField(
                           controller: _nameController,
                           onChanged: (_) => setState(() {}),
                           textCapitalization: TextCapitalization.words,
-                          style: const TextStyle(fontSize: 14.5, color: textDark, fontWeight: FontWeight.w600),
-                          decoration: const InputDecoration(
+                          style: TextStyle(fontSize: 14, color: textPrimary, fontWeight: FontWeight.w600),
+                          decoration: InputDecoration(
                             hintText: 'Enter receiver full name',
-                            hintStyle: TextStyle(fontSize: 13.5, color: Color(0xFFCBD5E1)),
-                            border: InputBorder.none,
-                            isDense: true,
-                            contentPadding: EdgeInsets.symmetric(vertical: 6),
+                            hintStyle: TextStyle(fontSize: 13.5, color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8)),
+                            filled: true,
+                            fillColor: inputFill,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: BorderSide(color: inputBorderColor),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: BorderSide(color: inputBorderColor),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: const BorderSide(color: primaryBlue, width: 1.5),
+                            ),
                           ),
                         ),
-                        const Divider(height: 18, color: Color(0xFFF1F5F9)),
+                        const SizedBox(height: 14),
 
                         // Phone Number
-                        const Text('Phone Number', style: TextStyle(fontSize: 12, color: labelGray, fontWeight: FontWeight.w600)),
-                        const SizedBox(height: 2),
+                        Text('Phone Number', style: TextStyle(fontSize: 12, color: textSecondary, fontWeight: FontWeight.w600)),
+                        const SizedBox(height: 6),
                         TextField(
                           controller: _phoneController,
                           onChanged: (_) => setState(() {}),
                           keyboardType: TextInputType.phone,
-                          style: const TextStyle(fontSize: 14.5, color: textDark, fontWeight: FontWeight.w600),
-                          decoration: const InputDecoration(
+                          style: TextStyle(fontSize: 14, color: textPrimary, fontWeight: FontWeight.w600),
+                          decoration: InputDecoration(
                             hintText: '09XXXXXXXXX or (+63) 9XXXXXXXXX',
-                            hintStyle: TextStyle(fontSize: 13.5, color: Color(0xFFCBD5E1)),
-                            border: InputBorder.none,
-                            isDense: true,
-                            contentPadding: EdgeInsets.symmetric(vertical: 6),
+                            hintStyle: TextStyle(fontSize: 13.5, color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8)),
+                            filled: true,
+                            fillColor: inputFill,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: BorderSide(color: inputBorderColor),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: BorderSide(color: inputBorderColor),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: const BorderSide(color: primaryBlue, width: 1.5),
+                            ),
                           ),
                         ),
-                        const Divider(height: 18, color: Color(0xFFF1F5F9)),
+                        const SizedBox(height: 14),
 
-                        // Region, Province, City, Barangay (Multi-line with >)
+                        // Region, Province, City, Barangay (Outline Container with Chevron)
+                        Text(
+                          'Region, Province, City, Barangay',
+                          style: TextStyle(fontSize: 12, color: textSecondary, fontWeight: FontWeight.w600),
+                        ),
+                        const SizedBox(height: 6),
                         InkWell(
                           onTap: _openRegionSelector,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 4),
+                          borderRadius: BorderRadius.circular(10),
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            decoration: BoxDecoration(
+                              color: inputFill,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: inputBorderColor),
+                            ),
                             child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
                                 Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      const Text(
-                                        'Region, Province, City, Barangay',
-                                        style: TextStyle(fontSize: 12, color: labelGray, fontWeight: FontWeight.w600),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        _hasSelectedLocation
-                                            ? '${_selectedRegion!}\n${_selectedProvince ?? ''}\n${_selectedCity!}\n${_selectedBarangay!}'
-                                            : 'Select Region, Province, City, Barangay',
-                                        style: TextStyle(
-                                          fontSize: 14.5,
-                                          color: _hasSelectedLocation ? textDark : const Color(0xFF94A3B8),
-                                          fontWeight: _hasSelectedLocation ? FontWeight.w600 : FontWeight.normal,
-                                          height: _hasSelectedLocation ? 1.35 : 1.2,
-                                        ),
-                                      ),
-                                    ],
+                                  child: Text(
+                                    _hasSelectedLocation
+                                        ? '${_selectedRegion!}\n${_selectedProvince ?? ''}\n${_selectedCity!}\n${_selectedBarangay!}'
+                                        : 'Select Region, Province, City, Barangay',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: _hasSelectedLocation ? textPrimary : (isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8)),
+                                      fontWeight: _hasSelectedLocation ? FontWeight.w600 : FontWeight.normal,
+                                      height: _hasSelectedLocation ? 1.35 : 1.2,
+                                    ),
                                   ),
                                 ),
-                                const Icon(Icons.chevron_right, size: 20, color: labelGray),
+                                Icon(Icons.chevron_right, size: 20, color: textSecondary),
                               ],
                             ),
                           ),
                         ),
-                        const Divider(height: 18, color: Color(0xFFF1F5F9)),
+                        const SizedBox(height: 14),
 
                         // Postal Code
-                        const Text('Postal Code', style: TextStyle(fontSize: 12, color: labelGray, fontWeight: FontWeight.w600)),
-                        const SizedBox(height: 2),
+                        Text('Postal Code', style: TextStyle(fontSize: 12, color: textSecondary, fontWeight: FontWeight.w600)),
+                        const SizedBox(height: 6),
                         TextField(
                           controller: _postalController,
                           onChanged: (_) => setState(() {}),
                           keyboardType: TextInputType.number,
                           maxLength: 4,
                           buildCounter: (ctx, {required currentLength, required isFocused, maxLength}) => null,
-                          style: const TextStyle(fontSize: 14.5, color: textDark, fontWeight: FontWeight.w600),
-                          decoration: const InputDecoration(
+                          style: TextStyle(fontSize: 14, color: textPrimary, fontWeight: FontWeight.w600),
+                          decoration: InputDecoration(
                             hintText: 'e.g. 4004',
-                            hintStyle: TextStyle(fontSize: 13.5, color: Color(0xFFCBD5E1)),
-                            border: InputBorder.none,
-                            isDense: true,
-                            contentPadding: EdgeInsets.symmetric(vertical: 6),
+                            hintStyle: TextStyle(fontSize: 13.5, color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8)),
+                            filled: true,
+                            fillColor: inputFill,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: BorderSide(color: inputBorderColor),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: BorderSide(color: inputBorderColor),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: const BorderSide(color: primaryBlue, width: 1.5),
+                            ),
                           ),
                         ),
-                        const Divider(height: 18, color: Color(0xFFF1F5F9)),
+                        const SizedBox(height: 14),
 
                         // Street Name, Building, House No.
-                        const Text('Street Name, Building, House No.', style: TextStyle(fontSize: 12, color: labelGray, fontWeight: FontWeight.w600)),
-                        const SizedBox(height: 2),
+                        Text('Street Name, Building, House No.', style: TextStyle(fontSize: 12, color: textSecondary, fontWeight: FontWeight.w600)),
+                        const SizedBox(height: 6),
                         TextField(
                           controller: _streetController,
                           onChanged: (_) => setState(() {}),
                           keyboardType: TextInputType.streetAddress,
-                          style: const TextStyle(fontSize: 14.5, color: textDark, fontWeight: FontWeight.w600),
-                          decoration: const InputDecoration(
+                          style: TextStyle(fontSize: 14, color: textPrimary, fontWeight: FontWeight.w600),
+                          decoration: InputDecoration(
                             hintText: 'House / Unit / Building / Street Number',
-                            hintStyle: TextStyle(fontSize: 13.5, color: Color(0xFFCBD5E1)),
-                            border: InputBorder.none,
-                            isDense: true,
-                            contentPadding: EdgeInsets.symmetric(vertical: 6),
+                            hintStyle: TextStyle(fontSize: 13.5, color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8)),
+                            filled: true,
+                            fillColor: inputFill,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: BorderSide(color: inputBorderColor),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: BorderSide(color: inputBorderColor),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: const BorderSide(color: primaryBlue, width: 1.5),
+                            ),
                           ),
                         ),
                         const SizedBox(height: 14),
@@ -1176,11 +1237,12 @@ class _NewAddressPageState extends State<NewAddressPage> {
               margin: const EdgeInsets.fromLTRB(16, 0, 16, 24),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: cardBg,
                 borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: cardBorder, width: 1),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.03),
+                    color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
                     blurRadius: 10,
                     offset: const Offset(0, 3),
                   ),
@@ -1191,20 +1253,20 @@ class _NewAddressPageState extends State<NewAddressPage> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Expanded(
+                      Expanded(
                         child: Text(
                           'Set as Default Delivery Address',
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
-                            color: textDark,
+                            color: textPrimary,
                           ),
                         ),
                       ),
                       CupertinoSwitch(
                         value: _isDefault,
                         activeTrackColor: primaryBlue,
-                        inactiveTrackColor: const Color(0xFFE2E8F0),
+                        inactiveTrackColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
                         onChanged: (val) => setState(() => _isDefault = val),
                       ),
                     ],
@@ -1213,12 +1275,12 @@ class _NewAddressPageState extends State<NewAddressPage> {
 
                   Row(
                     children: [
-                      const Text(
+                      Text(
                         'Label As:',
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
-                          color: textDark,
+                          color: textPrimary,
                         ),
                       ),
                       const Spacer(),
@@ -1230,6 +1292,7 @@ class _NewAddressPageState extends State<NewAddressPage> {
                 ],
               ),
             ),
+            const SizedBox(height: 80),
           ],
         ),
       ),
@@ -1238,10 +1301,11 @@ class _NewAddressPageState extends State<NewAddressPage> {
       bottomNavigationBar: Container(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: cardBg,
+          border: isDark ? const Border(top: BorderSide(color: Color(0xFF1E293B), width: 1)) : null,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
+              color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.05),
               blurRadius: 10,
               offset: const Offset(0, -3),
             ),

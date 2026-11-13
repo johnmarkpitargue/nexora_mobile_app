@@ -1232,6 +1232,23 @@ class OrderService extends ChangeNotifier {
     unawaited(fetchOrdersRemote());
   }
 
+  /// Compatibility wrapper for UI action buttons to receive order
+  Future<void> receiveOrder(String orderId) async {
+    final order = getOrderById(orderId);
+    if (order?.serverId != null && order!.serverId > 0) {
+      await confirmReceiptRemote(order.serverId);
+    } else if (order != null) {
+      _upsertOrder(order.copyWith(statusText: 'Completed', tabBucket: 'completed'));
+      notifyListeners();
+    }
+  }
+
+  Future<void> refreshOrdersFromSupabase() async {
+    if (ApiClient.instance.hasToken) {
+      await fetchOrdersRemote();
+    }
+  }
+
   /// Confirm delivery receipt via Laravel backend API FIRST.
   Future<OrderItemModel> confirmReceiptRemote(int serverId) async {
     if (!ApiClient.instance.hasToken) {
