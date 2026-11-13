@@ -678,52 +678,22 @@ class _ShippedOrderDetailsPageState extends State<ShippedOrderDetailsPage> {
               Container(
                 padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF0066FF).withValues(alpha: 0.1),
+                  color: const Color(0xFFF1F5F9),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: const Icon(
                   Icons.timeline_rounded,
                   size: 16,
-                  color: Color(0xFF0066FF),
+                  color: Color(0xFF475569),
                 ),
               ),
               const SizedBox(width: 8),
               const Text(
                 'Timeline Activity',
                 style: TextStyle(
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w700,
                   fontSize: 13,
                   color: Color(0xFF0F172A),
-                ),
-              ),
-              const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF10B981).withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 5,
-                      height: 5,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFF10B981),
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    const Text(
-                      'Live Updates',
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF059669),
-                      ),
-                    ),
-                  ],
                 ),
               ),
             ],
@@ -749,53 +719,37 @@ class _ShippedOrderDetailsPageState extends State<ShippedOrderDetailsPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               SizedBox(
-                width: 22,
+                width: 18,
                 child: Column(
                   children: [
                     Container(
-                      width: 14,
-                      height: 14,
+                      margin: const EdgeInsets.only(top: 3),
+                      width: isLatest ? 10 : 8,
+                      height: isLatest ? 10 : 8,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: isLatest
-                            ? const Color(0xFF0066FF)
-                            : const Color(0xFF10B981),
-                        border: Border.all(
-                          color: isLatest
-                              ? const Color(0xFFBFDBFE)
-                              : Colors.white,
-                          width: isLatest ? 3 : 1.5,
-                        ),
-                        boxShadow: isLatest
-                            ? [
-                                BoxShadow(
-                                  color: const Color(0xFF0066FF)
-                                      .withValues(alpha: 0.35),
-                                  blurRadius: 6,
-                                  spreadRadius: 1,
-                                ),
-                              ]
+                            ? const Color(0xFF0F172A)
+                            : const Color(0xFFCBD5E1),
+                        border: isLatest
+                            ? Border.all(
+                                color: const Color(0xFFE2E8F0),
+                                width: 2,
+                              )
                             : null,
                       ),
-                      child: isLatest
-                          ? null
-                          : const Icon(
-                              Icons.check,
-                              size: 8,
-                              color: Colors.white,
-                            ),
                     ),
                     if (!isLast)
                       Expanded(
                         child: Container(
-                          width: 2,
+                          width: 1.5,
                           color: const Color(0xFFE2E8F0),
                         ),
                       ),
                   ],
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
               Expanded(
                 child: Padding(
                   padding: EdgeInsets.only(bottom: isLast ? 0 : 16),
@@ -807,10 +761,10 @@ class _ShippedOrderDetailsPageState extends State<ShippedOrderDetailsPage> {
                         style: TextStyle(
                           fontSize: 12.5,
                           fontWeight:
-                              isLatest ? FontWeight.w700 : FontWeight.w600,
+                              isLatest ? FontWeight.w600 : FontWeight.w500,
                           color: isLatest
                               ? const Color(0xFF0F172A)
-                              : const Color(0xFF334155),
+                              : const Color(0xFF64748B),
                           height: 1.3,
                         ),
                       ),
@@ -828,7 +782,7 @@ class _ShippedOrderDetailsPageState extends State<ShippedOrderDetailsPage> {
                               item.changedAt,
                               style: const TextStyle(
                                 fontSize: 11,
-                                fontWeight: FontWeight.w500,
+                                fontWeight: FontWeight.w400,
                                 color: Color(0xFF94A3B8),
                               ),
                             ),
