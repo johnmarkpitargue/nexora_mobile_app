@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import '../../../app/routes/app_routes.dart';
 import '../../../core/services/shop_service.dart';
-import 'package:nexora_flutter_app/features/home/presentation/widgets/product_card.dart';
+import '../../../app/theme/nexora_theme.dart';
+import 'widgets/product_card.dart';
 
 class SearchBrowsePage extends StatefulWidget {
   final String initialQuery;
@@ -470,7 +470,7 @@ class _SearchBrowsePageState extends State<SearchBrowsePage> {
           children: [
             // Category Bar (BUY-SRCH-001)
             Container(
-              color: Colors.white,
+              color: Theme.of(context).colorScheme.surface,
               padding: const EdgeInsets.symmetric(vertical: 8),
               child: SizedBox(
                 height: 36,
@@ -482,6 +482,7 @@ class _SearchBrowsePageState extends State<SearchBrowsePage> {
                   itemBuilder: (ctx, i) {
                     final cat = _categories[i];
                     final isSel = _currentCategory == cat;
+                    final isDark = Theme.of(context).brightness == Brightness.dark;
                     return GestureDetector(
                       onTap: () {
                         setState(() => _currentCategory = cat);
@@ -490,15 +491,27 @@ class _SearchBrowsePageState extends State<SearchBrowsePage> {
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
                         decoration: BoxDecoration(
-                          color: isSel ? const Color(0xFF0066FF) : const Color(0xFFF1F5F9),
+                          color: isSel
+                              ? NexoraTheme.primary
+                              : (isDark ? const Color(0xFF131D38) : const Color(0xFFF1F5F9)),
                           borderRadius: BorderRadius.circular(18),
+                          border: isSel
+                              ? null
+                              : Border.all(
+                                  color: isDark
+                                      ? Colors.white.withValues(alpha: 0.1)
+                                      : const Color(0xFFE2E8F0),
+                                ),
                         ),
                         child: Text(
                           cat,
                           style: TextStyle(
+                            fontFamily: NexoraTheme.fontFamily,
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
-                            color: isSel ? Colors.white : const Color(0xFF475569),
+                            color: isSel
+                                ? Colors.white
+                                : (isDark ? Colors.white70 : const Color(0xFF475569)),
                           ),
                         ),
                       ),
@@ -511,7 +524,7 @@ class _SearchBrowsePageState extends State<SearchBrowsePage> {
             // Sort & Applied Filter Bar
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              color: const Color(0xFFF8FAFC),
+              color: Theme.of(context).scaffoldBackgroundColor,
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -520,7 +533,12 @@ class _SearchBrowsePageState extends State<SearchBrowsePage> {
                       '${_searchResult.products.length} products found',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF64748B)),
+                      style: TextStyle(
+                        fontFamily: NexoraTheme.fontFamily,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -528,8 +546,20 @@ class _SearchBrowsePageState extends State<SearchBrowsePage> {
                     value: _currentSort,
                     underline: const SizedBox(),
                     isDense: true,
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0066FF)),
-                    icon: const Icon(Icons.arrow_drop_down, color: Color(0xFF0066FF)),
+                    style: TextStyle(
+                      fontFamily: NexoraTheme.fontFamily,
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? const Color(0xFF38BDF8)
+                          : NexoraTheme.primary,
+                    ),
+                    icon: Icon(
+                      Icons.arrow_drop_down,
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? const Color(0xFF38BDF8)
+                          : NexoraTheme.primary,
+                    ),
                     items: _sortOptions.entries
                         .map((e) => DropdownMenuItem(value: e.key, child: Text(e.value)))
                         .toList(),
@@ -647,149 +677,40 @@ class _SearchBrowsePageState extends State<SearchBrowsePage> {
       );
     }
 
-    return GridView.builder(
-      padding: const EdgeInsets.all(16),
-      physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        mainAxisSpacing: 14,
-        crossAxisSpacing: 14,
-        childAspectRatio: 0.62,
-      ),
-      itemCount: _searchResult.products.length,
-      itemBuilder: (ctx, idx) {
-        final p = _searchResult.products[idx];
-        return _buildSearchProductCard(p);
-      },
-    );
-  }
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final crossAxisCount = switch (constraints.maxWidth) {
+          >= 1080 => 5,
+          >= 820 => 4,
+          >= 560 => 3,
+          _ => 2,
+        };
+        const spacing = 12.0;
+        final cardWidth =
+            (constraints.maxWidth - spacing * (crossAxisCount - 1)) /
+            crossAxisCount;
+        final textScale = MediaQuery.textScalerOf(context).scale(1);
+        final accessibilityGrowth =
+            ((textScale - 1).clamp(0.0, 1.0) * 116);
+        final cardHeight = cardWidth + 148.0 + accessibilityGrowth;
 
-  Widget _buildSearchProductCard(ProductModel p) {
-    return GestureDetector(
-      onTap: () {
-        Navigator.pushNamed(context, AppRoutes.productDetails, arguments: p);
+        return GridView.builder(
+          padding: const EdgeInsets.all(14),
+          physics: const AlwaysScrollableScrollPhysics(
+            parent: BouncingScrollPhysics(),
+          ),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: crossAxisCount,
+            crossAxisSpacing: spacing,
+            mainAxisSpacing: spacing,
+            mainAxisExtent: cardHeight,
+          ),
+          itemCount: _searchResult.products.length,
+          itemBuilder: (ctx, idx) {
+            return ProductCard(product: _searchResult.products[idx]);
+          },
+        );
       },
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.03),
-              blurRadius: 10,
-              offset: const Offset(0, 3),
-            ),
-          ],
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Image Stack
-            Stack(
-              children: [
-                AspectRatio(
-                  aspectRatio: 1.1,
-                  child: Image.network(
-                    p.imageUrl,
-                    fit: BoxFit.cover,
-                    errorBuilder: (ctx, err, stack) => Container(
-                      color: const Color(0xFFEEECFF),
-                      child: const Icon(Icons.image, color: Colors.grey),
-                    ),
-                  ),
-                ),
-                // Vacation Badge (BUY-SRCH-011)
-                if (p.isOnVacation)
-                  Positioned(
-                    top: 8,
-                    left: 8,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFEA580C),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Text(
-                        'On vacation',
-                        style: TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  ),
-                // Mall / Store badge
-                if (!p.isOnVacation && p.isMall)
-                  Positioned(
-                    top: 8,
-                    left: 8,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF0066FF),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Text(
-                        'MALL',
-                        style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-
-            Padding(
-              padding: const EdgeInsets.all(10),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    p.title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, height: 1.25),
-                  ),
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      Text(
-                        p.price,
-                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
-                      ),
-                      if (p.originalPrice != null) ...[
-                        const SizedBox(width: 4),
-                        Text(
-                          p.originalPrice!,
-                          style: TextStyle(
-                            fontSize: 10.5,
-                            decoration: TextDecoration.lineThrough,
-                            color: Colors.grey.shade400,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      const Icon(Icons.star, size: 12, color: Color(0xFFF59E0B)),
-                      const SizedBox(width: 3),
-                      Text('${p.rating}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                      const SizedBox(width: 6),
-                      Text(p.soldCount, style: TextStyle(fontSize: 10.5, color: Colors.grey.shade600)),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    p.shippingTag,
-                    style: const TextStyle(fontSize: 9.5, color: Color(0xFF00BCD4), fontWeight: FontWeight.w600),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

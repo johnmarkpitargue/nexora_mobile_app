@@ -6,6 +6,9 @@ import '../../../../core/services/wishlist_service.dart';
 import '../../../../core/models/shop_models.dart';
 import '../../../../core/utils/image_url_helper.dart';
 import '../../../../core/utils/variant_helper.dart';
+import '../../../../core/widgets/added_to_wishlist_hud.dart';
+import '../../../../core/widgets/fly_to_wishlist_animation.dart';
+import '../../../../core/widgets/nexora_widgets.dart';
 
 class ProductModel {
   final String id;
@@ -248,190 +251,180 @@ class ProductModel {
   }
 }
 
-class ProductCard extends StatefulWidget {
-  final ProductModel product;
-
+class ProductCard extends StatelessWidget {
   const ProductCard({super.key, required this.product});
 
-  @override
-  State<ProductCard> createState() => _ProductCardState();
-}
+  final ProductModel product;
 
-class _ProductCardState extends State<ProductCard> {
-  bool isFavorite = false;
+  void _openProduct(BuildContext context) {
+    Navigator.pushNamed(context, AppRoutes.productDetails, arguments: product);
+  }
+
+  void _toggleWishlist(BuildContext context, bool isFavorite) {
+    WishlistService.instance.toggleWishlist(product);
+    if (!isFavorite) {
+      final box = context.findRenderObject() as RenderBox?;
+      Offset? startPos;
+      if (box != null && box.hasSize) {
+        startPos = box.localToGlobal(
+          Offset(box.size.width / 2, box.size.height / 2),
+        );
+      }
+      FlyToWishlistAnimation.fly(
+        context: context,
+        startPosition: startPos,
+      );
+      AddedToWishlistHUD.show(
+        context,
+        message: 'Saved to Wishlist',
+        count: WishlistService.instance.itemCount,
+      );
+    } else {
+      final messenger = ScaffoldMessenger.maybeOf(context);
+      messenger
+        ?..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(
+              'Removed "${product.title}" from Wishlist (${WishlistService.instance.itemCount} items remaining)',
+            ),
+            duration: const Duration(seconds: 1),
+          ),
+        );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final product = widget.product;
-
-    return GestureDetector(
-      onTap: () {
-        Navigator.pushNamed(
-          context,
-          AppRoutes.productDetails,
-          arguments: product,
-        );
-      },
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: const Color(0xFFE2E8F0), width: 0.8),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF0F172A).withValues(alpha: 0.04),
-              blurRadius: 10,
-              offset: const Offset(0, 3),
-            ),
-          ],
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Image Container with Badges
-            AspectRatio(
-              aspectRatio: 1.0,
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final showOriginalPrice =
+        product.originalPrice != null && product.originalPrice != product.price;
+    final wishlistKey = product.id.isEmpty ? product.title : product.id;
+    return NexoraCard(
+      padding: EdgeInsets.zero,
+      onTap: () => _openProduct(context),
+      semanticLabel:
+          '${product.title}, ${product.price}, ${product.rating} stars, ${_soldLabel(product.soldCount)}',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Flexible(
+            flex: 11,
+            child: AspectRatio(
+              aspectRatio: 1,
               child: Stack(
+                fit: StackFit.expand,
                 children: [
-                  Positioned.fill(
-                    child: Container(
-                      color: const Color(0xFFE2E8F0),
-                      child: product.imageUrl.isNotEmpty
-                          ? Image.network(
-                              product.imageUrl,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) {
-                                return Container(
-                                  color: const Color(0xFFF1F5F9),
-                                  child: const Center(
-                                    child: Icon(
-                                      Icons.image_outlined,
-                                      color: Color(0xFF94A3B8),
-                                      size: 32,
-                                    ),
-                                  ),
-                                );
-                              },
-                            )
-                          : Container(
-                              color: const Color(0xFFF1F5F9),
-                              child: const Center(
+                  ColoredBox(
+                    color: isDark
+                        ? theme.colorScheme.surfaceContainerLow
+                        : NexoraTheme.surfaceContainer,
+                    child: product.imageUrl.isNotEmpty
+                        ? Image.network(
+                            product.imageUrl,
+                            fit: BoxFit.cover,
+                            excludeFromSemantics: true,
+                            errorBuilder: (context, error, stackTrace) {
+                              return Center(
                                 child: Icon(
-                                  Icons.image_outlined,
-                                  color: Color(0xFF94A3B8),
-                                  size: 32,
+                                  Icons.image_not_supported_outlined,
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                  size: 30,
                                 ),
-                              ),
-                            ),
-                    ),
-                  ),
-
-                  // Top Left Badges (MALL badge & Discount badge)
-                  Positioned(
-                    top: 6,
-                    left: 6,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (product.isMall)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
-                            margin: const EdgeInsets.only(bottom: 3),
-                            decoration: BoxDecoration(
-                              color: const Color(
-                                0xFF0066FF,
-                              ), // Nexora Brand Theme Electric Blue
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: const Text(
-                              'MALL',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 9,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: 0.3,
-                              ),
+                              );
+                            },
+                          )
+                        : Center(
+                            child: Icon(
+                              Icons.image_not_supported_outlined,
+                              color: theme.colorScheme.onSurfaceVariant,
+                              size: 30,
                             ),
                           ),
-                        if (product.discountTag != null)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: product.isMall
-                                  ? const Color(0xFF050B28) // Dark Navy accent when paired with Mall badge
-                                  : const Color(
-                                      0xFF0066FF,
-                                    ), // Nexora Electric Blue discount tag
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              product.discountTag!,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 9.5,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
                   ),
-
-                  // Top Right Wishlist Button
+                  if (product.isOnVacation || product.discountTag != null)
+                    Positioned(
+                      top: 8,
+                      left: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3.5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: product.isOnVacation
+                              ? const Color(0xFFC2410C)
+                              : (isDark
+                                  ? const Color(0xFF0F1738)
+                                  : NexoraTheme.darkNavy),
+                          borderRadius: BorderRadius.circular(100),
+                          border: isDark
+                              ? Border.all(
+                                  color: Colors.white.withValues(alpha: 0.15),
+                                )
+                              : null,
+                        ),
+                        child: Text(
+                          product.isOnVacation
+                              ? 'ON VACATION'
+                              : product.discountTag!,
+                          style: const TextStyle(
+                            fontFamily: NexoraTheme.fontFamily,
+                            color: Colors.white,
+                            fontSize: 9.5,
+                            height: 1,
+                            letterSpacing: 0.2,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ),
                   Positioned(
-                    top: 6,
-                    right: 6,
+                    top: 4,
+                    right: 4,
                     child: AnimatedBuilder(
                       animation: WishlistService.instance,
                       builder: (context, _) {
                         final isFavorite = WishlistService.instance
                             .isInWishlist(product.title);
-                        return GestureDetector(
-                          onTap: () {
-                            WishlistService.instance.toggleWishlist(product);
-                            if (!context.mounted) return;
-                            ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  isFavorite
-                                      ? 'Removed "${product.title}" from Wishlist'
-                                      : 'Saved "${product.title}" to Wishlist!',
-                                ),
-                                duration: const Duration(seconds: 1),
+                        return Builder(
+                          builder: (btnContext) {
+                            return IconButton(
+                              key: ValueKey('product-wishlist-$wishlistKey'),
+                              onPressed: () =>
+                                  _toggleWishlist(btnContext, isFavorite),
+                              tooltip: isFavorite
+                                  ? 'Remove from wishlist'
+                                  : 'Save to wishlist',
+                              style: IconButton.styleFrom(
+                                foregroundColor: isFavorite
+                                    ? NexoraTheme.tertiary
+                                    : (isDark
+                                        ? Colors.white
+                                        : NexoraTheme.onSurface),
+                                backgroundColor: isDark
+                                    ? const Color(0xFF0F1738)
+                                        .withValues(alpha: 0.88)
+                                    : Colors.white.withValues(alpha: 0.92),
+                                side: isDark
+                                    ? BorderSide(
+                                        color: Colors.white
+                                            .withValues(alpha: 0.15),
+                                      )
+                                    : null,
+                                minimumSize: const Size(48, 48),
+                                maximumSize: const Size(48, 48),
+                                shape: const CircleBorder(),
+                              ),
+                              icon: Icon(
+                                isFavorite
+                                    ? Icons.favorite_rounded
+                                    : Icons.favorite_border_rounded,
+                                size: 20,
                               ),
                             );
                           },
-                          child: Container(
-                            width: 28,
-                            height: 28,
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.85),
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.1),
-                                  blurRadius: 4,
-                                ),
-                              ],
-                            ),
-                            child: Icon(
-                              isFavorite
-                                  ? Icons.favorite
-                                  : Icons.favorite_border,
-                              size: 16,
-                              color: isFavorite
-                                  ? const Color(0xFFE11D48)
-                                  : const Color(0xFF475569),
-                            ),
-                          ),
                         );
                       },
                     ),
@@ -439,194 +432,229 @@ class _ProductCardState extends State<ProductCard> {
                 ],
               ),
             ),
-
-            // Content Details Area
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 8.0,
-                  vertical: 5.0,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // Tags Row: Clean Voucher or Category Highlight
-                        if (product.hasVoucher)
-                          SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            child: Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 5,
-                                    vertical: 2,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFEFF6FF),
-                                    borderRadius: BorderRadius.circular(4),
-                                    border: Border.all(
-                                      color: const Color(0xFFDBEAFE),
-                                    ),
-                                  ),
-                                  child: const Text(
-                                    'Voucher Available',
-                                    style: TextStyle(
-                                      color: Color(0xFF0066FF),
-                                      fontSize: 8.5,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-
-                        const SizedBox(height: 3),
-
-                        // Title with [Mall] Prefix
-                        Flexible(
-                          child: RichText(
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            text: TextSpan(
-                              children: [
-                                if (product.isMall)
-                                  const TextSpan(
-                                    text: '[Mall] ',
-                                    style: TextStyle(
-                                      color: Color(0xFF0066FF),
-                                      fontWeight: FontWeight.w800,
-                                      fontSize: 11.5,
-                                    ),
-                                  ),
-                                TextSpan(
-                                  text: product.title,
-                                  style: const TextStyle(
-                                    color: Color(0xFF0F172A),
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 11.5,
-                                    height: 1.25,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-
-                        const SizedBox(height: 4),
-
-                        // Price Row
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.baseline,
-                          textBaseline: TextBaseline.alphabetic,
-                          children: [
-                            Flexible(
-                              child: Text(
-                                product.price,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: NexoraTheme.price,
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: 14.5,
-                                ),
-                              ),
-                            ),
-                            if (product.originalPrice != null) ...[
-                              const SizedBox(width: 4),
-                              Flexible(
-                                child: Text(
-                                  product.originalPrice!,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    color: Color(0xFF94A3B8),
-                                    decoration: TextDecoration.lineThrough,
-                                    fontSize: 9.5,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-
-                        const SizedBox(height: 2),
-
-                        // Rating & Sold Count
-                        Row(
-                          children: [
-                            const Icon(
-                              Icons.star,
-                              size: 11,
-                              color: Color(0xFFF59E0B),
-                            ),
-                            const SizedBox(width: 2),
-                            Text(
-                              '${product.rating}',
-                              style: const TextStyle(
-                                color: Color(0xFFD97706),
-                                fontWeight: FontWeight.w700,
-                                fontSize: 10,
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            Flexible(
-                              child: Text(
-                                product.soldCount.toLowerCase().contains('sold')
-                                    ? product.soldCount
-                                    : '${product.soldCount} sold',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: Color(0xFF64748B),
-                                  fontSize: 9.5,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
+          ),
+          Expanded(
+            flex: 9,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _ProductTrustLine(product: product),
+                  const SizedBox(height: 4),
+                  Text(
+                    product.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontFamily: NexoraTheme.fontFamily,
+                      color: theme.colorScheme.onSurface,
+                      fontSize: 12.5,
+                      height: 1.3,
+                      fontWeight: FontWeight.w600,
                     ),
-
-                    const Spacer(),
-
-                    // Shipping Tag Footer
-                    if (product.shippingTag.trim().isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 2.0),
-                        child: Row(
-                          children: [
-                            const Icon(
-                              Icons.local_shipping_outlined,
-                              size: 11,
-                              color: Color(0xFF0066FF),
-                            ),
-                            const SizedBox(width: 3),
-                            Expanded(
-                              child: Text(
-                                product.shippingTag,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: Color(0xFF64748B),
-                                  fontSize: 9,
-                                ),
-                              ),
-                            ),
-                          ],
+                  ),
+                  const Spacer(),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.baseline,
+                    textBaseline: TextBaseline.alphabetic,
+                    children: [
+                      Flexible(
+                        child: Text(
+                          product.price,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontFamily: NexoraTheme.fontFamily,
+                            color: NexoraTheme.priceColor(context),
+                            fontSize: 15.5,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.2,
+                          ),
                         ),
                       ),
-                  ],
-                ),
+                      if (showOriginalPrice) ...[
+                        const SizedBox(width: 5),
+                        Flexible(
+                          child: Text(
+                            product.originalPrice!,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontFamily: NexoraTheme.fontFamily,
+                              color: theme.colorScheme.onSurfaceVariant,
+                              decoration: TextDecoration.lineThrough,
+                              fontSize: 10.5,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 5),
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.star_rounded,
+                        size: 14,
+                        color: Color(0xFFF59E0B),
+                      ),
+                      const SizedBox(width: 3),
+                      Text(
+                        '${product.rating}',
+                        style: TextStyle(
+                          fontFamily: NexoraTheme.fontFamily,
+                          color: theme.colorScheme.onSurface,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(width: 7),
+                      Expanded(
+                        child: Text(
+                          _soldLabel(product.soldCount),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontFamily: NexoraTheme.fontFamily,
+                            color: theme.colorScheme.onSurfaceVariant,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 5),
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.local_shipping_outlined,
+                        size: 13,
+                        color: NexoraTheme.primary,
+                      ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          product.shippingTag,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontFamily: NexoraTheme.fontFamily,
+                            color: theme.colorScheme.onSurfaceVariant,
+                            fontSize: 10.5,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
+    );
+  }
+
+  static String _soldLabel(String soldCount) {
+    return soldCount.toLowerCase().contains('sold')
+        ? soldCount
+        : '$soldCount sold';
+  }
+}
+
+class _ProductTrustLine extends StatelessWidget {
+  const _ProductTrustLine({required this.product});
+
+  final ProductModel product;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final trustLabel = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (product.isMall) ...[
+          const Icon(
+            Icons.verified_rounded,
+            size: 13,
+            color: NexoraTheme.primary,
+          ),
+          const SizedBox(width: 4),
+        ],
+        Flexible(
+          child: Text(
+            product.isMall ? 'Nexora Mall' : (product.shopName.isNotEmpty ? product.shopName : product.category),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontFamily: NexoraTheme.fontFamily,
+              color: product.isMall
+                  ? (isDark ? const Color(0xFF60A5FA) : NexoraTheme.primary)
+                  : theme.colorScheme.onSurfaceVariant,
+              fontSize: 10.5,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      ],
+    );
+
+    if (!product.hasVoucher) return trustLabel;
+
+    final textScale = MediaQuery.textScalerOf(context).scale(1);
+    final voucherText = Text(
+      'Voucher',
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: TextStyle(
+        fontFamily: NexoraTheme.fontFamily,
+        color: theme.colorScheme.onSurfaceVariant,
+        fontSize: 10.5,
+        fontWeight: FontWeight.w600,
+      ),
+    );
+    final voucherDot = DecoratedBox(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.outlineVariant,
+        shape: BoxShape.circle,
+      ),
+      child: const SizedBox(width: 3, height: 3),
+    );
+
+    if (textScale > 1.3) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          trustLabel,
+          const SizedBox(height: 2),
+          Row(
+            children: [
+              voucherDot,
+              const SizedBox(width: 7),
+              Expanded(child: voucherText),
+            ],
+          ),
+        ],
+      );
+    }
+
+    final voucherLabel = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        voucherDot,
+        const SizedBox(width: 7),
+        voucherText,
+      ],
+    );
+
+    return Row(
+      children: [
+        Expanded(child: trustLabel),
+        const SizedBox(width: 7),
+        voucherLabel,
+      ],
     );
   }
 }

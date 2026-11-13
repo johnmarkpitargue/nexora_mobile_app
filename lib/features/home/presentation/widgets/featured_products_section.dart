@@ -1,17 +1,18 @@
 import 'package:flutter/material.dart';
 
-import 'product_card.dart';
+import '../../../../app/theme/nexora_theme.dart';
 import '../../../../core/services/shop_service.dart';
+import 'product_card.dart';
 
 class DailyDiscoverSection extends StatefulWidget {
-  final String? selectedCategory;
-  final VoidCallback? onLoadMore;
-
   const DailyDiscoverSection({
     super.key,
     this.selectedCategory,
     this.onLoadMore,
   });
+
+  final String? selectedCategory;
+  final VoidCallback? onLoadMore;
 
   static List<ProductModel> get allProducts => ShopService.instance.products;
 
@@ -54,188 +55,197 @@ class _DailyDiscoverSectionState extends State<DailyDiscoverSection> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final products = ShopService.instance.products;
     final isLoading = ShopService.instance.isLoadingCatalog;
     final error = ShopService.instance.catalogError;
     final selectedCategory = widget.selectedCategory;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      padding: const EdgeInsets.fromLTRB(16, 18, 16, 28),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header Section
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
             children: [
               Expanded(
-                child: Row(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Flexible(
-                      child: Text(
-                        selectedCategory == null
-                            ? 'DAILY DISCOVER'
-                            : 'DISCOVER (${selectedCategory.toUpperCase()})',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w900,
-                          fontSize: 15,
-                          letterSpacing: 0.3,
-                          color: Color(0xFF0F172A),
-                        ),
+                    Text(
+                      selectedCategory ?? 'Recommended for you',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontFamily: NexoraTheme.fontFamily,
+                        color: theme.colorScheme.onSurface,
+                        fontSize: 20,
+                        height: 1.2,
+                        letterSpacing: -0.3,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      isLoading && products.isEmpty
+                          ? 'Loading products...'
+                          : '${products.length} ${products.length == 1 ? 'product' : 'products'}',
+                      style: TextStyle(
+                        fontFamily: NexoraTheme.fontFamily,
+                        color: theme.colorScheme.onSurfaceVariant,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
-              const Text(
-                'Live Catalog',
-                style: TextStyle(
-                  color: Color(0xFF0284C7),
-                  fontWeight: FontWeight.w600,
-                  fontSize: 11,
+              if (selectedCategory != null)
+                TextButton(
+                  onPressed: () {
+                    ShopService.instance
+                        .loadCatalogRemote(category: null)
+                        .catchError((_) => <ProductModel>[]);
+                  },
+                  child: Text(
+                    'Clear filter',
+                    style: TextStyle(
+                      fontFamily: NexoraTheme.fontFamily,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? const Color(0xFF38BDF8) : NexoraTheme.primary,
+                    ),
+                  ),
                 ),
-              ),
             ],
           ),
-
-          const SizedBox(height: 10),
-
+          const SizedBox(height: 14),
           if (isLoading && products.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 40),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 48),
               child: Center(
                 child: SizedBox(
-                  width: 28,
-                  height: 28,
-                  child: CircularProgressIndicator(strokeWidth: 2.5),
+                  width: 32,
+                  height: 32,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.5,
+                    color: isDark ? const Color(0xFF38BDF8) : NexoraTheme.primary,
+                  ),
                 ),
-              ),
-            )
-          else if (error != null && products.isEmpty)
-            Container(
-              padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
-              ),
-              child: Column(
-                children: [
-                  const Icon(
-                    Icons.error_outline,
-                    color: Colors.redAccent,
-                    size: 36,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Unable to load products: $error',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 12.5,
-                      color: Color(0xFF64748B),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  ElevatedButton.icon(
-                    onPressed: _loadCatalog,
-                    icon: const Icon(Icons.refresh, size: 16),
-                    label: const Text('Retry'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF0066FF),
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                    ),
-                  ),
-                ],
               ),
             )
           else if (products.isEmpty)
-            Container(
-              padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 16),
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
-              ),
-              child: Column(
-                children: [
-                  const Icon(
-                    Icons.inventory_2_outlined,
-                    color: Color(0xFF94A3B8),
-                    size: 40,
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'No products found in this category',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 13,
-                      color: Color(0xFF64748B),
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  TextButton(
-                    onPressed: _loadCatalog,
-                    child: const Text('Refresh'),
-                  ),
-                ],
-              ),
+            _EmptyCategory(
+              category: selectedCategory,
+              errorMessage: error,
+              onRetry: _loadCatalog,
             )
-          else ...[
-            // Product Grid Layout
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: products.length,
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                crossAxisSpacing: 10,
-                mainAxisSpacing: 10,
-                childAspectRatio: 0.68,
-              ),
-              itemBuilder: (context, index) {
-                return ProductCard(product: products[index]);
+          else
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final crossAxisCount = switch (constraints.maxWidth) {
+                  >= 1080 => 5,
+                  >= 820 => 4,
+                  >= 560 => 3,
+                  _ => 2,
+                };
+                const spacing = 12.0;
+                final cardWidth =
+                    (constraints.maxWidth - spacing * (crossAxisCount - 1)) /
+                    crossAxisCount;
+                final textScale = MediaQuery.textScalerOf(context).scale(1);
+                final accessibilityGrowth =
+                    ((textScale - 1).clamp(0.0, 1.0) * 116);
+                final cardHeight = cardWidth + 148.0 + accessibilityGrowth;
+
+                return GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: products.length,
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: crossAxisCount,
+                    crossAxisSpacing: spacing,
+                    mainAxisSpacing: spacing,
+                    mainAxisExtent: cardHeight,
+                  ),
+                  itemBuilder: (context, index) {
+                    return ProductCard(product: products[index]);
+                  },
+                );
               },
             ),
+        ],
+      ),
+    );
+  }
+}
 
-            if (widget.onLoadMore != null) ...[
-              const SizedBox(height: 16),
-              Center(
-                child: InkWell(
-                  onTap: widget.onLoadMore,
-                  borderRadius: BorderRadius.circular(20),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 10,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: const Color(0xFFE2E8F0)),
-                    ),
-                    child: const Text(
-                      'Load More',
-                      style: TextStyle(
-                        color: Color(0xFF64748B),
-                        fontWeight: FontWeight.w600,
-                        fontSize: 11.5,
-                      ),
-                    ),
-                  ),
+class _EmptyCategory extends StatelessWidget {
+  const _EmptyCategory({
+    required this.category,
+    this.errorMessage,
+    this.onRetry,
+  });
+
+  final String? category;
+  final String? errorMessage;
+  final VoidCallback? onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 36),
+      child: Center(
+        child: Column(
+          children: [
+            Icon(
+              Icons.inventory_2_outlined,
+              size: 40,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              category == null
+                  ? 'No products available right now'
+                  : 'No products in $category',
+              style: TextStyle(
+                fontFamily: NexoraTheme.fontFamily,
+                color: theme.colorScheme.onSurface,
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              errorMessage ?? 'Check back soon for new arrivals.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: NexoraTheme.fontFamily,
+                color: theme.colorScheme.onSurfaceVariant,
+                fontSize: 12.5,
+              ),
+            ),
+            if (onRetry != null) ...[
+              const SizedBox(height: 14),
+              OutlinedButton.icon(
+                onPressed: onRetry,
+                icon: const Icon(Icons.refresh_rounded, size: 16),
+                label: const Text('Try again'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor:
+                      isDark ? const Color(0xFF38BDF8) : NexoraTheme.primary,
                 ),
               ),
             ],
           ],
-        ],
+        ),
       ),
     );
   }
