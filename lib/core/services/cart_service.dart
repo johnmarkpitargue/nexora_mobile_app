@@ -584,6 +584,56 @@ class CartService extends ChangeNotifier {
     notifyListeners();
   }
 
+  void addLocalItem({
+    required String title,
+    required String variant,
+    required double price,
+    required String imageUrl,
+    String? productId,
+    int? sellerId,
+    dynamic variantData,
+    String storeName = 'Nexora Official Store',
+    String storeBadge = 'MALL',
+    double? originalPrice,
+    String? discountTag,
+    int quantity = 1,
+  }) {
+    final key = _currentUserKeyOrNull ?? 'guest';
+    final list = _userItems.putIfAbsent(key, () => <CartItemModel>[]);
+    final existingIndex = list.indexWhere(
+      (i) =>
+          (productId != null &&
+              i.productId == productId &&
+              i.variant == variant) ||
+          (i.title == title && i.variant == variant),
+    );
+    if (existingIndex >= 0) {
+      list[existingIndex].quantity += quantity;
+      list[existingIndex].isChecked = true;
+    } else {
+      list.insert(
+        0,
+        CartItemModel(
+          id: 'local_${DateTime.now().millisecondsSinceEpoch}',
+          productId: productId,
+          sellerId: sellerId,
+          storeName: storeName,
+          storeBadge: storeBadge,
+          title: title,
+          variant: variant,
+          variantData: variantData,
+          imageUrl: imageUrl,
+          price: price,
+          originalPrice: originalPrice,
+          discountTag: discountTag,
+          quantity: quantity,
+          isChecked: true,
+        ),
+      );
+    }
+    notifyListeners();
+  }
+
   Future<int?> addToCart({
     required int productId,
     Map<String, dynamic>? variantPayload,

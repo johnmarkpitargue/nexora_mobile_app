@@ -11,6 +11,7 @@ import 'package:nexora_flutter_app/core/services/shop_service.dart';
 import 'package:nexora_flutter_app/core/services/wishlist_service.dart';
 import 'package:nexora_flutter_app/core/utils/guest_auth_guard.dart';
 import 'package:nexora_flutter_app/core/utils/variant_helper.dart';
+import 'package:nexora_flutter_app/core/widgets/add_to_cart_bottom_sheet.dart';
 import 'package:nexora_flutter_app/core/widgets/added_to_cart_hud.dart';
 import 'package:nexora_flutter_app/features/chat/presentation/chat_detail_page.dart';
 import 'package:nexora_flutter_app/features/home/presentation/widgets/product_card.dart';
@@ -248,8 +249,6 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
   }
 
   Future<void> _handleAddToCart() async {
-    if (_isAddingToCart) return;
-
     if (_productArg == null ||
         _productArg!.isActive == false ||
         _productArg!.isDeleted == true) {
@@ -273,114 +272,33 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
       return;
     }
 
-    if (!_areAllVariantsSelected) {
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please select a variation'),
-          backgroundColor: Colors.redAccent,
-          duration: Duration(seconds: 2),
-        ),
-      );
-      return;
-    }
-
-    final qError = _validateQuantityInput(_quantityController.text);
-    if (qError != null) {
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(qError),
-          backgroundColor: Colors.redAccent,
-          duration: const Duration(seconds: 2),
-        ),
-      );
-      return;
-    }
-    _quantity = int.parse(_quantityController.text.trim());
-
-    final limit = _productArg!.perBuyerLimit;
-    if (limit != null) {
-      final pid =
-          _productArg!.id.isNotEmpty ? _productArg!.id : _productTitle;
-      final purchasedCount = CartService.instance.getPurchasedCount(pid);
-      final inCartCount = CartService.instance.items
-          .where((i) => i.productId == _productArg!.id || i.title == _productTitle)
-          .fold(0, (sum, i) => sum + i.quantity);
-      if (purchasedCount + inCartCount + _quantity > limit) {
-        ScaffoldMessenger.of(context).hideCurrentSnackBar();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-                'Per-buyer purchase limit of $limit items reached for this product.'),
-            backgroundColor: const Color(0xFFEF4444),
-            duration: const Duration(seconds: 2),
-          ),
-        );
-        return;
-      }
-    }
-
-    if (!BuyerAccountService.instance.isLoggedIn ||
-        !ApiClient.instance.hasToken) {
-      final loggedIn = await GuestAuthGuard.requireLogin(
-        context,
-        title: 'Sign In to Add to Cart',
-        message: 'Please sign in or create an account to save items to your cart.',
-      );
-      if (!loggedIn || !mounted) return;
-    }
-
-    final pId = int.tryParse(_productArg!.id) ?? 0;
-    if (pId <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Invalid product ID. Please refresh and try again.'),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
-      return;
-    }
-
-    final selection = VariantHelper.buildSelection(
-      groups: _variantGroups,
-      selectedIndices: _selectedVariantGroupIndices,
-    );
-
     setState(() => _isAddingToCart = true);
     try {
-      await CartService.instance.addToCart(
-        productId: pId,
-        variantPayload: selection.payload,
-        quantity: _quantity,
-      );
-      if (!mounted) return;
-      AddedToCartHUD.show(context);
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Added ${_quantity}x $_productTitle to cart'),
-          backgroundColor: const Color(0xFF0066FF),
-          duration: const Duration(seconds: 2),
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      final msg = e is ApiException
-          ? e.message
-          : e.toString().replaceFirst('Exception: ', '');
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(msg),
-          backgroundColor: const Color(0xFFDC2626),
-          duration: const Duration(seconds: 4),
-          action: SnackBarAction(
-            label: 'Retry',
-            textColor: Colors.white,
-            onPressed: _handleAddToCart,
-          ),
-        ),
+      final productToOrder = _productArg ??
+          ProductModel(
+            id: _requestedProductId ?? '',
+            title: _productTitle,
+            imageUrl: _productImages.isNotEmpty ? _productImages.first : '',
+            category: _productArg?.category ?? 'Electronics',
+            price: '₱${_effectivePrice.toStringAsFixed(0)}',
+            originalPrice: _productOriginalPrice != null
+                ? '₱${_productOriginalPrice!.toStringAsFixed(0)}'
+                : null,
+            rating: _productArg?.rating ?? 5.0,
+            soldCount: _productArg?.soldCount ?? '0 sold',
+            shippingTag: _productArg?.shippingTag ?? 'Standard Delivery',
+            isMall: _productArg?.isMall ?? false,
+            variantGroups: _variantGroups,
+          );
+
+      await AddToCartBottomSheet.show(
+        context,
+        product: productToOrder,
+        initialQuantity: _quantity,
+        initialSelectedIndices: _selectedVariantGroupIndices,
+        onAdded: () {
+          if (mounted) setState(() {});
+        },
       );
     } finally {
       if (mounted) {
