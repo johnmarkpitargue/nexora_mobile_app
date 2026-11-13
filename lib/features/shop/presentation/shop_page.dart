@@ -1,21 +1,21 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
+
 import '../../../app/routes/app_routes.dart';
+import '../../../app/theme/nexora_theme.dart';
 import '../../../core/models/shop_models.dart';
 import '../../../core/services/chat_service.dart';
 import '../../../core/services/shop_service.dart';
 import '../../chat/presentation/chat_detail_page.dart';
 import '../../home/presentation/widgets/product_card.dart';
+import '../../home/presentation/widgets/shopping_components.dart';
 
 class ShopPage extends StatefulWidget {
   final ShopModel? initialShop;
   final String? shopId;
 
-  const ShopPage({
-    super.key,
-    this.initialShop,
-    this.shopId,
-  });
+  const ShopPage({super.key, this.initialShop, this.shopId});
 
   @override
   State<ShopPage> createState() => _ShopPageState();
@@ -48,7 +48,8 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
-    _shop = widget.initialShop ??
+    _shop =
+        widget.initialShop ??
         _shopService.getShopById(widget.shopId ?? 'nexora_official');
 
     _tabController = TabController(length: 3, vsync: this);
@@ -100,6 +101,14 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _followAnimController.duration = NexoraMotion.resolve(
+      context,
+      NexoraMotion.standard,
+    );
+    _chatAnimController.duration = NexoraMotion.resolve(
+      context,
+      NexoraMotion.standard,
+    );
     final args = ModalRoute.of(context)?.settings.arguments;
     if (args is ShopModel) {
       _shop = args;
@@ -209,12 +218,18 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    '🎉 Voucher Claimed! (${voucher.discountTitle})',
-                    style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+                    'Voucher claimed · ${voucher.discountTitle}',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
                   ),
                   Text(
                     'Saved to your account • ${voucher.minSpend}',
-                    style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF94A3B8),
+                    ),
                   ),
                 ],
               ),
@@ -235,25 +250,23 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
     final isFollowing = _shopService.isFollowing(_shop.id);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: NexoraTheme.surface,
       body: NestedScrollView(
         headerSliverBuilder: (context, innerBoxIsScrolled) {
           return [
             // Dark Navy Gradient Store Header
-            SliverToBoxAdapter(
-              child: _buildShopHeader(isFollowing),
-            ),
+            SliverToBoxAdapter(child: _buildShopHeader(isFollowing)),
             // Sticky Tab Bar
             SliverPersistentHeader(
               pinned: true,
               delegate: _ShopTabBarDelegate(
                 TabBar(
                   controller: _tabController,
-                  indicatorColor: const Color(0xFF0066FF),
+                  indicatorColor: NexoraTheme.primary,
                   indicatorWeight: 3.5,
                   indicatorSize: TabBarIndicatorSize.tab,
-                  labelColor: const Color(0xFF0066FF),
-                  unselectedLabelColor: const Color(0xFF475569),
+                  labelColor: NexoraTheme.primary,
+                  unselectedLabelColor: NexoraTheme.onSurfaceVariant,
                   labelStyle: const TextStyle(
                     fontWeight: FontWeight.w800,
                     fontSize: 14.5,
@@ -295,17 +308,7 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
         right: 14,
         bottom: 18,
       ),
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            Color(0xFF020617),
-            Color(0xFF070E28),
-            Color(0xFF0B173D),
-          ],
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-        ),
-      ),
+      decoration: const BoxDecoration(color: NexoraTheme.darkNavy),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -313,7 +316,11 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
           Row(
             children: [
               IconButton(
-                icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 20),
+                icon: const Icon(
+                  Icons.arrow_back_ios_new,
+                  color: Colors.white,
+                  size: 20,
+                ),
                 onPressed: () => Navigator.pop(context),
               ),
               Expanded(
@@ -330,13 +337,21 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.search, color: Colors.white.withValues(alpha: 0.7), size: 18),
+                      Icon(
+                        Icons.search,
+                        color: Colors.white.withValues(alpha: 0.7),
+                        size: 18,
+                      ),
                       const SizedBox(width: 8),
-                      Text(
-                        'Search in Nexora...',
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.7),
-                          fontSize: 13,
+                      Expanded(
+                        child: Text(
+                          'Search in Nexora...',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.7),
+                            fontSize: 13,
+                          ),
                         ),
                       ),
                     ],
@@ -345,7 +360,11 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
               ),
               const SizedBox(width: 8),
               IconButton(
-                icon: const Icon(Icons.share_outlined, color: Colors.white, size: 21),
+                icon: const Icon(
+                  Icons.share_outlined,
+                  color: Colors.white,
+                  size: 21,
+                ),
                 onPressed: () {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
@@ -356,7 +375,11 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
                 },
               ),
               IconButton(
-                icon: const Icon(Icons.more_vert, color: Colors.white, size: 21),
+                icon: const Icon(
+                  Icons.more_vert,
+                  color: Colors.white,
+                  size: 21,
+                ),
                 onPressed: () {},
               ),
             ],
@@ -419,12 +442,19 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
                           ),
                         ),
                         const SizedBox(width: 4),
-                        const Icon(Icons.chevron_right, color: Colors.white, size: 18),
+                        const Icon(
+                          Icons.chevron_right,
+                          color: Colors.white,
+                          size: 18,
+                        ),
                       ],
                     ),
                     const SizedBox(height: 3),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 7,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFF0284C7).withValues(alpha: 0.3),
                         borderRadius: BorderRadius.circular(6),
@@ -446,7 +476,11 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
                     const SizedBox(height: 4),
                     Row(
                       children: [
-                        const Icon(Icons.star, color: Color(0xFFFBBF24), size: 14),
+                        const Icon(
+                          Icons.star,
+                          color: Color(0xFFFBBF24),
+                          size: 14,
+                        ),
                         const SizedBox(width: 3),
                         Text(
                           '${_shop.rating}',
@@ -491,7 +525,8 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
                           width: 96,
                           height: 32,
                           decoration: BoxDecoration(
-                            color: const Color(0xFF07153B).withValues(alpha: 0.85),
+                            color: const Color(0xFF07153B)
+                                .withValues(alpha: 0.85),
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
                               color: isFollowing
@@ -502,7 +537,8 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
                             boxShadow: [
                               if (!isFollowing)
                                 BoxShadow(
-                                  color: const Color(0xFF0075FF).withValues(alpha: 0.25),
+                                  color: const Color(0xFF0075FF)
+                                      .withValues(alpha: 0.25),
                                   blurRadius: 6,
                                   offset: const Offset(0, 2),
                                 ),
@@ -515,7 +551,9 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
                             children: [
                               Icon(
                                 isFollowing ? Icons.check : Icons.add,
-                                color: isFollowing ? const Color(0xFF0066FF) : const Color(0xFF00B4D8),
+                                color: isFollowing
+                                    ? const Color(0xFF0066FF)
+                                    : const Color(0xFF00B4D8),
                                 size: 14,
                               ),
                               const SizedBox(width: 4),
@@ -549,10 +587,12 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
                           width: 96,
                           height: 32,
                           decoration: BoxDecoration(
-                            color: const Color(0xFF07153B).withValues(alpha: 0.85),
+                            color: const Color(0xFF07153B)
+                                .withValues(alpha: 0.85),
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
-                              color: const Color(0xFF1E3A8A).withValues(alpha: 0.8),
+                              color: const Color(0xFF1E3A8A)
+                                  .withValues(alpha: 0.8),
                               width: 1.0,
                             ),
                           ),
@@ -613,7 +653,10 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
         const SizedBox(height: 22),
 
         // MALL FLASH DEALS HEADER
-        Row(
+        Wrap(
+          spacing: NexoraSpacing.sm,
+          runSpacing: NexoraSpacing.xs,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             Container(
               width: 8,
@@ -639,16 +682,21 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
             _buildTimerBadge(_hoursStr),
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 3),
-              child: Text(':', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13)),
+              child: Text(
+                ':',
+                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13),
+              ),
             ),
             _buildTimerBadge(_minutesStr),
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 3),
-              child: Text(':', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13)),
+              child: Text(
+                ':',
+                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13),
+              ),
             ),
             _buildTimerBadge(_secondsStr),
 
-            const Spacer(),
             InkWell(
               onTap: () {
                 _tabController.animateTo(1);
@@ -696,8 +744,10 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
         const SizedBox(height: 24),
 
         // POPULAR PRODUCTS HEADER
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          spacing: NexoraSpacing.sm,
+          runSpacing: NexoraSpacing.xs,
           children: [
             const Text(
               'POPULAR PRODUCTS',
@@ -738,8 +788,10 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
       sorted.sort((a, b) => b.soldCount.compareTo(a.soldCount));
     } else if (_selectedProductFilter == 'Price ⇅') {
       sorted.sort((a, b) {
-        final pa = double.tryParse(a.price.replaceAll(RegExp(r'[^0-9.]'), '')) ?? 0;
-        final pb = double.tryParse(b.price.replaceAll(RegExp(r'[^0-9.]'), '')) ?? 0;
+        final pa =
+            double.tryParse(a.price.replaceAll(RegExp(r'[^0-9.]'), '')) ?? 0;
+        final pb =
+            double.tryParse(b.price.replaceAll(RegExp(r'[^0-9.]'), '')) ?? 0;
         return pa.compareTo(pb);
       });
     }
@@ -770,7 +822,10 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
                         borderRadius: BorderRadius.circular(16),
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 200),
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6.5),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 6.5,
+                          ),
                           decoration: BoxDecoration(
                             color: isSel
                                 ? const Color(0xFFF0FDF4).withValues(alpha: 0.1)
@@ -789,7 +844,9 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
                               color: isSel
                                   ? const Color(0xFF0284C7)
                                   : const Color(0xFF64748B),
-                              fontWeight: isSel ? FontWeight.w800 : FontWeight.w600,
+                              fontWeight: isSel
+                                  ? FontWeight.w800
+                                  : FontWeight.w600,
                               fontSize: 12.5,
                             ),
                           ),
@@ -928,7 +985,11 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.verified_user_outlined, color: Color(0xFF0066FF), size: 18),
+              const Icon(
+                Icons.verified_user_outlined,
+                color: Color(0xFF0066FF),
+                size: 18,
+              ),
               const SizedBox(width: 8),
               Flexible(
                 child: Text(
@@ -1040,10 +1101,7 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
             voucher.expiry,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 9.5,
-              color: Color(0xFF94A3B8),
-            ),
+            style: const TextStyle(fontSize: 9.5, color: Color(0xFF94A3B8)),
           ),
           const SizedBox(height: 10),
 
@@ -1052,7 +1110,9 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
             width: double.infinity,
             height: 32,
             child: ElevatedButton(
-              onPressed: (isClaimed || isClaiming) ? null : () => _handleClaimVoucher(voucher),
+              onPressed: (isClaimed || isClaiming)
+                  ? null
+                  : () => _handleClaimVoucher(voucher),
               style: ElevatedButton.styleFrom(
                 backgroundColor: isClaimed
                     ? const Color(0xFFF1F5F9)
@@ -1062,7 +1122,9 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
                   side: BorderSide(
-                    color: isClaimed ? const Color(0xFFCBD5E1) : Colors.transparent,
+                    color: isClaimed
+                        ? const Color(0xFFCBD5E1)
+                        : Colors.transparent,
                     width: 1,
                   ),
                 ),
@@ -1081,13 +1143,19 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         if (isClaimed) ...[
-                          const Icon(Icons.check_circle, size: 14, color: Color(0xFF10B981)),
+                          const Icon(
+                            Icons.check_circle,
+                            size: 14,
+                            color: Color(0xFF10B981),
+                          ),
                           const SizedBox(width: 4),
                         ],
                         Text(
                           isClaimed ? 'CLAIMED' : 'CLAIM',
                           style: TextStyle(
-                            color: isClaimed ? const Color(0xFF64748B) : Colors.white,
+                            color: isClaimed
+                                ? const Color(0xFF64748B)
+                                : Colors.white,
                             fontWeight: FontWeight.w900,
                             fontSize: 12,
                             letterSpacing: 0.5,
@@ -1134,7 +1202,11 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
   }) {
     return GestureDetector(
       onTap: () {
-        Navigator.pushNamed(context, AppRoutes.productDetails, arguments: product);
+        Navigator.pushNamed(
+          context,
+          AppRoutes.productDetails,
+          arguments: product,
+        );
       },
       child: Container(
         decoration: BoxDecoration(
@@ -1171,7 +1243,10 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
                   top: 8,
                   right: 8,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xFF0066FF),
                       borderRadius: BorderRadius.circular(6),
@@ -1236,7 +1311,9 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
                     child: LinearProgressIndicator(
                       value: progressValue,
                       backgroundColor: const Color(0xFFE2E8F0),
-                      valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF0066FF)),
+                      valueColor: const AlwaysStoppedAnimation<Color>(
+                        Color(0xFF0066FF),
+                      ),
                       minHeight: 6,
                     ),
                   ),
@@ -1291,7 +1368,8 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
           duration: const Duration(milliseconds: 200),
           curve: Curves.easeOutCubic,
           transform: isHovered
-              ? (Matrix4.translationValues(0.0, -4.0, 0.0)..scaleByDouble(1.03, 1.03, 1.0, 1.0))
+              ? (Matrix4.translationValues(0.0, -4.0, 0.0)
+                  ..scaleByDouble(1.03, 1.03, 1.0, 1.0))
               : Matrix4.identity(),
           decoration: BoxDecoration(
             color: Colors.white,
@@ -1335,7 +1413,10 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
 
               // Title, items count & chevron
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 10,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -1386,20 +1467,11 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
   // COMPONENT: 2-COLUMN PRODUCT GRID
   // =========================================================================
   Widget _buildProductGrid(List<ProductModel> products) {
-    return GridView.builder(
+    return ShoppingProductGrid(
+      products: products,
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      itemCount: products.length,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 10,
-        mainAxisSpacing: 12,
-        childAspectRatio: 0.53,
-      ),
-      itemBuilder: (context, index) {
-        final p = products[index];
-        return ProductCard(product: p);
-      },
+      padding: EdgeInsets.zero,
     );
   }
 }
@@ -1419,11 +1491,12 @@ class _ShopTabBarDelegate extends SliverPersistentHeaderDelegate {
   double get maxExtent => tabBar.preferredSize.height;
 
   @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
-    return Container(
-      color: Colors.white,
-      child: tabBar,
-    );
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    return Container(color: NexoraTheme.surfaceContainerLowest, child: tabBar);
   }
 
   @override

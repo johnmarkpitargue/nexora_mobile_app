@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 
 /// Individual option in a variant group (e.g., "Matte Black", "Chalk White")
@@ -43,6 +44,7 @@ class ProductReviewModel {
   final String variantName;
   final String comment;
   final List<String> reviewImages;
+  final List<Uint8List> reviewImageBytes;
   int helpfulCount;
   bool hasLiked;
 
@@ -56,6 +58,7 @@ class ProductReviewModel {
     required this.variantName,
     required this.comment,
     this.reviewImages = const [],
+    this.reviewImageBytes = const [],
     this.helpfulCount = 0,
     this.hasLiked = false,
   });

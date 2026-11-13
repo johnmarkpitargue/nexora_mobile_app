@@ -7,13 +7,15 @@ import 'package:nexora_flutter_app/core/services/order_service.dart';
 import 'package:nexora_flutter_app/core/services/profile_service.dart';
 import 'package:nexora_flutter_app/features/chat/presentation/chat_detail_page.dart';
 
+import 'widgets/order_details_surface.dart';
+
 class OrderDetailsPage extends StatelessWidget {
+  static const bool _useLegacyDetails = bool.fromEnvironment(
+    'NEXORA_LEGACY_ORDER_DETAILS',
+  );
   final OrderItemModel? order;
 
-  const OrderDetailsPage({
-    super.key,
-    this.order,
-  });
+  const OrderDetailsPage({super.key, this.order});
 
   @override
   Widget build(BuildContext context) {
@@ -23,7 +25,10 @@ class OrderDetailsPage extends StatelessWidget {
         // Resolve latest order state from OrderService if available
         OrderItemModel? activeOrder = order;
         if (activeOrder != null) {
-          final cleanId = activeOrder.orderId.replaceAll('#', '').trim().toLowerCase();
+          final cleanId = activeOrder.orderId
+              .replaceAll('#', '')
+              .trim()
+              .toLowerCase();
           final allOrders = [
             ...OrderService.instance.activeOrders,
             ...OrderService.instance.pastOrders,
@@ -35,11 +40,18 @@ class OrderDetailsPage extends StatelessWidget {
             }
           }
         }
+        if (!_useLegacyDetails) {
+          return OrderDetailsSurface(order: activeOrder);
+        }
         final orderId = activeOrder?.orderId ?? 'NX-2602170F1KMYAD';
         final statusText = activeOrder?.statusText ?? 'Cancelled';
         final isCancelled = statusText.toLowerCase() == 'cancelled';
-        final isToPay = statusText.toLowerCase() == 'to pay' || statusText.toLowerCase() == 'pending';
-        final isToShip = statusText.toLowerCase() == 'to ship' || statusText.toLowerCase() == 'processing';
+        final isToPay =
+            statusText.toLowerCase() == 'to pay' ||
+            statusText.toLowerCase() == 'pending';
+        final isToShip =
+            statusText.toLowerCase() == 'to ship' ||
+            statusText.toLowerCase() == 'processing';
 
         final items = (activeOrder?.items.isNotEmpty ?? false)
             ? activeOrder!.items
@@ -52,30 +64,36 @@ class OrderDetailsPage extends StatelessWidget {
                   variant: 'Variant: getaway car • Qty: 1',
                   price: 449.00,
                   originalPrice: 499.00,
-                  imageUrl:
-                      'https://images.unsplash.com/photo-1596462502278-27bfdc403348?auto=format&fit=crop&w=300&q=80',
+                  imageUrl: 'https://images.unsplash.com/photo-1596462502278-27bfdc403348?auto=format&fit=crop&w=300&q=80',
                   quantity: 1,
                 ),
               ];
 
         final firstItem = items.first;
         final storeName = firstItem.storeName;
-        final storeBadge = firstItem.storeBadge.isNotEmpty ? firstItem.storeBadge : 'Mall';
+        final storeBadge = firstItem.storeBadge.isNotEmpty
+            ? firstItem.storeBadge
+            : 'Mall';
         final totalPayment = activeOrder?.totalPrice ?? 458.00;
         final paymentMethod = activeOrder?.paymentMethod ?? 'Cash on Delivery';
 
         final userProfile = ProfileService.instance;
-        final recipientName = (activeOrder != null && activeOrder.recipientName.isNotEmpty)
+        final recipientName =
+            (activeOrder != null && activeOrder.recipientName.isNotEmpty)
             ? activeOrder.recipientName
             : (userProfile.name.isNotEmpty ? userProfile.name : 'Maria Sofia');
-        final recipientPhone = (activeOrder != null && activeOrder.recipientPhone.isNotEmpty)
+        final recipientPhone =
+            (activeOrder != null && activeOrder.recipientPhone.isNotEmpty)
             ? activeOrder.recipientPhone
-            : (userProfile.phone.isNotEmpty ? userProfile.phone : '(+63) 953 732 3290');
-        final recipientAddress = (activeOrder != null && activeOrder.shippingAddress.isNotEmpty)
+            : (userProfile.phone.isNotEmpty
+                  ? userProfile.phone
+                  : '(+63) 953 732 3290');
+        final recipientAddress =
+            (activeOrder != null && activeOrder.shippingAddress.isNotEmpty)
             ? activeOrder.shippingAddress
             : (userProfile.address.isNotEmpty
-                ? userProfile.address
-                : '355 Sta Catalina, Holy Spirit, Quezon City, Metro Manila 1127');
+                  ? userProfile.address
+                  : '355 Sta Catalina, Holy Spirit, Quezon City, Metro Manila 1127');
 
         return Scaffold(
           backgroundColor: const Color(0xFFF8FAFC),
@@ -99,7 +117,9 @@ class OrderDetailsPage extends StatelessWidget {
                 icon: const Icon(Icons.help_outline, color: Colors.black87),
                 onPressed: () {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Nexora Customer Care & Resolution Center')),
+                    const SnackBar(
+                      content: Text('Nexora Customer Care & Resolution Center'),
+                    ),
                   );
                 },
               ),
@@ -108,24 +128,54 @@ class OrderDetailsPage extends StatelessWidget {
           body: SingleChildScrollView(
             child: Column(
               children: [
-                _buildDynamicStatusBanner(isToPay, isCancelled, isToShip, activeOrder),
+                _buildDynamicStatusBanner(
+                  isToPay,
+                  isCancelled,
+                  isToShip,
+                  activeOrder,
+                ),
                 _buildShippingInfo(isToPay, isCancelled, isToShip, activeOrder),
-                _buildDeliveryInfo(recipientName, recipientPhone, recipientAddress),
-                _buildProductSection(context, storeBadge, storeName, items, totalPayment),
+                _buildDeliveryInfo(
+                  recipientName,
+                  recipientPhone,
+                  recipientAddress,
+                ),
+                _buildProductSection(
+                  context,
+                  storeBadge,
+                  storeName,
+                  items,
+                  totalPayment,
+                ),
                 _buildSupportCenter(context),
-                _buildOrderInfo(orderId, paymentMethod, activeOrder, isCancelled),
+                _buildOrderInfo(
+                  orderId,
+                  paymentMethod,
+                  activeOrder,
+                  isCancelled,
+                ),
                 const SizedBox(height: 24),
               ],
             ),
           ),
-          bottomNavigationBar: _buildBottomBar(context, orderId, isToPay, isCancelled, activeOrder),
+          bottomNavigationBar: _buildBottomBar(
+            context,
+            orderId,
+            isToPay,
+            isCancelled,
+            activeOrder,
+          ),
         );
       },
     );
   }
 
   Widget _buildDynamicStatusBanner(
-      bool isToPay, bool isCancelled, bool isToShip, OrderItemModel? order) {
+    bool isToPay,
+    bool isCancelled,
+    bool isToShip,
+    OrderItemModel? order,
+  ) {
     if (isToPay) {
       return Container(
         margin: const EdgeInsets.all(12),
@@ -141,7 +191,11 @@ class OrderDetailsPage extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Icon(Icons.access_time_filled, color: Color(0xFF0066FF), size: 22),
+            const Icon(
+              Icons.access_time_filled,
+              color: Color(0xFF0066FF),
+              size: 22,
+            ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -167,7 +221,11 @@ class OrderDetailsPage extends StatelessWidget {
                 ],
               ),
             ),
-            const Icon(Icons.credit_card_outlined, color: Colors.white54, size: 28),
+            const Icon(
+              Icons.credit_card_outlined,
+              color: Colors.white54,
+              size: 28,
+            ),
           ],
         ),
       );
@@ -195,7 +253,9 @@ class OrderDetailsPage extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    order != null ? 'Order Cancelled (${order.dateText})' : 'Order Cancelled',
+                    order != null
+                        ? 'Order Cancelled (${order.dateText})'
+                        : 'Order Cancelled',
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 16,
@@ -205,10 +265,7 @@ class OrderDetailsPage extends StatelessWidget {
                   const SizedBox(height: 4),
                   const Text(
                     'Cancelled by buyer • Refund processed or order closed',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 12.5,
-                    ),
+                    style: TextStyle(color: Colors.white, fontSize: 12.5),
                   ),
                 ],
               ),
@@ -234,7 +291,11 @@ class OrderDetailsPage extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.local_shipping_outlined, color: Colors.white, size: 22),
+          const Icon(
+            Icons.local_shipping_outlined,
+            color: Colors.white,
+            size: 22,
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -250,28 +311,34 @@ class OrderDetailsPage extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  order?.etaText ?? 'Seller is preparing your order for courier drop-off',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 12.5,
-                  ),
+                  order?.etaText ??
+                      'Seller is preparing your order for courier drop-off',
+                  style: const TextStyle(color: Colors.white, fontSize: 12.5),
                 ),
               ],
             ),
           ),
-          const Icon(Icons.inventory_2_outlined, color: Colors.white54, size: 28),
+          const Icon(
+            Icons.inventory_2_outlined,
+            color: Colors.white54,
+            size: 28,
+          ),
         ],
       ),
     );
   }
 
   Widget _buildShippingInfo(
-      bool isToPay, bool isCancelled, bool isToShip, OrderItemModel? order) {
+    bool isToPay,
+    bool isCancelled,
+    bool isToShip,
+    OrderItemModel? order,
+  ) {
     String stepTitle = isToPay
         ? 'Awaiting payment confirmation before dispatch'
         : isCancelled
-            ? 'Order was cancelled before shipment'
-            : (order?.etaText ?? 'Sender is preparing to ship your parcel');
+        ? 'Order was cancelled before shipment'
+        : (order?.etaText ?? 'Sender is preparing to ship your parcel');
 
     String stepTime = order?.dateText ?? 'Today';
 
@@ -298,9 +365,14 @@ class OrderDetailsPage extends StatelessWidget {
               ),
               Row(
                 children: const [
-                  Text('Details',
-                      style: TextStyle(
-                          color: Color(0xFF0066FF), fontSize: 12, fontWeight: FontWeight.bold)),
+                  Text(
+                    'Details',
+                    style: TextStyle(
+                      color: Color(0xFF0066FF),
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                   Icon(Icons.chevron_right, color: Color(0xFF0066FF), size: 16),
                 ],
               ),
@@ -315,17 +387,32 @@ class OrderDetailsPage extends StatelessWidget {
             ),
             child: Row(
               children: [
-                const Text('SPX EXPRESS',
-                    style: TextStyle(
-                        color: Color(0xFF008060), fontSize: 11, fontWeight: FontWeight.bold)),
+                const Text(
+                  'SPX EXPRESS',
+                  style: TextStyle(
+                    color: Color(0xFF008060),
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
                 const SizedBox(width: 12),
-                Text(order?.orderId.replaceAll('#', '') ?? 'NX268291558799U',
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold, fontSize: 13, color: Colors.black87)),
+                Text(
+                  order?.orderId.replaceAll('#', '') ?? 'NX268291558799U',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                    color: Colors.black87,
+                  ),
+                ),
                 const Spacer(),
-                const Text('Copy',
-                    style: TextStyle(
-                        color: Color(0xFF0066FF), fontSize: 12, fontWeight: FontWeight.bold)),
+                const Text(
+                  'Copy',
+                  style: TextStyle(
+                    color: Color(0xFF0066FF),
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ],
             ),
           ),
@@ -339,21 +426,21 @@ class OrderDetailsPage extends StatelessWidget {
                   color: isToPay
                       ? const Color(0xFFFEF3C7)
                       : isCancelled
-                          ? const Color(0xFFFEE2E2)
-                          : const Color(0xFFE5F8FC),
+                      ? const Color(0xFFFEE2E2)
+                      : const Color(0xFFE5F8FC),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
                   isToPay
                       ? Icons.payment_outlined
                       : isCancelled
-                          ? Icons.close_rounded
-                          : Icons.local_shipping_outlined,
+                      ? Icons.close_rounded
+                      : Icons.local_shipping_outlined,
                   color: isToPay
                       ? const Color(0xFFD97706)
                       : isCancelled
-                          ? const Color(0xFFE11D48)
-                          : const Color(0xFF008060),
+                      ? const Color(0xFFE11D48)
+                      : const Color(0xFF008060),
                   size: 16,
                 ),
               ),
@@ -370,35 +457,55 @@ class OrderDetailsPage extends StatelessWidget {
                         color: isToPay
                             ? const Color(0xFFD97706)
                             : isCancelled
-                                ? const Color(0xFFE11D48)
-                                : const Color(0xFF008060),
+                            ? const Color(0xFFE11D48)
+                            : const Color(0xFF008060),
                       ),
                     ),
                     const SizedBox(height: 4),
-                    Text(stepTime,
-                        style: const TextStyle(color: Colors.black45, fontSize: 12)),
+                    Text(
+                      stepTime,
+                      style: const TextStyle(
+                        color: Colors.black45,
+                        fontSize: 12,
+                      ),
+                    ),
                     if (order != null && !isCancelled) ...[
                       const SizedBox(height: 8),
                       Row(
                         children: [
-                          const Icon(Icons.two_wheeler_rounded, size: 15, color: Color(0xFF0284C7)),
+                          const Icon(
+                            Icons.two_wheeler_rounded,
+                            size: 15,
+                            color: Color(0xFF0284C7),
+                          ),
                           const SizedBox(width: 6),
                           Expanded(
                             child: Text(
                               'Assigned Rider: ${order.courierName} (★ ${OrderService.instance.getLiveCourierRating(order.courierName, fallback: order.courierRating).toStringAsFixed(2)})',
-                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF334155)),
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF334155),
+                              ),
                             ),
                           ),
                           if (order.isRated)
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 2,
+                              ),
                               decoration: BoxDecoration(
                                 color: const Color(0xFFECFDF5),
                                 borderRadius: BorderRadius.circular(10),
                               ),
                               child: Text(
                                 'You rated ${order.buyerDriverRating ?? 5}★',
-                                style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: Color(0xFF059669)),
+                                style: const TextStyle(
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w800,
+                                  color: Color(0xFF059669),
+                                ),
                               ),
                             ),
                         ],
@@ -414,7 +521,11 @@ class OrderDetailsPage extends StatelessWidget {
     );
   }
 
-  Widget _buildDeliveryInfo(String recipientName, String phone, String address) {
+  Widget _buildDeliveryInfo(
+    String recipientName,
+    String phone,
+    String address,
+  ) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       padding: const EdgeInsets.all(16),
@@ -425,7 +536,11 @@ class OrderDetailsPage extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.location_on_outlined, color: Color(0xFF5B6C8C), size: 20),
+          const Icon(
+            Icons.location_on_outlined,
+            color: Color(0xFF5B6C8C),
+            size: 20,
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -445,16 +560,24 @@ class OrderDetailsPage extends StatelessWidget {
                     style: const TextStyle(fontSize: 13, color: Colors.black87),
                     children: [
                       TextSpan(
-                          text: '$recipientName ',
-                          style: const TextStyle(fontWeight: FontWeight.bold)),
-                      TextSpan(text: phone, style: const TextStyle(color: Colors.black54)),
+                        text: '$recipientName ',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      TextSpan(
+                        text: phone,
+                        style: const TextStyle(color: Colors.black54),
+                      ),
                     ],
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   address,
-                  style: const TextStyle(color: Colors.black54, fontSize: 13, height: 1.4),
+                  style: const TextStyle(
+                    color: Colors.black54,
+                    fontSize: 13,
+                    height: 1.4,
+                  ),
                 ),
               ],
             ),
@@ -489,7 +612,8 @@ class OrderDetailsPage extends StatelessWidget {
           ...storeMap.entries.map((entry) {
             final currentStoreName = entry.key;
             final currentStoreItems = entry.value;
-            final currentStoreBadge = currentStoreItems.first.storeBadge.isNotEmpty
+            final currentStoreBadge =
+                currentStoreItems.first.storeBadge.isNotEmpty
                 ? currentStoreItems.first.storeBadge
                 : storeBadge;
 
@@ -499,7 +623,10 @@ class OrderDetailsPage extends StatelessWidget {
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFF0066FF),
                         borderRadius: BorderRadius.circular(4),
@@ -507,7 +634,10 @@ class OrderDetailsPage extends StatelessWidget {
                       child: Text(
                         currentStoreBadge,
                         style: const TextStyle(
-                            color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -515,24 +645,42 @@ class OrderDetailsPage extends StatelessWidget {
                       child: Text(
                         currentStoreName,
                         style: const TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: 14, color: Colors.black87),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          color: Colors.black87,
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    const Icon(Icons.chevron_right, size: 16, color: Colors.black45),
+                    const Icon(
+                      Icons.chevron_right,
+                      size: 16,
+                      color: Colors.black45,
+                    ),
                     const SizedBox(width: 8),
                     InkWell(
-                      onTap: () => _openStoreChat(context, currentStoreName, currentStoreBadge),
+                      onTap: () => _openStoreChat(
+                        context,
+                        currentStoreName,
+                        currentStoreBadge,
+                      ),
                       child: Row(
                         children: const [
-                          Icon(Icons.chat_bubble_outline, size: 16, color: Color(0xFF0066FF)),
+                          Icon(
+                            Icons.chat_bubble_outline,
+                            size: 16,
+                            color: Color(0xFF0066FF),
+                          ),
                           SizedBox(width: 4),
-                          Text('Chat',
-                              style: TextStyle(
-                                  color: Color(0xFF0066FF),
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold)),
+                          Text(
+                            'Chat',
+                            style: TextStyle(
+                              color: Color(0xFF0066FF),
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -566,28 +714,41 @@ class OrderDetailsPage extends StatelessWidget {
                               Text(
                                 item.title,
                                 style: const TextStyle(
-                                    fontWeight: FontWeight.w600, fontSize: 13, color: Colors.black87),
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13,
+                                  color: Colors.black87,
+                                ),
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                               ),
                               const SizedBox(height: 4),
                               Text(
                                 item.variant,
-                                style: const TextStyle(color: Colors.black54, fontSize: 12),
+                                style: const TextStyle(
+                                  color: Colors.black54,
+                                  fontSize: 12,
+                                ),
                               ),
                               const SizedBox(height: 6),
                               Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
                                   Text(
                                     '₱${item.price.toStringAsFixed(2)}',
                                     style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 14,
-                                        color: NexoraTheme.price),
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                      color: NexoraTheme.price,
+                                    ),
                                   ),
-                                  Text('x${item.quantity}',
-                                      style: const TextStyle(color: Colors.black38, fontSize: 12)),
+                                  Text(
+                                    'x${item.quantity}',
+                                    style: const TextStyle(
+                                      color: Colors.black38,
+                                      fontSize: 12,
+                                    ),
+                                  ),
                                 ],
                               ),
                             ],
@@ -614,10 +775,17 @@ class OrderDetailsPage extends StatelessWidget {
                   Text(
                     '₱${totalPayment.toStringAsFixed(2)}',
                     style: const TextStyle(
-                        fontWeight: FontWeight.bold, fontSize: 16, color: NexoraTheme.price),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      color: NexoraTheme.price,
+                    ),
                   ),
                   const SizedBox(width: 4),
-                  const Icon(Icons.keyboard_arrow_down, size: 20, color: Colors.black87),
+                  const Icon(
+                    Icons.keyboard_arrow_down,
+                    size: 20,
+                    color: Colors.black87,
+                  ),
                 ],
               ),
             ],
@@ -640,9 +808,14 @@ class OrderDetailsPage extends StatelessWidget {
         children: [
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Text('Support Center',
-                style: TextStyle(
-                    fontWeight: FontWeight.bold, fontSize: 14, color: Colors.black87)),
+            child: Text(
+              'Support Center',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+                color: Colors.black87,
+              ),
+            ),
           ),
           ListTile(
             onTap: () => _openStoreChat(
@@ -650,10 +823,19 @@ class OrderDetailsPage extends StatelessWidget {
               _getOrderStoreName(order),
               _getOrderStoreBadge(order),
             ),
-            leading: const Icon(Icons.chat_bubble_outline, color: Color(0xFF5B6C8C)),
-            title: const Text('Contact Seller',
-                style: TextStyle(fontSize: 14, color: Colors.black87)),
-            trailing: const Icon(Icons.chevron_right, size: 20, color: Colors.black45),
+            leading: const Icon(
+              Icons.chat_bubble_outline,
+              color: Color(0xFF5B6C8C),
+            ),
+            title: const Text(
+              'Contact Seller',
+              style: TextStyle(fontSize: 14, color: Colors.black87),
+            ),
+            trailing: const Icon(
+              Icons.chevron_right,
+              size: 20,
+              color: Colors.black45,
+            ),
             dense: true,
             visualDensity: VisualDensity.compact,
           ),
@@ -664,13 +846,21 @@ class OrderDetailsPage extends StatelessWidget {
           ListTile(
             onTap: () {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Opening Help Center & Resolution Hub...')),
+                const SnackBar(
+                  content: Text('Opening Help Center & Resolution Hub...'),
+                ),
               );
             },
             leading: const Icon(Icons.help_outline, color: Color(0xFF5B6C8C)),
-            title: const Text('Help Center & FAQ',
-                style: TextStyle(fontSize: 14, color: Colors.black87)),
-            trailing: const Icon(Icons.chevron_right, size: 20, color: Colors.black45),
+            title: const Text(
+              'Help Center & FAQ',
+              style: TextStyle(fontSize: 14, color: Colors.black87),
+            ),
+            trailing: const Icon(
+              Icons.chevron_right,
+              size: 20,
+              color: Colors.black45,
+            ),
             dense: true,
             visualDensity: VisualDensity.compact,
           ),
@@ -680,7 +870,11 @@ class OrderDetailsPage extends StatelessWidget {
   }
 
   Widget _buildOrderInfo(
-      String orderId, String paymentMethod, OrderItemModel? order, bool isCancelled) {
+    String orderId,
+    String paymentMethod,
+    OrderItemModel? order,
+    bool isCancelled,
+  ) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       padding: const EdgeInsets.all(16),
@@ -694,7 +888,10 @@ class OrderDetailsPage extends StatelessWidget {
           const SizedBox(height: 12),
           _buildInfoRow('Payment Method', paymentMethod),
           const SizedBox(height: 12),
-          _buildInfoRow('Order Date', order?.orderDateTimeText ?? order?.dateText ?? 'Today'),
+          _buildInfoRow(
+            'Order Date',
+            order?.orderDateTimeText ?? order?.dateText ?? 'Today',
+          ),
           if (order != null && order.shippingOption.isNotEmpty) ...[
             const SizedBox(height: 12),
             _buildInfoRow('Shipping Option', order.shippingOption),
@@ -713,7 +910,10 @@ class OrderDetailsPage extends StatelessWidget {
       children: [
         Expanded(
           flex: 2,
-          child: Text(label, style: const TextStyle(color: Colors.black54, fontSize: 13)),
+          child: Text(
+            label,
+            style: const TextStyle(color: Colors.black54, fontSize: 13),
+          ),
         ),
         Expanded(
           flex: 3,
@@ -724,23 +924,32 @@ class OrderDetailsPage extends StatelessWidget {
                 child: Text(
                   value,
                   style: const TextStyle(
-                      fontWeight: FontWeight.w500, fontSize: 13, color: Colors.black87),
+                    fontWeight: FontWeight.w500,
+                    fontSize: 13,
+                    color: Colors.black87,
+                  ),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
               if (showCopy) ...[
                 const SizedBox(width: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFEEF2FF),
                     borderRadius: BorderRadius.circular(4),
                   ),
-                  child: const Text('COPY',
-                      style: TextStyle(
-                          color: Color(0xFF0066FF),
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold)),
+                  child: const Text(
+                    'COPY',
+                    style: TextStyle(
+                      color: Color(0xFF0066FF),
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
               ],
             ],
@@ -785,11 +994,15 @@ class OrderDetailsPage extends StatelessWidget {
                   style: OutlinedButton.styleFrom(
                     foregroundColor: const Color(0xFFE11D48),
                     side: const BorderSide(color: Color(0xFFFECDD3)),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                     padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
-                  child: const Text('Cancel Order',
-                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                  child: const Text(
+                    'Cancel Order',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
@@ -803,7 +1016,9 @@ class OrderDetailsPage extends StatelessWidget {
                           children: [
                             Icon(Icons.check_circle, color: Colors.white),
                             SizedBox(width: 8),
-                            Text('Payment Successful! Order moved to "To Ship".'),
+                            Text(
+                              'Payment Successful! Order moved to "To Ship".',
+                            ),
                           ],
                         ),
                         backgroundColor: Color(0xFF0066FF),
@@ -815,11 +1030,15 @@ class OrderDetailsPage extends StatelessWidget {
                     backgroundColor: const Color(0xFF0066FF),
                     foregroundColor: Colors.white,
                     elevation: 0,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                     padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
-                  child: const Text('Pay Now',
-                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                  child: const Text(
+                    'Pay Now',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                  ),
                 ),
               ),
             ],
@@ -848,17 +1067,23 @@ class OrderDetailsPage extends StatelessWidget {
                 child: OutlinedButton(
                   onPressed: () {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Refund of purchase has completed.')),
+                      const SnackBar(
+                        content: Text('Refund of purchase has completed.'),
+                      ),
                     );
                   },
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.black87,
                     side: const BorderSide(color: Color(0xFFE2E8F0)),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                     padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
-                  child: const Text('Refund Details',
-                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                  child: const Text(
+                    'Refund Details',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
@@ -869,11 +1094,15 @@ class OrderDetailsPage extends StatelessWidget {
                     backgroundColor: const Color(0xFF0066FF),
                     foregroundColor: Colors.white,
                     elevation: 0,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                     padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
-                  child: const Text('Buy Again',
-                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                  child: const Text(
+                    'Buy Again',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                  ),
                 ),
               ),
             ],
@@ -882,7 +1111,8 @@ class OrderDetailsPage extends StatelessWidget {
       );
     }
 
-    final isCompleted = order != null &&
+    final isCompleted =
+        order != null &&
         (order.statusText.toLowerCase() == 'completed' ||
             order.statusText.toLowerCase() == 'delivered');
 
@@ -922,12 +1152,17 @@ class OrderDetailsPage extends StatelessWidget {
                 style: OutlinedButton.styleFrom(
                   foregroundColor: Colors.black87,
                   side: const BorderSide(color: Color(0xFFE2E8F0)),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                   padding: const EdgeInsets.symmetric(vertical: 14),
                 ),
                 child: Text(
                   isCompleted ? 'Delivery Details' : 'Contact Seller',
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ),
@@ -955,7 +1190,9 @@ class OrderDetailsPage extends StatelessWidget {
                       : const Color(0xFF0066FF),
                   foregroundColor: Colors.white,
                   elevation: 0,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                   padding: const EdgeInsets.symmetric(vertical: 14),
                 ),
                 child: Row(
@@ -971,10 +1208,13 @@ class OrderDetailsPage extends StatelessWidget {
                     Text(
                       isCompleted
                           ? (order.isRated
-                              ? 'Rated (${order.buyerDriverRating ?? 5}★)'
-                              : 'Rate')
+                                ? 'Rated (${order.buyerDriverRating ?? 5}★)'
+                                : 'Rate')
                           : 'Track Parcel',
-                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ],
                 ),
@@ -994,7 +1234,9 @@ class OrderDetailsPage extends StatelessWidget {
   }
 
   String _getOrderStoreBadge(OrderItemModel? order) {
-    if (order != null && order.items.isNotEmpty && order.items.first.storeBadge.isNotEmpty) {
+    if (order != null &&
+        order.items.isNotEmpty &&
+        order.items.first.storeBadge.isNotEmpty) {
       return order.items.first.storeBadge;
     }
     return 'MALL';

@@ -107,95 +107,31 @@ class ChatService extends ChangeNotifier {
       _conversations.where((c) => !c.isDeleted && !c.isHidden).fold(0, (sum, c) => sum + c.unread);
 
   void _initConversations() {
-    _conversations.addAll([
-      ChatConversationModel(
-        id: 'nexora_store',
-        category: 'Official Stores',
-        title: 'Nexora Official Store',
-        subtitle: 'Your warranty for Nexora Studio Pro W...',
-        brandTag: 'BRAND',
-        itemTag: '🎧 Nexora Studio Pro',
-        time: '2:10 PM',
-        unread: 0,
-        isDoubleCheck: true,
-        avatarIcon: Icons.verified_user_rounded,
-        avatarBg: const Color(0xFF0075FF),
-        messages: [
-          ChatMessageModel(
-            sender: 'other',
-            text: 'Hello Alex! Thank you for purchasing Nexora Studio Pro Wireless.',
-            time: '2:00 PM',
-          ),
-          ChatMessageModel(
-            sender: 'other',
-            text: 'Your warranty for Nexora Studio Pro Wireless is now active for 1 year.',
-            time: '2:10 PM',
-          ),
-        ],
-      ),
-      ChatConversationModel(
-        id: 'aura_studios',
-        category: 'Official Stores',
-        title: 'Aura Studios Official',
-        subtitle: 'Hi Alex! The Warm Stone Hoodie in Siz...',
-        itemTag: '👗 Stone Hoodie (L)',
-        time: 'Yesterday',
-        unread: 0,
-        isCheck: true,
-        avatarIcon: Icons.checkroom_rounded,
-        avatarBg: const Color(0xFFFCA5A5),
-        messages: [
-          ChatMessageModel(
-            sender: 'user',
-            text: 'Hi, is the Warm Stone Hoodie in Size L in stock?',
-            time: 'Yesterday 4:30 PM',
-          ),
-          ChatMessageModel(
-            sender: 'other',
-            text: 'Hi Alex! The Warm Stone Hoodie in Size L has been dispatched with your order!',
-            time: 'Yesterday 4:35 PM',
-          ),
-        ],
-      ),
-      ChatConversationModel(
-        id: 'ai_support',
-        category: 'Support',
-        title: 'Nexora AI Support',
-        subtitle: 'Ticket #SUP-4491 closed: Refund for...',
-        botTag: 'BOT',
-        resolvedTag: 'Case Resolved',
-        time: 'Nov 15',
-        unread: 0,
-        avatarIcon: Icons.smart_toy_rounded,
-        avatarBg: const Color(0xFF00B4D8),
-        messages: [
-          ChatMessageModel(
-            sender: 'other',
-            text: 'Ticket #SUP-4491 closed: Refund for item process completed.',
-            time: 'Nov 15 10:00 AM',
-          ),
-        ],
-      ),
-      ChatConversationModel(
-        id: 'logitech_store',
-        category: 'Official Stores',
-        title: 'LogiTech Hub Store',
-        subtitle: 'Thanks for purchasing with us! Let us k...',
-        itemTag: 'MX Mechanical Mini',
-        time: 'Nov 05',
-        unread: 0,
-        isCheck: true,
-        avatarIcon: Icons.keyboard_rounded,
-        avatarBg: const Color(0xFF94A3B8),
-        messages: [
-          ChatMessageModel(
-            sender: 'other',
-            text: 'Thanks for purchasing with us! Let us know if you need driver software setup.',
-            time: 'Nov 05 3:20 PM',
-          ),
-        ],
-      ),
-    ]);
+    // Initialized empty so it is clean and ready for live web / API integration
+    _conversations.clear();
+  }
+
+  /// Removes any legacy mock conversations from memory (useful across hot reloads)
+  void purgeMockConversations() {
+    _conversations.removeWhere((c) =>
+        c.id == 'nexora_store' ||
+        c.id == 'aura_studios' ||
+        c.id == 'ai_support' ||
+        c.id == 'logitech_store');
+    notifyListeners();
+  }
+
+  /// Hook for web/backend integration: set conversations fetched from the web server/API.
+  void setConversations(List<ChatConversationModel> conversations) {
+    _conversations.clear();
+    _conversations.addAll(conversations);
+    notifyListeners();
+  }
+
+  /// Clears all conversations for account sign-out or session resets.
+  void clearConversations() {
+    _conversations.clear();
+    notifyListeners();
   }
 
   ChatConversationModel? getConversationById(String id) {

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../app/theme/nexora_theme.dart';
 import '../models/shop_models.dart';
 import '../services/cart_service.dart';
 import 'added_to_cart_hud.dart';
@@ -268,6 +269,7 @@ class _AddToCartBottomSheetState extends State<AddToCartBottomSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final groups = _effectiveVariantGroups;
     final maxAllowed = _currentStock > 20
         ? 20
@@ -277,9 +279,9 @@ class _AddToCartBottomSheetState extends State<AddToCartBottomSheet> {
       constraints: BoxConstraints(
         maxHeight: MediaQuery.of(context).size.height * 0.82,
       ),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerLowest,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       ),
       child: SafeArea(
         top: false,
@@ -294,7 +296,7 @@ class _AddToCartBottomSheetState extends State<AddToCartBottomSheet> {
                 width: 36,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFCBD5E1),
+                  color: theme.colorScheme.outlineVariant,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -311,18 +313,18 @@ class _AddToCartBottomSheetState extends State<AddToCartBottomSheet> {
                     width: 84,
                     height: 84,
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF1F5F9),
+                      color: theme.colorScheme.surfaceContainerLow,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                      border: Border.all(color: theme.colorScheme.outlineVariant),
                     ),
                     clipBehavior: Clip.antiAlias,
                     child: Image.network(
                       _currentThumbnailUrl,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, error, stackTrace) => const Icon(
+                      errorBuilder: (_, error, stackTrace) => Icon(
                         Icons.shopping_bag_outlined,
                         size: 36,
-                        color: Color(0xFF94A3B8),
+                        color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
                   ),
@@ -340,10 +342,10 @@ class _AddToCartBottomSheetState extends State<AddToCartBottomSheet> {
                           children: [
                             Text(
                               '₱${_effectivePrice.toStringAsFixed(0)}',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 22,
                                 fontWeight: FontWeight.w900,
-                                color: Colors.black,
+                                color: NexoraTheme.priceColor(context),
                                 letterSpacing: -0.5,
                               ),
                             ),
@@ -351,9 +353,9 @@ class _AddToCartBottomSheetState extends State<AddToCartBottomSheet> {
                               const SizedBox(width: 6),
                               Text(
                                 '₱${_originalPriceVal.toStringAsFixed(0)}',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 12,
-                                  color: Color(0xFF94A3B8),
+                                  color: theme.colorScheme.onSurfaceVariant,
                                   decoration: TextDecoration.lineThrough,
                                 ),
                               ),
@@ -367,7 +369,7 @@ class _AddToCartBottomSheetState extends State<AddToCartBottomSheet> {
                             fontSize: 12,
                             color: _currentStock < 10
                                 ? const Color(0xFFE11D48)
-                                : const Color(0xFF64748B),
+                                : theme.colorScheme.onSurfaceVariant,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -376,9 +378,9 @@ class _AddToCartBottomSheetState extends State<AddToCartBottomSheet> {
                           'Selected: $_currentVariantSummary',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 11,
-                            color: Color(0xFF0F172A),
+                            color: theme.colorScheme.onSurface,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -389,10 +391,10 @@ class _AddToCartBottomSheetState extends State<AddToCartBottomSheet> {
                   // Close button
                   IconButton(
                     onPressed: () => Navigator.pop(context),
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.close,
                       size: 20,
-                      color: Color(0xFF64748B),
+                      color: theme.colorScheme.onSurfaceVariant,
                     ),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(
@@ -404,9 +406,9 @@ class _AddToCartBottomSheetState extends State<AddToCartBottomSheet> {
               ),
             ),
 
-            const Divider(height: 1, color: Color(0xFFF1F5F9)),
+            Divider(height: 1, color: theme.colorScheme.outlineVariant),
 
-            // Delivery Tag Banner - Aligned to Nexora Brand Blue theme (No "Order before 2PM")
+            // Delivery Tag Banner
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               child: Container(
@@ -415,16 +417,18 @@ class _AddToCartBottomSheetState extends State<AddToCartBottomSheet> {
                   vertical: 8,
                 ),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFEFF6FF),
+                  color: theme.colorScheme.primary.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: const Color(0xFFDBEAFE)),
+                  border: Border.all(
+                    color: theme.colorScheme.primary.withValues(alpha: 0.25),
+                  ),
                 ),
                 child: Row(
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.local_shipping_rounded,
                       size: 16,
-                      color: Color(0xFF0066FF),
+                      color: theme.colorScheme.primary,
                     ),
                     const SizedBox(width: 8),
                     Expanded(
@@ -436,10 +440,10 @@ class _AddToCartBottomSheetState extends State<AddToCartBottomSheet> {
                                   ? widget.product.shippingTag
                                   : '${widget.product.shippingTag} • Tomorrow')
                             : 'Tomorrow',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
-                          color: Color(0xFF0066FF),
+                          color: theme.colorScheme.primary,
                         ),
                       ),
                     ),
@@ -448,7 +452,7 @@ class _AddToCartBottomSheetState extends State<AddToCartBottomSheet> {
               ),
             ),
 
-            const Divider(height: 1, color: Color(0xFFF1F5F9)),
+            Divider(height: 1, color: theme.colorScheme.outlineVariant),
 
             // Scrollable Variant Selection Body
             Flexible(
@@ -477,10 +481,10 @@ class _AddToCartBottomSheetState extends State<AddToCartBottomSheet> {
                             children: [
                               Text(
                                 grp.groupName,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w800,
-                                  color: Color(0xFF0F172A),
+                                  color: theme.colorScheme.onSurface,
                                 ),
                               ),
                               if (isApparelSize)
@@ -495,12 +499,12 @@ class _AddToCartBottomSheetState extends State<AddToCartBottomSheet> {
                                       ),
                                     );
                                   },
-                                  child: const Text(
+                                  child: Text(
                                     'Size Guide',
                                     style: TextStyle(
                                       fontSize: 11,
                                       fontWeight: FontWeight.w600,
-                                      color: Color(0xFF64748B),
+                                      color: theme.colorScheme.onSurfaceVariant,
                                       decoration: TextDecoration.underline,
                                     ),
                                   ),
@@ -541,13 +545,14 @@ class _AddToCartBottomSheetState extends State<AddToCartBottomSheet> {
                                   ),
                                   decoration: BoxDecoration(
                                     color: isSelected
-                                        ? const Color(0xFFEEF2FF)
-                                        : const Color(0xFFF8FAFC),
+                                        ? theme.colorScheme.primary
+                                            .withValues(alpha: 0.12)
+                                        : theme.colorScheme.surfaceContainerLow,
                                     borderRadius: BorderRadius.circular(6),
                                     border: Border.all(
                                       color: isSelected
-                                          ? const Color(0xFF0066FF)
-                                          : const Color(0xFFE2E8F0),
+                                          ? theme.colorScheme.primary
+                                          : theme.colorScheme.outlineVariant,
                                       width: isSelected ? 1.5 : 1.0,
                                     ),
                                   ),
@@ -579,10 +584,11 @@ class _AddToCartBottomSheetState extends State<AddToCartBottomSheet> {
                                               ? FontWeight.w800
                                               : FontWeight.w600,
                                           color: isOutOfStock
-                                              ? const Color(0xFF94A3B8)
+                                              ? theme.colorScheme.onSurfaceVariant
+                                                  .withValues(alpha: 0.6)
                                               : (isSelected
-                                                    ? const Color(0xFF0066FF)
-                                                    : const Color(0xFF1E293B)),
+                                                    ? theme.colorScheme.primary
+                                                    : theme.colorScheme.onSurface),
                                           decoration: isOutOfStock
                                               ? TextDecoration.lineThrough
                                               : null,
@@ -599,24 +605,26 @@ class _AddToCartBottomSheetState extends State<AddToCartBottomSheet> {
                       );
                     }),
 
-                    const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                    Divider(height: 1, color: theme.colorScheme.outlineVariant),
                     const SizedBox(height: 12),
 
                     // Quantity Stepper Row
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text(
+                        Text(
                           'Quantity',
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w800,
-                            color: Color(0xFF0F172A),
+                            color: theme.colorScheme.onSurface,
                           ),
                         ),
                         Container(
                           decoration: BoxDecoration(
-                            border: Border.all(color: const Color(0xFFE2E8F0)),
+                            border: Border.all(
+                              color: theme.colorScheme.outlineVariant,
+                            ),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Row(
@@ -632,15 +640,13 @@ class _AddToCartBottomSheetState extends State<AddToCartBottomSheet> {
                                   width: 32,
                                   height: 30,
                                   alignment: Alignment.center,
-                                  color: _quantity > 1
-                                      ? Colors.white
-                                      : const Color(0xFFF8FAFC),
+                                  color: theme.colorScheme.surfaceContainerLow,
                                   child: Icon(
                                     Icons.remove,
                                     size: 14,
                                     color: _quantity > 1
-                                        ? const Color(0xFF0F172A)
-                                        : const Color(0xFFCBD5E1),
+                                        ? theme.colorScheme.onSurface
+                                        : theme.colorScheme.outlineVariant,
                                   ),
                                 ),
                               ),
@@ -648,19 +654,19 @@ class _AddToCartBottomSheetState extends State<AddToCartBottomSheet> {
                                 width: 44,
                                 height: 30,
                                 alignment: Alignment.center,
-                                decoration: const BoxDecoration(
+                                decoration: BoxDecoration(
                                   border: Border.symmetric(
                                     vertical: BorderSide(
-                                      color: Color(0xFFE2E8F0),
+                                      color: theme.colorScheme.outlineVariant,
                                     ),
                                   ),
                                 ),
                                 child: Text(
                                   '$_quantity',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontWeight: FontWeight.w800,
                                     fontSize: 13,
-                                    color: Color(0xFF0F172A),
+                                    color: theme.colorScheme.onSurface,
                                   ),
                                 ),
                               ),
@@ -675,15 +681,13 @@ class _AddToCartBottomSheetState extends State<AddToCartBottomSheet> {
                                   width: 32,
                                   height: 30,
                                   alignment: Alignment.center,
-                                  color: _quantity < maxAllowed
-                                      ? Colors.white
-                                      : const Color(0xFFF8FAFC),
+                                  color: theme.colorScheme.surfaceContainerLow,
                                   child: Icon(
                                     Icons.add,
                                     size: 14,
                                     color: _quantity < maxAllowed
-                                        ? const Color(0xFF0F172A)
-                                        : const Color(0xFFCBD5E1),
+                                        ? theme.colorScheme.onSurface
+                                        : theme.colorScheme.outlineVariant,
                                   ),
                                 ),
                               ),
@@ -708,7 +712,7 @@ class _AddToCartBottomSheetState extends State<AddToCartBottomSheet> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF0066FF),
                     foregroundColor: Colors.white,
-                    disabledBackgroundColor: const Color(0xFFCBD5E1),
+                    disabledBackgroundColor: theme.colorScheme.outlineVariant,
                     elevation: 0,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),

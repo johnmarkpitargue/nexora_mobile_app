@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'external_notification_service.dart';
+import 'notification_feed_service.dart';
 
 /// Global high-visibility In-App Notification Overlay service.
 /// Drops down elegantly from the top of the screen (similar to iOS / Grab push banners),
@@ -28,6 +29,17 @@ class InAppNotificationService {
   }) {
     // 1. Trigger OS system-level notification (for when user is outside the app/minimized)
     ExternalNotificationService.show(title: '💬 $senderName', body: message);
+
+    // Record into notification inbox feed
+    try {
+      NotificationFeedService.instance.addNotification(
+        title: senderName,
+        message: message,
+        type: orderId.isNotEmpty ? 'Orders' : 'Messages',
+        icon: icon,
+        routeArgs: orderId.isNotEmpty ? {'orderId': orderId} : null,
+      );
+    } catch (_) {}
 
     // 2. If an overlay is currently visible, dismiss it cleanly before displaying the new one
     dismiss();

@@ -48,8 +48,7 @@ flutter pub get
 
 Select your target platform and run the corresponding command:
 
-#### 🌐 Run on Web (Chrome)
-```bash
+#### 🌐 Run on Web (Chrome)```bash
 flutter run -d chrome
 ```
 
@@ -67,7 +66,7 @@ Run on your preferred device ID or default emulator:
 ```bash
 flutter run
 ```
-
+I would like you to fix this
 ---
 
 ## ⚡ Development & Testing Commands

@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:nexora_flutter_app/app/routes/app_routes.dart';
+import 'package:nexora_flutter_app/app/theme/nexora_theme.dart';
 import 'package:nexora_flutter_app/core/services/order_service.dart';
 import 'package:nexora_flutter_app/core/services/buyer_account_service.dart';
 import 'package:nexora_flutter_app/core/services/address_service.dart';
+import 'package:nexora_flutter_app/core/services/cart_service.dart';
+import 'package:nexora_flutter_app/core/widgets/nexora_widgets.dart';
+
+import 'widgets/order_components.dart';
 
 class OrdersPage extends StatefulWidget {
   const OrdersPage({super.key});
@@ -13,7 +18,13 @@ class OrdersPage extends StatefulWidget {
 
 class _OrdersPageState extends State<OrdersPage>
     with SingleTickerProviderStateMixin {
+  static const bool _useLegacyOrders = bool.fromEnvironment(
+    'NEXORA_LEGACY_ORDERS',
+  );
   late TabController _tabController;
+  int _selectedView = 0;
+  bool _searchVisible = false;
+  String _searchQuery = '';
 
   @override
   void initState() {
@@ -35,9 +46,11 @@ class _OrdersPageState extends State<OrdersPage>
         final idx = args['initialIndex'] as int;
         if (idx >= 0 && idx < _tabController.length) {
           _tabController.index = idx;
+          _selectedView = idx;
         }
       } else if (args is int && args >= 0 && args < _tabController.length) {
         _tabController.index = args;
+        _selectedView = args;
       }
     }
   }
@@ -50,6 +63,709 @@ class _OrdersPageState extends State<OrdersPage>
 
   @override
   Widget build(BuildContext context) {
+    if (_useLegacyOrders) return _buildLegacyOrders(context);
+    return _buildRefinedOrders(context);
+  }
+
+  Widget _buildRefinedOrders(BuildContext context) {
+    return AnimatedBuilder(
+      animation: Listenable.merge([
+        OrderService.instance,
+        BuyerAccountService.instance,
+        AddressService.instance,
+      ]),
+      builder: (context, _) {
+        final counts = _orderCounts();
+        return Scaffold(
+          appBar: NexoraAppBar(
+            titleText: 'My Orders',
+            actions: [
+              IconButton(
+                key: const ValueKey('orders-search-action'),
+                tooltip: _searchVisible
+                    ? 'Close order search'
+                    : 'Search orders',
+                onPressed: () => setState(() {
+                  _searchVisible = !_searchVisible;
+                  if (!_searchVisible) _searchQuery = '';
+                }),
+                icon: Icon(
+                  _searchVisible ? Icons.close_rounded : Icons.search_rounded,
+                ),
+              ),
+            ],
+          ),
+          body: Column(
+            children: [
+              if (_searchVisible)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    NexoraSpacing.md,
+                    NexoraSpacing.xs,
+                    NexoraSpacing.md,
+                    0,
+                  ),
+                  child: TextField(
+                    key: const ValueKey('orders-search-field'),
+                    autofocus: true,
+                    onChanged: (value) => setState(() {
+                      _searchQuery = value.trim().toLowerCase();
+                    }),
+                    decoration: const InputDecoration(
+                      hintText: 'Search order number, store, or product',
+                      prefixIcon: Icon(Icons.search_rounded),
+                    ),
+                  ),
+                ),
+              _buildRefinedFilters(counts),
+              Expanded(
+                child: AnimatedSwitcher(
+                  duration: NexoraMotion.resolve(context),
+                  switchInCurve: NexoraMotion.standardCurve,
+                  child: KeyedSubtree(
+                    key: ValueKey('orders-view-$_selectedView-$_searchQuery'),
+                    child: _buildRefinedOrderView(),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Map<int, int> _orderCounts() {
+    final active = OrderService.instance.activeOrders;
+    final past = OrderService.instance.pastOrders;
+    bool has(OrderItemModel order, Iterable<String> statuses) => statuses.any(
+      (status) => order.statusText.toLowerCase() == status.toLowerCase(),
+    );
+    return {
+      0: active.length + past.length,
+      1: active.where((order) => has(order, ['To Pay', 'PENDING'])).length,
+      2: active.where((order) => has(order, ['To Ship', 'PROCESSING'])).length,
+      3: active
+          .where(
+            (order) =>
+                has(order, ['OUT FOR DELIVERY', 'To Receive', 'In Transit']),
+          )
+          .length,
+      4: past.where((order) => has(order, ['Delivered', 'Completed'])).length,
+      5: [...active, ...past]
+          .where(
+            (order) =>
+                order.statusText.toLowerCase().contains('return') ||
+                order.statusText.toLowerCase().contains('refund'),
+          )
+          .length,
+      6: [
+        ...active,
+        ...past,
+      ].where((order) => order.statusText.toLowerCase() == 'cancelled').length,
+    };
+  }
+
+  Widget _buildRefinedFilters(Map<int, int> counts) {
+    final theme = Theme.of(context);
+    final mainFilters = <(int, String)>[
+      (0, 'All'),
+      (1, 'To Pay'),
+      (2, 'To Ship'),
+      (3, 'To Receive'),
+      (4, 'Completed'),
+      (5, 'Return / Refund'),
+      (6, 'Cancelled'),
+    ];
+    return Material(
+      color: theme.scaffoldBackgroundColor,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: NexoraSpacing.xs),
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          physics: const BouncingScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: NexoraSpacing.md),
+          child: Row(
+            children: [
+              for (final filter in mainFilters) ...[
+                ChoiceChip(
+                  key: ValueKey('orders-filter-${filter.$1}'),
+                  selected: _selectedView == filter.$1,
+                  label: Text(
+                    counts[filter.$1] == 0
+                        ? filter.$2
+                        : '${filter.$2} ${counts[filter.$1]}',
+                  ),
+                  onSelected: (_) => setState(() {
+                    _selectedView = filter.$1;
+                  }),
+                ),
+                const SizedBox(width: NexoraSpacing.xs),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRefinedOrderView() {
+    final service = OrderService.instance;
+    final buyer = BuyerAccountService.instance.currentBuyer;
+    final all = [...service.activeOrders, ...service.pastOrders];
+    if (_selectedView == 5) return _buildRefinedReturns(all);
+
+    Iterable<OrderItemModel> filtered = switch (_selectedView) {
+      1 => service.activeOrders.where(
+        (order) =>
+            order.statusText == 'To Pay' || order.statusText == 'PENDING',
+      ),
+      2 => service.activeOrders.where(
+        (order) =>
+            order.statusText == 'To Ship' || order.statusText == 'PROCESSING',
+      ),
+      3 => service.activeOrders.where(
+        (order) => const [
+          'OUT FOR DELIVERY',
+          'To Receive',
+          'In Transit',
+        ].contains(order.statusText),
+      ),
+      4 => service.pastOrders.where(
+        (order) => const ['Delivered', 'Completed'].contains(order.statusText),
+      ),
+      6 => all.where((order) => order.statusText.toLowerCase() == 'cancelled'),
+      _ => all,
+    };
+
+    if (_searchQuery.isNotEmpty) {
+      filtered = filtered.where((order) {
+        final searchable = [
+          order.orderId,
+          order.statusText,
+          ...order.items.expand(
+            (item) => [item.title, item.storeName, item.variant],
+          ),
+        ].join(' ').toLowerCase();
+        return searchable.contains(_searchQuery);
+      });
+    }
+    final orders = filtered.toList();
+
+    if (orders.isEmpty && _selectedView == 0 && _searchQuery.isEmpty) {
+      if (buyer != null) return _buildRefinedNewcomerHub(buyer);
+      return _buildRefinedEmpty(
+        title: 'No orders yet',
+        message: 'Your purchases and delivery updates will appear here.',
+        icon: Icons.shopping_bag_outlined,
+      );
+    }
+    if (orders.isEmpty) {
+      final empty = switch (_selectedView) {
+        1 => (
+          'No pending payments',
+          'Paid orders move to preparation automatically.',
+          Icons.credit_score_outlined,
+        ),
+        2 => (
+          'Nothing preparing',
+          'Confirmed orders will appear here while sellers prepare them.',
+          Icons.inventory_2_outlined,
+        ),
+        3 => (
+          'No parcels in transit',
+          'Live delivery updates appear here after courier pickup.',
+          Icons.local_shipping_outlined,
+        ),
+        4 => (
+          'No completed orders',
+          'Delivered purchases will remain available here.',
+          Icons.check_circle_outline,
+        ),
+        6 => (
+          'No cancelled orders',
+          'Cancelled purchases and their details will appear here.',
+          Icons.cancel_outlined,
+        ),
+        _ => (
+          'No matching orders',
+          'Try another order number, store, or product name.',
+          Icons.search_off_rounded,
+        ),
+      };
+      return _buildRefinedEmpty(
+        title: empty.$1,
+        message: empty.$2,
+        icon: empty.$3,
+        showAction: _searchQuery.isEmpty,
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: OrderService.instance.refreshOrdersFromSupabase,
+      child: ListView.separated(
+        key: const ValueKey('orders-results-list'),
+        padding: const EdgeInsets.fromLTRB(
+          NexoraSpacing.md,
+          NexoraSpacing.sm,
+          NexoraSpacing.md,
+          NexoraSpacing.xxl,
+        ),
+        itemCount: orders.length + 1,
+        separatorBuilder: (context, index) =>
+            const SizedBox(height: NexoraSpacing.md),
+        itemBuilder: (context, index) {
+          if (index == orders.length) return _buildRefinedGuarantee();
+          return _buildRefinedOrderCard(orders[index]);
+        },
+      ),
+    );
+  }
+
+  Widget _buildRefinedEmpty({
+    required String title,
+    required String message,
+    required IconData icon,
+    bool showAction = true,
+  }) {
+    return OrderEmptyState(
+      title: title,
+      message: message,
+      icon: icon,
+      actionLabel: showAction ? 'Discover products' : null,
+      onAction: showAction
+          ? () => Navigator.pushReplacementNamed(context, AppRoutes.home)
+          : null,
+    );
+  }
+
+  Widget _buildRefinedNewcomerHub(dynamic buyer) {
+    final theme = Theme.of(context);
+    final firstName = (buyer.firstName as String? ?? '').isNotEmpty
+        ? buyer.firstName
+        : 'Shopper';
+    return ListView(
+      key: const ValueKey('orders-newcomer-hub'),
+      padding: const EdgeInsets.fromLTRB(
+        NexoraSpacing.md,
+        NexoraSpacing.sm,
+        NexoraSpacing.md,
+        NexoraSpacing.xxl,
+      ),
+      children: [
+        Text(
+          'Welcome to Nexora, $firstName!',
+          style: theme.textTheme.headlineMedium,
+        ),
+        const SizedBox(height: NexoraSpacing.xs),
+        Text(
+          'Your orders will appear here. Start with your welcome benefit and delivery details.',
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+            height: 1.45,
+          ),
+        ),
+        const SizedBox(height: NexoraSpacing.xl),
+        NexoraCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    Icons.confirmation_number_outlined,
+                    color: theme.colorScheme.primary,
+                  ),
+                  const SizedBox(width: NexoraSpacing.sm),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '₱150 Welcome Voucher',
+                          style: theme.textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: NexoraSpacing.xxs),
+                        Text(
+                          'Valid on any first order • Code: NEXORAFIRST',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: NexoraSpacing.md),
+              Align(
+                alignment: AlignmentDirectional.centerEnd,
+                child: FilledButton.icon(
+                  onPressed: _voucherClaimed
+                      ? null
+                      : () => setState(() => _voucherClaimed = true),
+                  icon: Icon(
+                    _voucherClaimed
+                        ? Icons.check_rounded
+                        : Icons.redeem_outlined,
+                  ),
+                  label: Text(_voucherClaimed ? 'Claimed' : 'Claim voucher'),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: NexoraSpacing.xl),
+        Text('Next steps', style: theme.textTheme.titleMedium),
+        const SizedBox(height: NexoraSpacing.sm),
+        _buildRefinedChecklistItem(
+          Icons.location_on_outlined,
+          'Add a delivery address',
+        ),
+        _buildRefinedChecklistItem(
+          Icons.shopping_bag_outlined,
+          'Explore products and use your voucher at checkout',
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRefinedChecklistItem(IconData icon, String label) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: NexoraSpacing.xs),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 20, color: theme.colorScheme.onSurfaceVariant),
+          const SizedBox(width: NexoraSpacing.sm),
+          Expanded(child: Text(label, style: theme.textTheme.bodyMedium)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRefinedReturns(List<OrderItemModel> allOrders) {
+    final returns = allOrders
+        .where(
+          (order) =>
+              order.statusText.toLowerCase().contains('return') ||
+              order.statusText.toLowerCase().contains('refund'),
+        )
+        .toList();
+    return ListView(
+      key: const ValueKey('returns-refunds-view'),
+      padding: const EdgeInsets.fromLTRB(
+        NexoraSpacing.md,
+        NexoraSpacing.sm,
+        NexoraSpacing.md,
+        NexoraSpacing.xxl,
+      ),
+      children: [
+        _buildRefinedReturnGuarantee(),
+        const SizedBox(height: NexoraSpacing.md),
+        if (returns.isEmpty)
+          const OrderEmptyState(
+            title: 'No Return or Refund Requests',
+            message: 'You do not have any return or refund requests. Eligible purchases remain protected by the Nexora 15-day guarantee.',
+            icon: Icons.assignment_return_outlined,
+          )
+        else
+          ...returns.map(
+            (order) => Padding(
+              padding: const EdgeInsets.only(bottom: NexoraSpacing.md),
+              child: _buildRefinedOrderCard(order),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildRefinedReturnGuarantee() {
+    final theme = Theme.of(context);
+    return NexoraCard(
+      variant: NexoraCardVariant.primaryTint,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.verified_user_outlined, color: theme.colorScheme.primary),
+          const SizedBox(width: NexoraSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Return & Refund Guarantee',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: NexoraSpacing.xxs),
+                Text(
+                  'Eligible Nexora Mall items include 15-day returns with protected resolution.',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onPrimaryContainer,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRefinedGuarantee() {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: NexoraSpacing.md),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.shield_outlined,
+            size: 18,
+            color: theme.colorScheme.primary,
+          ),
+          const SizedBox(width: NexoraSpacing.xs),
+          Flexible(
+            child: Text(
+              'Orders are protected by Nexora Guarantee',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodySmall,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRefinedOrderCard(OrderItemModel order) {
+    final theme = Theme.of(context);
+    final items = order.items;
+    if (items.isEmpty) return const SizedBox.shrink();
+    final firstItem = items.first;
+    final isActive = !const [
+      'Cancelled',
+      'Completed',
+      'Delivered',
+    ].contains(order.statusText);
+
+    return NexoraCard(
+      key: ValueKey('order-card-${order.orderId}'),
+      onTap: () => _openOrderDetails(order),
+      semanticLabel: 'Order ${order.orderId}, ${order.statusText}',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            spacing: NexoraSpacing.sm,
+            runSpacing: NexoraSpacing.xs,
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Text(firstItem.storeName, style: theme.textTheme.titleMedium),
+              OrderStatusBadge(label: order.statusText),
+            ],
+          ),
+          const SizedBox(height: NexoraSpacing.xs),
+          Text(
+            '${order.orderId} • ${order.dateText}',
+            style: theme.textTheme.bodySmall,
+          ),
+          const Divider(height: NexoraSpacing.xl),
+          _buildRefinedOrderItem(firstItem, items.length),
+          if (isActive) ...[
+            const SizedBox(height: NexoraSpacing.md),
+            OrderProgressLine(
+              progress: order.progress,
+              label: order.etaText.isEmpty ? order.etaTime : order.etaText,
+            ),
+          ],
+          const Divider(height: NexoraSpacing.xl),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '${items.fold<int>(0, (sum, item) => sum + item.quantity)} items',
+                  style: theme.textTheme.bodySmall,
+                ),
+              ),
+              Text(
+                '₱${order.totalPrice.toStringAsFixed(2)}',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: NexoraSpacing.md),
+          _buildRefinedOrderActions(order),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRefinedOrderItem(CartItemModel item, int itemCount) {
+    final theme = Theme.of(context);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final textScale = MediaQuery.textScalerOf(context).scale(1);
+        final stacked = constraints.maxWidth < 310 || textScale > 1.45;
+        final image = ClipRRect(
+          borderRadius: BorderRadius.circular(NexoraRadius.control),
+          child: SizedBox(
+            width: 76,
+            height: 76,
+            child: Image.network(
+              item.imageUrl,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) => ColoredBox(
+                color: theme.colorScheme.surfaceContainer,
+                child: Icon(
+                  Icons.image_outlined,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+          ),
+        );
+        final details = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              item.title,
+              maxLines: stacked ? 3 : 2,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodyMedium,
+            ),
+            const SizedBox(height: NexoraSpacing.xs),
+            Text(item.variant, style: theme.textTheme.bodySmall),
+            if (itemCount > 1) ...[
+              const SizedBox(height: NexoraSpacing.xs),
+              Text(
+                '+${itemCount - 1} more item${itemCount == 2 ? '' : 's'}',
+                style: theme.textTheme.labelMedium,
+              ),
+            ],
+          ],
+        );
+        if (stacked) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              image,
+              const SizedBox(height: NexoraSpacing.sm),
+              details,
+            ],
+          );
+        }
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            image,
+            const SizedBox(width: NexoraSpacing.sm),
+            Expanded(child: details),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildRefinedOrderActions(OrderItemModel order) {
+    final status = order.statusText.toLowerCase();
+    final toPay = status == 'to pay' || status == 'pending';
+    final toShip = status == 'to ship' || status == 'processing';
+    final toReceive =
+        status.contains('receive') ||
+        status.contains('transit') ||
+        status.contains('delivery');
+    final completed = status.contains('complete') || status.contains('deliver');
+    final cancelled = status.contains('cancel');
+
+    final actions = <Widget>[
+      if (toPay || toShip)
+        OutlinedButton(
+          onPressed: () => _cancelOrder(order),
+          child: const Text('Cancel Order'),
+        ),
+      if (toPay)
+        FilledButton(
+          onPressed: () {
+            OrderService.instance.payOrder(order.orderId);
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'Payment successful. Your order is now preparing.',
+                ),
+              ),
+            );
+          },
+          child: const Text('Pay Now'),
+        )
+      else if (toReceive)
+        FilledButton.icon(
+          onPressed: () => Navigator.pushNamed(
+            context,
+            AppRoutes.orderTracking,
+            arguments: order,
+          ),
+          icon: const Icon(Icons.location_on_outlined),
+          label: const Text('Track Parcel'),
+        )
+      else if (completed)
+        FilledButton(
+          onPressed: order.isRated
+              ? () => Navigator.pushNamed(context, AppRoutes.productDetails)
+              : () => Navigator.pushNamed(
+                  context,
+                  AppRoutes.rateProduct,
+                  arguments: order,
+                ),
+          child: Text(order.isRated ? 'Buy Again' : 'Rate Order'),
+        )
+      else if (cancelled)
+        FilledButton(
+          onPressed: () =>
+              Navigator.pushNamed(context, AppRoutes.productDetails),
+          child: const Text('Buy Again'),
+        )
+      else
+        FilledButton(
+          onPressed: () => _openOrderDetails(order),
+          child: const Text('Order Details'),
+        ),
+    ];
+    return Wrap(
+      spacing: NexoraSpacing.xs,
+      runSpacing: NexoraSpacing.xs,
+      alignment: WrapAlignment.end,
+      children: actions,
+    );
+  }
+
+  void _openOrderDetails(OrderItemModel order) {
+    final status = order.statusText.toLowerCase();
+    final shipped =
+        status.contains('ship') ||
+        status.contains('receive') ||
+        status.contains('transit') ||
+        status.contains('delivery') ||
+        status.contains('complete');
+    Navigator.pushNamed(
+      context,
+      shipped ? AppRoutes.shippedOrderDetails : AppRoutes.orderDetails,
+      arguments: order,
+    );
+  }
+
+  void _cancelOrder(OrderItemModel order) {
+    OrderService.instance.cancelOrder(order.orderId);
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text('Order cancelled.')));
+  }
+
+  Widget _buildLegacyOrders(BuildContext context) {
     return AnimatedBuilder(
       animation: Listenable.merge([
         OrderService.instance,
@@ -73,12 +789,13 @@ class _OrdersPageState extends State<OrdersPage>
                   o.statusText == 'In Transit',
             )
             .length;
-        int cancelledCount = OrderService.instance.activeOrders
-            .where((o) => o.statusText.toLowerCase() == 'cancelled')
-            .length +
+        int cancelledCount =
+            OrderService.instance.activeOrders
+                .where((o) => o.statusText.toLowerCase() == 'cancelled')
+                .length +
             OrderService.instance.pastOrders
-            .where((o) => o.statusText.toLowerCase() == 'cancelled')
-            .length;
+                .where((o) => o.statusText.toLowerCase() == 'cancelled')
+                .length;
 
         return Scaffold(
           backgroundColor: const Color(0xFFF1F5F9),
@@ -276,7 +993,10 @@ class _OrdersPageState extends State<OrdersPage>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFF0066FF),
                   borderRadius: BorderRadius.circular(6),
@@ -668,8 +1388,12 @@ class _OrdersPageState extends State<OrdersPage>
 
   Widget _buildCancelledTab() {
     final dynamicCancelled = [
-      ...OrderService.instance.activeOrders.where((o) => o.statusText.toLowerCase() == 'cancelled'),
-      ...OrderService.instance.pastOrders.where((o) => o.statusText.toLowerCase() == 'cancelled'),
+      ...OrderService.instance.activeOrders.where(
+        (o) => o.statusText.toLowerCase() == 'cancelled',
+      ),
+      ...OrderService.instance.pastOrders.where(
+        (o) => o.statusText.toLowerCase() == 'cancelled',
+      ),
     ].map((o) => _buildDynamicOrderCard(o)).toList();
 
     if (dynamicCancelled.isEmpty) {
@@ -692,9 +1416,12 @@ class _OrdersPageState extends State<OrdersPage>
     final tag = firstItem.storeBadge.isNotEmpty ? firstItem.storeBadge : 'MALL';
     final storeName = firstItem.storeName;
     final isCancelled = order.statusText == 'Cancelled';
-    final isToPay = order.statusText == 'To Pay' || order.statusText == 'PENDING';
-    final isToShip = order.statusText == 'To Ship' || order.statusText == 'PROCESSING';
-    final isDelivered = order.statusText == 'Delivered' || order.statusText == 'Completed';
+    final isToPay =
+        order.statusText == 'To Pay' || order.statusText == 'PENDING';
+    final isToShip =
+        order.statusText == 'To Ship' || order.statusText == 'PROCESSING';
+    final isDelivered =
+        order.statusText == 'Delivered' || order.statusText == 'Completed';
 
     return Container(
       margin: const EdgeInsets.only(top: 12, left: 12, right: 12),
@@ -711,9 +1438,17 @@ class _OrdersPageState extends State<OrdersPage>
                 order.statusText == 'To Receive' ||
                 order.statusText == 'OUT FOR DELIVERY' ||
                 isDelivered) {
-              Navigator.pushNamed(context, AppRoutes.shippedOrderDetails, arguments: order);
+              Navigator.pushNamed(
+                context,
+                AppRoutes.shippedOrderDetails,
+                arguments: order,
+              );
             } else {
-              Navigator.pushNamed(context, AppRoutes.orderDetails, arguments: order);
+              Navigator.pushNamed(
+                context,
+                AppRoutes.orderDetails,
+                arguments: order,
+              );
             }
           },
           child: Padding(
@@ -725,33 +1460,50 @@ class _OrdersPageState extends State<OrdersPage>
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFF0066FF),
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
                         tag.toUpperCase(),
-                        style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
                         storeName,
-                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: Color(0xFF0F172A)),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                          color: Color(0xFF0F172A),
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    const Icon(Icons.chevron_right, size: 16, color: Color(0xFF94A3B8)),
+                    const Icon(
+                      Icons.chevron_right,
+                      size: 16,
+                      color: Color(0xFF94A3B8),
+                    ),
                     const SizedBox(width: 8),
                     Text(
                       order.statusText,
                       style: TextStyle(
                         color: isCancelled
                             ? const Color(0xFFEF4444)
-                            : (isDelivered ? const Color(0xFF00A896) : const Color(0xFF0066FF)),
+                            : (isDelivered
+                                  ? const Color(0xFF00A896)
+                                  : const Color(0xFF0066FF)),
                         fontWeight: FontWeight.w600,
                         fontSize: 12,
                       ),
@@ -773,7 +1525,10 @@ class _OrdersPageState extends State<OrdersPage>
                           decoration: BoxDecoration(
                             color: const Color(0xFFF8FAFC),
                             borderRadius: BorderRadius.circular(6),
-                            image: DecorationImage(image: NetworkImage(item.imageUrl), fit: BoxFit.cover),
+                            image: DecorationImage(
+                              image: NetworkImage(item.imageUrl),
+                              fit: BoxFit.cover,
+                            ),
                             border: Border.all(color: const Color(0xFFE2E8F0)),
                           ),
                         ),
@@ -784,27 +1539,43 @@ class _OrdersPageState extends State<OrdersPage>
                             children: [
                               Text(
                                 item.title,
-                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Color(0xFF0F172A)),
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                  color: Color(0xFF0F172A),
+                                ),
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                               ),
                               const SizedBox(height: 4),
                               Text(
                                 item.variant,
-                                style: const TextStyle(color: Color(0xFF64748B), fontSize: 11),
+                                style: const TextStyle(
+                                  color: Color(0xFF64748B),
+                                  fontSize: 11,
+                                ),
                               ),
                               const SizedBox(height: 8),
                               Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Text('Qty: x${item.quantity}', style: const TextStyle(color: Color(0xFF64748B), fontSize: 12)),
+                                  Text(
+                                    'Qty: x${item.quantity}',
+                                    style: const TextStyle(
+                                      color: Color(0xFF64748B),
+                                      fontSize: 12,
+                                    ),
+                                  ),
                                   Row(
                                     children: [
-                                      if (item.originalPrice != null && item.originalPrice! > item.price) ...[
+                                      if (item.originalPrice != null &&
+                                          item.originalPrice! > item.price) ...[
                                         Text(
                                           '₱${item.originalPrice!.toStringAsFixed(2)}',
                                           style: const TextStyle(
-                                            decoration: TextDecoration.lineThrough,
+                                            decoration:
+                                                TextDecoration.lineThrough,
                                             color: Color(0xFF94A3B8),
                                             fontSize: 11,
                                           ),
@@ -813,7 +1584,11 @@ class _OrdersPageState extends State<OrdersPage>
                                       ],
                                       Text(
                                         '₱${item.price.toStringAsFixed(2)}',
-                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0F172A)),
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 13,
+                                          color: Color(0xFF0F172A),
+                                        ),
                                       ),
                                     ],
                                   ),
@@ -837,7 +1612,10 @@ class _OrdersPageState extends State<OrdersPage>
                     children: [
                       Text(
                         'Total ${order.items.length} ${order.items.length == 1 ? "item" : "items"}: ',
-                        style: const TextStyle(color: Color(0xFF64748B), fontSize: 12),
+                        style: const TextStyle(
+                          color: Color(0xFF64748B),
+                          fontSize: 12,
+                        ),
                       ),
                       Text(
                         '₱${order.totalPrice.toStringAsFixed(2)}',
@@ -859,77 +1637,152 @@ class _OrdersPageState extends State<OrdersPage>
                   children: [
                     if (isCancelled) ...[
                       OutlinedButton(
-                        onPressed: () => Navigator.pushNamed(context, AppRoutes.orderDetails, arguments: order),
+                        onPressed: () => Navigator.pushNamed(
+                          context,
+                          AppRoutes.orderDetails,
+                          arguments: order,
+                        ),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: const Color(0xFF0F172A),
                           side: const BorderSide(color: Color(0xFFE2E8F0)),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
                           minimumSize: const Size(0, 36),
                         ),
-                        child: const Text('Cancellation Details', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                        child: const Text(
+                          'Cancellation Details',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ),
                       const SizedBox(width: 10),
                       ElevatedButton(
-                        onPressed: () => Navigator.pushNamed(context, AppRoutes.productDetails),
+                        onPressed: () => Navigator.pushNamed(
+                          context,
+                          AppRoutes.productDetails,
+                        ),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF0066FF),
                           foregroundColor: Colors.white,
                           elevation: 0,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
                           minimumSize: const Size(0, 36),
                         ),
-                        child: const Text('Buy Again', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                        child: const Text(
+                          'Buy Again',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
                     ] else if (isToPay) ...[
                       OutlinedButton(
                         onPressed: () {
                           OrderService.instance.cancelOrder(order.orderId);
-                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Order Cancelled')));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Order Cancelled')),
+                          );
                         },
                         style: OutlinedButton.styleFrom(
                           foregroundColor: const Color(0xFF0F172A),
                           side: const BorderSide(color: Color(0xFFE2E8F0)),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
                           minimumSize: const Size(0, 36),
                         ),
-                        child: const Text('Cancel Order', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                        child: const Text(
+                          'Cancel Order',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ),
                       const SizedBox(width: 10),
                       ElevatedButton(
                         onPressed: () {
                           OrderService.instance.payOrder(order.orderId);
-                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Payment Successful! Order is now preparing.')));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Payment Successful! Order is now preparing.',
+                              ),
+                            ),
+                          );
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF0066FF),
                           foregroundColor: Colors.white,
                           elevation: 0,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
                           minimumSize: const Size(0, 36),
                         ),
                         child: Row(
                           children: const [
-                            Text('Pay Now', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                            Text(
+                              'Pay Now',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                             SizedBox(width: 4),
                             Icon(Icons.arrow_forward, size: 14),
                           ],
                         ),
                       ),
-                    ] else if (order.statusText == 'To Receive' || order.statusText == 'OUT FOR DELIVERY') ...[
+                    ] else if (order.statusText == 'To Receive' ||
+                        order.statusText == 'OUT FOR DELIVERY') ...[
                       OutlinedButton(
-                        onPressed: () => Navigator.pushNamed(context, AppRoutes.orderTracking, arguments: order),
+                        onPressed: () => Navigator.pushNamed(
+                          context,
+                          AppRoutes.orderTracking,
+                          arguments: order,
+                        ),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: const Color(0xFF0F172A),
                           side: const BorderSide(color: Color(0xFFE2E8F0)),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
                           minimumSize: const Size(0, 36),
                         ),
-                        child: const Text('Track Parcel', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                        child: const Text(
+                          'Track Parcel',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ),
                       const SizedBox(width: 10),
                       ElevatedButton(
@@ -937,30 +1790,54 @@ class _OrdersPageState extends State<OrdersPage>
                           showDialog(
                             context: context,
                             builder: (dialogCtx) => AlertDialog(
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                              title: const Text('Confirm Order Received?', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              title: const Text(
+                                'Confirm Order Received?',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                              ),
                               content: const Text(
                                 'Have you received all items in good condition? Confirming will complete the order and move it to your Completed tab where you can rate the product.',
-                                style: TextStyle(fontSize: 13, color: Colors.black87),
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: Colors.black87,
+                                ),
                               ),
                               actions: [
                                 TextButton(
                                   onPressed: () => Navigator.pop(dialogCtx),
-                                  child: const Text('Not Yet', style: TextStyle(color: Colors.black54)),
+                                  child: const Text(
+                                    'Not Yet',
+                                    style: TextStyle(color: Colors.black54),
+                                  ),
                                 ),
                                 ElevatedButton(
                                   onPressed: () {
                                     Navigator.pop(dialogCtx);
-                                    OrderService.instance.receiveOrder(order.orderId);
+                                    OrderService.instance.receiveOrder(
+                                      order.orderId,
+                                    );
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
-                                        content: const Text('Order marked as received! You can now rate the product & delivery rider.'),
-                                        backgroundColor: const Color(0xFF10B981),
+                                        content: const Text(
+                                          'Order marked as received! You can now rate the product & delivery rider.',
+                                        ),
+                                        backgroundColor: const Color(
+                                          0xFF10B981,
+                                        ),
                                         action: SnackBarAction(
                                           label: 'RATE RIDER',
                                           textColor: Colors.white,
                                           onPressed: () {
-                                            Navigator.pushNamed(context, AppRoutes.rateProduct, arguments: order);
+                                            Navigator.pushNamed(
+                                              context,
+                                              AppRoutes.rateProduct,
+                                              arguments: order,
+                                            );
                                           },
                                         ),
                                       ),
@@ -969,7 +1846,9 @@ class _OrdersPageState extends State<OrdersPage>
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: const Color(0xFF0066FF),
                                     foregroundColor: Colors.white,
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
                                   ),
                                   child: const Text('Yes, Received'),
                                 ),
@@ -981,15 +1860,26 @@ class _OrdersPageState extends State<OrdersPage>
                           backgroundColor: const Color(0xFF0066FF),
                           foregroundColor: Colors.white,
                           elevation: 0,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
                           minimumSize: const Size(0, 36),
                         ),
                         child: Row(
                           children: const [
                             Icon(Icons.check_circle_outline, size: 14),
                             SizedBox(width: 4),
-                            Text('Order Received', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                            Text(
+                              'Order Received',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -1004,26 +1894,52 @@ class _OrdersPageState extends State<OrdersPage>
                         style: OutlinedButton.styleFrom(
                           foregroundColor: const Color(0xFF0F172A),
                           side: const BorderSide(color: Color(0xFFE2E8F0)),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
                           minimumSize: const Size(0, 36),
                         ),
-                        child: const Text('Cancel Order', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                        child: const Text(
+                          'Cancel Order',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ),
                       const SizedBox(width: 10),
                       ElevatedButton(
-                        onPressed: () => Navigator.pushNamed(context, AppRoutes.shippedOrderDetails, arguments: order),
+                        onPressed: () => Navigator.pushNamed(
+                          context,
+                          AppRoutes.shippedOrderDetails,
+                          arguments: order,
+                        ),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF0066FF),
                           foregroundColor: Colors.white,
                           elevation: 0,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
                           minimumSize: const Size(0, 36),
                         ),
                         child: Row(
                           children: const [
-                            Text('Order Details', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                            Text(
+                              'Order Details',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                             SizedBox(width: 4),
                             Icon(Icons.arrow_forward, size: 14),
                           ],
@@ -1031,29 +1947,57 @@ class _OrdersPageState extends State<OrdersPage>
                       ),
                     ] else ...[
                       OutlinedButton(
-                        onPressed: () => Navigator.pushNamed(context, AppRoutes.chat),
+                        onPressed: () =>
+                            Navigator.pushNamed(context, AppRoutes.chat),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: const Color(0xFF0F172A),
                           side: const BorderSide(color: Color(0xFFE2E8F0)),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
                           minimumSize: const Size(0, 36),
                         ),
-                        child: const Text('Contact Seller', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                        child: const Text(
+                          'Contact Seller',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ),
                       const SizedBox(width: 10),
                       ElevatedButton(
                         onPressed: isDelivered
                             ? (order.isRated
-                                ? () => Navigator.pushNamed(context, AppRoutes.productDetails)
-                                : () => Navigator.pushNamed(context, AppRoutes.rateProduct, arguments: order))
-                            : () => Navigator.pushNamed(context, AppRoutes.orderTracking, arguments: order),
+                                  ? () => Navigator.pushNamed(
+                                      context,
+                                      AppRoutes.productDetails,
+                                    )
+                                  : () => Navigator.pushNamed(
+                                      context,
+                                      AppRoutes.rateProduct,
+                                      arguments: order,
+                                    ))
+                            : () => Navigator.pushNamed(
+                                context,
+                                AppRoutes.orderTracking,
+                                arguments: order,
+                              ),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF0066FF),
                           foregroundColor: Colors.white,
                           elevation: 0,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
                           minimumSize: const Size(0, 36),
                         ),
                         child: Row(
@@ -1062,7 +2006,10 @@ class _OrdersPageState extends State<OrdersPage>
                               isDelivered
                                   ? (order.isRated ? 'Buy Again' : 'Rate')
                                   : 'Track Order',
-                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                             if (isDelivered && !order.isRated) ...[
                               const SizedBox(width: 4),

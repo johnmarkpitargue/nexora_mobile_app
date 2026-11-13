@@ -1,13 +1,17 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
 import '../../../app/routes/app_routes.dart';
+import '../../../app/theme/nexora_theme.dart';
 import '../../../core/services/buyer_account_service.dart';
 import '../../../core/services/supabase_auth_service.dart';
 import '../../../core/services/profile_service.dart';
 import '../../../core/services/external_notification_service.dart';
 import '../../../core/services/in_app_notification_service.dart';
+import 'widgets/auth_components.dart';
 
 class EmailVerificationPage extends StatefulWidget {
   final String? email;
@@ -24,8 +28,10 @@ class EmailVerificationPage extends StatefulWidget {
 }
 
 class _EmailVerificationPageState extends State<EmailVerificationPage> {
-  final List<TextEditingController> _controllers =
-      List.generate(6, (_) => TextEditingController());
+  final List<TextEditingController> _controllers = List.generate(
+    6,
+    (_) => TextEditingController(),
+  );
   final List<FocusNode> _focusNodes = List.generate(6, (_) => FocusNode());
 
   Timer? _timer;
@@ -40,7 +46,8 @@ class _EmailVerificationPageState extends State<EmailVerificationPage> {
   void initState() {
     super.initState();
     final service = BuyerAccountService.instance;
-    _userEmail = widget.email ??
+    _userEmail =
+        widget.email ??
         service.currentUnverifiedBuyer?.email ??
         'juanmiguel.delacruz@example.com';
 
@@ -62,15 +69,15 @@ class _EmailVerificationPageState extends State<EmailVerificationPage> {
       );
     }
 
-
-
     // Listen for email confirmation link click (deep link from Gmail)
     if (SupabaseAuthService.instance.isSupabaseConfigured) {
       _authSub = SupabaseAuthService.instance.authStateChanges.listen((data) {
         if (!mounted) return;
         final event = data.event;
-        if (event == AuthChangeEvent.signedIn || event == AuthChangeEvent.userUpdated) {
-          final buyer = service.findBuyerByIdentifier(_userEmail) ??
+        if (event == AuthChangeEvent.signedIn ||
+            event == AuthChangeEvent.userUpdated) {
+          final buyer =
+              service.findBuyerByIdentifier(_userEmail) ??
               service.currentUnverifiedBuyer;
           if (buyer != null) {
             buyer.accountStatus = 'Active';
@@ -204,7 +211,8 @@ class _EmailVerificationPageState extends State<EmailVerificationPage> {
 
     // If Supabase verified the Gmail OTP successfully, ensure local session is activated too
     if (supabaseVerified && !result.success) {
-      final buyer = BuyerAccountService.instance.findBuyerByIdentifier(_userEmail) ??
+      final buyer =
+          BuyerAccountService.instance.findBuyerByIdentifier(_userEmail) ??
           BuyerAccountService.instance.currentUnverifiedBuyer;
       if (buyer != null) {
         buyer.otpCode = code;
@@ -224,7 +232,7 @@ class _EmailVerificationPageState extends State<EmailVerificationPage> {
     if (result.success) {
       if (widget.isLoginMode) {
         if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+        ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(result.message),
             backgroundColor: const Color(0xFF0066FF),
@@ -303,7 +311,11 @@ class _EmailVerificationPageState extends State<EmailVerificationPage> {
         SnackBar(
           content: Row(
             children: [
-              const Icon(Icons.mark_email_read_rounded, color: Colors.white, size: 20),
+              const Icon(
+                Icons.mark_email_read_rounded,
+                color: Colors.white,
+                size: 20,
+              ),
               const SizedBox(width: 8),
               Expanded(child: Text(result.message)),
             ],
@@ -322,7 +334,8 @@ class _EmailVerificationPageState extends State<EmailVerificationPage> {
   void _showVoucherClaimModal() {
     showDialog(
       context: context,
-      barrierDismissible: true, // TC-BUY-028 allows dismissing without losing state
+      barrierDismissible:
+          true, // TC-BUY-028 allows dismissing without losing state
       builder: (ctx) => Dialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         backgroundColor: Colors.white,
@@ -340,8 +353,10 @@ class _EmailVerificationPageState extends State<EmailVerificationPage> {
                   shape: BoxShape.circle,
                   border: Border.all(color: const Color(0xFF00D2FF), width: 2),
                 ),
-                child: const Center(
-                  child: Text('🎉', style: TextStyle(fontSize: 36)),
+                child: const Icon(
+                  Icons.verified_rounded,
+                  size: 38,
+                  color: Color(0xFF0066FF),
                 ),
               ),
               const SizedBox(height: 16),
@@ -358,13 +373,20 @@ class _EmailVerificationPageState extends State<EmailVerificationPage> {
               const Text(
                 'Welcome to Nexora! Your VIP perks are now active.',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 13, color: Color(0xFF64748B), height: 1.3),
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Color(0xFF64748B),
+                  height: 1.3,
+                ),
               ),
               const SizedBox(height: 16),
 
               // Voucher Card Box (TC-BUY-029)
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
                     colors: [Color(0xFF0066FF), Color(0xFF00D2FF)],
@@ -382,7 +404,11 @@ class _EmailVerificationPageState extends State<EmailVerificationPage> {
                 ),
                 child: const Row(
                   children: [
-                    Icon(Icons.card_giftcard_rounded, color: Colors.white, size: 28),
+                    Icon(
+                      Icons.card_giftcard_rounded,
+                      color: Colors.white,
+                      size: 28,
+                    ),
                     SizedBox(width: 12),
                     Expanded(
                       child: Column(
@@ -434,7 +460,7 @@ class _EmailVerificationPageState extends State<EmailVerificationPage> {
                     elevation: 0,
                   ),
                   child: const Text(
-                    'Start Shopping 🚀',
+                    'Start Shopping',
                     style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
                   ),
                 ),
@@ -446,8 +472,127 @@ class _EmailVerificationPageState extends State<EmailVerificationPage> {
     );
   }
 
+  Widget _buildVerificationPage(BuildContext context) {
+    return AuthPageScaffold(
+      title: widget.isLoginMode ? 'Confirm it’s you' : 'Verify your email',
+      subtitle: 'Enter the 6-digit code sent to $_userEmail.',
+      content: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          AuthSection(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                AuthOtpFields(
+                  controllers: _controllers,
+                  focusNodes: _focusNodes,
+                  onChanged: _onOtpChanged,
+                ),
+                const SizedBox(height: NexoraSpacing.xs),
+                Align(
+                  alignment: AlignmentDirectional.centerEnd,
+                  child: TextButton.icon(
+                    onPressed: _pasteFromClipboard,
+                    icon: const Icon(Icons.content_paste_rounded, size: 18),
+                    label: const Text('Paste code'),
+                  ),
+                ),
+                if (_errorMessage != null) ...[
+                  const SizedBox(height: NexoraSpacing.xs),
+                  AuthNotice(message: _errorMessage!, isError: true),
+                ],
+                const SizedBox(height: NexoraSpacing.md),
+                Semantics(
+                  liveRegion: true,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.timer_outlined,
+                        size: 18,
+                        color: _secondsRemaining < 60
+                            ? Theme.of(context).colorScheme.error
+                            : Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                      const SizedBox(width: NexoraSpacing.xs),
+                      Flexible(
+                        child: Text(
+                          _secondsRemaining > 0
+                              ? 'Code expires in $_formattedTime'
+                              : 'Code expired. Request a new one.',
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: _secondsRemaining < 60
+                                    ? Theme.of(context).colorScheme.error
+                                    : Theme.of(context)
+                                          .colorScheme
+                                          .onSurfaceVariant,
+                                fontFeatures: const [
+                                  FontFeature.tabularFigures(),
+                                ],
+                                fontWeight: FontWeight.w700,
+                              ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: NexoraSpacing.lg),
+                AuthPrimaryButton(
+                  label: 'Verify & Continue',
+                  loading: _isLoading,
+                  onPressed: _secondsRemaining > 0 ? _handleVerify : null,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: NexoraSpacing.md),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Flexible(child: Text('Didn’t receive a code?')),
+              TextButton(
+                onPressed: _resendCooldown == 0 && !_isLoading
+                    ? _handleResend
+                    : null,
+                child: Text(
+                  _resendCooldown > 0
+                      ? 'Resend in ${_resendCooldown}s'
+                      : 'Resend code',
+                ),
+              ),
+            ],
+          ),
+          TextButton(
+            onPressed: () =>
+                Navigator.pushReplacementNamed(context, AppRoutes.login),
+            child: const Text('Use a different account'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _onOtpChanged(int index, String value) {
+    if (value.length > 1) {
+      _handlePastedText(value);
+      return;
+    }
+    if (value.isNotEmpty && index < _controllers.length - 1) {
+      _focusNodes[index + 1].requestFocus();
+    } else if (value.isNotEmpty) {
+      _focusNodes[index].unfocus();
+    } else if (index > 0) {
+      _focusNodes[index - 1].requestFocus();
+    }
+    if (_errorMessage != null) setState(() => _errorMessage = null);
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (!const bool.fromEnvironment('NEXORA_LEGACY_AUTH')) {
+      return _buildVerificationPage(context);
+    }
     return Scaffold(
       backgroundColor: const Color(0xFFF6F8FC),
       appBar: AppBar(
@@ -475,7 +620,10 @@ class _EmailVerificationPageState extends State<EmailVerificationPage> {
               // Email Delivery Status Banner
               Container(
                 margin: const EdgeInsets.only(bottom: 16),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFFEFF6FF),
                   borderRadius: BorderRadius.circular(14),
@@ -483,7 +631,11 @@ class _EmailVerificationPageState extends State<EmailVerificationPage> {
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.mark_email_unread_outlined, color: Color(0xFF0066FF), size: 20),
+                    const Icon(
+                      Icons.mark_email_unread_outlined,
+                      color: Color(0xFF0066FF),
+                      size: 20,
+                    ),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
@@ -532,7 +684,9 @@ class _EmailVerificationPageState extends State<EmailVerificationPage> {
 
               // Header
               Text(
-                widget.isLoginMode ? 'Quick Sign-In Verification' : 'Verify Your Email',
+                widget.isLoginMode
+                    ? 'Quick Sign-In Verification'
+                    : 'Verify Your Email',
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   fontSize: 24,
@@ -576,26 +730,40 @@ class _EmailVerificationPageState extends State<EmailVerificationPage> {
                     Builder(
                       builder: (context) {
                         final buyer = widget.isLoginMode
-                            ? BuyerAccountService.instance.findBuyerByIdentifier(_userEmail)
-                            : BuyerAccountService.instance.currentUnverifiedBuyer;
+                            ? BuyerAccountService.instance
+                                  .findBuyerByIdentifier(_userEmail)
+                            : BuyerAccountService
+                                  .instance
+                                  .currentUnverifiedBuyer;
                         final code = buyer?.otpCode ?? '123456';
                         return Container(
                           margin: const EdgeInsets.only(bottom: 20),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
                           decoration: BoxDecoration(
                             color: const Color(0xFFEFF6FF),
                             borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: const Color(0xFFBFDBFE), width: 1.5),
+                            border: Border.all(
+                              color: const Color(0xFFBFDBFE),
+                              width: 1.5,
+                            ),
                           ),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Row(
                                 children: [
-                                  const Icon(Icons.verified_user_rounded, color: Color(0xFF0066FF), size: 24),
+                                  const Icon(
+                                    Icons.verified_user_rounded,
+                                    color: Color(0xFF0066FF),
+                                    size: 24,
+                                  ),
                                   const SizedBox(width: 10),
                                   Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       const Text(
                                         'Your Verification Code',
@@ -620,13 +788,25 @@ class _EmailVerificationPageState extends State<EmailVerificationPage> {
                               ),
                               ElevatedButton.icon(
                                 onPressed: () => _handlePastedText(code),
-                                icon: const Icon(Icons.touch_app_rounded, size: 16),
-                                label: const Text('Auto-fill', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
+                                icon: const Icon(
+                                  Icons.touch_app_rounded,
+                                  size: 16,
+                                ),
+                                label: const Text(
+                                  'Auto-fill',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 13,
+                                  ),
+                                ),
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: const Color(0xFF0066FF),
                                   foregroundColor: Colors.white,
                                   elevation: 0,
-                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                    vertical: 8,
+                                  ),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(12),
                                   ),
@@ -719,7 +899,11 @@ class _EmailVerificationPageState extends State<EmailVerificationPage> {
                       alignment: Alignment.centerRight,
                       child: TextButton.icon(
                         onPressed: _pasteFromClipboard,
-                        icon: const Icon(Icons.paste_rounded, size: 14, color: Color(0xFF0066FF)),
+                        icon: const Icon(
+                          Icons.paste_rounded,
+                          size: 14,
+                          color: Color(0xFF0066FF),
+                        ),
                         label: const Text(
                           'Paste Code',
                           style: TextStyle(
@@ -734,7 +918,10 @@ class _EmailVerificationPageState extends State<EmailVerificationPage> {
                     // Error Message
                     if (_errorMessage != null) ...[
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
                         margin: const EdgeInsets.only(bottom: 12),
                         decoration: BoxDecoration(
                           color: const Color(0xFFFEE2E2),
@@ -743,8 +930,11 @@ class _EmailVerificationPageState extends State<EmailVerificationPage> {
                         ),
                         child: Row(
                           children: [
-                            const Icon(Icons.error_outline_rounded,
-                                color: Color(0xFFDC2626), size: 16),
+                            const Icon(
+                              Icons.error_outline_rounded,
+                              color: Color(0xFFDC2626),
+                              size: 16,
+                            ),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
@@ -867,7 +1057,10 @@ class _EmailVerificationPageState extends State<EmailVerificationPage> {
                   ),
                   GestureDetector(
                     onTap: () {
-                      Navigator.pushReplacementNamed(context, AppRoutes.register);
+                      Navigator.pushReplacementNamed(
+                        context,
+                        AppRoutes.register,
+                      );
                     },
                     child: const Text(
                       'Re-register',

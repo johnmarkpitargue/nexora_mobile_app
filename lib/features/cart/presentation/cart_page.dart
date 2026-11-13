@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
+
+import '../../../app/theme/nexora_theme.dart';
 import '../../../app/routes/app_routes.dart';
 import '../../../core/services/buyer_account_service.dart';
 import '../../../core/services/cart_service.dart';
 import '../../../core/utils/guest_auth_guard.dart';
+import '../../../core/widgets/nexora_widgets.dart';
+import '../../checkout/presentation/widgets/checkout_components.dart';
 
 class CartPage extends StatefulWidget {
   const CartPage({super.key});
@@ -12,6 +16,8 @@ class CartPage extends StatefulWidget {
 }
 
 class _CartPageState extends State<CartPage> {
+  static const bool _useLegacyCart = bool.fromEnvironment('NEXORA_LEGACY_CART');
+
   bool _isEditMode = false;
   final CartService _cartService = CartService.instance;
 
@@ -46,8 +52,9 @@ class _CartPageState extends State<CartPage> {
   }
 
   bool _isStoreAllChecked(String storeName) {
-    final storeItems =
-        _cartService.items.where((i) => i.storeName == storeName);
+    final storeItems = _cartService.items.where(
+      (i) => i.storeName == storeName,
+    );
     return storeItems.isNotEmpty && storeItems.every((i) => i.isChecked);
   }
 
@@ -119,6 +126,520 @@ class _CartPageState extends State<CartPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (_useLegacyCart) return _buildLegacyCart(context);
+    return _buildRefinedCart(context);
+  }
+
+  Widget _buildRefinedCart(BuildContext context) {
+    final theme = Theme.of(context);
+    return ListenableBuilder(
+      listenable: _cartService,
+      builder: (context, _) {
+        final groupedItems = <String, List<CartItemModel>>{};
+        for (final item in _cartService.items) {
+          groupedItems.putIfAbsent(item.storeName, () => []).add(item);
+        }
+
+        return Scaffold(
+          appBar: NexoraAppBar(
+            titleText: _cartService.items.isEmpty
+                ? 'Shopping Cart'
+                : 'Shopping Cart (${_cartService.itemCount})',
+            actions: [
+              if (_cartService.items.isNotEmpty)
+                TextButton(
+                  key: const ValueKey('cart-edit-action'),
+                  onPressed: () => setState(() => _isEditMode = !_isEditMode),
+                  child: Text(_isEditMode ? 'Done' : 'Edit'),
+                ),
+            ],
+          ),
+          body: _cartService.items.isEmpty
+              ? _buildRefinedEmptyCart(theme)
+              : CustomScrollView(
+                  key: const ValueKey('cart-scroll-view'),
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  slivers: [
+                    SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(
+                        NexoraSpacing.md,
+                        NexoraSpacing.xs,
+                        NexoraSpacing.md,
+                        120.0,
+                      ),
+                      sliver: SliverList.list(
+                        children: [
+                          _buildRefinedDeliveryNotice(theme),
+                          const SizedBox(height: NexoraSpacing.md),
+                          ...groupedItems.entries.expand(
+                            (entry) => [
+                              _buildRefinedStoreGroup(
+                                theme,
+                                entry.key,
+                                entry.value,
+                              ),
+                              const SizedBox(height: NexoraSpacing.md),
+                            ],
+                          ),
+                          if (!_isEditMode) _buildRefinedVoucher(theme),
+                          const SizedBox(height: NexoraSpacing.xl),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+          bottomNavigationBar: _cartService.items.isEmpty
+              ? null
+              : _buildRefinedBottomDock(theme),
+        );
+      },
+    );
+  }
+
+  Widget _buildRefinedEmptyCart(ThemeData theme) {
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(NexoraSpacing.xl),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 420),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primaryContainer,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.shopping_bag_outlined,
+                  size: 34,
+                  color: theme.colorScheme.primary,
+                ),
+              ),
+              const SizedBox(height: NexoraSpacing.lg),
+              Text(
+                'Your Shopping Cart is Empty',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.headlineSmall,
+              ),
+              const SizedBox(height: NexoraSpacing.xs),
+              Text(
+                'Save products here to compare options and check out when you are ready.',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                  height: 1.45,
+                ),
+              ),
+              const SizedBox(height: NexoraSpacing.xl),
+              FilledButton.icon(
+                onPressed: () =>
+                    Navigator.pushReplacementNamed(context, AppRoutes.home),
+                icon: const Icon(Icons.storefront_outlined),
+                label: const Text('Start Shopping'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRefinedDeliveryNotice(ThemeData theme) {
+    return NexoraCard(
+      variant: NexoraCardVariant.primaryTint,
+      child: Row(
+        children: [
+          Icon(
+            Icons.local_shipping_outlined,
+            color: theme.colorScheme.primary,
+          ),
+          const SizedBox(width: NexoraSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Free shipping voucher applied',
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: theme.colorScheme.onPrimaryContainer,
+                  ),
+                ),
+                const SizedBox(height: NexoraSpacing.xxs),
+                Text(
+                  'Eligible delivery discounts are confirmed at checkout.',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onPrimaryContainer,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRefinedStoreGroup(
+    ThemeData theme,
+    String storeName,
+    List<CartItemModel> items,
+  ) {
+    final badge = items.first.storeBadge;
+    return CheckoutSection(
+      title: storeName,
+      subtitle: badge.isEmpty ? null : badge,
+      icon: Icons.storefront_outlined,
+      trailing: Checkbox(
+        semanticLabel: 'Select all items from $storeName',
+        value: _isStoreAllChecked(storeName),
+        onChanged: (value) => _toggleStore(storeName, value ?? false),
+      ),
+      child: Column(
+        children: [
+          for (var index = 0; index < items.length; index++) ...[
+            if (index > 0) const Divider(height: NexoraSpacing.xl),
+            _buildRefinedCartItem(theme, items[index]),
+          ],
+          if (items.any((item) => item.shopVoucherText != null)) ...[
+            const Divider(height: NexoraSpacing.xl),
+            Row(
+              children: [
+                Icon(
+                  Icons.sell_outlined,
+                  size: 18,
+                  color: theme.colorScheme.primary,
+                ),
+                const SizedBox(width: NexoraSpacing.xs),
+                Expanded(
+                  child: Text(
+                    items
+                        .firstWhere((item) => item.shopVoucherText != null)
+                        .shopVoucherText!,
+                    style: theme.textTheme.labelMedium,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRefinedCartItem(ThemeData theme, CartItemModel item) {
+    return Semantics(
+      container: true,
+      label:
+          '${item.title}, ${item.variant}, ₱${item.price.toStringAsFixed(2)}, quantity ${item.quantity}',
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final textScale = MediaQuery.textScalerOf(context).scale(1);
+          final stacked = constraints.maxWidth < 330 || textScale > 1.45;
+          final details = Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                item.title,
+                maxLines: stacked ? 3 : 2,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodyMedium,
+              ),
+              const SizedBox(height: NexoraSpacing.xs),
+              Text(
+                item.variant,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodySmall,
+              ),
+              const SizedBox(height: NexoraSpacing.sm),
+              Wrap(
+                spacing: NexoraSpacing.xs,
+                runSpacing: NexoraSpacing.xs,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Text(
+                    '₱${item.price.toStringAsFixed(2)}',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: NexoraTheme.priceColor(context),
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                  if (item.originalPrice != null)
+                    Text(
+                      '₱${item.originalPrice!.toStringAsFixed(2)}',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        decoration: TextDecoration.lineThrough,
+                      ),
+                    ),
+                  if (item.discountTag != null)
+                    Chip(
+                      visualDensity: VisualDensity.compact,
+                      label: Text(item.discountTag!),
+                    ),
+                ],
+              ),
+              const SizedBox(height: NexoraSpacing.sm),
+              Wrap(
+                spacing: NexoraSpacing.xs,
+                runSpacing: NexoraSpacing.xs,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  _buildRefinedQuantityControl(theme, item),
+                  IconButton(
+                    tooltip: 'Remove ${item.title}',
+                    onPressed: () => _deleteItem(item),
+                    icon: const Icon(Icons.delete_outline_rounded),
+                    color: theme.colorScheme.error,
+                  ),
+                ],
+              ),
+            ],
+          );
+
+          final selection = Checkbox(
+            semanticLabel: 'Select ${item.title}',
+            value: item.isChecked,
+            onChanged: (value) =>
+                _cartService.toggleItemChecked(item.id, value ?? false),
+          );
+          final image = ClipRRect(
+            borderRadius: BorderRadius.circular(NexoraRadius.control),
+            child: SizedBox(
+              width: stacked ? 96 : 84,
+              height: stacked ? 96 : 84,
+              child: Image.network(
+                item.imageUrl,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => ColoredBox(
+                  color: theme.colorScheme.surfaceContainer,
+                  child: Icon(
+                    Icons.image_outlined,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ),
+          );
+
+          if (stacked) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(children: [selection, image]),
+                const SizedBox(height: NexoraSpacing.sm),
+                details,
+              ],
+            );
+          }
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              selection,
+              const SizedBox(width: NexoraSpacing.xs),
+              image,
+              const SizedBox(width: NexoraSpacing.sm),
+              Expanded(child: details),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildRefinedQuantityControl(ThemeData theme, CartItemModel item) {
+    return Semantics(
+      label: 'Quantity ${item.quantity}',
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceContainer,
+          borderRadius: BorderRadius.circular(NexoraRadius.control),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              tooltip: item.quantity == 1 ? 'Remove item' : 'Decrease quantity',
+              onPressed: () => _decrementQty(item),
+              icon: const Icon(Icons.remove_rounded, size: 18),
+            ),
+            Text('${item.quantity}', style: theme.textTheme.labelLarge),
+            IconButton(
+              tooltip: 'Increase quantity',
+              onPressed: () => _incrementQty(item),
+              icon: const Icon(Icons.add_rounded, size: 18),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRefinedVoucher(ThemeData theme) {
+    return CheckoutSection(
+      title: 'Nexora Platform Voucher',
+      subtitle: _checkedCount == 0
+          ? 'Select an item to apply your voucher.'
+          : '₱150 discount applied to selected items.',
+      icon: Icons.confirmation_number_outlined,
+      child: CheckoutPriceRow(
+        label: 'Voucher savings',
+        value: _checkedCount == 0 ? '₱0.00' : '-₱150.00',
+        valueColor: theme.colorScheme.primary,
+      ),
+    );
+  }
+
+  Widget _buildRefinedBottomDock(ThemeData theme) {
+    return Material(
+      color: theme.colorScheme.surfaceContainerLowest,
+      elevation: 8,
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+            NexoraSpacing.md,
+            NexoraSpacing.sm,
+            NexoraSpacing.md,
+            NexoraSpacing.sm,
+          ),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final textScale = MediaQuery.textScalerOf(context).scale(1);
+              final stacked = constraints.maxWidth < 350 || textScale > 1.35;
+              final selectAll = Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Checkbox(
+                    semanticLabel: 'Select all cart items',
+                    value: _isAllChecked,
+                    onChanged: _toggleSelectAll,
+                  ),
+                  Flexible(
+                    child: Text(
+                      _isEditMode ? 'Select all' : 'All ($_checkedCount)',
+                      style: theme.textTheme.labelMedium,
+                    ),
+                  ),
+                ],
+              );
+
+              final totalSummary = Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: stacked
+                    ? CrossAxisAlignment.start
+                    : CrossAxisAlignment.end,
+                children: [
+                  Text('Total', style: theme.textTheme.bodySmall),
+                  Text(
+                    '₱${_finalTotal.toStringAsFixed(2)}',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: NexoraTheme.priceColor(context),
+                      fontWeight: FontWeight.w900,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                  if (_totalSaved > 0)
+                    Text(
+                      'Saved ₱${_totalSaved.toStringAsFixed(2)}',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: theme.brightness == Brightness.dark
+                            ? const Color(0xFF38BDF8)
+                            : theme.colorScheme.primary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                ],
+              );
+              final checkoutButton = FilledButton(
+                key: const ValueKey('cart-checkout-action'),
+                onPressed: _checkedCount == 0 ? null : _openCheckout,
+                child: Text('Check Out ($_checkedCount)'),
+              );
+              final action = _isEditMode
+                  ? Wrap(
+                      spacing: NexoraSpacing.xs,
+                      runSpacing: NexoraSpacing.xs,
+                      alignment: WrapAlignment.end,
+                      children: [
+                        OutlinedButton(
+                          onPressed: _checkedItemsCount == 0
+                              ? null
+                              : _moveToMyLikes,
+                          child: const Text('Move to My Likes'),
+                        ),
+                        OutlinedButton(
+                          onPressed: _checkedItemsCount == 0
+                              ? null
+                              : _deleteSelectedItems,
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: theme.colorScheme.error,
+                          ),
+                          child: Text(
+                            _checkedItemsCount == 0
+                                ? 'Delete'
+                                : 'Delete ($_checkedItemsCount)',
+                          ),
+                        ),
+                      ],
+                    )
+                  : stacked
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        totalSummary,
+                        const SizedBox(height: NexoraSpacing.xs),
+                        checkoutButton,
+                      ],
+                    )
+                  : Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Flexible(child: totalSummary),
+                        const SizedBox(width: NexoraSpacing.sm),
+                        checkoutButton,
+                      ],
+                    );
+
+              if (stacked) {
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    selectAll,
+                    const SizedBox(height: NexoraSpacing.xs),
+                    action,
+                  ],
+                );
+              }
+              return Row(
+                children: [
+                  Expanded(child: selectAll),
+                  Flexible(flex: 2, child: action),
+                ],
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openCheckout() async {
+    if (!BuyerAccountService.instance.isLoggedIn) {
+      final loggedIn = await GuestAuthGuard.requireLogin(
+        context,
+        title: 'Sign In to Proceed to Checkout',
+        message: 'Please sign in or create an account to finalize your order, apply vouchers, and track delivery.',
+      );
+      if (!loggedIn || !mounted) return;
+    }
+    Navigator.pushNamed(context, AppRoutes.checkout);
+  }
+
+  Widget _buildLegacyCart(BuildContext context) {
     return ListenableBuilder(
       listenable: _cartService,
       builder: (context, _) {
@@ -200,7 +721,9 @@ class _CartPageState extends State<CartPage> {
 
                     Padding(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 12),
+                        horizontal: 14,
+                        vertical: 12,
+                      ),
                       child: Column(
                         children: [
                           if (_cartService.items.isEmpty)
@@ -208,8 +731,11 @@ class _CartPageState extends State<CartPage> {
                               padding: const EdgeInsets.symmetric(vertical: 60),
                               child: Column(
                                 children: [
-                                  const Icon(Icons.shopping_bag_outlined,
-                                      size: 64, color: Color(0xFFCBD5E1)),
+                                  const Icon(
+                                    Icons.shopping_bag_outlined,
+                                    size: 64,
+                                    color: Color(0xFFCBD5E1),
+                                  ),
                                   const SizedBox(height: 12),
                                   const Text(
                                     'Your Shopping Cart is Empty',
@@ -231,14 +757,15 @@ class _CartPageState extends State<CartPage> {
                                   ElevatedButton(
                                     onPressed: () {
                                       Navigator.pushReplacementNamed(
-                                          context, AppRoutes.home);
+                                        context,
+                                        AppRoutes.home,
+                                      );
                                     },
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: const Color(0xFF0066FF),
                                       foregroundColor: Colors.white,
                                       shape: RoundedRectangleBorder(
-                                        borderRadius:
-                                            BorderRadius.circular(20),
+                                        borderRadius: BorderRadius.circular(20),
                                       ),
                                     ),
                                     child: const Text('Start Shopping'),
@@ -249,7 +776,9 @@ class _CartPageState extends State<CartPage> {
                           else
                             ...groupedItems.entries.map((entry) {
                               return _buildStoreGroupCard(
-                                  entry.key, entry.value);
+                                entry.key,
+                                entry.value,
+                              );
                             }),
 
                           const SizedBox(height: 10),
@@ -292,8 +821,11 @@ class _CartPageState extends State<CartPage> {
         children: [
           Row(
             children: [
-              const Icon(Icons.local_shipping_outlined,
-                  size: 18, color: Color(0xFF0066FF)),
+              const Icon(
+                Icons.local_shipping_outlined,
+                size: 18,
+                color: Color(0xFF0066FF),
+              ),
               const SizedBox(width: 8),
               RichText(
                 text: const TextSpan(
@@ -333,7 +865,11 @@ class _CartPageState extends State<CartPage> {
                         color: Color(0xFF0066FF),
                       ),
                     ),
-                    Icon(Icons.chevron_right, size: 16, color: Color(0xFF0066FF)),
+                    Icon(
+                      Icons.chevron_right,
+                      size: 16,
+                      color: Color(0xFF0066FF),
+                    ),
                   ],
                 ),
               ),
@@ -385,8 +921,10 @@ class _CartPageState extends State<CartPage> {
               const SizedBox(width: 8),
               if (firstItem.storeBadge.isNotEmpty) ...[
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFF0066FF),
                     borderRadius: BorderRadius.circular(4),
@@ -409,13 +947,17 @@ class _CartPageState extends State<CartPage> {
                     final shopId = lower.contains('soundmax')
                         ? 'soundmax_audio'
                         : lower.contains('mikana')
-                            ? 'mikana_official'
-                            : lower.contains('logitech')
-                                ? 'logitech_hub'
-                                : lower.contains('aura')
-                                    ? 'aura_studios'
-                                    : 'nexora_official';
-                    Navigator.pushNamed(context, AppRoutes.shop, arguments: shopId);
+                        ? 'mikana_official'
+                        : lower.contains('logitech')
+                        ? 'logitech_hub'
+                        : lower.contains('aura')
+                        ? 'aura_studios'
+                        : 'nexora_official';
+                    Navigator.pushNamed(
+                      context,
+                      AppRoutes.shop,
+                      arguments: shopId,
+                    );
                   },
                   child: Row(
                     children: [
@@ -432,7 +974,11 @@ class _CartPageState extends State<CartPage> {
                         ),
                       ),
                       const SizedBox(width: 4),
-                      const Icon(Icons.chevron_right, size: 16, color: Color(0xFF94A3B8)),
+                      const Icon(
+                        Icons.chevron_right,
+                        size: 16,
+                        color: Color(0xFF94A3B8),
+                      ),
                     ],
                   ),
                 ),
@@ -449,8 +995,11 @@ class _CartPageState extends State<CartPage> {
                     color: Color(0xFFEEF2FF),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.chat_bubble_outline,
-                      size: 13, color: Color(0xFF0066FF)),
+                  child: const Icon(
+                    Icons.chat_bubble_outline,
+                    size: 13,
+                    color: Color(0xFF0066FF),
+                  ),
                 ),
               ),
             ],
@@ -468,8 +1017,11 @@ class _CartPageState extends State<CartPage> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.local_shipping_outlined,
-                      size: 13, color: Color(0xFF00B4D8)),
+                  const Icon(
+                    Icons.local_shipping_outlined,
+                    size: 13,
+                    color: Color(0xFF00B4D8),
+                  ),
                   const SizedBox(width: 4),
                   Text(
                     firstItem.freeShippingBadge!,
@@ -530,17 +1082,24 @@ class _CartPageState extends State<CartPage> {
             ),
             Row(
               children: [
-                const Icon(Icons.local_offer_outlined,
-                    size: 15, color: Color(0xFF0066FF)),
+                const Icon(
+                  Icons.local_offer_outlined,
+                  size: 15,
+                  color: Color(0xFF0066FF),
+                ),
                 const SizedBox(width: 6),
                 RichText(
                   text: TextSpan(
                     style: const TextStyle(
-                        fontSize: 11.5, color: Color(0xFF334155)),
+                      fontSize: 11.5,
+                      color: Color(0xFF334155),
+                    ),
                     children: [
                       const TextSpan(text: 'Shop Voucher: '),
                       TextSpan(
-                        text: items.firstWhere((i) => i.shopVoucherText != null).shopVoucherText!,
+                        text: items
+                            .firstWhere((i) => i.shopVoucherText != null)
+                            .shopVoucherText!,
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           color: Color(0xFF0066FF),
@@ -569,8 +1128,11 @@ class _CartPageState extends State<CartPage> {
                           color: Color(0xFF0066FF),
                         ),
                       ),
-                      Icon(Icons.chevron_right,
-                          size: 15, color: Color(0xFF0066FF)),
+                      Icon(
+                        Icons.chevron_right,
+                        size: 15,
+                        color: Color(0xFF0066FF),
+                      ),
                     ],
                   ),
                 ),
@@ -664,8 +1226,10 @@ class _CartPageState extends State<CartPage> {
 
                 // Variant Dropdown Pill
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFF1F5F9),
                     borderRadius: BorderRadius.circular(10),
@@ -686,8 +1250,11 @@ class _CartPageState extends State<CartPage> {
                         ),
                       ),
                       const SizedBox(width: 4),
-                      const Icon(Icons.keyboard_arrow_down,
-                          size: 13, color: Color(0xFF64748B)),
+                      const Icon(
+                        Icons.keyboard_arrow_down,
+                        size: 13,
+                        color: Color(0xFF64748B),
+                      ),
                     ],
                   ),
                 ),
@@ -713,7 +1280,9 @@ class _CartPageState extends State<CartPage> {
                           const SizedBox(width: 4),
                           Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 4, vertical: 1),
+                              horizontal: 4,
+                              vertical: 1,
+                            ),
                             decoration: BoxDecoration(
                               color: const Color(0xFFEEF2FF),
                               borderRadius: BorderRadius.circular(4),
@@ -745,7 +1314,9 @@ class _CartPageState extends State<CartPage> {
                             onPressed: () => _decrementQty(item),
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(
-                                minWidth: 28, minHeight: 28),
+                              minWidth: 28,
+                              minHeight: 28,
+                            ),
                           ),
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -763,7 +1334,9 @@ class _CartPageState extends State<CartPage> {
                             onPressed: () => _incrementQty(item),
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(
-                                minWidth: 28, minHeight: 28),
+                              minWidth: 28,
+                              minHeight: 28,
+                            ),
                           ),
                         ],
                       ),
@@ -798,8 +1371,11 @@ class _CartPageState extends State<CartPage> {
                       ),
                       GestureDetector(
                         onTap: () => _deleteItem(item),
-                        child: const Icon(Icons.delete_outline_rounded,
-                            size: 16, color: Color(0xFF94A3B8)),
+                        child: const Icon(
+                          Icons.delete_outline_rounded,
+                          size: 16,
+                          color: Color(0xFF94A3B8),
+                        ),
                       ),
                     ],
                   ),
@@ -835,8 +1411,11 @@ class _CartPageState extends State<CartPage> {
               color: Color(0xFFEEF2FF),
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.confirmation_number_outlined,
-                color: Color(0xFF0066FF), size: 16),
+            child: const Icon(
+              Icons.confirmation_number_outlined,
+              color: Color(0xFF0066FF),
+              size: 16,
+            ),
           ),
           const SizedBox(width: 10),
           const Expanded(
@@ -894,16 +1473,14 @@ class _CartPageState extends State<CartPage> {
         'price': '₱890.00',
         'rating': '4.9 (1.2k)',
         'tag': 'HOT',
-        'imageUrl':
-            'https://images.unsplash.com/photo-1615663245857-ac93bb7c39e7?auto=format&fit=crop&w=300&q=80',
+        'imageUrl': 'https://images.unsplash.com/photo-1615663245857-ac93bb7c39e7?auto=format&fit=crop&w=300&q=80',
       },
       {
         'title': 'HyperVolt 65W GaN Dual USB-C',
         'price': '₱650.00',
         'rating': '4.8 (840)',
         'tag': '',
-        'imageUrl':
-            'https://images.unsplash.com/photo-1583863788434-e58a36330cf0?auto=format&fit=crop&w=300&q=80',
+        'imageUrl': 'https://images.unsplash.com/photo-1583863788434-e58a36330cf0?auto=format&fit=crop&w=300&q=80',
       },
     ];
 
@@ -975,12 +1552,18 @@ class _CartPageState extends State<CartPage> {
                     const SizedBox(height: 4),
                     Row(
                       children: [
-                        const Icon(Icons.star, size: 12, color: Color(0xFFF59E0B)),
+                        const Icon(
+                          Icons.star,
+                          size: 12,
+                          color: Color(0xFFF59E0B),
+                        ),
                         const SizedBox(width: 3),
                         Text(
                           item['rating']!,
                           style: const TextStyle(
-                              fontSize: 10, color: Color(0xFF64748B)),
+                            fontSize: 10,
+                            color: Color(0xFF64748B),
+                          ),
                         ),
                       ],
                     ),
@@ -1003,8 +1586,11 @@ class _CartPageState extends State<CartPage> {
                             color: Color(0xFFEEF2FF),
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(Icons.add,
-                              size: 16, color: Color(0xFF0066FF)),
+                          child: const Icon(
+                            Icons.add,
+                            size: 16,
+                            color: Color(0xFF0066FF),
+                          ),
                         ),
                       ],
                     ),
@@ -1040,8 +1626,11 @@ class _CartPageState extends State<CartPage> {
               color: const Color(0xFFEEF2FF),
               child: const Row(
                 children: [
-                  Icon(Icons.card_giftcard_outlined,
-                      size: 14, color: Color(0xFF0066FF)),
+                  Icon(
+                    Icons.card_giftcard_outlined,
+                    size: 14,
+                    color: Color(0xFF0066FF),
+                  ),
                   SizedBox(width: 6),
                   Text(
                     'Free Shipping Voucher applied',
@@ -1098,7 +1687,9 @@ class _CartPageState extends State<CartPage> {
                       foregroundColor: const Color(0xFF334155),
                       side: const BorderSide(color: Color(0xFFCBD5E1)),
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 10),
+                        horizontal: 16,
+                        vertical: 10,
+                      ),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(20),
                       ),
@@ -1118,7 +1709,9 @@ class _CartPageState extends State<CartPage> {
                       foregroundColor: const Color(0xFFDC2626),
                       side: const BorderSide(color: Color(0xFFDC2626)),
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 20, vertical: 10),
+                        horizontal: 20,
+                        vertical: 10,
+                      ),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(20),
                       ),
@@ -1162,7 +1755,9 @@ class _CartPageState extends State<CartPage> {
                       if (_totalSaved > 0)
                         Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 2),
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
                             color: const Color(0xFFE0F7FA),
                             borderRadius: BorderRadius.circular(6),
@@ -1192,7 +1787,8 @@ class _CartPageState extends State<CartPage> {
                       borderRadius: BorderRadius.circular(22),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF0066FF).withValues(alpha: 0.35),
+                          color: const Color(0xFF0066FF)
+                              .withValues(alpha: 0.35),
                           blurRadius: 8,
                           offset: const Offset(0, 3),
                         ),
@@ -1204,11 +1800,12 @@ class _CartPageState extends State<CartPage> {
                           : () async {
                               // Require login if in guest mode before proceeding to checkout
                               if (!BuyerAccountService.instance.isLoggedIn) {
-                                final loggedIn = await GuestAuthGuard.requireLogin(
-                                  context,
-                                  title: 'Sign In to Proceed to Checkout',
-                                  message: 'Please sign in or create an account to finalize your order, apply vouchers, and track delivery.',
-                                );
+                                final loggedIn =
+                                    await GuestAuthGuard.requireLogin(
+                                      context,
+                                      title: 'Sign In to Proceed to Checkout',
+                                      message: 'Please sign in or create an account to finalize your order, apply vouchers, and track delivery.',
+                                    );
                                 if (!loggedIn || !mounted) return;
                               }
                               Navigator.pushNamed(context, AppRoutes.checkout);
@@ -1259,11 +1856,7 @@ class _CartPageState extends State<CartPage> {
               : Border.all(color: const Color(0xFFCBD5E1), width: 1.5),
         ),
         child: isChecked
-            ? const Icon(
-                Icons.check,
-                size: 14,
-                color: Colors.white,
-              )
+            ? const Icon(Icons.check, size: 14, color: Colors.white)
             : null,
       ),
     );

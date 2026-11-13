@@ -1,9 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
+
+import '../../../app/theme/nexora_theme.dart';
 import '../../../core/services/chat_service.dart';
 import '../../../core/services/buyer_account_service.dart';
 import '../../../core/services/profile_service.dart';
@@ -11,6 +14,7 @@ import '../../../core/services/order_chat_service.dart';
 import '../../../core/services/order_service.dart';
 import '../../../core/services/profanity_filter_service.dart';
 import '../../../core/services/in_app_notification_service.dart';
+import 'widgets/chat_components.dart';
 
 class ChatDetailPage extends StatefulWidget {
   final String? conversationId;
@@ -40,7 +44,8 @@ class ChatDetailPage extends StatefulWidget {
   State<ChatDetailPage> createState() => _ChatDetailPageState();
 }
 
-class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObserver {
+class _ChatDetailPageState extends State<ChatDetailPage>
+    with WidgetsBindingObserver {
   late List<Map<String, dynamic>> _messages;
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
@@ -75,7 +80,9 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
 
     _effectiveOrderId = (widget.orderId != null && widget.orderId!.isNotEmpty)
         ? widget.orderId!.replaceAll('#', '').trim()
-        : (widget.orderRef.isNotEmpty ? widget.orderRef.replaceAll('#', '').trim() : '');
+        : (widget.orderRef.isNotEmpty
+              ? widget.orderRef.replaceAll('#', '').trim()
+              : '');
 
     final rawTitle = widget.title
         .replaceAll(RegExp(r'\s*\((Courier|Rider)\)', caseSensitive: false), '')
@@ -84,7 +91,8 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
         ? rawTitle.replaceAll('Mark Ronald', 'Pedro Jose Garcia')
         : rawTitle;
 
-    final isCourierKeyword = widget.avatarIcon == Icons.two_wheeler_rounded ||
+    final isCourierKeyword =
+        widget.avatarIcon == Icons.two_wheeler_rounded ||
         widget.subtitle.toLowerCase().contains('courier') ||
         widget.subtitle.toLowerCase().contains('route') ||
         widget.subtitle.toLowerCase().contains('rider') ||
@@ -93,7 +101,8 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
         widget.title.toLowerCase().contains('rider') ||
         widget.title.toLowerCase().contains('pedro') ||
         widget.title.toLowerCase().contains('mark') ||
-        (widget.conversationId != null && widget.conversationId!.startsWith('courier_'));
+        (widget.conversationId != null &&
+            widget.conversationId!.startsWith('courier_'));
 
     if (_effectiveOrderId.isEmpty && isCourierKeyword) {
       _effectiveOrderId = 'NX-8942-ORD';
@@ -107,7 +116,9 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
       _messageController.addListener(_onBuyerTextChanged);
     } else {
       if (widget.conversationId != null) {
-        final conv = ChatService.instance.getConversationById(widget.conversationId!);
+        final conv = ChatService.instance.getConversationById(
+          widget.conversationId!,
+        );
         if (conv != null && conv.messages.isNotEmpty) {
           _messages = conv.messages.map((m) => m.toMap()).toList();
           return;
@@ -122,7 +133,9 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
   }
 
   void _setupOrderChatListener() {
-    final cleanId = OrderChatService.instance.normalizeOrderId(_effectiveOrderId);
+    final cleanId = OrderChatService.instance.normalizeOrderId(
+      _effectiveOrderId,
+    );
     OrderChatService.instance.subscribeToOrder(_effectiveOrderId);
     OrderChatService.instance.activeScreenOrderId = cleanId;
     OrderChatService.instance.markAsRead(_effectiveOrderId);
@@ -134,17 +147,25 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
     } else {
       _messages = List.from(widget.initialMessages);
       for (final m in widget.initialMessages) {
-        OrderChatService.instance.getMessages(_effectiveOrderId).add(Map<String, dynamic>.from(m));
+        OrderChatService.instance
+            .getMessages(_effectiveOrderId)
+            .add(Map<String, dynamic>.from(m));
       }
     }
 
     OrderChatService.instance.onNewMessageReceived = (msg) {
       if (!mounted) return;
-      final cleanId = OrderChatService.instance.normalizeOrderId((msg['orderId'] ?? '').toString());
-      final currentClean = OrderChatService.instance.normalizeOrderId(_effectiveOrderId);
+      final cleanId = OrderChatService.instance.normalizeOrderId(
+        (msg['orderId'] ?? '').toString(),
+      );
+      final currentClean = OrderChatService.instance.normalizeOrderId(
+        _effectiveOrderId,
+      );
       if (cleanId != currentClean) {
         final rawSender = (msg['senderName'] ?? 'Pedro Jose Garcia').toString();
-        final sender = rawSender.contains('Mark') ? 'Pedro Jose Garcia' : rawSender;
+        final sender = rawSender.contains('Mark')
+            ? 'Pedro Jose Garcia'
+            : rawSender;
         InAppNotificationService.instance.showNotification(
           senderName: sender,
           message: (msg['text'] ?? '').toString(),
@@ -152,10 +173,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
           icon: Icons.two_wheeler_rounded,
           accentColor: const Color(0xFF00B4D8),
           onReply: () {
-            _switchToOrder(
-              (msg['orderId'] ?? '').toString(),
-              sender,
-            );
+            _switchToOrder((msg['orderId'] ?? '').toString(), sender);
           },
         );
       }
@@ -164,7 +182,10 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
 
   void _switchToOrder(String newOrderId, [String? newSenderName]) {
     final clean = OrderChatService.instance.normalizeOrderId(newOrderId);
-    if (clean == OrderChatService.instance.normalizeOrderId(_effectiveOrderId)) return;
+    if (clean ==
+        OrderChatService.instance.normalizeOrderId(_effectiveOrderId)) {
+      return;
+    }
 
     if (_isLocallyTyping) {
       OrderChatService.instance.sendTyping(_effectiveOrderId, false);
@@ -176,7 +197,10 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
       _effectiveOrderId = newOrderId.replaceAll('#', '').trim();
       if (newSenderName != null && newSenderName.isNotEmpty) {
         _effectiveTitle = newSenderName
-            .replaceAll(RegExp(r'\s*\((Courier|Rider)\)', caseSensitive: false), '')
+            .replaceAll(
+              RegExp(r'\s*\((Courier|Rider)\)', caseSensitive: false),
+              '',
+            )
             .trim();
       }
     });
@@ -187,14 +211,22 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
     setState(() {
       _messages = List.from(updated);
     });
-    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom(animate: false));
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _scrollToBottom(animate: false),
+    );
   }
 
   void _showOrderSwitchModal() {
     final activeOrders = OrderService.instance.activeOrders;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final sheetBg = isDark ? const Color(0xFF0D1323) : Colors.white;
+    final textColor = isDark ? Colors.white : const Color(0xFF0F172A);
+    final subtitleColor = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
+    final handleColor = isDark ? const Color(0xFF334155) : Colors.grey.shade300;
+
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.white,
+      backgroundColor: sheetBg,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -210,24 +242,24 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
                   width: 40,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
+                    color: handleColor,
                     borderRadius: BorderRadius.circular(4),
                   ),
                 ),
               ),
               const SizedBox(height: 16),
-              const Text(
+              Text(
                 'Switch Courier Chat',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w800,
-                  color: Color(0xFF0F172A),
+                  color: textColor,
                 ),
               ),
               const SizedBox(height: 4),
-              const Text(
+              Text(
                 'Select an order to chat with its assigned courier',
-                style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+                style: TextStyle(fontSize: 13, color: subtitleColor),
               ),
               const SizedBox(height: 14),
               if (activeOrders.isEmpty)
@@ -237,8 +269,14 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
                     backgroundColor: Color(0xFF0066FF),
                     child: Icon(Icons.two_wheeler_rounded, color: Colors.white),
                   ),
-                  title: const Text('Default Courier (#NX-8942-ORD)'),
-                  subtitle: const Text('Pedro Jose Garcia • Active on route'),
+                  title: Text(
+                    'Default Courier (#NX-8942-ORD)',
+                    style: TextStyle(color: textColor, fontWeight: FontWeight.w600),
+                  ),
+                  subtitle: Text(
+                    'Pedro Jose Garcia • Active on route',
+                    style: TextStyle(color: subtitleColor),
+                  ),
                   onTap: () {
                     Navigator.pop(ctx);
                     _switchToOrder('NX-8942-ORD', 'Pedro Jose Garcia');
@@ -246,36 +284,54 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
                 )
               else
                 ...activeOrders.map((o) {
-                  final isCurrent = OrderChatService.instance.normalizeOrderId(o.orderId) ==
-                      OrderChatService.instance.normalizeOrderId(_effectiveOrderId);
-                  final unread = OrderChatService.instance.getUnreadCount(o.orderId);
-                  final name = o.courierName.isNotEmpty ? o.courierName : 'Pedro Jose Garcia';
+                  final isCurrent =
+                      OrderChatService.instance.normalizeOrderId(o.orderId) ==
+                      OrderChatService.instance.normalizeOrderId(
+                        _effectiveOrderId,
+                      );
+                  final unread = OrderChatService.instance.getUnreadCount(
+                    o.orderId,
+                  );
+                  final name = o.courierName.isNotEmpty
+                      ? o.courierName
+                      : 'Pedro Jose Garcia';
                   return ListTile(
                     contentPadding: EdgeInsets.zero,
                     leading: CircleAvatar(
-                      backgroundColor: isCurrent ? const Color(0xFF0066FF) : const Color(0xFFF1F5F9),
+                      backgroundColor: isCurrent
+                          ? const Color(0xFF0066FF)
+                          : (isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9)),
                       child: Icon(
                         isCurrent ? Icons.check : Icons.two_wheeler_rounded,
-                        color: isCurrent ? Colors.white : const Color(0xFF0F172A),
+                        color: isCurrent
+                            ? Colors.white
+                            : (isDark ? Colors.white70 : const Color(0xFF0F172A)),
                         size: 20,
                       ),
                     ),
                     title: Text(
                       '$name (${o.orderId})',
                       style: TextStyle(
-                        fontWeight: isCurrent ? FontWeight.bold : FontWeight.w600,
-                        color: isCurrent ? const Color(0xFF0066FF) : const Color(0xFF0F172A),
+                        fontWeight: isCurrent
+                            ? FontWeight.bold
+                            : FontWeight.w600,
+                        color: isCurrent
+                            ? const Color(0xFF0066FF)
+                            : textColor,
                       ),
                     ),
                     subtitle: Text(
                       '${o.items.isNotEmpty ? o.items.first.title : "Order Item"} • ${o.statusText}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 12),
+                      style: TextStyle(fontSize: 12, color: subtitleColor),
                     ),
                     trailing: unread > 0
                         ? Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
                               color: const Color(0xFFEF4444),
                               borderRadius: BorderRadius.circular(10),
@@ -308,12 +364,17 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
     final updated = OrderChatService.instance.getMessages(_effectiveOrderId);
     if (updated.isNotEmpty) {
       final lastRiderMsg = updated.lastWhere(
-        (m) => m['sender'] == 'other' && (m['senderName'] as String?)?.isNotEmpty == true,
+        (m) =>
+            m['sender'] == 'other' &&
+            (m['senderName'] as String?)?.isNotEmpty == true,
         orElse: () => {},
       );
       if (lastRiderMsg.isNotEmpty) {
         final name = (lastRiderMsg['senderName'] as String)
-            .replaceAll(RegExp(r'\s*\((Courier|Rider)\)', caseSensitive: false), '')
+            .replaceAll(
+              RegExp(r'\s*\((Courier|Rider)\)', caseSensitive: false),
+              '',
+            )
             .trim();
         _effectiveTitle = name;
       }
@@ -373,9 +434,15 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
   final ImagePicker _picker = ImagePicker();
 
   void _pickAttachment() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final sheetBg = isDark ? const Color(0xFF0D1323) : Colors.white;
+    final textColor = isDark ? Colors.white : const Color(0xFF0F172A);
+    final subtitleColor = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
+    final handleColor = isDark ? const Color(0xFF334155) : Colors.grey.shade300;
+
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.white,
+      backgroundColor: sheetBg,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -389,27 +456,44 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
                 width: 36,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
+                  color: handleColor,
                   borderRadius: BorderRadius.circular(4),
                 ),
               ),
               const SizedBox(height: 14),
-              const Text(
+              Text(
                 'Upload Photo or File (Max 5MB)',
-                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: Color(0xFF0F172A)),
+                style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 16,
+                  color: textColor,
+                ),
               ),
               const SizedBox(height: 12),
               ListTile(
                 leading: Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFE0F2FE),
+                    color: isDark ? const Color(0xFF0C4A6E) : const Color(0xFFE0F2FE),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.camera_alt_rounded, color: Color(0xFF0075FF)),
+                  child: Icon(
+                    Icons.camera_alt_rounded,
+                    color: isDark ? const Color(0xFF38BDF8) : const Color(0xFF0075FF),
+                  ),
                 ),
-                title: const Text('Take Photo (Camera)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                subtitle: const Text('Take a photo to send to rider', style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                title: Text(
+                  'Take Photo (Camera)',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                    color: textColor,
+                  ),
+                ),
+                subtitle: Text(
+                  'Take a photo to send to rider',
+                  style: TextStyle(fontSize: 12, color: subtitleColor),
+                ),
                 onTap: () {
                   Navigator.pop(ctx);
                   _handleImagePick(ImageSource.camera);
@@ -419,13 +503,26 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
                 leading: Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF3E8FF),
+                    color: isDark ? const Color(0xFF3B0764) : const Color(0xFFF3E8FF),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.photo_library_rounded, color: Color(0xFF9333EA)),
+                  child: Icon(
+                    Icons.photo_library_rounded,
+                    color: isDark ? const Color(0xFFC084FC) : const Color(0xFF9333EA),
+                  ),
                 ),
-                title: const Text('Choose from Gallery', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                subtitle: const Text('Select photo or screenshot (up to 5MB)', style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                title: Text(
+                  'Choose from Gallery',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                    color: textColor,
+                  ),
+                ),
+                subtitle: Text(
+                  'Select photo or screenshot (up to 5MB)',
+                  style: TextStyle(fontSize: 12, color: subtitleColor),
+                ),
                 onTap: () {
                   Navigator.pop(ctx);
                   _handleImagePick(ImageSource.gallery);
@@ -457,7 +554,9 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
       }
 
       final base64Str = base64Encode(bytes);
-      final fileName = file.name.isNotEmpty ? file.name : 'photo_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final fileName = file.name.isNotEmpty
+          ? file.name
+          : 'photo_${DateTime.now().millisecondsSinceEpoch}.jpg';
       final textToSend = _messageController.text.trim();
 
       if (_isCourierChat) {
@@ -501,19 +600,28 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
           children: [
             Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 24),
             SizedBox(width: 8),
-            Text('File Exceeds 5MB Limit', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            Text(
+              'File Exceeds 5MB Limit',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
           ],
         ),
         content: Text(
           'The selected file is $mb MB. In active order chat, uploads are restricted to a maximum of 5MB only.\n\nPlease select an image or file within 5.0 MB.',
-          style: const TextStyle(fontSize: 13.5, color: Color(0xFF334155), height: 1.4),
+          style: const TextStyle(
+            fontSize: 13.5,
+            color: Color(0xFF334155),
+            height: 1.4,
+          ),
         ),
         actions: [
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF0075FF),
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
             onPressed: () => Navigator.pop(ctx),
             child: const Text('Got It'),
@@ -551,12 +659,20 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
                   Flexible(
                     child: Text(
                       title,
-                      style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close_rounded, color: Colors.white, size: 26),
+                    icon: const Icon(
+                      Icons.close_rounded,
+                      color: Colors.white,
+                      size: 26,
+                    ),
                     onPressed: () => Navigator.pop(ctx),
                   ),
                 ],
@@ -573,7 +689,9 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
 
     final trimmed = text.trim();
     if (ProfanityFilterService.instance.hasProfanity(trimmed)) {
-      _showProfanityAlert('Inappropriate language detected. Please maintain respectful and courteous communication.');
+      _showProfanityAlert(
+        'Inappropriate language detected. Please maintain respectful and courteous communication.',
+      );
       return;
     }
 
@@ -583,7 +701,9 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
       final buyer = BuyerAccountService.instance.currentBuyer;
       final customerName = (buyer != null && buyer.fullName.isNotEmpty)
           ? buyer.fullName
-          : (ProfileService.instance.name.isNotEmpty ? ProfileService.instance.name : 'Customer');
+          : (ProfileService.instance.name.isNotEmpty
+                ? ProfileService.instance.name
+                : 'Customer');
       // Real-time Supabase Broadcast communication with the rider
       OrderChatService.instance.sendMessage(
         _effectiveOrderId,
@@ -622,9 +742,9 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
 
       String autoReplyText =
           'Hello! Thanks for messaging ${widget.title}. We have received your message and will assist you shortly.';
-      if (widget.title.contains('AI Support') || widget.title.contains('Support')) {
-        autoReplyText =
-            'Thank you for reaching out to Nexora Support! Your query has been logged.';
+      if (widget.title.contains('AI Support') ||
+          widget.title.contains('Support')) {
+        autoReplyText = 'Thank you for reaching out to Nexora Support! Your query has been logged.';
       } else if (widget.title.contains('Official Store') ||
           widget.title.contains('Store') ||
           widget.title.contains('Studios')) {
@@ -679,89 +799,66 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
 
   @override
   Widget build(BuildContext context) {
-    final isRiderTyping = _isCourierChat && OrderChatService.instance.isRiderTyping(_effectiveOrderId);
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final isRiderTyping =
+        _isCourierChat &&
+        OrderChatService.instance.isRiderTyping(_effectiveOrderId);
     final showTyping = _isCourierChat ? isRiderTyping : _isSimulatedTyping;
+    final media = MediaQuery.of(context);
+    final compactHeader =
+        media.size.width < 360 || media.textScaler.scale(1) > 1.3;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFAF9FF),
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 1,
-        shadowColor: Colors.black.withValues(alpha: 0.05),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Color(0xFF0F172A), size: 18),
+          tooltip: 'Back to messages',
+          icon: const Icon(Icons.arrow_back_rounded),
           onPressed: () => Navigator.pop(context),
         ),
         titleSpacing: 0,
         title: Row(
           children: [
-            Stack(
-              children: [
-                Container(
-                  width: 38,
-                  height: 38,
-                  decoration: BoxDecoration(
-                    color: widget.avatarBgColor,
-                    shape: BoxShape.circle,
-                    image: widget.avatarUrl.isNotEmpty
-                        ? DecorationImage(
-                            image: NetworkImage(widget.avatarUrl),
-                            fit: BoxFit.cover,
-                          )
-                        : null,
-                  ),
-                  child: widget.avatarUrl.isEmpty
-                      ? Icon(
-                          widget.avatarIcon ?? Icons.person,
-                          color: Colors.white,
-                          size: 20,
-                        )
-                      : null,
-                ),
-                Positioned(
-                  right: 0,
-                  bottom: 0,
-                  child: Container(
-                    width: 10,
-                    height: 10,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF22C55E),
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 2),
-                    ),
-                  ),
-                ),
-              ],
+            ChatAvatar(
+              icon: widget.avatarIcon ?? Icons.person_rounded,
+              backgroundColor: widget.avatarBgColor,
+              imageUrl: widget.avatarUrl,
+              isOnline: true,
+              size: compactHeader ? 32 : 38,
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: NexoraSpacing.sm),
             Expanded(
-              child: GestureDetector(
+              child: InkWell(
                 onTap: _isCourierChat ? _showOrderSwitchModal : null,
-                behavior: HitTestBehavior.opaque,
+                borderRadius: BorderRadius.circular(NexoraRadius.control),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       _cleanTitle,
-                      style: const TextStyle(
-                        fontSize: 14.5,
+                      style: TextStyle(
+                        fontSize: compactHeader ? 13.5 : 14.5,
                         fontWeight: FontWeight.w800,
-                        color: Color(0xFF0F172A),
+                        color: theme.colorScheme.onSurface,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                     Row(
-                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(
-                          _isCourierChat
-                              ? 'Order #${_effectiveOrderId.replaceAll('#', '').toUpperCase()} • Live'
-                              : widget.subtitle,
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Colors.grey.shade600,
-                            fontWeight: FontWeight.w500,
+                        Flexible(
+                          child: Text(
+                            _isCourierChat
+                                ? 'Order #${_effectiveOrderId.replaceAll('#', '').toUpperCase()} • Live'
+                                : widget.subtitle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: theme.colorScheme.onSurfaceVariant,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                         ),
                         if (_isCourierChat) ...[
@@ -769,7 +866,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
                           const Icon(
                             Icons.arrow_drop_down_rounded,
                             size: 16,
-                            color: Color(0xFF0075FF),
+                            color: NexoraTheme.primary,
                           ),
                         ],
                       ],
@@ -781,22 +878,45 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
           ],
         ),
         actions: [
-          if (_isCourierChat)
+          if (_isCourierChat && !compactHeader)
             IconButton(
-              icon: const Icon(Icons.swap_horiz_rounded, color: Color(0xFF0075FF)),
+              icon: const Icon(Icons.swap_horiz_rounded),
               tooltip: 'Switch Order',
               onPressed: _showOrderSwitchModal,
             ),
-          IconButton(
-            icon: const Icon(Icons.call_rounded, color: Color(0xFF0075FF), size: 20),
-            tooltip: 'Call Courier',
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Calling $_cleanTitle (+63 917 123 4567)...')),
-              );
-            },
-          ),
-          const SizedBox(width: 4),
+          if (!compactHeader)
+            IconButton(
+              icon: const Icon(Icons.call_outlined),
+              tooltip: 'Call $_cleanTitle',
+              onPressed: _callCurrentContact,
+            )
+          else
+            PopupMenuButton<String>(
+              tooltip: 'Conversation actions',
+              onSelected: (value) {
+                if (value == 'switch') _showOrderSwitchModal();
+                if (value == 'call') _callCurrentContact();
+              },
+              itemBuilder: (context) => [
+                if (_isCourierChat)
+                  const PopupMenuItem(
+                    value: 'switch',
+                    child: ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(Icons.swap_horiz_rounded),
+                      title: Text('Switch order'),
+                    ),
+                  ),
+                const PopupMenuItem(
+                  value: 'call',
+                  child: ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(Icons.call_outlined),
+                    title: Text('Call contact'),
+                  ),
+                ),
+              ],
+            ),
         ],
       ),
       body: Column(
@@ -805,7 +925,10 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
           Expanded(
             child: ListView.builder(
               controller: _scrollController,
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.symmetric(
+                horizontal: compactHeader ? NexoraSpacing.sm : NexoraSpacing.md,
+                vertical: NexoraSpacing.md,
+              ),
               itemCount: _messages.length + (showTyping ? 1 : 0),
               itemBuilder: (context, index) {
                 if (showTyping && index == _messages.length) {
@@ -828,22 +951,30 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
                   return Center(
                     child: Container(
                       margin: const EdgeInsets.symmetric(vertical: 8),
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFE2E8F0),
+                        color: isDark ? const Color(0xFF131D38) : const Color(0xFFE2E8F0),
                         borderRadius: BorderRadius.circular(16),
+                        border: isDark ? Border.all(color: const Color(0xFF1E2D54)) : null,
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.lock_outline_rounded, size: 12, color: Color(0xFF475569)),
+                          Icon(
+                            Icons.lock_outline_rounded,
+                            size: 12,
+                            color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF475569),
+                          ),
                           const SizedBox(width: 6),
                           Flexible(
                             child: Text(
                               msg['text'] ?? '',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 11,
-                                color: Color(0xFF475569),
+                                color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF475569),
                                 fontWeight: FontWeight.w600,
                               ),
                               textAlign: TextAlign.center,
@@ -855,35 +986,55 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
                   );
                 }
 
-                final isUser = (msg['sender'] == 'user') || (msg['isMe'] == true);
+                final isUser =
+                    (msg['sender'] == 'user') || (msg['isMe'] == true);
                 final isUnsent = msg['isUnsent'] == true;
                 final isEdited = msg['isEdited'] == true;
 
                 final rawSenderName = (msg['senderName'] as String?) ?? '';
                 final senderName = rawSenderName.isNotEmpty
-                    ? rawSenderName.replaceAll(RegExp(r'\s*\((Courier|Rider)\)', caseSensitive: false), '').trim()
+                    ? rawSenderName
+                          .replaceAll(
+                            RegExp(
+                              r'\s*\((Courier|Rider)\)',
+                              caseSensitive: false,
+                            ),
+                            '',
+                          )
+                          .trim()
                     : _cleanTitle;
 
                 if (isUnsent) {
                   return Align(
-                    alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+                    alignment: isUser
+                        ? Alignment.centerRight
+                        : Alignment.centerLeft,
                     child: Container(
                       margin: const EdgeInsets.only(bottom: 10),
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 8,
+                      ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF1F5F9),
+                        color: isDark ? const Color(0xFF131D38) : const Color(0xFFF1F5F9),
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: const Color(0xFFCBD5E1)),
+                        border: Border.all(color: isDark ? const Color(0xFF1E2D54) : const Color(0xFFCBD5E1)),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.remove_circle_outline_rounded, size: 14, color: Color(0xFF94A3B8)),
+                          Icon(
+                            Icons.remove_circle_outline_rounded,
+                            size: 14,
+                            color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8),
+                          ),
                           const SizedBox(width: 6),
                           Text(
-                            isUser ? 'You unsent a message' : 'This message was unsent',
-                            style: const TextStyle(
-                              color: Color(0xFF64748B),
+                            isUser
+                                ? 'You unsent a message'
+                                : 'This message was unsent',
+                            style: TextStyle(
+                              color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
                               fontSize: 12.5,
                               fontStyle: FontStyle.italic,
                             ),
@@ -894,11 +1045,20 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
                   );
                 }
 
-                final attachData = (msg['attachmentData'] ?? msg['attachment_data'])?.toString();
-                final attachName = (msg['attachmentName'] ?? msg['attachment_name'])?.toString();
-                final attachSize = (msg['attachmentSize'] ?? msg['attachment_size']) as int?;
-                final attachType = (msg['attachmentType'] ?? msg['attachment_type'])?.toString() ?? 'image';
-                final isImage = attachType == 'image' ||
+                final attachData =
+                    (msg['attachmentData'] ?? msg['attachment_data'])
+                        ?.toString();
+                final attachName =
+                    (msg['attachmentName'] ?? msg['attachment_name'])
+                        ?.toString();
+                final attachSize =
+                    (msg['attachmentSize'] ?? msg['attachment_size']) as int?;
+                final attachType =
+                    (msg['attachmentType'] ?? msg['attachment_type'])
+                        ?.toString() ??
+                    'image';
+                final isImage =
+                    attachType == 'image' ||
                     attachName?.endsWith('.jpg') == true ||
                     attachName?.endsWith('.jpeg') == true ||
                     attachName?.endsWith('.png') == true ||
@@ -914,41 +1074,58 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
                 }
 
                 return Align(
-                  alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+                  alignment: isUser
+                      ? Alignment.centerRight
+                      : Alignment.centerLeft,
                   child: GestureDetector(
                     onLongPress: isUser ? () => _showMessageOptions(msg) : null,
                     child: Container(
                       margin: const EdgeInsets.only(bottom: 10),
                       constraints: BoxConstraints(
-                        maxWidth: MediaQuery.of(context).size.width * 0.78,
+                        maxWidth:
+                            media.size.width * (compactHeader ? 0.88 : 0.78),
                       ),
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 10,
+                      ),
                       decoration: BoxDecoration(
-                        color: isUser ? const Color(0xFF0075FF) : Colors.white,
+                        color: isUser
+                            ? const Color(0xFF0075FF)
+                            : (isDark ? const Color(0xFF131D38) : Colors.white),
                         borderRadius: BorderRadius.only(
                           topLeft: const Radius.circular(16),
                           topRight: const Radius.circular(16),
                           bottomLeft: Radius.circular(isUser ? 16 : 4),
                           bottomRight: Radius.circular(isUser ? 4 : 16),
                         ),
+                        border: (!isUser && isDark)
+                            ? Border.all(color: const Color(0xFF1E2D54))
+                            : null,
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.04),
+                            color: Colors.black.withValues(
+                              alpha: isDark ? 0.2 : 0.04,
+                            ),
                             blurRadius: 4,
                             offset: const Offset(0, 2),
                           ),
                         ],
                       ),
                       child: Column(
-                        crossAxisAlignment: isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                        crossAxisAlignment: isUser
+                            ? CrossAxisAlignment.end
+                            : CrossAxisAlignment.start,
                         children: [
                           if (!isUser && senderName.isNotEmpty) ...[
                             Text(
                               senderName,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w700,
-                                color: Color(0xFF0075FF),
+                                color: isDark
+                                    ? const Color(0xFF38BDF8)
+                                    : const Color(0xFF0075FF),
                               ),
                             ),
                             const SizedBox(height: 2),
@@ -956,10 +1133,15 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
                           if (attachData != null && attachData.isNotEmpty) ...[
                             if (isImage)
                               GestureDetector(
-                                onTap: () => _openImageViewer(attachData, attachName ?? 'Photo'),
+                                onTap: () => _openImageViewer(
+                                  attachData,
+                                  attachName ?? 'Photo',
+                                ),
                                 child: Container(
                                   margin: const EdgeInsets.only(bottom: 6),
-                                  constraints: const BoxConstraints(maxHeight: 200),
+                                  constraints: const BoxConstraints(
+                                    maxHeight: 200,
+                                  ),
                                   child: ClipRRect(
                                     borderRadius: BorderRadius.circular(12),
                                     child: Stack(
@@ -969,21 +1151,41 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
                                           base64Decode(attachData),
                                           fit: BoxFit.cover,
                                           width: double.infinity,
-                                          errorBuilder: (context, error, stackTrace) => const Center(
-                                            child: Icon(Icons.broken_image_rounded, size: 40, color: Colors.grey),
-                                          ),
+                                          errorBuilder:
+                                              (
+                                                context,
+                                                error,
+                                                stackTrace,
+                                              ) => const Center(
+                                                child: Icon(
+                                                  Icons.broken_image_rounded,
+                                                  size: 40,
+                                                  color: Colors.grey,
+                                                ),
+                                              ),
                                         ),
-                                        if (attachSize != null && attachSize > 0)
+                                        if (attachSize != null &&
+                                            attachSize > 0)
                                           Container(
                                             margin: const EdgeInsets.all(6),
-                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 6,
+                                              vertical: 2,
+                                            ),
                                             decoration: BoxDecoration(
-                                              color: Colors.black.withValues(alpha: 0.65),
-                                              borderRadius: BorderRadius.circular(6),
+                                              color: Colors.black.withValues(
+                                                alpha: 0.65,
+                                              ),
+                                              borderRadius:
+                                                  BorderRadius.circular(6),
                                             ),
                                             child: Text(
                                               formatSize(attachSize),
-                                              style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.bold,
+                                              ),
                                             ),
                                           ),
                                       ],
@@ -996,24 +1198,43 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
                                 margin: const EdgeInsets.only(bottom: 6),
                                 padding: const EdgeInsets.all(8),
                                 decoration: BoxDecoration(
-                                  color: isUser ? Colors.white.withValues(alpha: 0.15) : const Color(0xFFF1F5F9),
+                                  color: isUser
+                                      ? Colors.white.withValues(alpha: 0.15)
+                                      : (isDark
+                                            ? const Color(0xFF0F172A)
+                                            : const Color(0xFFF1F5F9)),
                                   borderRadius: BorderRadius.circular(10),
                                 ),
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Icon(Icons.insert_drive_file_rounded, size: 24, color: isUser ? Colors.white : const Color(0xFF0075FF)),
+                                    Icon(
+                                      Icons.insert_drive_file_rounded,
+                                      size: 24,
+                                      color: isUser
+                                          ? Colors.white
+                                          : (isDark
+                                                ? const Color(0xFF38BDF8)
+                                                : const Color(0xFF0075FF)),
+                                    ),
                                     const SizedBox(width: 8),
                                     Flexible(
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
                                           Text(
                                             attachName ?? 'File Attachment',
                                             style: TextStyle(
                                               fontSize: 12,
                                               fontWeight: FontWeight.bold,
-                                              color: isUser ? Colors.white : const Color(0xFF0F172A),
+                                              color: isUser
+                                                  ? Colors.white
+                                                  : (isDark
+                                                        ? Colors.white
+                                                        : const Color(
+                                                            0xFF0F172A,
+                                                          )),
                                             ),
                                             overflow: TextOverflow.ellipsis,
                                           ),
@@ -1022,7 +1243,15 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
                                               formatSize(attachSize),
                                               style: TextStyle(
                                                 fontSize: 10,
-                                                color: isUser ? Colors.white70 : const Color(0xFF64748B),
+                                                color: isUser
+                                                    ? Colors.white70
+                                                    : (isDark
+                                                          ? const Color(
+                                                              0xFF94A3B8,
+                                                            )
+                                                          : const Color(
+                                                              0xFF64748B,
+                                                            )),
                                               ),
                                             ),
                                         ],
@@ -1037,7 +1266,11 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
                               msg['text'] ?? '',
                               style: TextStyle(
                                 fontSize: 13.5,
-                                color: isUser ? Colors.white : const Color(0xFF0F172A),
+                                color: isUser
+                                    ? Colors.white
+                                    : (isDark
+                                          ? const Color(0xFFF1F5F9)
+                                          : const Color(0xFF0F172A)),
                                 height: 1.35,
                               ),
                             ),
@@ -1051,7 +1284,9 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
                                   fontSize: 10,
                                   color: isUser
                                       ? Colors.white.withValues(alpha: 0.75)
-                                      : Colors.grey.shade500,
+                                      : (isDark
+                                            ? const Color(0xFF94A3B8)
+                                            : Colors.grey.shade500),
                                 ),
                               ),
                               if (isEdited) ...[
@@ -1063,7 +1298,9 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
                                     fontStyle: FontStyle.italic,
                                     color: isUser
                                         ? Colors.white.withValues(alpha: 0.75)
-                                        : const Color(0xFF0284C7),
+                                        : (isDark
+                                              ? const Color(0xFF38BDF8)
+                                              : const Color(0xFF0284C7)),
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
@@ -1087,7 +1324,6 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
             ),
           ),
 
-
           // Quick Replies Carousel
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
@@ -1099,14 +1335,16 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
                   child: ActionChip(
                     label: Text(
                       reply,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 11.5,
-                        color: Color(0xFF0284C7),
+                        color: isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7),
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    backgroundColor: Colors.white,
-                    side: const BorderSide(color: Color(0xFFCBD5E1)),
+                    backgroundColor: isDark ? const Color(0xFF131D38) : Colors.white,
+                    side: BorderSide(
+                      color: isDark ? const Color(0xFF1E2D54) : const Color(0xFFCBD5E1),
+                    ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(20),
                     ),
@@ -1121,11 +1359,15 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
           if (_editingMessage != null)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              decoration: const BoxDecoration(
-                color: Color(0xFFF0F9FF),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF131D38) : const Color(0xFFF0F9FF),
                 border: Border(
-                  top: BorderSide(color: Color(0xFFBAE6FD)),
-                  bottom: BorderSide(color: Color(0xFFE2E8F0)),
+                  top: BorderSide(
+                    color: isDark ? const Color(0xFF1E2D54) : const Color(0xFFBAE6FD),
+                  ),
+                  bottom: BorderSide(
+                    color: isDark ? const Color(0xFF1E2D54) : const Color(0xFFE2E8F0),
+                  ),
                 ),
               ),
               child: Row(
@@ -1136,7 +1378,11 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
                       color: const Color(0xFF0284C7).withValues(alpha: 0.12),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.edit_rounded, size: 14, color: Color(0xFF0284C7)),
+                    child: const Icon(
+                      Icons.edit_rounded,
+                      size: 14,
+                      color: Color(0xFF0284C7),
+                    ),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
@@ -1157,7 +1403,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
                           _editingMessage!['text'] ?? '',
                           style: TextStyle(
                             fontSize: 12,
-                            color: Colors.grey.shade600,
+                            color: isDark ? const Color(0xFF94A3B8) : Colors.grey.shade600,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -1166,9 +1412,16 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close_rounded, size: 18, color: Color(0xFF64748B)),
+                    icon: Icon(
+                      Icons.close_rounded,
+                      size: 18,
+                      color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                    ),
                     padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                    constraints: const BoxConstraints(
+                      minWidth: 28,
+                      minHeight: 28,
+                    ),
                     tooltip: 'Cancel Edit',
                     onPressed: _cancelEditingMessage,
                   ),
@@ -1187,15 +1440,22 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
                 top: 8,
                 bottom: 8,
               ),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                border: Border(top: BorderSide(color: Color(0xFFE2E8F0))),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF0A1024) : Colors.white,
+                border: Border(
+                  top: BorderSide(
+                    color: isDark ? const Color(0xFF1A2644) : const Color(0xFFE2E8F0),
+                  ),
+                ),
               ),
               child: Row(
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.add_photo_alternate_rounded,
-                        color: Color(0xFF0075FF), size: 24),
+                    icon: Icon(
+                      Icons.add_photo_alternate_rounded,
+                      color: isDark ? const Color(0xFF38BDF8) : const Color(0xFF0075FF),
+                      size: 24,
+                    ),
                     tooltip: 'Send Photo / File (Max 5MB)',
                     onPressed: _pickAttachment,
                   ),
@@ -1203,19 +1463,27 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 14),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF1F5F9),
+                        color: isDark ? const Color(0xFF131D38) : const Color(0xFFF1F5F9),
                         borderRadius: BorderRadius.circular(24),
+                        border: isDark ? Border.all(color: const Color(0xFF1E2D54)) : null,
                       ),
                       child: TextField(
                         controller: _messageController,
                         focusNode: _messageFocusNode,
+                        style: TextStyle(
+                          fontSize: 13.5,
+                          color: isDark ? Colors.white : const Color(0xFF0F172A),
+                        ),
                         decoration: InputDecoration(
                           hintText: _editingMessage != null
                               ? 'Edit your message...'
                               : (_isCourierChat
-                                  ? 'Message $_cleanTitle...'
-                                  : 'Type a message...'),
-                          hintStyle: TextStyle(fontSize: 13, color: Colors.grey.shade500),
+                                    ? 'Message $_cleanTitle...'
+                                    : 'Type a message...'),
+                          hintStyle: TextStyle(
+                            fontSize: 13,
+                            color: isDark ? const Color(0xFF64748B) : Colors.grey.shade500,
+                          ),
                           border: InputBorder.none,
                         ),
                         textInputAction: TextInputAction.send,
@@ -1240,15 +1508,24 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
                       ),
                       child: IconButton(
                         padding: EdgeInsets.zero,
-                        icon: const Icon(Icons.check_rounded, color: Colors.white, size: 20),
+                        icon: const Icon(
+                          Icons.check_rounded,
+                          color: Colors.white,
+                          size: 20,
+                        ),
                         tooltip: 'Save Edit',
                         onPressed: _submitEditMessage,
                       ),
                     )
                   else
                     IconButton(
-                      icon: const Icon(Icons.send_rounded,
-                          color: Color(0xFF0075FF), size: 22),
+                      key: const ValueKey('message-send-action'),
+                      tooltip: 'Send message',
+                      icon: const Icon(
+                        Icons.send_rounded,
+                        color: Color(0xFF0075FF),
+                        size: 22,
+                      ),
                       onPressed: () => _sendMessage(_messageController.text),
                     ),
                 ],
@@ -1257,6 +1534,12 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
           ),
         ],
       ),
+    );
+  }
+
+  void _callCurrentContact() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Calling $_cleanTitle (+63 917 123 4567)...')),
     );
   }
 
@@ -1287,7 +1570,9 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
     if (newText.isEmpty) return;
 
     if (ProfanityFilterService.instance.hasProfanity(newText)) {
-      _showProfanityAlert('Inappropriate language detected. Please maintain respectful and courteous communication.');
+      _showProfanityAlert(
+        'Inappropriate language detected. Please maintain respectful and courteous communication.',
+      );
       return;
     }
 
@@ -1320,11 +1605,18 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
     if (isUnsent) return;
 
     final canEdit = isMe && OrderChatService.instance.canEditMessage(msg);
-    final remainingMinutes = OrderChatService.instance.getRemainingEditMinutes(msg);
+    final remainingMinutes = OrderChatService.instance.getRemainingEditMinutes(
+      msg,
+    );
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final sheetBg = isDark ? const Color(0xFF0D1323) : Colors.white;
+    final textColor = isDark ? Colors.white : const Color(0xFF0F172A);
+    final subtitleColor = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
+    final handleColor = isDark ? const Color(0xFF334155) : Colors.grey.shade300;
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.white,
+      backgroundColor: sheetBg,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -1338,27 +1630,35 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
                 width: 36,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
+                  color: handleColor,
                   borderRadius: BorderRadius.circular(4),
                 ),
               ),
               const SizedBox(height: 12),
-              const Text(
+              Text(
                 'Message Options',
-                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+                style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 15,
+                  color: textColor,
+                ),
               ),
               const SizedBox(height: 8),
               if (isMe) ...[
                 ListTile(
                   leading: Icon(
                     Icons.edit_rounded,
-                    color: canEdit ? const Color(0xFF0075FF) : Colors.grey.shade400,
+                    color: canEdit
+                        ? const Color(0xFF0075FF)
+                        : (isDark ? const Color(0xFF475569) : Colors.grey.shade400),
                   ),
                   title: Text(
                     'Edit Message',
                     style: TextStyle(
                       fontWeight: FontWeight.w700,
-                      color: canEdit ? const Color(0xFF0F172A) : Colors.grey.shade400,
+                      color: canEdit
+                          ? textColor
+                          : (isDark ? const Color(0xFF475569) : Colors.grey.shade400),
                     ),
                   ),
                   subtitle: Text(
@@ -1367,7 +1667,9 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
                         : 'Edit window expired (can only edit within 10 mins)',
                     style: TextStyle(
                       fontSize: 11.5,
-                      color: canEdit ? const Color(0xFF0284C7) : Colors.grey.shade400,
+                      color: canEdit
+                          ? const Color(0xFF0284C7)
+                          : (isDark ? const Color(0xFF475569) : Colors.grey.shade400),
                     ),
                   ),
                   onTap: () {
@@ -1375,19 +1677,27 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
                     if (canEdit) {
                       _startEditingMessage(msg);
                     } else {
-                      _showProfanityAlert('Messages can only be edited within 10 minutes of sending.');
+                      _showProfanityAlert(
+                        'Messages can only be edited within 10 minutes of sending.',
+                      );
                     }
                   },
                 ),
                 ListTile(
-                  leading: const Icon(Icons.undo_rounded, color: Color(0xFFEF4444)),
+                  leading: const Icon(
+                    Icons.undo_rounded,
+                    color: Color(0xFFEF4444),
+                  ),
                   title: const Text(
                     'Unsend Message',
-                    style: TextStyle(fontWeight: FontWeight.w700, color: Color(0xFFEF4444)),
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFFEF4444),
+                    ),
                   ),
-                  subtitle: const Text(
+                  subtitle: Text(
                     'Removes message for everyone in this chat',
-                    style: TextStyle(fontSize: 11.5, color: Color(0xFF94A3B8)),
+                    style: TextStyle(fontSize: 11.5, color: subtitleColor),
                   ),
                   onTap: () {
                     Navigator.pop(ctx);
@@ -1396,8 +1706,14 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
                 ),
               ],
               ListTile(
-                leading: const Icon(Icons.copy_rounded, color: Color(0xFF64748B)),
-                title: const Text('Copy Text', style: TextStyle(fontWeight: FontWeight.w600)),
+                leading: Icon(
+                  Icons.copy_rounded,
+                  color: subtitleColor,
+                ),
+                title: Text(
+                  'Copy Text',
+                  style: TextStyle(fontWeight: FontWeight.w600, color: textColor),
+                ),
                 onTap: () {
                   Navigator.pop(ctx);
                   Clipboard.setData(ClipboardData(text: msg['text'] ?? ''));
@@ -1416,7 +1732,6 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
       ),
     );
   }
-
   void _confirmUnsend(Map<String, dynamic> msg) {
     showDialog(
       context: context,
@@ -1426,7 +1741,10 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
           children: [
             Icon(Icons.undo_rounded, color: Color(0xFFEF4444)),
             SizedBox(width: 8),
-            Text('Unsend Message?', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
+            Text(
+              'Unsend Message?',
+              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
+            ),
           ],
         ),
         content: const Text(
@@ -1436,19 +1754,27 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel', style: TextStyle(color: Color(0xFF64748B))),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: Color(0xFF64748B)),
+            ),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFEF4444),
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
             onPressed: () {
               Navigator.pop(ctx);
               final msgId = (msg['id'] ?? '').toString();
               if (_isCourierChat) {
-                OrderChatService.instance.unsendMessage(_effectiveOrderId, msgId);
+                OrderChatService.instance.unsendMessage(
+                  _effectiveOrderId,
+                  msgId,
+                );
               } else {
                 setState(() {
                   msg['text'] = 'You unsent a message';
@@ -1470,21 +1796,34 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Row(
           children: [
-            Icon(Icons.warning_amber_rounded, color: Color(0xFFF59E0B), size: 26),
+            Icon(
+              Icons.warning_amber_rounded,
+              color: Color(0xFFF59E0B),
+              size: 26,
+            ),
             SizedBox(width: 8),
-            Text('Warning', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+            Text(
+              'Warning',
+              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+            ),
           ],
         ),
         content: Text(
           message,
-          style: const TextStyle(fontSize: 13, color: Color(0xFF334155), height: 1.4),
+          style: const TextStyle(
+            fontSize: 13,
+            color: Color(0xFF334155),
+            height: 1.4,
+          ),
         ),
         actions: [
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF0F172A),
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
             onPressed: () => Navigator.pop(ctx),
             child: const Text('Understood'),
@@ -1521,7 +1860,18 @@ class _ChatTypingIndicatorState extends State<ChatTypingIndicator>
     _animController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1200),
-    )..repeat();
+    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _animController.stop();
+      _animController.value = 0;
+    } else if (!_animController.isAnimating) {
+      _animController.repeat();
+    }
   }
 
   @override
@@ -1565,6 +1915,7 @@ class _ChatTypingIndicatorState extends State<ChatTypingIndicator>
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
@@ -1575,47 +1926,51 @@ class _ChatTypingIndicatorState extends State<ChatTypingIndicator>
             widget.leadingAvatar!,
             const SizedBox(width: 8),
           ],
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(16),
-                topRight: Radius.circular(16),
-                bottomLeft: Radius.circular(4),
-                bottomRight: Radius.circular(16),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.04),
-                  blurRadius: 6,
-                  offset: const Offset(0, 2),
+          Flexible(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF131D38) : Colors.white,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(16),
+                  topRight: Radius.circular(16),
+                  bottomLeft: Radius.circular(4),
+                  bottomRight: Radius.circular(16),
                 ),
-              ],
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (widget.senderName.isNotEmpty) ...[
-                  Text(
-                    '${widget.senderName} is typing',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.grey.shade700,
-                    ),
+                border: isDark ? Border.all(color: const Color(0xFF1E2D54)) : null,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
                   ),
-                  const SizedBox(width: 8),
                 ],
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _buildBouncingDot(0),
-                    _buildBouncingDot(1),
-                    _buildBouncingDot(2),
+              ),
+              child: Wrap(
+                spacing: NexoraSpacing.xs,
+                runSpacing: NexoraSpacing.xs,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  if (widget.senderName.isNotEmpty) ...[
+                    Text(
+                      '${widget.senderName} is typing',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: isDark ? const Color(0xFF94A3B8) : Colors.grey.shade700,
+                      ),
+                    ),
                   ],
-                ),
-              ],
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _buildBouncingDot(0),
+                      _buildBouncingDot(1),
+                      _buildBouncingDot(2),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ],

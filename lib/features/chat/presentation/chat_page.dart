@@ -1,10 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:nexora_flutter_app/app/routes/app_routes.dart';
+import 'package:nexora_flutter_app/app/theme/nexora_theme.dart';
 import 'package:nexora_flutter_app/core/services/chat_service.dart';
+
 import '../../../core/services/order_service.dart';
 import '../../../core/services/order_chat_service.dart';
 import 'chat_detail_page.dart';
+import 'widgets/chat_components.dart';
+
+const bool _useLegacyChatInbox = bool.fromEnvironment(
+  'NEXORA_LEGACY_CHAT_INBOX',
+);
 
 class ChatPage extends StatefulWidget {
   const ChatPage({super.key});
@@ -23,6 +30,7 @@ class _ChatPageState extends State<ChatPage> {
   @override
   void initState() {
     super.initState();
+    ChatService.instance.purgeMockConversations();
     ChatService.instance.addListener(_onChatServiceChanged);
     OrderChatService.instance.addListener(_onChatServiceChanged);
     OrderService.instance.addListener(_onChatServiceChanged);
@@ -49,13 +57,22 @@ class _ChatPageState extends State<ChatPage> {
   List<Map<String, dynamic>> get _filters {
     final active = ChatService.instance.conversations;
     final hidden = ChatService.instance.hiddenConversations;
-    final officialCount = active.where((c) => c.category == 'Official Stores').length;
+    final officialCount = active
+        .where((c) => c.category == 'Official Stores')
+        .length;
     final supportCount = active.where((c) => c.category == 'Support').length;
     final activeCouriersCount = OrderService.instance.activeOrders.length;
 
     return [
-      {'label': 'All Chats', 'count': active.length + (activeCouriersCount > 0 ? 1 : 0)},
-      {'label': 'Couriers', 'count': activeCouriersCount, 'dotColor': const Color(0xFF06B6D4)},
+      {
+        'label': 'All Chats',
+        'count': active.length + (activeCouriersCount > 0 ? 1 : 0),
+      },
+      {
+        'label': 'Couriers',
+        'count': activeCouriersCount,
+        'dotColor': const Color(0xFF06B6D4),
+      },
       {'label': 'Official Stores', 'count': officialCount},
       {'label': 'Support', 'count': supportCount},
       {'label': 'Hidden', 'count': hidden.length},
@@ -102,7 +119,9 @@ class _ChatPageState extends State<ChatPage> {
         final title = item.title.toLowerCase();
         final subtitle = item.subtitle.toLowerCase();
         final itemTag = (item.itemTag ?? '').toLowerCase();
-        return title.contains(query) || subtitle.contains(query) || itemTag.contains(query);
+        return title.contains(query) ||
+            subtitle.contains(query) ||
+            itemTag.contains(query);
       }
       return true;
     }).toList();
@@ -181,7 +200,10 @@ class _ChatPageState extends State<ChatPage> {
             height: 1.4,
           ),
         ),
-        actionsPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        actionsPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 12,
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogCtx),
@@ -216,7 +238,10 @@ class _ChatPageState extends State<ChatPage> {
               ),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             ),
-            child: const Text('Delete', style: TextStyle(fontWeight: FontWeight.bold)),
+            child: const Text(
+              'Delete',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
           ),
         ],
       ),
@@ -225,6 +250,10 @@ class _ChatPageState extends State<ChatPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (!_useLegacyChatInbox) {
+      return _buildRefinedInbox(context);
+    }
+
     return Scaffold(
       backgroundColor: const Color(0xFFFAF9FF),
       body: SafeArea(
@@ -256,7 +285,8 @@ class _ChatPageState extends State<ChatPage> {
                   const SizedBox(height: 20),
 
                   // Live Dispatch Connected Card (Shown when an active delivery exists)
-                  if (_selectedFilterIndex == 0 && OrderService.instance.activeOrders.isNotEmpty) ...[
+                  if (_selectedFilterIndex == 0 &&
+                      OrderService.instance.activeOrders.isNotEmpty) ...[
                     _buildLiveDispatchCard(context),
                     const SizedBox(height: 22),
                   ],
@@ -283,6 +313,369 @@ class _ChatPageState extends State<ChatPage> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRefinedInbox(BuildContext context) {
+    final theme = Theme.of(context);
+    final unreadCount = ChatService.instance.totalUnreadCount;
+    final hiddenCount = ChatService.instance.hiddenConversations.length;
+    final viewingHidden = _selectedFilterIndex == 4;
+
+    return Scaffold(
+      backgroundColor: theme.scaffoldBackgroundColor,
+      appBar: AppBar(
+        title: Text(viewingHidden ? 'Hidden messages' : 'Messages'),
+        actions: [
+          IconButton(
+            key: const ValueKey('messages-mark-read-action'),
+            tooltip: 'Mark all as read',
+            onPressed: unreadCount > 0 ? _markAllAsRead : null,
+            icon: const Icon(Icons.done_all_rounded),
+          ),
+          PopupMenuButton<String>(
+            tooltip: 'More message options',
+            onSelected: (value) {
+              if (value == 'hidden') {
+                setState(() => _selectedFilterIndex = 4);
+              } else if (value == 'active') {
+                setState(() => _selectedFilterIndex = 0);
+              } else if (value == 'support') {
+                _showStartTicketDialog(context);
+              }
+            },
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                value: viewingHidden ? 'active' : 'hidden',
+                child: ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(
+                    viewingHidden
+                        ? Icons.inbox_outlined
+                        : Icons.visibility_off_outlined,
+                  ),
+                  title: Text(
+                    viewingHidden
+                        ? 'Back to inbox'
+                        : 'Hidden conversations ($hiddenCount)',
+                  ),
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'support',
+                child: ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(Icons.support_agent_rounded),
+                  title: Text('Contact support'),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+      body: SafeArea(
+        top: false,
+        child: ListView(
+          key: const ValueKey('messages-inbox-scroll'),
+          physics: const BouncingScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(
+            NexoraSpacing.md,
+            NexoraSpacing.md,
+            NexoraSpacing.md,
+            104,
+          ),
+          children: [
+            Text(
+              viewingHidden
+                  ? 'Conversations you moved out of your main inbox.'
+                  : unreadCount > 0
+                  ? '$unreadCount unread ${unreadCount == 1 ? 'conversation' : 'conversations'}'
+                  : 'Store, courier, and support conversations in one place.',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: NexoraSpacing.md),
+            TextField(
+              key: const ValueKey('messages-search-field'),
+              controller: _searchController,
+              focusNode: _searchFocusNode,
+              onChanged: (value) => setState(() => _searchQuery = value),
+              textInputAction: TextInputAction.search,
+              decoration: InputDecoration(
+                hintText: 'Search messages or stores',
+                prefixIcon: const Icon(Icons.search_rounded),
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? IconButton(
+                        tooltip: 'Clear search',
+                        onPressed: () {
+                          _searchController.clear();
+                          setState(() => _searchQuery = '');
+                        },
+                        icon: const Icon(Icons.close_rounded),
+                      )
+                    : null,
+              ),
+            ),
+            if (!viewingHidden) ...[
+              const SizedBox(height: NexoraSpacing.md),
+              _buildRefinedFilters(),
+            ],
+            const SizedBox(height: NexoraSpacing.lg),
+            if (!viewingHidden &&
+                (_selectedFilterIndex == 0 || _selectedFilterIndex == 1)) ...[
+              if (OrderService.instance.activeOrders.isNotEmpty)
+                _buildRefinedCourierConversation(context)
+              else if (_selectedFilterIndex == 1)
+                const ChatEmptyState(
+                  icon: Icons.two_wheeler_outlined,
+                  title: 'No active courier chat',
+                  message: 'Courier messaging appears here once an order is out for delivery.',
+                ),
+              if (OrderService.instance.activeOrders.isNotEmpty &&
+                  _selectedFilterIndex == 0)
+                const SizedBox(height: NexoraSpacing.lg),
+            ],
+            if (_selectedFilterIndex != 1)
+              _buildRefinedConversationSection(context),
+            if (!viewingHidden) ...[
+              const SizedBox(height: NexoraSpacing.xl),
+              OutlinedButton.icon(
+                onPressed: () => _showStartTicketDialog(context),
+                icon: const Icon(Icons.support_agent_rounded),
+                label: const Text('Contact Nexora support'),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRefinedFilters() {
+    const filters = <(int, String)>[
+      (0, 'All'),
+      (1, 'Delivery'),
+      (2, 'Stores'),
+      (3, 'Support'),
+    ];
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          for (final filter in filters)
+            Padding(
+              padding: const EdgeInsetsDirectional.only(end: NexoraSpacing.xs),
+              child: ChoiceChip(
+                key: ValueKey('messages-filter-${filter.$1}'),
+                label: Text(filter.$2),
+                selected: _selectedFilterIndex == filter.$1,
+                onSelected: (_) {
+                  setState(() => _selectedFilterIndex = filter.$1);
+                },
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRefinedCourierConversation(BuildContext context) {
+    final order = OrderService.instance.activeOrders.first;
+    final orderId = order.orderId.replaceAll('#', '').trim();
+    final courierName = order.courierName.isNotEmpty
+        ? order.courierName.replaceAll('Mark Ronald', 'Pedro Jose Garcia')
+        : 'Pedro Jose Garcia';
+    final messages = OrderChatService.instance.getMessages(orderId);
+    final lastMessage = messages.isNotEmpty ? messages.last : null;
+    final preview =
+        (lastMessage?['text'] ??
+                'Your courier will share live delivery updates here.')
+            .toString();
+    final unread = OrderChatService.instance.getUnreadCount(orderId);
+
+    final theme = Theme.of(context);
+    return Material(
+      color: theme.colorScheme.surfaceContainerLowest,
+      borderRadius: BorderRadius.circular(NexoraRadius.card),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        key: const ValueKey('messages-live-courier-card'),
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ChatDetailPage(
+                orderId: orderId,
+                title: courierName,
+                subtitle: 'Courier • Active on route',
+                orderRef: '#$orderId',
+                avatarBgColor: theme.colorScheme.secondary,
+                avatarIcon: Icons.two_wheeler_rounded,
+                initialMessages: messages,
+              ),
+            ),
+          );
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(NexoraSpacing.md),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ChatAvatar(
+                icon: Icons.two_wheeler_rounded,
+                backgroundColor: theme.colorScheme.secondary,
+                isOnline: true,
+              ),
+              const SizedBox(width: NexoraSpacing.sm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      courierName,
+                      style: const TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                    const SizedBox(height: NexoraSpacing.xxs),
+                    Text(
+                      preview,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurfaceVariant,
+                        height: 1.35,
+                      ),
+                    ),
+                    const SizedBox(height: NexoraSpacing.sm),
+                    Wrap(
+                      spacing: NexoraSpacing.xs,
+                      runSpacing: NexoraSpacing.xs,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        const MessageStatusBadge(
+                          label: 'Live delivery',
+                          icon: Icons.sensors_rounded,
+                          color: Color(0xFF0891B2),
+                        ),
+                        Text(
+                          '#$orderId',
+                          style: TextStyle(
+                            color: theme.colorScheme.onSurfaceVariant,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        if (unread > 0)
+                          MessageStatusBadge(
+                            label: '$unread unread',
+                            color: theme.colorScheme.tertiary,
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: NexoraSpacing.xs),
+              Icon(
+                Icons.chevron_right_rounded,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRefinedConversationSection(BuildContext context) {
+    final conversations = _filteredConversations;
+    final viewingHidden = _selectedFilterIndex == 4;
+
+    if (conversations.isEmpty) {
+      return ChatEmptyState(
+        icon: viewingHidden
+            ? Icons.visibility_off_outlined
+            : Icons.chat_bubble_outline_rounded,
+        title: viewingHidden
+            ? 'No hidden conversations'
+            : (_searchQuery.isNotEmpty
+                ? 'No conversations found'
+                : 'No conversations yet'),
+        message: viewingHidden
+            ? 'Conversations you hide will stay here until you restore them.'
+            : (_searchQuery.isNotEmpty
+                ? 'Try another search or check the spelling.'
+                : 'Messages from stores, couriers, and support will appear here once you start chatting.'),
+        actionLabel: _searchQuery.isNotEmpty ? 'Clear search' : null,
+        onAction: _searchQuery.isNotEmpty
+            ? () {
+                _searchController.clear();
+                setState(() => _searchQuery = '');
+              }
+            : null,
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          viewingHidden ? 'Hidden conversations' : 'Recent conversations',
+          style: Theme.of(context).textTheme.titleMedium
+              ?.copyWith(fontWeight: FontWeight.w800),
+        ),
+        const SizedBox(height: NexoraSpacing.sm),
+        for (var index = 0; index < conversations.length; index++) ...[
+          DecoratedBox(
+            decoration: BoxDecoration(
+              border: Border.all(
+                color: Theme.of(context).colorScheme.outlineVariant,
+              ),
+              borderRadius: BorderRadius.circular(NexoraRadius.card),
+            ),
+            child: SlidableConversationCard(
+              key: ValueKey(conversations[index].id),
+              chat: conversations[index],
+              isHiddenMode: viewingHidden,
+              borderRadius: BorderRadius.circular(NexoraRadius.card),
+              onTap: () => _openConversation(context, conversations[index]),
+              onHide: () {
+                if (viewingHidden) {
+                  _unhideConversation(conversations[index]);
+                } else {
+                  _hideConversation(conversations[index]);
+                }
+              },
+              onDelete: () => _confirmDeleteConversation(conversations[index]),
+            ),
+          ),
+          if (index != conversations.length - 1)
+            const SizedBox(height: NexoraSpacing.sm),
+        ],
+      ],
+    );
+  }
+
+  void _openConversation(
+    BuildContext context,
+    ChatConversationModel conversation,
+  ) {
+    ChatService.instance.markAsRead(conversation.id);
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ChatDetailPage(
+          conversationId: conversation.id,
+          title: conversation.title,
+          subtitle: conversation.category,
+          avatarIcon: conversation.avatarIcon,
+          avatarBgColor: conversation.avatarBg,
+          avatarUrl: conversation.avatarUrl ?? '',
+          orderRef: conversation.itemTag ?? '',
+          initialMessages: conversation.messages.map((m) => m.toMap()).toList(),
         ),
       ),
     );
@@ -378,7 +771,9 @@ class _ChatPageState extends State<ChatPage> {
                 Icon(
                   Icons.check_rounded,
                   size: 14,
-                  color: _allRead ? Colors.grey.shade600 : const Color(0xFF0284C7),
+                  color: _allRead
+                      ? Colors.grey.shade600
+                      : const Color(0xFF0284C7),
                 ),
                 const SizedBox(width: 3),
                 Text(
@@ -386,7 +781,9 @@ class _ChatPageState extends State<ChatPage> {
                   style: TextStyle(
                     fontSize: 11.5,
                     fontWeight: FontWeight.w800,
-                    color: _allRead ? Colors.grey.shade600 : const Color(0xFF0284C7),
+                    color: _allRead
+                        ? Colors.grey.shade600
+                        : const Color(0xFF0284C7),
                   ),
                 ),
               ],
@@ -404,10 +801,7 @@ class _ChatPageState extends State<ChatPage> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: const Color(0xFFCBD5E1),
-          width: 1,
-        ),
+        border: Border.all(color: const Color(0xFFCBD5E1), width: 1),
       ),
       child: TextField(
         controller: _searchController,
@@ -420,10 +814,7 @@ class _ChatPageState extends State<ChatPage> {
         style: const TextStyle(fontSize: 14, color: Color(0xFF0F172A)),
         decoration: InputDecoration(
           hintText: 'Search messages, orders, or stores...',
-          hintStyle: TextStyle(
-            color: Colors.grey.shade500,
-            fontSize: 13.5,
-          ),
+          hintStyle: TextStyle(color: Colors.grey.shade500, fontSize: 13.5),
           prefixIcon: Icon(
             Icons.search_rounded,
             color: Colors.grey.shade500,
@@ -471,7 +862,10 @@ class _ChatPageState extends State<ChatPage> {
               },
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
                   color: isSelected ? const Color(0xFF0075FF) : Colors.white,
                   borderRadius: BorderRadius.circular(24),
@@ -488,10 +882,13 @@ class _ChatPageState extends State<ChatPage> {
                       Icon(
                         filter['icon'] as IconData,
                         size: 14,
-                        color: isSelected ? Colors.white : const Color(0xFF64748B),
+                        color: isSelected
+                            ? Colors.white
+                            : const Color(0xFF64748B),
                       ),
                       const SizedBox(width: 5),
-                    ] else if (filter.containsKey('dotColor') && !isSelected) ...[
+                    ] else if (filter.containsKey('dotColor') &&
+                        !isSelected) ...[
                       Container(
                         width: 7,
                         height: 7,
@@ -505,14 +902,21 @@ class _ChatPageState extends State<ChatPage> {
                     Text(
                       filter['label'],
                       style: TextStyle(
-                        color: isSelected ? Colors.white : const Color(0xFF334155),
-                        fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                        color: isSelected
+                            ? Colors.white
+                            : const Color(0xFF334155),
+                        fontWeight: isSelected
+                            ? FontWeight.w800
+                            : FontWeight.w600,
                         fontSize: 13,
                       ),
                     ),
                     const SizedBox(width: 6),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 7,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: isSelected
                             ? Colors.white.withValues(alpha: 0.25)
@@ -522,7 +926,9 @@ class _ChatPageState extends State<ChatPage> {
                       child: Text(
                         '${filter['count']}',
                         style: TextStyle(
-                          color: isSelected ? Colors.white : const Color(0xFF64748B),
+                          color: isSelected
+                              ? Colors.white
+                              : const Color(0xFF64748B),
                           fontWeight: FontWeight.bold,
                           fontSize: 11,
                         ),
@@ -542,8 +948,11 @@ class _ChatPageState extends State<ChatPage> {
   Widget _buildLiveDispatchCard(BuildContext context) {
     final activeOrders = OrderService.instance.activeOrders;
     final activeOrder = activeOrders.isNotEmpty ? activeOrders.first : null;
-    final orderId = activeOrder?.orderId.replaceAll('#', '').trim() ?? 'NX-8942-ORD';
-    final courierName = (activeOrder?.courierName.isNotEmpty == true && !activeOrder!.courierName.contains('Mark'))
+    final orderId =
+        activeOrder?.orderId.replaceAll('#', '').trim() ?? 'NX-8942-ORD';
+    final courierName =
+        (activeOrder?.courierName.isNotEmpty == true &&
+            !activeOrder!.courierName.contains('Mark'))
         ? activeOrder.courierName
         : 'Pedro Jose Garcia';
     final messages = OrderChatService.instance.getMessages(orderId);
@@ -551,9 +960,13 @@ class _ChatPageState extends State<ChatPage> {
     final previewText = lastMsg != null
         ? (lastMsg['text'] ?? '')
         : 'Good day! I have picked up your order and am on my way.';
-    final previewTime = lastMsg != null ? (lastMsg['time'] ?? 'Just now') : 'Live';
+    final previewTime = lastMsg != null
+        ? (lastMsg['time'] ?? 'Just now')
+        : 'Live';
     final courierUnread = OrderChatService.instance.getUnreadCount(orderId);
-    final showUnread = courierUnread > 0 || (ChatService.instance.totalUnreadCount > 0 && !_allRead);
+    final showUnread =
+        courierUnread > 0 ||
+        (ChatService.instance.totalUnreadCount > 0 && !_allRead);
 
     return Column(
       children: [
@@ -619,9 +1032,7 @@ class _ChatPageState extends State<ChatPage> {
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: const Color(0xFFE2E8F0),
-              ),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.02),
@@ -637,15 +1048,21 @@ class _ChatPageState extends State<ChatPage> {
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 9,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFFCFFAFE),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: const Row(
                         children: [
-                          Icon(Icons.directions_bike_rounded,
-                              size: 13, color: Color(0xFF0891B2)),
+                          Icon(
+                            Icons.directions_bike_rounded,
+                            size: 13,
+                            color: Color(0xFF0891B2),
+                          ),
                           SizedBox(width: 4),
                           Text(
                             'On the way (ETA 4:30 PM)',
@@ -660,7 +1077,10 @@ class _ChatPageState extends State<ChatPage> {
                     ),
                     const SizedBox(width: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 9,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFFEEECFF),
                         borderRadius: BorderRadius.circular(12),
@@ -785,7 +1205,9 @@ class _ChatPageState extends State<ChatPage> {
                       onPressed: () {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text('Calling Pedro Jose Garcia (+63 917 123 4567)...'),
+                            content: Text(
+                              'Calling Pedro Jose Garcia (+63 917 123 4567)...',
+                            ),
                             backgroundColor: Color(0xFF0284C7),
                           ),
                         );
@@ -810,7 +1232,10 @@ class _ChatPageState extends State<ChatPage> {
                     const Spacer(),
                     if (showUnread)
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 7,
+                          vertical: 2,
+                        ),
                         decoration: const BoxDecoration(
                           color: Color(0xFF0075FF),
                           shape: BoxShape.circle,
@@ -934,10 +1359,7 @@ class _ChatPageState extends State<ChatPage> {
                       ? 'Slide any conversation to the left and tap "Hide" to move it here.'
                       : 'Start messaging a store or clear your search filter.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey.shade500,
-                  ),
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
                 ),
               ],
             ),
@@ -992,8 +1414,9 @@ class _ChatPageState extends State<ChatPage> {
                           avatarIcon: chat.avatarIcon,
                           avatarBgColor: chat.avatarBg,
                           orderRef: chat.itemTag ?? '',
-                          initialMessages:
-                              chat.messages.map((m) => m.toMap()).toList(),
+                          initialMessages: chat.messages
+                              .map((m) => m.toMap())
+                              .toList(),
                         ),
                       ),
                     );
@@ -1100,10 +1523,7 @@ class _ChatPageState extends State<ChatPage> {
                   icon: const Icon(Icons.add_circle_outline_rounded, size: 16),
                   label: const Text(
                     'Start Ticket',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 13,
-                    ),
+                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
                   ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF0284C7),
@@ -1201,7 +1621,9 @@ class _ChatPageState extends State<ChatPage> {
               }
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text('Support ticket created successfully! Connected with live agent.'),
+                  content: Text(
+                    'Support ticket created successfully! Connected with live agent.',
+                  ),
                   backgroundColor: Color(0xFF0284C7),
                 ),
               );
@@ -1231,19 +1653,31 @@ class _ChatPageState extends State<ChatPage> {
           children: [
             const Text(
               'Help Center FAQ',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF0F172A),
+              ),
             ),
             const SizedBox(height: 14),
             Material(
               color: Colors.transparent,
               child: ListTile(
-                leading: const Icon(Icons.local_shipping_outlined, color: Color(0xFF0284C7)),
+                leading: const Icon(
+                  Icons.local_shipping_outlined,
+                  color: Color(0xFF0284C7),
+                ),
                 title: const Text('Where is my package?'),
-                subtitle: const Text('Track your live delivery status in real-time'),
+                subtitle: const Text(
+                  'Track your live delivery status in real-time',
+                ),
                 onTap: () {
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Showing live tracking details...'), backgroundColor: Color(0xFF0284C7)),
+                    const SnackBar(
+                      content: Text('Showing live tracking details...'),
+                      backgroundColor: Color(0xFF0284C7),
+                    ),
                   );
                 },
               ),
@@ -1251,13 +1685,19 @@ class _ChatPageState extends State<ChatPage> {
             Material(
               color: Colors.transparent,
               child: ListTile(
-                leading: const Icon(Icons.assignment_return_outlined, color: Color(0xFF0284C7)),
+                leading: const Icon(
+                  Icons.assignment_return_outlined,
+                  color: Color(0xFF0284C7),
+                ),
                 title: const Text('30-Day Hassle-Free Return Policy'),
                 subtitle: const Text('Learn how to request a return or refund'),
                 onTap: () {
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Opening Return policy guide...'), backgroundColor: Color(0xFF0284C7)),
+                    const SnackBar(
+                      content: Text('Opening Return policy guide...'),
+                      backgroundColor: Color(0xFF0284C7),
+                    ),
                   );
                 },
               ),
@@ -1265,13 +1705,19 @@ class _ChatPageState extends State<ChatPage> {
             Material(
               color: Colors.transparent,
               child: ListTile(
-                leading: const Icon(Icons.payment_rounded, color: Color(0xFF0284C7)),
+                leading: const Icon(
+                  Icons.payment_rounded,
+                  color: Color(0xFF0284C7),
+                ),
                 title: const Text('Payment & Invoice Queries'),
                 subtitle: const Text('NexoraPay and invoice downloads'),
                 onTap: () {
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Opening Payment & Invoice guide...'), backgroundColor: Color(0xFF0284C7)),
+                    const SnackBar(
+                      content: Text('Opening Payment & Invoice guide...'),
+                      backgroundColor: Color(0xFF0284C7),
+                    ),
                   );
                 },
               ),
@@ -1281,8 +1727,6 @@ class _ChatPageState extends State<ChatPage> {
       ),
     );
   }
-
-
 
   void _showSettingsModal(BuildContext context) {
     showModalBottomSheet(
@@ -1298,7 +1742,11 @@ class _ChatPageState extends State<ChatPage> {
           children: [
             const Text(
               'Message Settings',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF0F172A),
+              ),
             ),
             const SizedBox(height: 14),
             SwitchListTile(
@@ -1376,6 +1824,7 @@ class _ChatPageState extends State<ChatPage> {
       ),
     );
   }
+
   Widget _buildEmptyCouriersState() {
     return Container(
       width: double.infinity,
@@ -1394,7 +1843,11 @@ class _ChatPageState extends State<ChatPage> {
               color: const Color(0xFF06B6D4).withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.two_wheeler_rounded, color: Color(0xFF06B6D4), size: 28),
+            child: const Icon(
+              Icons.two_wheeler_rounded,
+              color: Color(0xFF06B6D4),
+              size: 28,
+            ),
           ),
           const SizedBox(height: 14),
           const Text(
@@ -1441,7 +1894,8 @@ class SlidableConversationCard extends StatefulWidget {
   });
 
   @override
-  State<SlidableConversationCard> createState() => _SlidableConversationCardState();
+  State<SlidableConversationCard> createState() =>
+      _SlidableConversationCardState();
 }
 
 class _SlidableConversationCardState extends State<SlidableConversationCard>
@@ -1458,9 +1912,10 @@ class _SlidableConversationCardState extends State<SlidableConversationCard>
       vsync: this,
       duration: const Duration(milliseconds: 220),
     );
-    _slideAnimation = Tween<double>(begin: 0.0, end: -_maxSlideExtent).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
-    );
+    _slideAnimation = Tween<double>(
+      begin: 0.0,
+      end: -_maxSlideExtent,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
   }
 
   @override
@@ -1479,15 +1934,34 @@ class _SlidableConversationCardState extends State<SlidableConversationCard>
     _dragExtent = 0.0;
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _controller.duration = NexoraMotion.resolve(
+      context,
+      const Duration(milliseconds: 220),
+    );
+  }
+
   void _showContextMenu(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final sheetBg = isDark ? const Color(0xFF0D1323) : Colors.white;
+    final textColor = isDark ? Colors.white : const Color(0xFF0F172A);
+    final subtitleColor = isDark ? const Color(0xFF94A3B8) : Colors.grey.shade600;
+    final dividerColor = isDark ? const Color(0xFF1E293B) : Colors.grey.shade200;
+    final handleColor = isDark ? const Color(0xFF334155) : Colors.grey.shade300;
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       builder: (modalCtx) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        decoration: BoxDecoration(
+          color: sheetBg,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          border: isDark
+              ? const Border(top: BorderSide(color: Color(0xFF1E293B), width: 1))
+              : null,
         ),
         child: SafeArea(
           child: Column(
@@ -1498,7 +1972,7 @@ class _SlidableConversationCardState extends State<SlidableConversationCard>
                 height: 4,
                 margin: const EdgeInsets.only(bottom: 18),
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
+                  color: handleColor,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -1507,16 +1981,20 @@ class _SlidableConversationCardState extends State<SlidableConversationCard>
                   CircleAvatar(
                     backgroundColor: widget.chat.avatarBg,
                     radius: 18,
-                    child: Icon(widget.chat.avatarIcon, size: 18, color: Colors.white),
+                    child: Icon(
+                      widget.chat.avatarIcon,
+                      size: 18,
+                      color: Colors.white,
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
                       widget.chat.title,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
-                        color: Color(0xFF0F172A),
+                        color: textColor,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -1525,7 +2003,7 @@ class _SlidableConversationCardState extends State<SlidableConversationCard>
                 ],
               ),
               const SizedBox(height: 16),
-              const Divider(height: 1),
+              Divider(height: 1, color: dividerColor),
               const SizedBox(height: 8),
               ListTile(
                 contentPadding: EdgeInsets.zero,
@@ -1533,8 +2011,8 @@ class _SlidableConversationCardState extends State<SlidableConversationCard>
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
                     color: widget.isHiddenMode
-                        ? const Color(0xFFDCFCE7)
-                        : const Color(0xFFEEF2FF),
+                        ? (isDark ? const Color(0xFF064E3B) : const Color(0xFFDCFCE7))
+                        : (isDark ? const Color(0xFF1E1B4B) : const Color(0xFFEEF2FF)),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Icon(
@@ -1543,19 +2021,25 @@ class _SlidableConversationCardState extends State<SlidableConversationCard>
                         : Icons.visibility_off_rounded,
                     color: widget.isHiddenMode
                         ? const Color(0xFF10B981)
-                        : const Color(0xFF6366F1),
+                        : (isDark ? const Color(0xFF818CF8) : const Color(0xFF6366F1)),
                     size: 20,
                   ),
                 ),
                 title: Text(
-                  widget.isHiddenMode ? 'Unhide Conversation' : 'Hide Conversation',
-                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                  widget.isHiddenMode
+                      ? 'Unhide Conversation'
+                      : 'Hide Conversation',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                    color: textColor,
+                  ),
                 ),
                 subtitle: Text(
                   widget.isHiddenMode
                       ? 'Restore back to your active inbox'
                       : 'Move conversation to hidden archives',
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                  style: TextStyle(fontSize: 12, color: subtitleColor),
                 ),
                 onTap: () {
                   Navigator.pop(modalCtx);
@@ -1567,7 +2051,7 @@ class _SlidableConversationCardState extends State<SlidableConversationCard>
                 leading: Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFEE2E2),
+                    color: isDark ? const Color(0xFF450A0A) : const Color(0xFFFEE2E2),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Icon(
@@ -1586,7 +2070,7 @@ class _SlidableConversationCardState extends State<SlidableConversationCard>
                 ),
                 subtitle: Text(
                   'Permanently remove conversation and messages',
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                  style: TextStyle(fontSize: 12, color: subtitleColor),
                 ),
                 onTap: () {
                   Navigator.pop(modalCtx);
@@ -1602,6 +2086,240 @@ class _SlidableConversationCardState extends State<SlidableConversationCard>
 
   @override
   Widget build(BuildContext context) {
+    if (const bool.fromEnvironment('NEXORA_LEGACY_CHAT_TILE')) {
+      return _buildLegacyCard(context);
+    }
+
+    return ClipRRect(
+      borderRadius: widget.borderRadius,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                _buildSlideAction(
+                  label: widget.isHiddenMode ? 'Unhide' : 'Hide',
+                  icon: widget.isHiddenMode
+                      ? Icons.visibility_rounded
+                      : Icons.visibility_off_rounded,
+                  color: widget.isHiddenMode
+                      ? const Color(0xFF15803D)
+                      : const Color(0xFF475569),
+                  onTap: () {
+                    _snapClose();
+                    widget.onHide();
+                  },
+                ),
+                _buildSlideAction(
+                  label: 'Delete',
+                  icon: Icons.delete_outline_rounded,
+                  color: NexoraTheme.error,
+                  onTap: () {
+                    _snapClose();
+                    widget.onDelete();
+                  },
+                ),
+              ],
+            ),
+          ),
+          AnimatedBuilder(
+            animation: _controller,
+            builder: (context, child) {
+              final offset = _controller.isAnimating
+                  ? _slideAnimation.value
+                  : _dragExtent;
+              return Transform.translate(
+                offset: Offset(offset, 0),
+                child: child,
+              );
+            },
+            child: GestureDetector(
+              onHorizontalDragUpdate: (details) {
+                setState(() {
+                  _dragExtent = (_dragExtent + (details.primaryDelta ?? 0))
+                      .clamp(-_maxSlideExtent, 0);
+                  _controller.value = (-_dragExtent) / _maxSlideExtent;
+                });
+              },
+              onHorizontalDragEnd: (details) {
+                final velocity = details.primaryVelocity ?? 0;
+                if (velocity < -250 ||
+                    (velocity <= 250 && _dragExtent < -(_maxSlideExtent / 2))) {
+                  _snapOpen();
+                } else {
+                  _snapClose();
+                }
+              },
+              child: Semantics(
+                button: true,
+                label:
+                    '${widget.chat.title}. ${widget.chat.subtitle}. ${widget.chat.time}',
+                child: Material(
+                  color: Theme.of(context).colorScheme.surfaceContainerLowest,
+                  child: InkWell(
+                    onTap: () {
+                      if (_controller.value > 0.05) {
+                        _snapClose();
+                      } else {
+                        widget.onTap();
+                      }
+                    },
+                    onLongPress: () => _showContextMenu(context),
+                    child: _buildConversationContent(context),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSlideAction({
+    required String label,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return Semantics(
+      button: true,
+      label: '$label ${widget.chat.title}',
+      child: InkWell(
+        onTap: onTap,
+        child: SizedBox(
+          width: 74,
+          child: ColoredBox(
+            color: color,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, color: Colors.white, size: 20),
+                const SizedBox(height: NexoraSpacing.xxs),
+                Text(
+                  label,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildConversationContent(BuildContext context) {
+    final media = MediaQuery.of(context);
+    final theme = Theme.of(context);
+    final compact = media.size.width < 360 || media.textScaler.scale(1) > 1.3;
+
+    return Padding(
+      padding: EdgeInsets.all(compact ? NexoraSpacing.sm : NexoraSpacing.md),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ChatAvatar(
+            icon: widget.chat.avatarIcon,
+            backgroundColor: widget.chat.avatarBg,
+            imageUrl: widget.chat.avatarUrl,
+            isVerified: widget.chat.brandTag != null,
+            size: compact ? 40 : 46,
+          ),
+          const SizedBox(width: NexoraSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  widget.chat.title,
+                  maxLines: compact ? 2 : 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    color: theme.colorScheme.onSurface,
+                  ),
+                ),
+                const SizedBox(height: NexoraSpacing.xxs),
+                Text(
+                  widget.chat.subtitle,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: theme.colorScheme.onSurfaceVariant,
+                    height: 1.35,
+                  ),
+                ),
+                const SizedBox(height: NexoraSpacing.sm),
+                Wrap(
+                  spacing: NexoraSpacing.xs,
+                  runSpacing: NexoraSpacing.xs,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    if (widget.chat.brandTag != null)
+                      MessageStatusBadge(label: widget.chat.brandTag!),
+                    if (widget.chat.botTag != null)
+                      MessageStatusBadge(
+                        label: widget.chat.botTag!,
+                        color: const Color(0xFF0891B2),
+                      ),
+                    if (widget.chat.resolvedTag != null)
+                      MessageStatusBadge(
+                        label: widget.chat.resolvedTag!,
+                        icon: Icons.shield_outlined,
+                        color: NexoraTheme.tertiary,
+                      ),
+                    if (widget.isHiddenMode)
+                      MessageStatusBadge(
+                        label: 'Hidden',
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    if (widget.chat.itemTag != null &&
+                        widget.chat.itemTag!.isNotEmpty)
+                      ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxWidth: compact ? 170 : 240,
+                        ),
+                        child: MessageStatusBadge(
+                          label: widget.chat.itemTag!,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    Text(
+                      widget.chat.time,
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurfaceVariant,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    if (widget.chat.unread > 0)
+                      MessageStatusBadge(
+                        label:
+                            '${widget.chat.unread} ${widget.chat.unread == 1 ? 'unread' : 'unread'}',
+                        color: NexoraTheme.tertiary,
+                      )
+                    else if (widget.chat.isDoubleCheck || widget.chat.isCheck)
+                      const Icon(
+                        Icons.done_all_rounded,
+                        size: 18,
+                        color: NexoraTheme.primary,
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLegacyCard(BuildContext context) {
     return ClipRRect(
       borderRadius: widget.borderRadius,
       child: Stack(
@@ -1762,10 +2480,16 @@ class _SlidableConversationCardState extends State<SlidableConversationCard>
                                   decoration: BoxDecoration(
                                     color: const Color(0xFF0075FF),
                                     shape: BoxShape.circle,
-                                    border: Border.all(color: Colors.white, width: 2),
+                                    border: Border.all(
+                                      color: Colors.white,
+                                      width: 2,
+                                    ),
                                   ),
-                                  child: const Icon(Icons.check,
-                                      color: Colors.white, size: 8),
+                                  child: const Icon(
+                                    Icons.check,
+                                    color: Colors.white,
+                                    size: 8,
+                                  ),
                                 ),
                               ),
                           ],
@@ -1777,7 +2501,8 @@ class _SlidableConversationCardState extends State<SlidableConversationCard>
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
                                   Expanded(
                                     child: Row(
@@ -1798,10 +2523,13 @@ class _SlidableConversationCardState extends State<SlidableConversationCard>
                                           const SizedBox(width: 6),
                                           Container(
                                             padding: const EdgeInsets.symmetric(
-                                                horizontal: 6, vertical: 2),
+                                              horizontal: 6,
+                                              vertical: 2,
+                                            ),
                                             decoration: BoxDecoration(
                                               color: const Color(0xFFD1E9FF),
-                                              borderRadius: BorderRadius.circular(8),
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
                                             ),
                                             child: Text(
                                               widget.chat.brandTag!,
@@ -1817,10 +2545,13 @@ class _SlidableConversationCardState extends State<SlidableConversationCard>
                                           const SizedBox(width: 6),
                                           Container(
                                             padding: const EdgeInsets.symmetric(
-                                                horizontal: 6, vertical: 2),
+                                              horizontal: 6,
+                                              vertical: 2,
+                                            ),
                                             decoration: BoxDecoration(
                                               color: const Color(0xFFCFFAFE),
-                                              borderRadius: BorderRadius.circular(8),
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
                                             ),
                                             child: Text(
                                               widget.chat.botTag!,
@@ -1836,10 +2567,13 @@ class _SlidableConversationCardState extends State<SlidableConversationCard>
                                           const SizedBox(width: 6),
                                           Container(
                                             padding: const EdgeInsets.symmetric(
-                                                horizontal: 6, vertical: 2),
+                                              horizontal: 6,
+                                              vertical: 2,
+                                            ),
                                             decoration: BoxDecoration(
                                               color: const Color(0xFFF1F5F9),
-                                              borderRadius: BorderRadius.circular(8),
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
                                             ),
                                             child: const Text(
                                               'HIDDEN',
@@ -1884,7 +2618,9 @@ class _SlidableConversationCardState extends State<SlidableConversationCard>
                                       widget.chat.itemTag!.isNotEmpty)
                                     Container(
                                       padding: const EdgeInsets.symmetric(
-                                          horizontal: 8, vertical: 3),
+                                        horizontal: 8,
+                                        vertical: 3,
+                                      ),
                                       decoration: BoxDecoration(
                                         color: const Color(0xFFF1F5F9),
                                         borderRadius: BorderRadius.circular(10),
@@ -1901,15 +2637,20 @@ class _SlidableConversationCardState extends State<SlidableConversationCard>
                                   if (widget.chat.resolvedTag != null)
                                     Container(
                                       padding: const EdgeInsets.symmetric(
-                                          horizontal: 8, vertical: 3),
+                                        horizontal: 8,
+                                        vertical: 3,
+                                      ),
                                       decoration: BoxDecoration(
                                         color: const Color(0xFFFFE4E6),
                                         borderRadius: BorderRadius.circular(10),
                                       ),
                                       child: Row(
                                         children: [
-                                          const Icon(Icons.shield_outlined,
-                                              size: 11, color: Color(0xFFE11D48)),
+                                          const Icon(
+                                            Icons.shield_outlined,
+                                            size: 11,
+                                            color: Color(0xFFE11D48),
+                                          ),
                                           const SizedBox(width: 3),
                                           Text(
                                             widget.chat.resolvedTag!,
@@ -1924,11 +2665,17 @@ class _SlidableConversationCardState extends State<SlidableConversationCard>
                                     ),
                                   const Spacer(),
                                   if (widget.chat.isDoubleCheck)
-                                    const Icon(Icons.done_all_rounded,
-                                        size: 16, color: Color(0xFF0075FF))
+                                    const Icon(
+                                      Icons.done_all_rounded,
+                                      size: 16,
+                                      color: Color(0xFF0075FF),
+                                    )
                                   else if (widget.chat.isCheck)
-                                    Icon(Icons.done_rounded,
-                                        size: 16, color: Colors.grey.shade400),
+                                    Icon(
+                                      Icons.done_rounded,
+                                      size: 16,
+                                      color: Colors.grey.shade400,
+                                    ),
                                   const SizedBox(width: 6),
                                   // Subtle slider swipe hint icon
                                   Icon(

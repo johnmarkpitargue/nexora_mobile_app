@@ -210,13 +210,20 @@ class _RegionSelectorPageState extends State<RegionSelectorPage> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = isDark ? const Color(0xFF060914) : Colors.white;
+    final textPrimary = isDark ? Colors.white : const Color(0xFF0F172A);
+    final textSecondary = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
+    final searchBg = isDark ? const Color(0xFF131D38) : const Color(0xFFF1F5F9);
+    final dividerColor = isDark ? const Color(0xFF1E293B) : const Color(0xFFF0F0F0);
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: bg,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: bg,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF0F172A), size: 22),
+          icon: Icon(Icons.arrow_back, color: textPrimary, size: 22),
           onPressed: () => Navigator.pop(context),
         ),
         titleSpacing: 0,
@@ -224,13 +231,13 @@ class _RegionSelectorPageState extends State<RegionSelectorPage> {
           height: 38,
           margin: const EdgeInsets.only(right: 16),
           decoration: BoxDecoration(
-            color: const Color(0xFFF5F5F5),
-            borderRadius: BorderRadius.circular(6),
+            color: searchBg,
+            borderRadius: BorderRadius.circular(8),
           ),
           padding: const EdgeInsets.symmetric(horizontal: 10),
           child: Row(
             children: [
-              const Icon(Icons.search, size: 18, color: Color(0xFF999999)),
+              Icon(Icons.search, size: 18, color: textSecondary),
               const SizedBox(width: 8),
               Expanded(
                 child: TextField(
@@ -238,13 +245,17 @@ class _RegionSelectorPageState extends State<RegionSelectorPage> {
                   onChanged: (val) {
                     setState(() => _searchQuery = val);
                   },
-                  style: const TextStyle(fontSize: 13, color: Color(0xFF222222)),
-                  decoration: const InputDecoration(
+                  style: TextStyle(fontSize: 13, color: textPrimary),
+                  decoration: InputDecoration(
                     hintText: 'Search City, District or Postal Code',
-                    hintStyle: TextStyle(fontSize: 13, color: Color(0xFF999999)),
+                    hintStyle: TextStyle(fontSize: 13, color: textSecondary),
+                    filled: false,
+                    fillColor: Colors.transparent,
                     border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
                     isDense: true,
-                    contentPadding: EdgeInsets.symmetric(vertical: 8),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 8),
                   ),
                 ),
               ),
@@ -254,7 +265,7 @@ class _RegionSelectorPageState extends State<RegionSelectorPage> {
                     _searchController.clear();
                     setState(() => _searchQuery = '');
                   },
-                  child: const Icon(Icons.clear, size: 16, color: Color(0xFF999999)),
+                  child: Icon(Icons.clear, size: 16, color: textSecondary),
                 ),
             ],
           ),
@@ -266,15 +277,15 @@ class _RegionSelectorPageState extends State<RegionSelectorPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildStepperHeader(),
-                const Divider(height: 1, color: Color(0xFFF0F0F0)),
+                Divider(height: 1, color: dividerColor),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
                   child: Text(
                     _currentStepTitle,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFF666666),
+                      color: textSecondary,
                     ),
                   ),
                 ),
@@ -286,17 +297,21 @@ class _RegionSelectorPageState extends State<RegionSelectorPage> {
 
   Widget _buildSearchResults() {
     final results = _getGlobalSearchResults(_searchQuery);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textPrimary = isDark ? Colors.white : const Color(0xFF0F172A);
+    final textSecondary = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
+    final dividerColor = isDark ? const Color(0xFF1E293B) : const Color(0xFFF0F0F0);
 
     if (results.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.search_off, size: 48, color: Colors.grey.shade400),
+            Icon(Icons.search_off, size: 48, color: textSecondary),
             const SizedBox(height: 12),
             Text(
               'No locations found for "$_searchQuery"',
-              style: const TextStyle(fontSize: 14, color: Color(0xFF666666)),
+              style: TextStyle(fontSize: 14, color: textSecondary),
             ),
           ],
         ),
@@ -305,20 +320,20 @@ class _RegionSelectorPageState extends State<RegionSelectorPage> {
 
     return ListView.separated(
       itemCount: results.length,
-      separatorBuilder: (_, _) => const Divider(height: 1, color: Color(0xFFF0F0F0)),
+      separatorBuilder: (_, _) => Divider(height: 1, color: dividerColor),
       itemBuilder: (context, index) {
         final item = results[index];
         return ListTile(
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
           title: Text(
             item.barangay,
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF222222)),
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: textPrimary),
           ),
           subtitle: Text(
             '${item.city}, ${item.province} • Postal: ${item.postalCode}',
-            style: const TextStyle(fontSize: 12, color: Color(0xFF666666)),
+            style: TextStyle(fontSize: 12, color: textSecondary),
           ),
-          trailing: const Icon(Icons.chevron_right, size: 16, color: Color(0xFFCCCCCC)),
+          trailing: Icon(Icons.chevron_right, size: 16, color: textSecondary),
           onTap: () => Navigator.pop(context, item),
         );
       },
@@ -412,6 +427,11 @@ class _RegionSelectorPageState extends State<RegionSelectorPage> {
     bool isLastActive = false,
     required VoidCallback onTap,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textPrimary = isDark ? Colors.white : const Color(0xFF222222);
+    final circleColor = isDark ? const Color(0xFF475569) : const Color(0xFFCBD5E1);
+    final lineColor = isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0);
+
     if (isLastActive) {
       return Padding(
         padding: const EdgeInsets.only(top: 4, bottom: 4),
@@ -422,7 +442,7 @@ class _RegionSelectorPageState extends State<RegionSelectorPage> {
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
-              border: Border.all(color: const Color(0xFFE2E8F0)),
+              border: Border.all(color: lineColor),
               borderRadius: BorderRadius.circular(6),
             ),
             child: Row(
@@ -460,15 +480,15 @@ class _RegionSelectorPageState extends State<RegionSelectorPage> {
                 Container(
                   width: 7,
                   height: 7,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFCBD5E1),
+                  decoration: BoxDecoration(
+                    color: circleColor,
                     shape: BoxShape.circle,
                   ),
                 ),
                 Container(
                   width: 1.5,
                   height: 24,
-                  color: const Color(0xFFE2E8F0),
+                  color: lineColor,
                 ),
               ],
             ),
@@ -481,7 +501,7 @@ class _RegionSelectorPageState extends State<RegionSelectorPage> {
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: isCurrent ? FontWeight.bold : FontWeight.w500,
-                color: isCurrent ? primaryBlue : const Color(0xFF222222),
+                color: isCurrent ? primaryBlue : textPrimary,
               ),
             ),
           ),
@@ -494,6 +514,10 @@ class _RegionSelectorPageState extends State<RegionSelectorPage> {
     final items = _currentItems;
     final grouped = _groupAlphabetically(items);
     final sortedKeys = grouped.keys.toList()..sort();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textPrimary = isDark ? Colors.white : const Color(0xFF222222);
+    final textLetter = isDark ? const Color(0xFF64748B) : const Color(0xFF999999);
+    final dividerColor = isDark ? const Color(0xFF1E293B) : const Color(0xFFF0F0F0);
 
     return ListView.builder(
       itemCount: sortedKeys.length,
@@ -512,10 +536,10 @@ class _RegionSelectorPageState extends State<RegionSelectorPage> {
                 child: Text(
                   letter,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF999999),
+                    color: textLetter,
                   ),
                 ),
               ),
@@ -536,8 +560,8 @@ class _RegionSelectorPageState extends State<RegionSelectorPage> {
                       decoration: BoxDecoration(
                         border: isLast && sectionIndex == sortedKeys.length - 1
                             ? null
-                            : const Border(
-                                bottom: BorderSide(color: Color(0xFFF0F0F0), width: 0.8),
+                            : Border(
+                                bottom: BorderSide(color: dividerColor, width: 0.8),
                               ),
                       ),
                       child: Row(
@@ -548,7 +572,7 @@ class _RegionSelectorPageState extends State<RegionSelectorPage> {
                               style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                color: isSelected ? primaryBlue : const Color(0xFF222222),
+                                color: isSelected ? primaryBlue : textPrimary,
                               ),
                             ),
                           ),

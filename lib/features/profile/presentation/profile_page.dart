@@ -10,9 +10,14 @@ import 'package:nexora_flutter_app/core/services/buyer_account_service.dart';
 import 'package:nexora_flutter_app/core/services/payment_method_service.dart';
 import 'package:nexora_flutter_app/core/services/shop_service.dart';
 import 'package:nexora_flutter_app/core/services/supabase_auth_service.dart';
+
 import '../../../app/routes/app_routes.dart';
+import '../../../app/theme/nexora_theme.dart';
 import '../../../core/utils/guest_auth_guard.dart';
 import 'account_security_modal.dart';
+import 'widgets/profile_components.dart';
+
+const bool _useLegacyProfile = bool.fromEnvironment('NEXORA_LEGACY_PROFILE');
 
 class ProfilePage extends StatefulWidget {
   final VoidCallback? onToggleDarkMode;
@@ -31,24 +36,21 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage> {
   late bool _darkMode;
 
-  final List<String> _presetAvatars = const [
-    'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
-    'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80',
-    'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=200&q=80',
-    'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80',
-    'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=200&q=80',
-    'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?auto=format&fit=crop&w=200&q=80',
-  ];
-
-  ImageProvider _getAvatarImageProvider() {
+  ImageProvider? _getAvatarImageProvider() {
     final profile = ProfileService.instance;
     if (profile.hasCustomAvatarBytes) {
       return MemoryImage(profile.avatarBytes!);
     }
-    return NetworkImage(profile.avatarUrl);
+    if (profile.avatarUrl.isNotEmpty) {
+      return NetworkImage(profile.avatarUrl);
+    }
+    return null;
   }
 
-  Future<void> _pickImage(ImageSource source, {StateSetter? setSheetState}) async {
+  Future<void> _pickImage(
+    ImageSource source, {
+    StateSetter? setSheetState,
+  }) async {
     try {
       final picker = ImagePicker();
       final picked = await picker.pickImage(
@@ -64,8 +66,14 @@ class _ProfilePageState extends State<ProfilePage> {
 
         final session = BuyerAccountService.instance.currentBuyerSession;
         final res = BuyerAccountService.instance.editProfile(
-          firstName: session?.firstName ?? ProfileService.instance.name.split(' ').first,
-          lastName: session?.lastName ?? (ProfileService.instance.name.split(' ').length > 1 ? ProfileService.instance.name.split(' ').sublist(1).join(' ') : 'Cruz'),
+          firstName:
+              session?.firstName ??
+              ProfileService.instance.name.split(' ').first,
+          lastName:
+              session?.lastName ??
+              (ProfileService.instance.name.split(' ').length > 1
+                  ? ProfileService.instance.name.split(' ').sublist(1).join(' ')
+                  : 'Cruz'),
           photoName: name,
           photoSizeMb: sizeMb,
           photoBytes: bytes,
@@ -115,15 +123,21 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  void _showPhotoOptionsModal(BuildContext parentContext, {StateSetter? setSheetState}) {
+  void _showPhotoOptionsModal(
+    BuildContext parentContext, {
+    StateSetter? setSheetState,
+  }) {
+    final theme = Theme.of(parentContext);
+    final isDark = theme.brightness == Brightness.dark;
     showModalBottomSheet(
       context: parentContext,
       backgroundColor: Colors.transparent,
       builder: (modalCtx) => Container(
         padding: const EdgeInsets.all(20),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF0F172A) : Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          border: isDark ? Border.all(color: const Color(0xFF1E293B)) : null,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -132,16 +146,19 @@ class _ProfilePageState extends State<ProfilePage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
+                Text(
                   'Change Profile Photo',
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w900,
-                    color: Color(0xFF0F172A),
+                    color: isDark ? Colors.white : const Color(0xFF0F172A),
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close_rounded),
+                  icon: Icon(
+                    Icons.close_rounded,
+                    color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                  ),
                   onPressed: () => Navigator.pop(modalCtx),
                 ),
               ],
@@ -154,10 +171,25 @@ class _ProfilePageState extends State<ProfilePage> {
                   color: const Color(0xFF0066FF).withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.upload_file_rounded, color: Color(0xFF0066FF)),
+                child: const Icon(
+                  Icons.upload_file_rounded,
+                  color: Color(0xFF0066FF),
+                ),
               ),
-              title: const Text('Upload from Files / Device', style: TextStyle(fontWeight: FontWeight.bold)),
-              subtitle: const Text('Pick photo from your computer or gallery', style: TextStyle(fontSize: 12)),
+              title: Text(
+                'Upload from Files / Device',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white : const Color(0xFF0F172A),
+                ),
+              ),
+              subtitle: Text(
+                'Pick photo from your computer or gallery',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                ),
+              ),
               onTap: () {
                 Navigator.pop(modalCtx);
                 _pickImage(ImageSource.gallery, setSheetState: setSheetState);
@@ -170,58 +202,29 @@ class _ProfilePageState extends State<ProfilePage> {
                   color: const Color(0xFF0066FF).withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.camera_alt_outlined, color: Color(0xFF0066FF)),
+                child: const Icon(
+                  Icons.camera_alt_outlined,
+                  color: Color(0xFF0066FF),
+                ),
               ),
-              title: const Text('Take Photo with Camera', style: TextStyle(fontWeight: FontWeight.bold)),
-              subtitle: const Text('Snap a new profile picture now', style: TextStyle(fontSize: 12)),
+              title: Text(
+                'Take Photo with Camera',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white : const Color(0xFF0F172A),
+                ),
+              ),
+              subtitle: Text(
+                'Snap a new profile picture now',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                ),
+              ),
               onTap: () {
                 Navigator.pop(modalCtx);
                 _pickImage(ImageSource.camera, setSheetState: setSheetState);
               },
-            ),
-            const Divider(),
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 8),
-              child: Text(
-                'Or Select from Curated Avatars',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF64748B)),
-              ),
-            ),
-            SizedBox(
-              height: 56,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: _presetAvatars.length,
-                separatorBuilder: (context, index) => const SizedBox(width: 12),
-                itemBuilder: (ctx, index) {
-                  final url = _presetAvatars[index];
-                  return GestureDetector(
-                    onTap: () {
-                      ProfileService.instance.updateAvatarUrl(url);
-                      if (setSheetState != null) setSheetState(() {});
-                      Navigator.pop(modalCtx);
-                      if (mounted) setState(() {});
-                    },
-                    child: Container(
-                      width: 52,
-                      height: 52,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: ProfileService.instance.avatarUrl == url && !ProfileService.instance.hasCustomAvatarBytes
-                              ? const Color(0xFF0066FF)
-                              : const Color(0xFFE2E8F0),
-                          width: 2.5,
-                        ),
-                        image: DecorationImage(
-                          image: NetworkImage(url),
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
             ),
             const SizedBox(height: 12),
           ],
@@ -237,13 +240,30 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   void _showEditProfileSheet() {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final profile = ProfileService.instance;
     final session = BuyerAccountService.instance.currentBuyerSession;
     final firstName = session?.firstName ?? profile.name.split(' ').first;
-    final lastName = session?.lastName ?? (profile.name.split(' ').length > 1 ? profile.name.split(' ').sublist(1).join(' ') : 'Cruz');
+    final lastName =
+        session?.lastName ??
+        (profile.name.split(' ').length > 1
+            ? profile.name.split(' ').sublist(1).join(' ')
+            : 'Cruz');
     final firstNameCtrl = TextEditingController(text: firstName);
     final lastNameCtrl = TextEditingController(text: lastName);
-    final usernameCtrl = TextEditingController(text: profile.username);
+    String initialUsername = profile.username;
+    if (initialUsername.isEmpty || initialUsername == '@alexrivera') {
+      final emailPrefix = (session?.email ?? profile.email).split('@').first.trim();
+      initialUsername = emailPrefix.isNotEmpty ? '@$emailPrefix' : '@username';
+    }
+    final usernameCtrl = TextEditingController(text: initialUsername);
+
+    String initialPhone = session?.mobileNumber ?? profile.phone;
+    if (initialPhone == '09000000000' || initialPhone == '+63 917 123 4567') {
+      initialPhone = '';
+    }
+    final phoneCtrl = TextEditingController(text: initialPhone);
     final addressCtrl = TextEditingController(text: profile.address);
     String? sheetError;
 
@@ -260,9 +280,10 @@ class _ProfilePageState extends State<ProfilePage> {
               left: 20,
               right: 20,
             ),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF0F172A) : Colors.white,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              border: isDark ? Border.all(color: const Color(0xFF1E293B)) : null,
             ),
             child: SingleChildScrollView(
               child: Column(
@@ -272,16 +293,19 @@ class _ProfilePageState extends State<ProfilePage> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
+                      Text(
                         'Edit Personal Information',
                         style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.w900,
-                          color: Color(0xFF0F172A),
+                          color: isDark ? Colors.white : const Color(0xFF0F172A),
                         ),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.close_rounded),
+                        icon: Icon(
+                          Icons.close_rounded,
+                          color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                        ),
                         onPressed: () => Navigator.pop(sheetContext),
                       ),
                     ],
@@ -292,23 +316,46 @@ class _ProfilePageState extends State<ProfilePage> {
                   Center(
                     child: Stack(
                       children: [
-                        Container(
-                          width: 88,
-                          height: 88,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            image: DecorationImage(
-                              image: _getAvatarImageProvider(),
-                              fit: BoxFit.cover,
-                            ),
-                            border: Border.all(color: const Color(0xFF0066FF), width: 2.5),
-                          ),
+                        Builder(
+                          builder: (context) {
+                            final avatarProvider = _getAvatarImageProvider();
+                            return Container(
+                              width: 88,
+                              height: 88,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                                image: avatarProvider != null
+                                    ? DecorationImage(
+                                        image: avatarProvider,
+                                        fit: BoxFit.cover,
+                                      )
+                                    : null,
+                                border: Border.all(
+                                  color: const Color(0xFF0066FF),
+                                  width: 2.5,
+                                ),
+                              ),
+                              child: avatarProvider == null
+                                  ? Icon(
+                                      Icons.person_rounded,
+                                      size: 44,
+                                      color: isDark
+                                          ? const Color(0xFF94A3B8)
+                                          : const Color(0xFF64748B),
+                                    )
+                                  : null,
+                            );
+                          },
                         ),
                         Positioned(
                           right: 0,
                           bottom: 0,
                           child: GestureDetector(
-                            onTap: () => _showPhotoOptionsModal(sheetContext, setSheetState: setSheetState),
+                            onTap: () => _showPhotoOptionsModal(
+                              sheetContext,
+                              setSheetState: setSheetState,
+                            ),
                             child: Container(
                               width: 30,
                               height: 30,
@@ -316,8 +363,11 @@ class _ProfilePageState extends State<ProfilePage> {
                                 color: Color(0xFF0066FF),
                                 shape: BoxShape.circle,
                               ),
-                              child: const Icon(Icons.camera_alt_rounded,
-                                  color: Colors.white, size: 16),
+                              child: const Icon(
+                                Icons.camera_alt_rounded,
+                                color: Colors.white,
+                                size: 16,
+                              ),
                             ),
                           ),
                         ),
@@ -327,11 +377,22 @@ class _ProfilePageState extends State<ProfilePage> {
                   const SizedBox(height: 8),
                   Center(
                     child: TextButton.icon(
-                      onPressed: () => _showPhotoOptionsModal(sheetContext, setSheetState: setSheetState),
-                      icon: const Icon(Icons.upload_file_rounded, size: 16, color: Color(0xFF0066FF)),
+                      onPressed: () => _showPhotoOptionsModal(
+                        sheetContext,
+                        setSheetState: setSheetState,
+                      ),
+                      icon: const Icon(
+                        Icons.upload_file_rounded,
+                        size: 16,
+                        color: Color(0xFF0066FF),
+                      ),
                       label: const Text(
                         'Upload or Change Photo (Max 5MB)',
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0066FF)),
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF0066FF),
+                        ),
                       ),
                     ),
                   ),
@@ -347,12 +408,20 @@ class _ProfilePageState extends State<ProfilePage> {
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.error_outline, color: Colors.redAccent, size: 18),
+                          const Icon(
+                            Icons.error_outline,
+                            color: Colors.redAccent,
+                            size: 18,
+                          ),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
                               sheetError!,
-                              style: const TextStyle(color: Colors.redAccent, fontSize: 12, fontWeight: FontWeight.bold),
+                              style: const TextStyle(
+                                color: Colors.redAccent,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
                         ],
@@ -368,11 +437,27 @@ class _ProfilePageState extends State<ProfilePage> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('First Name *', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                            Text(
+                              'First Name *',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                                color: isDark ? Colors.white : const Color(0xFF0F172A),
+                              ),
+                            ),
                             const SizedBox(height: 4),
                             TextField(
                               controller: firstNameCtrl,
-                              decoration: _buildInputDecoration(hint: 'First Name', prefixIcon: Icons.person_outline),
+                              style: TextStyle(
+                                color: isDark ? Colors.white : const Color(0xFF0F172A),
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                              ),
+                              decoration: _buildInputDecoration(
+                                hint: 'First Name',
+                                prefixIcon: Icons.person_outline,
+                                isDark: isDark,
+                              ),
                             ),
                           ],
                         ),
@@ -382,11 +467,27 @@ class _ProfilePageState extends State<ProfilePage> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('Last Name *', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                            Text(
+                              'Last Name *',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                                color: isDark ? Colors.white : const Color(0xFF0F172A),
+                              ),
+                            ),
                             const SizedBox(height: 4),
                             TextField(
                               controller: lastNameCtrl,
-                              decoration: _buildInputDecoration(hint: 'Last Name', prefixIcon: Icons.badge_outlined),
+                              style: TextStyle(
+                                color: isDark ? Colors.white : const Color(0xFF0F172A),
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                              ),
+                              decoration: _buildInputDecoration(
+                                hint: 'Last Name',
+                                prefixIcon: Icons.badge_outlined,
+                                isDark: isDark,
+                              ),
                             ),
                           ],
                         ),
@@ -395,11 +496,27 @@ class _ProfilePageState extends State<ProfilePage> {
                   ),
                   const SizedBox(height: 12),
 
-                  const Text('Username', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  Text(
+                    'Username',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                      color: isDark ? Colors.white : const Color(0xFF0F172A),
+                    ),
+                  ),
                   const SizedBox(height: 4),
                   TextField(
                     controller: usernameCtrl,
-                    decoration: _buildInputDecoration(hint: '@username', prefixIcon: Icons.alternate_email),
+                    style: TextStyle(
+                      color: isDark ? Colors.white : const Color(0xFF0F172A),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    decoration: _buildInputDecoration(
+                      hint: '@username',
+                      prefixIcon: Icons.alternate_email,
+                      isDark: isDark,
+                    ),
                   ),
                   const SizedBox(height: 12),
 
@@ -407,86 +524,126 @@ class _ProfilePageState extends State<ProfilePage> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('Email Address (Verified)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                      Text(
+                        'Email Address (Verified)',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                          color: isDark ? Colors.white : const Color(0xFF0F172A),
+                        ),
+                      ),
                       TextButton(
                         onPressed: () {
                           Navigator.pop(sheetContext);
                           showAccountSecurityModal(context);
                         },
-                        style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(50, 24)),
-                        child: const Text('Change via OTP', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0066FF))),
+                        style: TextButton.styleFrom(
+                          padding: EdgeInsets.zero,
+                          minimumSize: const Size(50, 24),
+                        ),
+                        child: const Text(
+                          'Change via OTP',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF0066FF),
+                          ),
+                        ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 4),
                   Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF1F5F9),
+                      color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
                       borderRadius: BorderRadius.circular(14),
+                      border: isDark ? Border.all(color: const Color(0xFF334155)) : null,
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.email_outlined, size: 18, color: Color(0xFF64748B)),
+                        Icon(
+                          Icons.email_outlined,
+                          size: 18,
+                          color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                        ),
                         const SizedBox(width: 10),
                         Expanded(
                           child: Text(
-                            BuyerAccountService.instance.currentBuyerSession?.email ?? profile.email,
-                            style: const TextStyle(fontSize: 13.5, color: Color(0xFF334155), fontWeight: FontWeight.w500),
+                            BuyerAccountService
+                                    .instance
+                                    .currentBuyerSession
+                                    ?.email ??
+                                profile.email,
+                            style: TextStyle(
+                              fontSize: 13.5,
+                              color: isDark ? const Color(0xFFE2E8F0) : const Color(0xFF334155),
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                         ),
-                        const Icon(Icons.verified, size: 16, color: Color(0xFF00D2FF)),
+                        const Icon(
+                          Icons.verified,
+                          size: 16,
+                          color: Color(0xFF00D2FF),
+                        ),
                       ],
                     ),
                   ),
                   const SizedBox(height: 12),
 
-                  // Mobile Phone (Security Protected)
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text('Mobile Phone (Verified)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                      TextButton(
-                        onPressed: () {
-                          Navigator.pop(sheetContext);
-                          showAccountSecurityModal(context);
-                        },
-                        style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(50, 24)),
-                        child: const Text('Change via OTP', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0066FF))),
-                      ),
-                    ],
+                  // Mobile Phone
+                  Text(
+                    'Mobile Phone',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                      color: isDark ? Colors.white : const Color(0xFF0F172A),
+                    ),
                   ),
                   const SizedBox(height: 4),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF1F5F9),
-                      borderRadius: BorderRadius.circular(14),
+                  TextField(
+                    controller: phoneCtrl,
+                    keyboardType: TextInputType.phone,
+                    style: TextStyle(
+                      color: isDark ? Colors.white : const Color(0xFF0F172A),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
                     ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.phone_outlined, size: 18, color: Color(0xFF64748B)),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            BuyerAccountService.instance.currentBuyerSession?.mobileNumber ?? profile.phone,
-                            style: const TextStyle(fontSize: 13.5, color: Color(0xFF334155), fontWeight: FontWeight.w500),
-                          ),
-                        ),
-                        const Icon(Icons.verified, size: 16, color: Color(0xFF00D2FF)),
-                      ],
+                    decoration: _buildInputDecoration(
+                      hint: '09XXXXXXXXX',
+                      prefixIcon: Icons.phone_outlined,
+                      isDark: isDark,
                     ),
                   ),
                   const SizedBox(height: 12),
 
-                  const Text('Delivery Address Note', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  Text(
+                    'Delivery Address Note',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                      color: isDark ? Colors.white : const Color(0xFF0F172A),
+                    ),
+                  ),
                   const SizedBox(height: 4),
                   TextField(
                     controller: addressCtrl,
                     maxLines: 2,
-                    decoration: _buildInputDecoration(hint: 'Address Note', prefixIcon: Icons.location_on_outlined),
+                    style: TextStyle(
+                      color: isDark ? Colors.white : const Color(0xFF0F172A),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    decoration: _buildInputDecoration(
+                      hint: 'Address Note',
+                      prefixIcon: Icons.location_on_outlined,
+                      isDark: isDark,
+                    ),
                   ),
                   const SizedBox(height: 20),
 
@@ -503,6 +660,15 @@ class _ProfilePageState extends State<ProfilePage> {
                     child: ElevatedButton(
                       onPressed: () {
                         setSheetState(() => sheetError = null);
+
+                        final cleanPhone = phoneCtrl.text.trim();
+                        if (cleanPhone.isNotEmpty &&
+                            !BuyerValidationRules.phoneRegex.hasMatch(BuyerValidationRules.normalizePhone(cleanPhone))) {
+                          setSheetState(() => sheetError =
+                              'Please enter a valid 11-digit Philippine mobile number starting with 09');
+                          return;
+                        }
+
                         final valRes = BuyerAccountService.instance.editProfile(
                           firstName: firstNameCtrl.text,
                           lastName: lastNameCtrl.text,
@@ -513,11 +679,21 @@ class _ProfilePageState extends State<ProfilePage> {
                           return;
                         }
 
+                        BuyerAccountService.instance.currentBuyerSession?.mobileNumber = cleanPhone;
+
+                        final rawUsername = usernameCtrl.text.trim();
+                        final cleanUsername = rawUsername.isNotEmpty
+                            ? (rawUsername.startsWith('@') ? rawUsername : '@$rawUsername')
+                            : '@${(session?.email ?? profile.email).split('@').first}';
+
                         ProfileService.instance.updateProfile(
-                          name: '${firstNameCtrl.text.trim()} ${lastNameCtrl.text.trim()}',
-                          username: usernameCtrl.text,
+                          name:
+                              '${firstNameCtrl.text.trim()} ${lastNameCtrl.text.trim()}',
+                          username: cleanUsername,
+                          phone: cleanPhone,
                           address: addressCtrl.text,
                         );
+                        if (mounted) setState(() {});
                         Navigator.pop(sheetContext);
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
@@ -570,8 +746,13 @@ class _ProfilePageState extends State<ProfilePage> {
         CartService.instance,
         ChatService.instance,
         ShopService.instance,
+        PaymentMethodService.instance,
       ]),
       builder: (context, _) {
+        if (!_useLegacyProfile) {
+          return _buildRefinedProfile(context);
+        }
+
         return Scaffold(
           backgroundColor: const Color(0xFFF6F8FC),
           body: SafeArea(
@@ -605,29 +786,268 @@ class _ProfilePageState extends State<ProfilePage> {
                   _buildShoppingBenefitsCard(context),
                   const SizedBox(height: 24),
 
-              // SUPPORT & LEGAL Group
-              _buildSectionHeader('SUPPORT & LEGAL'),
-              const SizedBox(height: 10),
-              _buildSupportLegalCard(context),
-              const SizedBox(height: 24),
+                  // SUPPORT & LEGAL Group
+                  _buildSectionHeader('SUPPORT & LEGAL'),
+                  const SizedBox(height: 10),
+                  _buildSupportLegalCard(context),
+                  const SizedBox(height: 24),
 
-              // Log Out Red Button
-              _buildLogoutButton(context),
-              const SizedBox(height: 16),
+                  // Log Out Red Button
+                  _buildLogoutButton(context),
+                  const SizedBox(height: 16),
 
-              // Footer Info
-              _buildFooterInfo(),
+                  // Footer Info
+                  _buildFooterInfo(),
 
-              // Clearance for bottom floating navigation dock
-              const SizedBox(height: 110),
-            ],
+                  // Clearance for bottom floating navigation dock
+                  const SizedBox(height: 110),
+                ],
+              ),
+            ),
           ),
+        );
+      },
+    );
+  }
+
+  Widget _buildRefinedProfile(BuildContext context) {
+    final theme = Theme.of(context);
+    final buyer = BuyerAccountService.instance.currentBuyerSession;
+    final profile = ProfileService.instance;
+    final loggedIn = BuyerAccountService.instance.isLoggedIn;
+    final payment = PaymentMethodService.instance.defaultMethod;
+    final addressCount = AddressService.instance.addresses.length;
+
+    return Scaffold(
+      backgroundColor: theme.scaffoldBackgroundColor,
+      appBar: AppBar(title: const Text('Profile')),
+      body: SafeArea(
+        top: false,
+        child: ListView(
+          key: const ValueKey('profile-dashboard-scroll'),
+          physics: const BouncingScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(
+            NexoraSpacing.md,
+            NexoraSpacing.md,
+            NexoraSpacing.md,
+            112,
+          ),
+          children: [
+            ProfileIdentityCard(
+              key: const ValueKey('profile-identity-card'),
+              name: loggedIn
+                  ? (buyer?.fullName ?? profile.name)
+                  : 'Welcome to Nexora',
+              subtitle: loggedIn ? (buyer?.email ?? profile.email) : 'Sign in to sync orders, saved items, and account preferences.',
+              avatarImage: loggedIn ? _getAvatarImageProvider() : null,
+              isGuest: !loggedIn,
+              onAvatarTap: loggedIn ? _showEditProfileSheet : null,
+              actionLabel: loggedIn ? 'Edit profile' : 'Sign in',
+              onAction: loggedIn
+                  ? _showEditProfileSheet
+                  : () => Navigator.pushNamed(context, AppRoutes.login),
+            ),
+            const SizedBox(height: NexoraSpacing.md),
+            ProfileMetricsPanel(
+              items: [
+                ProfileMetricData(
+                  value: '${OrderService.instance.totalOrderCount}',
+                  label: 'Orders',
+                  onTap: () =>
+                      Navigator.pushReplacementNamed(context, AppRoutes.orders),
+                ),
+                ProfileMetricData(
+                  value: '${WishlistService.instance.itemCount}',
+                  label: 'Wishlist',
+                  onTap: () => Navigator.pushNamed(context, AppRoutes.wishlist),
+                ),
+                ProfileMetricData(
+                  value: '${ShopService.instance.followedShopCount}',
+                  label: 'Following',
+                  onTap: () =>
+                      Navigator.pushNamed(context, AppRoutes.followedStores),
+                ),
+                ProfileMetricData(
+                  value: '$addressCount',
+                  label: 'Addresses',
+                  onTap: () =>
+                      Navigator.pushNamed(context, AppRoutes.myAddresses),
+                ),
+              ],
+            ),
+            const SizedBox(height: NexoraSpacing.xl),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Purchases',
+                    style: Theme.of(context).textTheme.titleMedium
+                        ?.copyWith(fontWeight: FontWeight.w800),
+                  ),
+                ),
+                TextButton(
+                  key: const ValueKey('profile-view-all-orders'),
+                  onPressed: () =>
+                      Navigator.pushReplacementNamed(context, AppRoutes.orders),
+                  child: const Text('View all'),
+                ),
+              ],
+            ),
+            const SizedBox(height: NexoraSpacing.xs),
+            ProfileShortcutGrid(
+              items: [
+                ProfileShortcutData(
+                  icon: Icons.payments_outlined,
+                  label: 'To Pay',
+                  onTap: () => _openOrderFilter(context, 1),
+                ),
+                ProfileShortcutData(
+                  icon: Icons.inventory_2_outlined,
+                  label: 'To Ship',
+                  onTap: () => _openOrderFilter(context, 2),
+                ),
+                ProfileShortcutData(
+                  icon: Icons.local_shipping_outlined,
+                  label: 'To Receive',
+                  onTap: () => _openOrderFilter(context, 3),
+                ),
+                ProfileShortcutData(
+                  icon: Icons.rate_review_outlined,
+                  label: 'Review',
+                  onTap: () => _openOrderFilter(context, 4),
+                ),
+              ],
+            ),
+            const SizedBox(height: NexoraSpacing.xl),
+            ProfileSettingGroup(
+              title: 'Account',
+              children: [
+                ProfileSettingTile(
+                  icon: NexoraTheme.isDarkMode
+                      ? Icons.dark_mode_rounded
+                      : Icons.light_mode_rounded,
+                  title: 'Appearance',
+                  subtitle: NexoraTheme.isDarkMode
+                      ? 'Dark Mode (Active)'
+                      : 'Light Mode (Active)',
+                  trailingWidget: Switch.adaptive(
+                    value: NexoraTheme.isDarkMode,
+                    activeTrackColor: const Color(0xFF0075FF),
+                    onChanged: (val) {
+                      NexoraTheme.toggleTheme();
+                    },
+                  ),
+                  onTap: () {
+                    NexoraTheme.toggleTheme();
+                  },
+                ),
+                ProfileSettingTile(
+                  icon: Icons.shield_outlined,
+                  title: 'Account and security',
+                  subtitle: 'Profile details, password, and sign-in security',
+                  onTap: () => showAccountSecurityModal(context),
+                ),
+                ProfileSettingTile(
+                  icon: Icons.location_on_outlined,
+                  title: 'My addresses',
+                  subtitle: 'Delivery recipients and saved locations',
+                  trailing: '$addressCount saved',
+                  onTap: () =>
+                      Navigator.pushNamed(context, AppRoutes.myAddresses),
+                ),
+                ProfileSettingTile(
+                  icon: Icons.account_balance_wallet_outlined,
+                  title: 'Payment methods',
+                  subtitle: 'Choose how you pay at checkout',
+                  trailing: payment.name,
+                  onTap: () =>
+                      Navigator.pushNamed(context, AppRoutes.paymentMethods),
+                ),
+                ProfileSettingTile(
+                  icon: Icons.notifications_none_rounded,
+                  title: 'Notifications',
+                  subtitle: 'Orders, messages, offers, and phone alerts',
+                  onTap: () => Navigator.pushNamed(
+                    context,
+                    AppRoutes.notificationPreferences,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: NexoraSpacing.xl),
+            ProfileSettingGroup(
+              title: 'Shopping',
+              children: [
+                ProfileSettingTile(
+                  icon: Icons.favorite_border_rounded,
+                  title: 'Saved wishlist',
+                  subtitle: 'Products you want to revisit',
+                  trailing: '${WishlistService.instance.itemCount} items',
+                  onTap: () => Navigator.pushNamed(context, AppRoutes.wishlist),
+                ),
+                ProfileSettingTile(
+                  icon: Icons.storefront_outlined,
+                  title: 'Followed stores',
+                  subtitle: 'Shops and brands you follow',
+                  trailing: '${ShopService.instance.followedShopCount}',
+                  onTap: () =>
+                      Navigator.pushNamed(context, AppRoutes.followedStores),
+                ),
+              ],
+            ),
+            const SizedBox(height: NexoraSpacing.xl),
+            ProfileSettingGroup(
+              title: 'Support',
+              children: [
+                ProfileSettingTile(
+                  icon: Icons.support_agent_rounded,
+                  title: 'Help center and support',
+                  subtitle: 'Ask a question or open a support ticket',
+                  onTap: () => Navigator.pushNamed(context, AppRoutes.chat),
+                ),
+              ],
+            ),
+            const SizedBox(height: NexoraSpacing.xl),
+            if (loggedIn)
+              OutlinedButton.icon(
+                key: const ValueKey('profile-logout-action'),
+                onPressed: () => _showLogoutConfirmationDialog(context),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: NexoraTheme.error,
+                  side: const BorderSide(color: NexoraTheme.error),
+                ),
+                icon: const Icon(Icons.logout_rounded),
+                label: const Text('Log out'),
+              )
+            else
+              FilledButton.icon(
+                onPressed: () => Navigator.pushNamed(context, AppRoutes.login),
+                icon: const Icon(Icons.login_rounded),
+                label: const Text('Sign in or create account'),
+              ),
+            const SizedBox(height: NexoraSpacing.lg),
+            Text(
+              'Nexora v2.4.1 (Build 890)',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: theme.colorScheme.onSurfaceVariant,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
         ),
       ),
     );
-  },
-);
-}
+  }
+
+  void _openOrderFilter(BuildContext context, int initialIndex) {
+    Navigator.pushReplacementNamed(
+      context,
+      AppRoutes.orders,
+      arguments: {'initialIndex': initialIndex},
+    );
+  }
 
   Widget _buildHeaderRow(BuildContext context) {
     return Row(
@@ -645,8 +1065,11 @@ class _ProfilePageState extends State<ProfilePage> {
           children: [
             // Settings Icon
             IconButton(
-              icon: const Icon(Icons.settings_outlined,
-                  color: Color(0xFF0F172A), size: 22),
+              icon: const Icon(
+                Icons.settings_outlined,
+                color: Color(0xFF0F172A),
+                size: 22,
+              ),
               tooltip: 'Settings & Preferences',
               onPressed: () {
                 _showSettingsModal(context);
@@ -657,8 +1080,11 @@ class _ProfilePageState extends State<ProfilePage> {
               clipBehavior: Clip.none,
               children: [
                 IconButton(
-                  icon: const Icon(Icons.shopping_cart_outlined,
-                      color: Color(0xFF0F172A), size: 22),
+                  icon: const Icon(
+                    Icons.shopping_cart_outlined,
+                    color: Color(0xFF0F172A),
+                    size: 22,
+                  ),
                   onPressed: () {
                     Navigator.pushNamed(context, AppRoutes.cart);
                   },
@@ -673,8 +1099,10 @@ class _ProfilePageState extends State<ProfilePage> {
                         color: Color(0xFF00D2FF),
                         shape: BoxShape.circle,
                       ),
-                      constraints:
-                          const BoxConstraints(minWidth: 16, minHeight: 16),
+                      constraints: const BoxConstraints(
+                        minWidth: 16,
+                        minHeight: 16,
+                      ),
                       child: Text(
                         '${CartService.instance.itemCount}',
                         style: const TextStyle(
@@ -693,8 +1121,11 @@ class _ProfilePageState extends State<ProfilePage> {
               clipBehavior: Clip.none,
               children: [
                 IconButton(
-                  icon: const Icon(Icons.chat_bubble_outline_rounded,
-                      color: Color(0xFF0F172A), size: 22),
+                  icon: const Icon(
+                    Icons.chat_bubble_outline_rounded,
+                    color: Color(0xFF0F172A),
+                    size: 22,
+                  ),
                   onPressed: () {
                     Navigator.pushNamed(context, AppRoutes.chat);
                   },
@@ -709,8 +1140,10 @@ class _ProfilePageState extends State<ProfilePage> {
                         color: Color(0xFFE11D48),
                         shape: BoxShape.circle,
                       ),
-                      constraints:
-                          const BoxConstraints(minWidth: 16, minHeight: 16),
+                      constraints: const BoxConstraints(
+                        minWidth: 16,
+                        minHeight: 16,
+                      ),
                       child: Text(
                         '${ChatService.instance.totalUnreadCount}',
                         style: const TextStyle(
@@ -802,17 +1235,17 @@ class _ProfilePageState extends State<ProfilePage> {
                 backgroundColor: const Color(0xFF0066FF),
                 foregroundColor: Colors.white,
                 elevation: 0,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20),
                 ),
               ),
               child: const Text(
                 'Sign In',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w800,
-                ),
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
               ),
             ),
           ],
@@ -821,7 +1254,9 @@ class _ProfilePageState extends State<ProfilePage> {
     }
 
     final displayName = session?.fullName ?? profile.name;
-    final displayUsername = session != null ? '@${session.email.split('@').first}' : profile.username;
+    final displayUsername = session != null
+        ? '@${session.email.split('@').first}'
+        : profile.username;
 
     return Row(
       children: [
@@ -830,16 +1265,35 @@ class _ProfilePageState extends State<ProfilePage> {
           onTap: _showEditProfileSheet,
           child: Stack(
             children: [
-              Container(
-                width: 68,
-                height: 68,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  image: DecorationImage(
-                    image: _getAvatarImageProvider(),
-                    fit: BoxFit.cover,
-                  ),
-                ),
+              Builder(
+                builder: (context) {
+                  final avatarProvider = _getAvatarImageProvider();
+                  return Container(
+                    width: 68,
+                    height: 68,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: _darkMode
+                          ? const Color(0xFF1E293B)
+                          : const Color(0xFFF1F5F9),
+                      image: avatarProvider != null
+                          ? DecorationImage(
+                              image: avatarProvider,
+                              fit: BoxFit.cover,
+                            )
+                          : null,
+                    ),
+                    child: avatarProvider == null
+                        ? Icon(
+                            Icons.person_rounded,
+                            size: 34,
+                            color: _darkMode
+                                ? const Color(0xFF94A3B8)
+                                : const Color(0xFF64748B),
+                          )
+                        : null,
+                  );
+                },
               ),
               Positioned(
                 right: 0,
@@ -852,7 +1306,11 @@ class _ProfilePageState extends State<ProfilePage> {
                     shape: BoxShape.circle,
                     border: Border.all(color: Colors.white, width: 2),
                   ),
-                  child: const Icon(Icons.camera_alt, color: Colors.white, size: 11),
+                  child: const Icon(
+                    Icons.camera_alt,
+                    color: Colors.white,
+                    size: 11,
+                  ),
                 ),
               ),
             ],
@@ -913,7 +1371,8 @@ class _ProfilePageState extends State<ProfilePage> {
     final profile = ProfileService.instance;
     final orderCount = OrderService.instance.activeOrders.length;
     final followCount = ShopService.instance.followedShopCount;
-    final voucherDisplay = '${profile.voucherCount > 0 ? profile.voucherCount : 5}';
+    final voucherDisplay =
+        '${profile.voucherCount > 0 ? profile.voucherCount : 5}';
 
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
@@ -953,9 +1412,13 @@ class _ProfilePageState extends State<ProfilePage> {
             }
             Navigator.pushNamed(context, AppRoutes.followedStores);
           }),
-          _buildStatItem('${WishlistService.instance.itemCount}', 'Wishlist', () {
-            Navigator.pushNamed(context, AppRoutes.wishlist);
-          }),
+          _buildStatItem(
+            '${WishlistService.instance.itemCount}',
+            'Wishlist',
+            () {
+              Navigator.pushNamed(context, AppRoutes.wishlist);
+            },
+          ),
           _buildStatItem(isLoggedIn ? voucherDisplay : '-', 'Vouchers', () {
             if (!isLoggedIn) {
               GuestAuthGuard.requireLogin(
@@ -966,7 +1429,11 @@ class _ProfilePageState extends State<ProfilePage> {
               return;
             }
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('$voucherDisplay Discount & Free Shipping Vouchers Available')),
+              SnackBar(
+                content: Text(
+                  '$voucherDisplay Discount & Free Shipping Vouchers Available',
+                ),
+              ),
             );
           }),
         ],
@@ -974,8 +1441,12 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  Widget _buildStatItem(String val, String label, VoidCallback onTap,
-      {Color? textColor}) {
+  Widget _buildStatItem(
+    String val,
+    String label,
+    VoidCallback onTap, {
+    Color? textColor,
+  }) {
     return Expanded(
       child: InkWell(
         onTap: onTap,
@@ -1066,8 +1537,11 @@ class _ProfilePageState extends State<ProfilePage> {
                       ),
                     ),
                     SizedBox(width: 2),
-                    Icon(Icons.chevron_right_rounded,
-                        size: 16, color: Color(0xFF0066FF)),
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      size: 16,
+                      color: Color(0xFF0066FF),
+                    ),
                   ],
                 ),
               ),
@@ -1083,15 +1557,23 @@ class _ProfilePageState extends State<ProfilePage> {
                 Icons.credit_card_outlined,
                 isLoggedIn
                     ? OrderService.instance.activeOrders
-                        .where((o) => o.statusText.toLowerCase() == 'to pay' || o.statusText.toLowerCase() == 'unpaid')
-                        .length
+                          .where(
+                            (o) =>
+                                o.statusText.toLowerCase() == 'to pay' ||
+                                o.statusText.toLowerCase() == 'unpaid',
+                          )
+                          .length
                     : 0,
                 () {
                   if (!isLoggedIn) {
                     GuestAuthGuard.requireLogin(context, title: 'My Purchases');
                     return;
                   }
-                  Navigator.pushReplacementNamed(context, AppRoutes.orders, arguments: {'initialIndex': 1});
+                  Navigator.pushReplacementNamed(
+                    context,
+                    AppRoutes.orders,
+                    arguments: {'initialIndex': 1},
+                  );
                 },
                 isHighlighted: false,
               ),
@@ -1100,15 +1582,23 @@ class _ProfilePageState extends State<ProfilePage> {
                 Icons.inventory_2_outlined,
                 isLoggedIn
                     ? OrderService.instance.activeOrders
-                        .where((o) => o.statusText.toLowerCase() == 'to ship' || o.statusText.toLowerCase() == 'processing')
-                        .length
+                          .where(
+                            (o) =>
+                                o.statusText.toLowerCase() == 'to ship' ||
+                                o.statusText.toLowerCase() == 'processing',
+                          )
+                          .length
                     : 0,
                 () {
                   if (!isLoggedIn) {
                     GuestAuthGuard.requireLogin(context, title: 'My Purchases');
                     return;
                   }
-                  Navigator.pushReplacementNamed(context, AppRoutes.orders, arguments: {'initialIndex': 2});
+                  Navigator.pushReplacementNamed(
+                    context,
+                    AppRoutes.orders,
+                    arguments: {'initialIndex': 2},
+                  );
                 },
                 isHighlighted: false,
               ),
@@ -1117,43 +1607,61 @@ class _ProfilePageState extends State<ProfilePage> {
                 Icons.local_shipping_outlined,
                 isLoggedIn
                     ? OrderService.instance.activeOrders
-                        .where((o) =>
-                            o.statusText.toLowerCase() == 'to receive' ||
-                            o.statusText.toLowerCase() == 'shipping' ||
-                            o.statusText.toLowerCase() == 'shipped' ||
-                            o.statusText.toLowerCase() == 'in transit' ||
-                            o.statusText.toLowerCase() == 'out for delivery')
-                        .length
+                          .where(
+                            (o) =>
+                                o.statusText.toLowerCase() == 'to receive' ||
+                                o.statusText.toLowerCase() == 'shipping' ||
+                                o.statusText.toLowerCase() == 'shipped' ||
+                                o.statusText.toLowerCase() == 'in transit' ||
+                                o.statusText.toLowerCase() ==
+                                    'out for delivery',
+                          )
+                          .length
                     : 0,
                 () {
                   if (!isLoggedIn) {
                     GuestAuthGuard.requireLogin(context, title: 'My Purchases');
                     return;
                   }
-                  Navigator.pushReplacementNamed(context, AppRoutes.orders, arguments: {'initialIndex': 3});
+                  Navigator.pushReplacementNamed(
+                    context,
+                    AppRoutes.orders,
+                    arguments: {'initialIndex': 3},
+                  );
                 },
-                isHighlighted: isLoggedIn &&
-                    OrderService.instance.activeOrders.any((o) =>
-                        o.statusText.toLowerCase() == 'to receive' ||
-                        o.statusText.toLowerCase() == 'shipping' ||
-                        o.statusText.toLowerCase() == 'shipped' ||
-                        o.statusText.toLowerCase() == 'in transit' ||
-                        o.statusText.toLowerCase() == 'out for delivery'),
+                isHighlighted:
+                    isLoggedIn &&
+                    OrderService.instance.activeOrders.any(
+                      (o) =>
+                          o.statusText.toLowerCase() == 'to receive' ||
+                          o.statusText.toLowerCase() == 'shipping' ||
+                          o.statusText.toLowerCase() == 'shipped' ||
+                          o.statusText.toLowerCase() == 'in transit' ||
+                          o.statusText.toLowerCase() == 'out for delivery',
+                    ),
               ),
               _buildPurchaseStatusItem(
                 'Completed',
                 Icons.rate_review_outlined,
                 isLoggedIn
                     ? OrderService.instance.activeOrders
-                        .where((o) => o.statusText.toLowerCase() == 'completed' || o.statusText.toLowerCase() == 'delivered')
-                        .length
+                          .where(
+                            (o) =>
+                                o.statusText.toLowerCase() == 'completed' ||
+                                o.statusText.toLowerCase() == 'delivered',
+                          )
+                          .length
                     : 0,
                 () {
                   if (!isLoggedIn) {
                     GuestAuthGuard.requireLogin(context, title: 'My Purchases');
                     return;
                   }
-                  Navigator.pushReplacementNamed(context, AppRoutes.orders, arguments: {'initialIndex': 4});
+                  Navigator.pushReplacementNamed(
+                    context,
+                    AppRoutes.orders,
+                    arguments: {'initialIndex': 4},
+                  );
                 },
                 isHighlighted: false,
               ),
@@ -1164,14 +1672,16 @@ class _ProfilePageState extends State<ProfilePage> {
           if (isLoggedIn)
             Builder(
               builder: (context) {
-                final inTransitOrders = OrderService.instance.activeOrders.where(
-                  (o) =>
-                      o.statusText.toLowerCase() == 'to receive' ||
-                      o.statusText.toLowerCase() == 'shipping' ||
-                      o.statusText.toLowerCase() == 'shipped' ||
-                      o.statusText.toLowerCase() == 'in transit' ||
-                      o.statusText.toLowerCase() == 'out for delivery',
-                ).toList();
+                final inTransitOrders = OrderService.instance.activeOrders
+                    .where(
+                      (o) =>
+                          o.statusText.toLowerCase() == 'to receive' ||
+                          o.statusText.toLowerCase() == 'shipping' ||
+                          o.statusText.toLowerCase() == 'shipped' ||
+                          o.statusText.toLowerCase() == 'in transit' ||
+                          o.statusText.toLowerCase() == 'out for delivery',
+                    )
+                    .toList();
 
                 if (inTransitOrders.isEmpty) {
                   return const SizedBox.shrink();
@@ -1179,90 +1689,104 @@ class _ProfilePageState extends State<ProfilePage> {
 
                 final activeOrder = inTransitOrders.first;
 
-              return Container(
-                margin: const EdgeInsets.only(top: 16),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEEECFF),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 32,
-                      height: 32,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFF00D2FF),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.sync_rounded,
-                          color: Color(0xFF050B28), size: 16),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            activeOrder.etaTime.isNotEmpty
-                                ? activeOrder.etaTime
-                                : 'Parcel arriving today',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w800,
-                              fontSize: 12.5,
-                              color: Color(0xFF0F172A),
-                            ),
-                          ),
-                          const SizedBox(height: 1),
-                          Text(
-                            'Order ${activeOrder.orderId} • ${activeOrder.etaText}',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: Colors.grey.shade600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    ElevatedButton(
-                      onPressed: () {
-                        Navigator.pushNamed(
-                          context,
-                          AppRoutes.orderTracking,
-                          arguments: activeOrder,
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF00D2FF),
-                        foregroundColor: const Color(0xFF050B28),
-                        padding:
-                            const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                        minimumSize: Size.zero,
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
+                return Container(
+                  margin: const EdgeInsets.only(top: 16),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEEECFF),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 32,
+                        height: 32,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFF00D2FF),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.sync_rounded,
+                          color: Color(0xFF050B28),
+                          size: 16,
                         ),
                       ),
-                      child: const Text(
-                        'Track',
-                        style:
-                            TextStyle(fontSize: 12, fontWeight: FontWeight.w900),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              activeOrder.etaTime.isNotEmpty
+                                  ? activeOrder.etaTime
+                                  : 'Parcel arriving today',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 12.5,
+                                color: Color(0xFF0F172A),
+                              ),
+                            ),
+                            const SizedBox(height: 1),
+                            Text(
+                              'Order ${activeOrder.orderId} • ${activeOrder.etaText}',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
+                      ElevatedButton(
+                        onPressed: () {
+                          Navigator.pushNamed(
+                            context,
+                            AppRoutes.orderTracking,
+                            arguments: activeOrder,
+                          );
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF00D2FF),
+                          foregroundColor: const Color(0xFF050B28),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 6,
+                          ),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                        child: const Text(
+                          'Track',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
         ],
       ),
     );
   }
 
   Widget _buildPurchaseStatusItem(
-      String label, IconData icon, int badgeCount, VoidCallback onTap,
-      {required bool isHighlighted}) {
+    String label,
+    IconData icon,
+    int badgeCount,
+    VoidCallback onTap, {
+    required bool isHighlighted,
+  }) {
     return GestureDetector(
       onTap: onTap,
       child: Column(
@@ -1292,8 +1816,10 @@ class _ProfilePageState extends State<ProfilePage> {
                   top: -2,
                   right: -2,
                   child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 5,
+                      vertical: 2,
+                    ),
                     decoration: const BoxDecoration(
                       color: Color(0xFF00D2FF),
                       shape: BoxShape.circle,
@@ -1311,14 +1837,18 @@ class _ProfilePageState extends State<ProfilePage> {
             ],
           ),
           const SizedBox(height: 6),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 11.5,
-              fontWeight: isHighlighted ? FontWeight.w800 : FontWeight.w600,
-              color: isHighlighted
-                  ? const Color(0xFF0066FF)
-                  : const Color(0xFF475569),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              label,
+              maxLines: 1,
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: isHighlighted ? FontWeight.w800 : FontWeight.w600,
+                color: isHighlighted
+                    ? const Color(0xFF0066FF)
+                    : const Color(0xFF475569),
+              ),
             ),
           ),
         ],
@@ -1338,7 +1868,6 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-
   Widget _buildShoppingBenefitsCard(BuildContext context) {
     final isLoggedIn = BuyerAccountService.instance.isLoggedIn;
 
@@ -1348,9 +1877,9 @@ class _ProfilePageState extends State<ProfilePage> {
         title: 'My Addresses',
         subtitle: isLoggedIn
             ? (AddressService.instance.defaultAddress?.fullAddress ??
-                (ProfileService.instance.address.isNotEmpty
-                    ? ProfileService.instance.address
-                    : 'No delivery address set'))
+                  (ProfileService.instance.address.isNotEmpty
+                      ? ProfileService.instance.address
+                      : 'No delivery address set'))
             : 'Sign in to view saved addresses',
         onTap: () {
           if (!isLoggedIn) {
@@ -1385,7 +1914,8 @@ class _ProfilePageState extends State<ProfilePage> {
           final defaultMethod = PaymentMethodService.instance.defaultMethod;
           String subtitle = 'Manage GCash & Cards';
           if (gcash != null && gcash.isLinked) {
-            subtitle = 'GCash (${gcash.formattedDisplay}) • ${defaultMethod.type == PaymentType.gcash ? "Default" : "Linked"}';
+            subtitle =
+                'GCash (${gcash.formattedDisplay}) • ${defaultMethod.type == PaymentType.gcash ? "Default" : "Linked"}';
           }
           return _buildListTile(
             icon: Icons.credit_card_rounded,
@@ -1467,7 +1997,10 @@ class _ProfilePageState extends State<ProfilePage> {
                           ],
                         ),
                         IconButton(
-                          icon: const Icon(Icons.close_rounded, color: Color(0xFF64748B)),
+                          icon: const Icon(
+                            Icons.close_rounded,
+                            color: Color(0xFF64748B),
+                          ),
                           onPressed: () => Navigator.pop(sheetContext),
                         ),
                       ],
@@ -1488,8 +2021,7 @@ class _ProfilePageState extends State<ProfilePage> {
                             GuestAuthGuard.requireLogin(
                               parentContext,
                               title: 'Account Security',
-                              message:
-                                  'Sign in or register to configure passwords, two-factor auth, and profile security.',
+                              message: 'Sign in or register to configure passwords, two-factor auth, and profile security.',
                             );
                             return;
                           }
@@ -1503,7 +2035,9 @@ class _ProfilePageState extends State<ProfilePage> {
                         onTap: () {
                           Navigator.pop(sheetContext);
                           Navigator.pushNamed(
-                              parentContext, AppRoutes.notificationPreferences);
+                            parentContext,
+                            AppRoutes.notificationPreferences,
+                          );
                         },
                       ),
                       _buildListTile(
@@ -1513,7 +2047,9 @@ class _ProfilePageState extends State<ProfilePage> {
                         onTap: () {
                           ScaffoldMessenger.of(parentContext).showSnackBar(
                             const SnackBar(
-                              content: Text('Language & Currency: English (PH) • PHP (₱)'),
+                              content: Text(
+                                'Language & Currency: English (PH) • PHP (₱)',
+                              ),
                               duration: Duration(seconds: 1),
                             ),
                           );
@@ -1521,7 +2057,9 @@ class _ProfilePageState extends State<ProfilePage> {
                       ),
                       Padding(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 12),
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
                         child: Row(
                           children: [
                             Container(
@@ -1531,8 +2069,11 @@ class _ProfilePageState extends State<ProfilePage> {
                                 color: Color(0xFFF1F5F9),
                                 shape: BoxShape.circle,
                               ),
-                              child: const Icon(Icons.nightlight_round,
-                                  color: Color(0xFF0066FF), size: 18),
+                              child: const Icon(
+                                Icons.nightlight_round,
+                                color: Color(0xFF0066FF),
+                                size: 18,
+                              ),
                             ),
                             const SizedBox(width: 14),
                             Expanded(
@@ -1569,14 +2110,17 @@ class _ProfilePageState extends State<ProfilePage> {
                                 if (widget.onToggleDarkMode != null) {
                                   widget.onToggleDarkMode!();
                                 }
-                                ScaffoldMessenger.of(parentContext).showSnackBar(
-                                  SnackBar(
-                                    content: Text(_darkMode
-                                        ? 'Dark Mode enabled!'
-                                        : 'Light Mode enabled!'),
-                                    duration: const Duration(seconds: 1),
-                                  ),
-                                );
+                                ScaffoldMessenger.of(parentContext)
+                                    .showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          _darkMode
+                                              ? 'Dark Mode enabled!'
+                                              : 'Light Mode enabled!',
+                                        ),
+                                        duration: const Duration(seconds: 1),
+                                      ),
+                                    );
                               },
                             ),
                           ],
@@ -1751,15 +2295,16 @@ class _ProfilePageState extends State<ProfilePage> {
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: const Color(0xFFFECDD3)),
         boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 8,
-          ),
+          BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 8),
         ],
       ),
       child: TextButton.icon(
         onPressed: () => _showLogoutConfirmationDialog(context),
-        icon: const Icon(Icons.logout_rounded, color: Color(0xFFE11D48), size: 18),
+        icon: const Icon(
+          Icons.logout_rounded,
+          color: Color(0xFFE11D48),
+          size: 18,
+        ),
         label: const Text(
           'Log Out',
           style: TextStyle(
@@ -1776,9 +2321,7 @@ class _ProfilePageState extends State<ProfilePage> {
     showDialog(
       context: context,
       builder: (dialogCtx) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         backgroundColor: Colors.white,
         contentPadding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
         content: Column(
@@ -1876,10 +2419,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   ),
                   child: const Text(
                     'Log Out',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 14,
-                    ),
+                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
                   ),
                 ),
               ),
@@ -1907,10 +2447,7 @@ class _ProfilePageState extends State<ProfilePage> {
         Center(
           child: Text(
             'Encrypted with 256–bit SSL',
-            style: TextStyle(
-              fontSize: 10.5,
-              color: Colors.grey.shade400,
-            ),
+            style: TextStyle(fontSize: 10.5, color: Colors.grey.shade400),
           ),
         ),
       ],
@@ -1920,15 +2457,39 @@ class _ProfilePageState extends State<ProfilePage> {
   InputDecoration _buildInputDecoration({
     required String hint,
     required IconData prefixIcon,
+    bool isDark = false,
   }) {
     return InputDecoration(
       hintText: hint,
-      prefixIcon: Icon(prefixIcon, color: const Color(0xFF64748B), size: 18),
+      hintStyle: TextStyle(
+        color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8),
+        fontSize: 13.5,
+      ),
+      prefixIcon: Icon(
+        prefixIcon,
+        color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+        size: 18,
+      ),
       filled: true,
-      fillColor: const Color(0xFFF1F5F9),
+      fillColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide.none,
+        borderSide: BorderSide(
+          color: isDark ? const Color(0xFF334155) : Colors.transparent,
+        ),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: BorderSide(
+          color: isDark ? const Color(0xFF334155) : Colors.transparent,
+        ),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(
+          color: Color(0xFF0066FF),
+          width: 1.5,
+        ),
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
     );

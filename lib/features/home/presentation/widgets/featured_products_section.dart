@@ -1,260 +1,137 @@
 import 'package:flutter/material.dart';
+import 'package:nexora_flutter_app/app/theme/nexora_theme.dart';
+import 'package:nexora_flutter_app/core/services/shop_service.dart';
+
 import 'product_card.dart';
-import '../../../../core/services/shop_service.dart';
 
 class DailyDiscoverSection extends StatelessWidget {
-  final String? selectedCategory;
-  final VoidCallback? onLoadMore;
+  const DailyDiscoverSection({super.key, this.selectedCategory});
 
-  const DailyDiscoverSection({
-    super.key,
-    this.selectedCategory,
-    this.onLoadMore,
-  });
+  final String? selectedCategory;
 
   static List<ProductModel> get allProducts => ShopService.allAppProducts;
 
-  static const List<ProductModel> legacyProducts = [
-    // Tech & Gadgets / Mall
-    ProductModel(
-      title: 'Nexora Studio Pro Wireless ANC Headphone System',
-      imageUrl:
-          'https://lh3.googleusercontent.com/aida-public/AB6AXuALgo4xVz9Wo_SuIU15ulvo-3G_HtejrhhLzW9Fgxp3t8CaI9fDN_t1BdIIRcHxxXEMC-7rLUJYBpIuY-c5YZ6dEo1scBwFSm14g-9T0PjdIixf5vHFuKFaU5-JDEnk_S8XO6M25JsCrNtVix9tigvacz5nurRgwZsHt4omGOaVSmm9mBM54NxSPO4-UO5xlTtt4Xb4p2y-MJVDYmv1KBa-MXWZ1XH_wb0wGPMd0IUiLGZ54l_WY1s',
-      category: 'Tech & Gadgets',
-      isMall: true,
-      discountTag: '-30%',
-      price: '₱2,450.00',
-      originalPrice: '₱3,500',
-      rating: 4.9,
-      soldCount: '1.8k',
-      shippingTag: '2-3 Days | Metro Manila',
-      hasPayLater: false,
-      hasVoucher: false,
-    ),
-    // Fashion / Mall
-    ProductModel(
-      title: 'Aura Minimalist Heavy Fleece Hoodie Streetwear',
-      imageUrl:
-          'https://lh3.googleusercontent.com/aida-public/AB6AXuDzlfM9UI-vGVUMAkUKI4WCoDpA4njq2i2bH5FsGflhVF28xwuR4599HpCZ5j6YtJKmVEHwfR2hVgWxghw8H2THFwFCT27W7Fk_z0wKe4q_kg8uwhxD9uXh8zSSoZ67ltyCehtwjAQfkdZzcDRantW9HcQz8VT_3vLB_3girMZ7tKvzHlokhxLLe-oKWduwhOBz7fV1Jgul-8KVjTL7YA5C12MOUbZqrBtVidhRBHOauvw8mO5Sfus',
-      category: 'Fashion',
-      isMall: true,
-      discountTag: '-22%',
-      price: '₱1,250.00',
-      originalPrice: '₱1,600',
-      rating: 4.8,
-      soldCount: '840',
-      shippingTag: '2-3 Days | Metro Manila',
-      hasPayLater: false,
-      hasVoucher: true,
-    ),
-    // Gaming / Tech & Gadgets
-    ProductModel(
-      title: 'Nexora Apex 75% Custom Mechanical Keyboard RGB',
-      imageUrl:
-          'https://images.unsplash.com/photo-1587829741301-dc798b83add3?auto=format&fit=crop&w=600&q=80',
-      category: 'Gaming',
-      isMall: true,
-      discountTag: '-28%',
-      price: '₱3,890.00',
-      originalPrice: '₱5,400',
-      rating: 4.9,
-      soldCount: '620',
-      shippingTag: '2-3 Days | Metro Manila',
-      hasPayLater: false,
-      hasVoucher: false,
-    ),
-    // Sports / Tech
-    ProductModel(
-      title: 'Nexora Pulse Fit Pro Waterproof Fitness Tracker',
-      imageUrl:
-          'https://images.unsplash.com/photo-1508685096489-7aacd43bd3b1?auto=format&fit=crop&w=600&q=80',
-      category: 'Sports',
-      isMall: true,
-      discountTag: '-35%',
-      price: '₱1,850.00',
-      originalPrice: '₱2,850',
-      rating: 4.8,
-      soldCount: '1.4k',
-      shippingTag: '2-3 Days | Metro Manila',
-      hasPayLater: false,
-      hasVoucher: true,
-    ),
-    // Tech & Gadgets / Home
-    ProductModel(
-      title: 'Aura Wave 360 Portable Bluetooth Speaker',
-      imageUrl:
-          'https://images.unsplash.com/photo-1608043152269-423dbba4e7e1?auto=format&fit=crop&w=600&q=80',
-      category: 'Tech & Gadgets',
-      isMall: true,
-      discountTag: '-18%',
-      price: '₱1,490.00',
-      originalPrice: '₱1,820',
-      rating: 4.9,
-      soldCount: '2.1k',
-      shippingTag: 'Next Day Delivery | Makati City',
-      hasPayLater: false,
-      hasVoucher: false,
-    ),
-    // Home
-    ProductModel(
-      title: 'Aura Hydro-Shield 40oz Insulated Stainless Tumbler',
-      imageUrl:
-          'https://images.unsplash.com/photo-1544816155-12df9643f363?auto=format&fit=crop&w=600&q=80',
-      category: 'Home',
-      isMall: true,
-      discountTag: '-40%',
-      price: '₱890.00',
-      originalPrice: '₱1,470',
-      rating: 4.9,
-      soldCount: '3.5k',
-      shippingTag: '2-3 Days | Metro Manila',
-      hasPayLater: false,
-      hasVoucher: true,
-    ),
-    // Beauty
-    ProductModel(
-      title: 'Nexora Glow Sonic Facial Cleansing & Massaging Brush',
-      imageUrl:
-          'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?auto=format&fit=crop&w=600&q=80',
-      category: 'Beauty',
-      isMall: true,
-      discountTag: '-35%',
-      price: '₱1,350.00',
-      originalPrice: '₱2,100',
-      rating: 4.9,
-      soldCount: '950',
-      shippingTag: '2-3 Days | Quezon City',
-      hasPayLater: false,
-      hasVoucher: true,
-    ),
-    // Vouchers
-    ProductModel(
-      title: 'Nexora Official Store ₱500 Discount Voucher Card Pass',
-      imageUrl:
-          'https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?auto=format&fit=crop&w=600&q=80',
-      category: 'Vouchers',
-      isMall: true,
-      discountTag: '-80%',
-      price: '₱50.00',
-      originalPrice: '₱500',
-      rating: 5.0,
-      soldCount: '12.4k',
-      shippingTag: 'Instant Digital Delivery',
-      hasPayLater: false,
-      hasVoucher: true,
-    ),
-  ];
-
   @override
   Widget build(BuildContext context) {
-    final filteredProducts = selectedCategory == null || selectedCategory == 'Mall'
+    final theme = Theme.of(context);
+    final products = selectedCategory == null
         ? allProducts
-        : allProducts.where((p) => p.category == selectedCategory).toList();
-
-    final displayProducts = filteredProducts.isEmpty ? allProducts : filteredProducts;
+        : allProducts
+              .where((product) => product.category == selectedCategory)
+              .toList();
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      padding: const EdgeInsets.fromLTRB(16, 18, 16, 28),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header Section
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Row(
-                  children: [
-                    Flexible(
-                      child: Text(
-                        selectedCategory == null
-                            ? 'DAILY DISCOVER'
-                            : 'DISCOVER (${selectedCategory!.toUpperCase()})',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w900,
-                          fontSize: 15,
-                          letterSpacing: 0.3,
-                          color: Color(0xFF0F172A),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              const Text(
-                'Updated Just Now',
-                style: TextStyle(
-                  color: Color(0xFF0284C7),
-                  fontWeight: FontWeight.w600,
-                  fontSize: 11,
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 10),
-
-          // Product Grid Layout
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: displayProducts.length,
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              crossAxisSpacing: 10,
-              mainAxisSpacing: 10,
-              childAspectRatio: 0.50,
-            ),
-            itemBuilder: (context, index) {
-              return ProductCard(product: displayProducts[index]);
-            },
-          ),
-
-          const SizedBox(height: 16),
-
-          // Loading more recommendations button matching screenshot
-          Center(
-            child: InkWell(
-              onTap: onLoadMore,
-              borderRadius: BorderRadius.circular(20),
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor:
-                            AlwaysStoppedAnimation<Color>(Color(0xFF0284C7)),
-                      ),
-                    ),
-                    SizedBox(width: 8),
-                    Text(
-                      'Loading more recommendations...',
-                      style: TextStyle(
-                        color: Color(0xFF64748B),
-                        fontWeight: FontWeight.w600,
-                        fontSize: 11.5,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+          Text(
+            selectedCategory ?? 'Recommended for you',
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontFamily: NexoraTheme.fontFamily,
+              color: theme.colorScheme.onSurface,
+              fontSize: 20,
+              height: 1.2,
+              letterSpacing: -0.3,
+              fontWeight: FontWeight.w700,
             ),
           ),
+          const SizedBox(height: 4),
+          Text(
+            '${products.length} ${products.length == 1 ? 'product' : 'products'}',
+            style: TextStyle(
+              fontFamily: NexoraTheme.fontFamily,
+              color: theme.colorScheme.onSurfaceVariant,
+              fontSize: 12.5,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 14),
+          if (products.isEmpty)
+            _EmptyCategory(category: selectedCategory)
+          else
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final crossAxisCount = switch (constraints.maxWidth) {
+                  >= 1080 => 5,
+                  >= 820 => 4,
+                  >= 560 => 3,
+                  _ => 2,
+                };
+                const spacing = 12.0;
+                final cardWidth =
+                    (constraints.maxWidth - spacing * (crossAxisCount - 1)) /
+                    crossAxisCount;
+                final textScale = MediaQuery.textScalerOf(context).scale(1);
+                final accessibilityGrowth =
+                    ((textScale - 1).clamp(0.0, 1.0) * 116);
+                final cardHeight =
+                    cardWidth + 148.0 + accessibilityGrowth;
+
+                return GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: products.length,
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: crossAxisCount,
+                    crossAxisSpacing: spacing,
+                    mainAxisSpacing: spacing,
+                    mainAxisExtent: cardHeight,
+                  ),
+                  itemBuilder: (context, index) {
+                    return ProductCard(product: products[index]);
+                  },
+                );
+              },
+            ),
         ],
+      ),
+    );
+  }
+}
+
+class _EmptyCategory extends StatelessWidget {
+  const _EmptyCategory({required this.category});
+
+  final String? category;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 32),
+      child: Center(
+        child: Column(
+          children: [
+            const Icon(
+              Icons.inventory_2_outlined,
+              size: 36,
+              color: NexoraTheme.onSurfaceVariant,
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'No products in ${category ?? 'this category'} yet',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontFamily: NexoraTheme.fontFamily,
+                color: NexoraTheme.onSurface,
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'Choose another category to keep browsing.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: NexoraTheme.fontFamily,
+                color: NexoraTheme.onSurfaceVariant,
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

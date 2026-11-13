@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+
 import '../../../app/routes/app_routes.dart';
+import '../../../app/theme/nexora_theme.dart';
 import '../../../core/services/buyer_account_service.dart';
 import '../../../core/services/supabase_auth_service.dart';
 import '../../../core/services/external_notification_service.dart';
 import '../../../core/widgets/google_logo_icon.dart';
+import 'widgets/auth_components.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -21,7 +24,8 @@ class _RegisterPageState extends State<RegisterPage> {
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _dobController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _confirmPasswordController = TextEditingController();
+  final TextEditingController _confirmPasswordController =
+      TextEditingController();
   final TextEditingController _referralController = TextEditingController();
 
   DateTime? _selectedDob;
@@ -78,10 +82,19 @@ class _RegisterPageState extends State<RegisterPage> {
     final pass = _passwordController.text;
     if (pass.isEmpty) return 0;
     int score = 0;
-    if (pass.length >= 8) score++;
-    if (RegExp(r'[0-9]').hasMatch(pass)) score++;
-    if (RegExp(r'[A-Z]').hasMatch(pass) && RegExp(r'[a-z]').hasMatch(pass)) score++;
-    if (RegExp(r'[!@#\$%^&*(),.?":{}|<>\-_]').hasMatch(pass) || pass.length >= 10) score++;
+    if (pass.length >= 8) {
+      score++;
+    }
+    if (RegExp(r'[0-9]').hasMatch(pass)) {
+      score++;
+    }
+    if (RegExp(r'[A-Z]').hasMatch(pass) && RegExp(r'[a-z]').hasMatch(pass)) {
+      score++;
+    }
+    if (RegExp(r'[!@#\$%^&*(),.?":{}|<>\-_]').hasMatch(pass) ||
+        pass.length >= 10) {
+      score++;
+    }
     return score;
   }
 
@@ -189,7 +202,13 @@ class _RegisterPageState extends State<RegisterPage> {
         final y = int.tryParse(parts[0]);
         final m = int.tryParse(parts[1]);
         final d = int.tryParse(parts[2]);
-        if (m != null && d != null && y != null && m >= 1 && m <= 12 && d >= 1 && d <= 31) {
+        if (m != null &&
+            d != null &&
+            y != null &&
+            m >= 1 &&
+            m <= 12 &&
+            d >= 1 &&
+            d <= 31) {
           return DateTime(y, m, d);
         }
       }
@@ -259,13 +278,15 @@ class _RegisterPageState extends State<RegisterPage> {
     if (result.success) {
       // Optionally provision account in Supabase database in background
       try {
-        SupabaseAuthService.instance.signUpWithEmail(
-          email: _emailController.text,
-          password: _passwordController.text,
-          firstName: _firstNameController.text,
-          lastName: _lastNameController.text,
-          phone: combinedPhone,
-        ).catchError((_) => SupabaseAuthResult.fail(''));
+        SupabaseAuthService.instance
+            .signUpWithEmail(
+              email: _emailController.text,
+              password: _passwordController.text,
+              firstName: _firstNameController.text,
+              lastName: _lastNameController.text,
+              phone: combinedPhone,
+            )
+            .catchError((_) => SupabaseAuthResult.fail(''));
       } catch (_) {}
 
       if (!mounted) return;
@@ -357,16 +378,24 @@ class _RegisterPageState extends State<RegisterPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel', style: TextStyle(fontWeight: FontWeight.w700)),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFEF4444),
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
-            child: const Text('Discard', style: TextStyle(fontWeight: FontWeight.w700)),
+            child: const Text(
+              'Discard',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
           ),
         ],
       ),
@@ -375,8 +404,453 @@ class _RegisterPageState extends State<RegisterPage> {
     return shouldDiscard ?? false;
   }
 
+  Widget _buildRegistrationPage(BuildContext context) {
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        await _leaveRegistration();
+      },
+      child: AuthPageScaffold(
+        title: 'Create your account',
+        subtitle: 'Save favorites, track deliveries, and check out faster.',
+        onBack: _leaveRegistration,
+        content: Form(
+          key: _formKey,
+          autovalidateMode: _autoValidate
+              ? AutovalidateMode.onUserInteraction
+              : AutovalidateMode.disabled,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const AuthNotice(
+                message: 'Get ₱150 voucher + free shipping on 1st order!',
+                icon: Icons.card_giftcard_outlined,
+              ),
+              const SizedBox(height: NexoraSpacing.md),
+              AuthSection(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final firstName = _nameField(
+                          controller: _firstNameController,
+                          label: 'First Name',
+                          hint: 'Juan Miguel',
+                          icon: Icons.person_outline_rounded,
+                          emptyMessage: 'First Name is required',
+                        );
+                        final lastName = _nameField(
+                          controller: _lastNameController,
+                          label: 'Last Name',
+                          hint: 'Dela Cruz',
+                          icon: Icons.badge_outlined,
+                          emptyMessage: 'Last Name is required',
+                        );
+                        if (constraints.maxWidth < 380) {
+                          return Column(
+                            children: [
+                              firstName,
+                              const SizedBox(height: NexoraSpacing.md),
+                              lastName,
+                            ],
+                          );
+                        }
+                        return Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(child: firstName),
+                            const SizedBox(width: NexoraSpacing.sm),
+                            Expanded(child: lastName),
+                          ],
+                        );
+                      },
+                    ),
+                    const SizedBox(height: NexoraSpacing.md),
+                    TextFormField(
+                      controller: _dobController,
+                      keyboardType: TextInputType.datetime,
+                      onChanged: (value) {
+                        _selectedDob = _parseDateText(value);
+                        if (_autoValidate) _formKey.currentState?.validate();
+                      },
+                      decoration: InputDecoration(
+                        labelText: 'Date of Birth',
+                        hintText: 'MM/DD/YYYY',
+                        helperText: 'Must be 18+',
+                        prefixIcon: const Icon(Icons.calendar_today_outlined),
+                        suffixIcon: IconButton(
+                          tooltip: 'Choose date',
+                          onPressed: () => _selectDateOfBirth(context),
+                          icon: const Icon(Icons.date_range_rounded),
+                        ),
+                      ),
+                      validator: _validateDateOfBirth,
+                    ),
+                    const SizedBox(height: NexoraSpacing.md),
+                    TextFormField(
+                      controller: _emailController,
+                      keyboardType: TextInputType.emailAddress,
+                      textInputAction: TextInputAction.next,
+                      autofillHints: const [AutofillHints.email],
+                      decoration: const InputDecoration(
+                        labelText: 'Email Address',
+                        hintText: 'juan@example.com',
+                        prefixIcon: Icon(Icons.email_outlined),
+                      ),
+                      validator: _validateEmail,
+                    ),
+                    const SizedBox(height: NexoraSpacing.md),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SizedBox(
+                          width: 96,
+                          child: DropdownButtonFormField<String>(
+                            initialValue: _selectedCountryCode,
+                            decoration: const InputDecoration(
+                              labelText: 'Code',
+                              contentPadding: EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 14,
+                              ),
+                            ),
+                            items: const [
+                              DropdownMenuItem(
+                                value: '+63',
+                                child: Text('+63'),
+                              ),
+                              DropdownMenuItem(value: '+1', child: Text('+1')),
+                            ],
+                            onChanged: (value) {
+                              if (value != null) {
+                                setState(() => _selectedCountryCode = value);
+                              }
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: NexoraSpacing.sm),
+                        Expanded(
+                          child: TextFormField(
+                            controller: _phoneController,
+                            keyboardType: TextInputType.phone,
+                            textInputAction: TextInputAction.next,
+                            autofillHints: const [
+                              AutofillHints.telephoneNumber,
+                            ],
+                            decoration: const InputDecoration(
+                              labelText: 'Mobile Number',
+                              hintText: '0917 888 9900',
+                              prefixIcon: Icon(Icons.phone_android_outlined),
+                            ),
+                            validator: _validatePhone,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: NexoraSpacing.md),
+                    TextFormField(
+                      controller: _passwordController,
+                      obscureText: !_isPasswordVisible,
+                      autocorrect: false,
+                      enableSuggestions: false,
+                      autofillHints: const [AutofillHints.newPassword],
+                      decoration: InputDecoration(
+                        labelText: 'Create Password',
+                        hintText: 'At least 8 characters',
+                        prefixIcon: const Icon(Icons.lock_outline_rounded),
+                        suffixIcon: IconButton(
+                          tooltip: _isPasswordVisible
+                              ? 'Hide password'
+                              : 'Show password',
+                          onPressed: () => setState(
+                            () => _isPasswordVisible = !_isPasswordVisible,
+                          ),
+                          icon: Icon(
+                            _isPasswordVisible
+                                ? Icons.visibility_outlined
+                                : Icons.visibility_off_outlined,
+                          ),
+                        ),
+                      ),
+                      validator: _validatePassword,
+                    ),
+                    const SizedBox(height: NexoraSpacing.sm),
+                    _PasswordStrength(
+                      score: _passwordScore,
+                      label: _strengthLabel,
+                      color: _strengthColor,
+                      checks: [
+                        ('8+ characters', _hasMinChars),
+                        ('Number', _hasNumber),
+                        ('Uppercase', _hasUppercase),
+                        ('Lowercase', _hasLowercase),
+                        ('Special', _hasSpecialChar),
+                      ],
+                    ),
+                    const SizedBox(height: NexoraSpacing.md),
+                    TextFormField(
+                      controller: _confirmPasswordController,
+                      obscureText: !_isConfirmPasswordVisible,
+                      autocorrect: false,
+                      enableSuggestions: false,
+                      textInputAction: TextInputAction.done,
+                      autofillHints: const [AutofillHints.newPassword],
+                      decoration: InputDecoration(
+                        labelText: 'Confirm Password',
+                        hintText: 'Repeat your password',
+                        prefixIcon: const Icon(Icons.lock_clock_outlined),
+                        suffixIcon: IconButton(
+                          tooltip: _isConfirmPasswordVisible
+                              ? 'Hide password'
+                              : 'Show password',
+                          onPressed: () => setState(
+                            () => _isConfirmPasswordVisible =
+                                !_isConfirmPasswordVisible,
+                          ),
+                          icon: Icon(
+                            _isConfirmPasswordVisible
+                                ? Icons.visibility_outlined
+                                : Icons.visibility_off_outlined,
+                          ),
+                        ),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please confirm your password';
+                        }
+                        if (value != _passwordController.text) {
+                          return 'Passwords do not match';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: NexoraSpacing.sm),
+                    Align(
+                      alignment: AlignmentDirectional.centerStart,
+                      child: TextButton.icon(
+                        onPressed: () =>
+                            setState(() => _showReferral = !_showReferral),
+                        icon: const Icon(Icons.local_offer_outlined),
+                        label: const Text('Have a referral code? (Optional)'),
+                      ),
+                    ),
+                    AnimatedSize(
+                      duration: NexoraMotion.resolve(context),
+                      curve: NexoraMotion.standardCurve,
+                      child: _showReferral
+                          ? Padding(
+                              padding: const EdgeInsets.only(
+                                top: NexoraSpacing.xs,
+                              ),
+                              child: TextFormField(
+                                controller: _referralController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Referral code',
+                                  hintText: 'e.g. NEXORA150',
+                                  prefixIcon: Icon(
+                                    Icons.card_giftcard_outlined,
+                                  ),
+                                ),
+                                validator: (value) {
+                                  final text = value?.trim() ?? '';
+                                  if (text.isNotEmpty &&
+                                      !BuyerValidationRules.isValidReferralCode(
+                                        text,
+                                      )) {
+                                    return 'Invalid referral code';
+                                  }
+                                  return null;
+                                },
+                              ),
+                            )
+                          : const SizedBox.shrink(),
+                    ),
+                    const SizedBox(height: NexoraSpacing.sm),
+                    CheckboxListTile(
+                      value: _agreeTerms,
+                      contentPadding: EdgeInsets.zero,
+                      controlAffinity: ListTileControlAffinity.leading,
+                      title: const Text(
+                        'I agree to the Terms of Service and Privacy Policy',
+                      ),
+                      onChanged: (value) =>
+                          setState(() => _agreeTerms = value ?? false),
+                    ),
+                    CheckboxListTile(
+                      value: _notifyPromos,
+                      contentPadding: EdgeInsets.zero,
+                      controlAffinity: ListTileControlAffinity.leading,
+                      title: const Text(
+                        'Send me occasional offers and product updates',
+                      ),
+                      onChanged: (value) =>
+                          setState(() => _notifyPromos = value ?? false),
+                    ),
+                    const SizedBox(height: NexoraSpacing.sm),
+                    AuthPrimaryButton(
+                      label: 'Create Account',
+                      loading: _isLoading,
+                      onPressed: _handleRegister,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: NexoraSpacing.xl),
+              const AuthDivider(),
+              const SizedBox(height: NexoraSpacing.xl),
+              AuthGoogleButton(
+                loading: _isLoading,
+                onPressed: _handleGoogleSignUp,
+              ),
+            ],
+          ),
+        ),
+        footer: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Flexible(child: Text('Already have an account?')),
+            TextButton(
+              onPressed: () =>
+                  Navigator.pushReplacementNamed(context, AppRoutes.login),
+              child: const Text('Sign In'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _leaveRegistration() async {
+    final shouldLeave = await _onWillPop();
+    if (!shouldLeave || !mounted) return;
+    if (Navigator.canPop(context)) {
+      Navigator.pop(context);
+    } else {
+      Navigator.pushReplacementNamed(context, AppRoutes.landing);
+    }
+  }
+
+  Widget _nameField({
+    required TextEditingController controller,
+    required String label,
+    required String hint,
+    required IconData icon,
+    required String emptyMessage,
+  }) {
+    return TextFormField(
+      controller: controller,
+      keyboardType: TextInputType.name,
+      textInputAction: TextInputAction.next,
+      autofillHints: label == 'First Name'
+          ? const [AutofillHints.givenName]
+          : const [AutofillHints.familyName],
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hint,
+        prefixIcon: Icon(icon),
+      ),
+      validator: (value) {
+        final text = value?.trim() ?? '';
+        if (text.isEmpty) return emptyMessage;
+        if (text.length < BuyerValidationRules.minNameLength) {
+          return 'Min 2 characters';
+        }
+        if (text.length > BuyerValidationRules.maxNameLength) {
+          return 'Max 50 characters';
+        }
+        if (!BuyerValidationRules.isValidName(text)) {
+          return 'Only letters allowed';
+        }
+        return null;
+      },
+    );
+  }
+
+  String? _validateDateOfBirth(String? value) {
+    final text = value?.trim() ?? '';
+    if (text.isEmpty) return 'Date of birth is required';
+    final parsed = _parseDateText(text) ?? _selectedDob;
+    if (parsed == null) return 'Please enter a valid date (MM/DD/YYYY)';
+    final today = DateTime.now();
+    final dateOnly = DateTime(parsed.year, parsed.month, parsed.day);
+    final todayOnly = DateTime(today.year, today.month, today.day);
+    if (dateOnly.isAfter(todayOnly)) {
+      return 'Date of birth cannot be in the future';
+    }
+    if (!BuyerValidationRules.isAtLeast18YearsOld(parsed)) {
+      return 'You must be at least 18 years old to register';
+    }
+    return null;
+  }
+
+  String? _validateEmail(String? value) {
+    final email = value?.trim() ?? '';
+    if (email.isEmpty) return 'Email Address is required';
+    if (!BuyerValidationRules.emailRegex.hasMatch(email) ||
+        email.contains('..') ||
+        !email.contains('@') ||
+        email.startsWith('@') ||
+        email.endsWith('@')) {
+      return 'Please enter a valid email address';
+    }
+    if (BuyerAccountService.instance.allBuyers.any(
+          (buyer) => buyer.email == email.toLowerCase(),
+        ) ||
+        email.toLowerCase() == 'juan.miguel.delacruz@gmail.com' ||
+        email.toLowerCase() == 'mariaclara.santos@example.com' ||
+        email.toLowerCase() == 'operations@bilishatid.example.com') {
+      return 'An account with this email already exists. Sign in or reset password.';
+    }
+    return null;
+  }
+
+  String? _validatePhone(String? value) {
+    final raw = value?.trim() ?? '';
+    if (raw.isEmpty) return 'Mobile Number is required';
+    final normalized = BuyerValidationRules.normalizePhone(raw);
+    if (normalized.length != 11) return 'Mobile number must be 11 digits';
+    if (!BuyerValidationRules.phoneRegex.hasMatch(normalized)) {
+      return 'Must start with 09';
+    }
+    if (normalized == '09171234567' ||
+        normalized == '09189876543' ||
+        normalized == '09285551234') {
+      return 'This mobile number is already registered';
+    }
+    return null;
+  }
+
+  String? _validatePassword(String? value) {
+    final password = value ?? '';
+    if (password.isEmpty) return 'Password is required';
+    if (password.length < BuyerValidationRules.minPasswordLength) {
+      return 'Password must be at least 8 characters';
+    }
+    if (password.length > BuyerValidationRules.maxPasswordLength) {
+      return 'Password cannot exceed 50 characters';
+    }
+    if (!BuyerValidationRules.hasUppercase(password)) {
+      return 'Must contain at least one uppercase letter (A-Z)';
+    }
+    if (!BuyerValidationRules.hasLowercase(password)) {
+      return 'Must contain at least one lowercase letter (a-z)';
+    }
+    if (!BuyerValidationRules.hasNumber(password)) {
+      return 'Must contain at least one number (0-9)';
+    }
+    if (!BuyerValidationRules.hasSpecialChar(password)) {
+      return 'Must contain at least one special character (!@#\$%^&*)';
+    }
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (!const bool.fromEnvironment('NEXORA_LEGACY_AUTH')) {
+      return _buildRegistrationPage(context);
+    }
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) async {
@@ -425,31 +899,33 @@ class _RegisterPageState extends State<RegisterPage> {
                   Container(
                     width: 76,
                     height: 76,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFF0066FF).withValues(alpha: 0.12),
-                            blurRadius: 16,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: ClipOval(
-                        child: Image.asset(
-                          'assets/images/logo.png',
-                          width: 76,
-                          height: 76,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) => const Icon(
-                            Icons.shopping_bag_rounded,
-                            size: 38,
-                            color: Color(0xFF0066FF),
-                          ),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF0066FF)
+                              .withValues(alpha: 0.12),
+                          blurRadius: 16,
+                          offset: const Offset(0, 4),
                         ),
+                      ],
+                    ),
+                    child: ClipOval(
+                      child: Image.asset(
+                        'assets/images/logo.png',
+                        width: 76,
+                        height: 76,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) =>
+                            const Icon(
+                              Icons.shopping_bag_rounded,
+                              size: 38,
+                              color: Color(0xFF0066FF),
+                            ),
                       ),
                     ),
+                  ),
                   const SizedBox(height: 16),
 
                   // Header Title & Subtitle
@@ -477,11 +953,17 @@ class _RegisterPageState extends State<RegisterPage> {
 
                   // Voucher Promo Banner Box
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 8,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xFFEFF6FF),
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: const Color(0xFFDBEAFE), width: 1),
+                      border: Border.all(
+                        color: const Color(0xFFDBEAFE),
+                        width: 1,
+                      ),
                     ),
                     child: const Row(
                       mainAxisSize: MainAxisSize.min,
@@ -546,13 +1028,17 @@ class _RegisterPageState extends State<RegisterPage> {
                                       if (text.isEmpty) {
                                         return 'First Name is required';
                                       }
-                                      if (text.length < BuyerValidationRules.minNameLength) {
+                                      if (text.length <
+                                          BuyerValidationRules.minNameLength) {
                                         return 'Min 2 characters';
                                       }
-                                      if (text.length > BuyerValidationRules.maxNameLength) {
+                                      if (text.length >
+                                          BuyerValidationRules.maxNameLength) {
                                         return 'Max 50 characters';
                                       }
-                                      if (!BuyerValidationRules.isValidName(text)) {
+                                      if (!BuyerValidationRules.isValidName(
+                                        text,
+                                      )) {
                                         return 'Only letters allowed';
                                       }
                                       return null;
@@ -587,13 +1073,17 @@ class _RegisterPageState extends State<RegisterPage> {
                                       if (text.isEmpty) {
                                         return 'Last Name is required';
                                       }
-                                      if (text.length < BuyerValidationRules.minNameLength) {
+                                      if (text.length <
+                                          BuyerValidationRules.minNameLength) {
                                         return 'Min 2 characters';
                                       }
-                                      if (text.length > BuyerValidationRules.maxNameLength) {
+                                      if (text.length >
+                                          BuyerValidationRules.maxNameLength) {
                                         return 'Max 50 characters';
                                       }
-                                      if (!BuyerValidationRules.isValidName(text)) {
+                                      if (!BuyerValidationRules.isValidName(
+                                        text,
+                                      )) {
                                         return 'Only letters allowed';
                                       }
                                       return null;
@@ -619,7 +1109,10 @@ class _RegisterPageState extends State<RegisterPage> {
                               ),
                             ),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 7,
+                                vertical: 2.5,
+                              ),
                               decoration: BoxDecoration(
                                 color: const Color(0xFFEFF6FF),
                                 borderRadius: BorderRadius.circular(6),
@@ -668,13 +1161,23 @@ class _RegisterPageState extends State<RegisterPage> {
                               return 'Please enter a valid date (MM/DD/YYYY)';
                             }
                             final today = DateTime.now();
-                            final dateOnly = DateTime(parsed.year, parsed.month, parsed.day);
-                            final todayOnly = DateTime(today.year, today.month, today.day);
+                            final dateOnly = DateTime(
+                              parsed.year,
+                              parsed.month,
+                              parsed.day,
+                            );
+                            final todayOnly = DateTime(
+                              today.year,
+                              today.month,
+                              today.day,
+                            );
 
                             if (dateOnly.isAfter(todayOnly)) {
                               return 'Date of birth cannot be in the future';
                             }
-                            if (!BuyerValidationRules.isAtLeast18YearsOld(parsed)) {
+                            if (!BuyerValidationRules.isAtLeast18YearsOld(
+                              parsed,
+                            )) {
                               return 'You must be at least 18 years old to register';
                             }
                             return null;
@@ -704,7 +1207,9 @@ class _RegisterPageState extends State<RegisterPage> {
                             if (email.isEmpty) {
                               return 'Email Address is required';
                             }
-                            if (!BuyerValidationRules.emailRegex.hasMatch(email) ||
+                            if (!BuyerValidationRules.emailRegex.hasMatch(
+                                  email,
+                                ) ||
                                 email.contains('..') ||
                                 !email.contains('@') ||
                                 email.startsWith('@') ||
@@ -712,11 +1217,15 @@ class _RegisterPageState extends State<RegisterPage> {
                               return 'Please enter a valid email address';
                             }
                             // Cross-role duplicate check (TC-BUY-010, TC-BUY-011)
-                            if (BuyerAccountService.instance.allBuyers
-                                    .any((b) => b.email == email.toLowerCase()) ||
-                                email.toLowerCase() == 'juan.miguel.delacruz@gmail.com' ||
-                                email.toLowerCase() == 'mariaclara.santos@example.com' ||
-                                email.toLowerCase() == 'operations@bilishatid.example.com') {
+                            if (BuyerAccountService.instance.allBuyers.any(
+                                  (b) => b.email == email.toLowerCase(),
+                                ) ||
+                                email.toLowerCase() ==
+                                    'juan.miguel.delacruz@gmail.com' ||
+                                email.toLowerCase() ==
+                                    'mariaclara.santos@example.com' ||
+                                email.toLowerCase() ==
+                                    'operations@bilishatid.example.com') {
                               return 'An account with this email already exists. Sign in or reset password.';
                             }
                             return null;
@@ -738,7 +1247,11 @@ class _RegisterPageState extends State<RegisterPage> {
                             ),
                             const Row(
                               children: [
-                                Icon(Icons.flash_on_rounded, size: 13, color: Color(0xFF0066FF)),
+                                Icon(
+                                  Icons.flash_on_rounded,
+                                  size: 13,
+                                  color: Color(0xFF0066FF),
+                                ),
                                 SizedBox(width: 2),
                                 Text(
                                   'Instant SMS OTP',
@@ -757,11 +1270,17 @@ class _RegisterPageState extends State<RegisterPage> {
                           children: [
                             // Country Code Dropdown
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 12,
+                              ),
                               decoration: BoxDecoration(
                                 color: const Color(0xFFF8FAFC),
                                 borderRadius: BorderRadius.circular(14),
-                                border: Border.all(color: const Color(0xFFE2E8F0), width: 1),
+                                border: Border.all(
+                                  color: const Color(0xFFE2E8F0),
+                                  width: 1,
+                                ),
                               ),
                               child: DropdownButtonHideUnderline(
                                 child: DropdownButton<String>(
@@ -807,11 +1326,14 @@ class _RegisterPageState extends State<RegisterPage> {
                                   if (raw.isEmpty) {
                                     return 'Mobile Number is required';
                                   }
-                                  final norm = BuyerValidationRules.normalizePhone(raw);
+                                  final norm =
+                                      BuyerValidationRules.normalizePhone(raw);
                                   if (norm.length != 11) {
                                     return 'Mobile number must be 11 digits';
                                   }
-                                  if (!BuyerValidationRules.phoneRegex.hasMatch(norm)) {
+                                  if (!BuyerValidationRules.phoneRegex.hasMatch(
+                                    norm,
+                                  )) {
                                     return 'Must start with 09';
                                   }
                                   // Duplicate phone check (TC-BUY-015, TC-BUY-016)
@@ -874,10 +1396,12 @@ class _RegisterPageState extends State<RegisterPage> {
                             if (pass.isEmpty) {
                               return 'Password is required';
                             }
-                            if (pass.length < BuyerValidationRules.minPasswordLength) {
+                            if (pass.length <
+                                BuyerValidationRules.minPasswordLength) {
                               return 'Password must be at least 8 characters';
                             }
-                            if (pass.length > BuyerValidationRules.maxPasswordLength) {
+                            if (pass.length >
+                                BuyerValidationRules.maxPasswordLength) {
                               return 'Password cannot exceed 50 characters';
                             }
                             if (!BuyerValidationRules.hasUppercase(pass)) {
@@ -938,9 +1462,13 @@ class _RegisterPageState extends State<RegisterPage> {
                               child: AnimatedContainer(
                                 duration: const Duration(milliseconds: 200),
                                 height: 4,
-                                margin: EdgeInsets.only(right: index < 3 ? 4 : 0),
+                                margin: EdgeInsets.only(
+                                  right: index < 3 ? 4 : 0,
+                                ),
                                 decoration: BoxDecoration(
-                                  color: isFilled ? _strengthColor : const Color(0xFFE2E8F0),
+                                  color: isFilled
+                                      ? _strengthColor
+                                      : const Color(0xFFE2E8F0),
                                   borderRadius: BorderRadius.circular(2),
                                 ),
                               ),
@@ -991,7 +1519,8 @@ class _RegisterPageState extends State<RegisterPage> {
                               ),
                               onPressed: () {
                                 setState(() {
-                                  _isConfirmPasswordVisible = !_isConfirmPasswordVisible;
+                                  _isConfirmPasswordVisible =
+                                      !_isConfirmPasswordVisible;
                                 });
                               },
                             ),
@@ -1017,8 +1546,11 @@ class _RegisterPageState extends State<RegisterPage> {
                           },
                           child: Row(
                             children: [
-                              const Icon(Icons.local_offer_outlined,
-                                  size: 16, color: Color(0xFF0066FF)),
+                              const Icon(
+                                Icons.local_offer_outlined,
+                                size: 16,
+                                color: Color(0xFF0066FF),
+                              ),
                               const SizedBox(width: 6),
                               const Text(
                                 'Have a referral code? (Optional)',
@@ -1050,7 +1582,9 @@ class _RegisterPageState extends State<RegisterPage> {
                             validator: (val) {
                               final text = val?.trim() ?? '';
                               if (text.isNotEmpty &&
-                                  !BuyerValidationRules.isValidReferralCode(text)) {
+                                  !BuyerValidationRules.isValidReferralCode(
+                                    text,
+                                  )) {
                                 return 'Invalid referral code';
                               }
                               return null;
@@ -1083,7 +1617,8 @@ class _RegisterPageState extends State<RegisterPage> {
                                       });
                                     },
                                     activeColor: const Color(0xFF0066FF),
-                                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                    materialTapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
                                   ),
                                 ),
                                 const SizedBox(width: 8),
@@ -1101,7 +1636,8 @@ class _RegisterPageState extends State<RegisterPage> {
                                           text: "Terms of Service",
                                           style: TextStyle(
                                             fontWeight: FontWeight.bold,
-                                            decoration: TextDecoration.underline,
+                                            decoration:
+                                                TextDecoration.underline,
                                             color: Color(0xFF0066FF),
                                           ),
                                         ),
@@ -1110,7 +1646,8 @@ class _RegisterPageState extends State<RegisterPage> {
                                           text: "Privacy Policy",
                                           style: TextStyle(
                                             fontWeight: FontWeight.bold,
-                                            decoration: TextDecoration.underline,
+                                            decoration:
+                                                TextDecoration.underline,
                                             color: Color(0xFF0066FF),
                                           ),
                                         ),
@@ -1147,7 +1684,8 @@ class _RegisterPageState extends State<RegisterPage> {
                                       });
                                     },
                                     activeColor: const Color(0xFF0066FF),
-                                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                    materialTapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
                                   ),
                                 ),
                                 const SizedBox(width: 8),
@@ -1180,7 +1718,8 @@ class _RegisterPageState extends State<RegisterPage> {
                             borderRadius: BorderRadius.circular(25),
                             boxShadow: [
                               BoxShadow(
-                                color: const Color(0xFF0066FF).withValues(alpha: 0.35),
+                                color: const Color(0xFF0066FF)
+                                    .withValues(alpha: 0.35),
                                 blurRadius: 12,
                                 offset: const Offset(0, 4),
                               ),
@@ -1279,11 +1818,17 @@ class _RegisterPageState extends State<RegisterPage> {
                     children: [
                       Text(
                         "Already have an account? ",
-                        style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
+                        style: TextStyle(
+                          color: Colors.grey.shade700,
+                          fontSize: 13,
+                        ),
                       ),
                       GestureDetector(
                         onTap: () {
-                          Navigator.pushReplacementNamed(context, AppRoutes.login);
+                          Navigator.pushReplacementNamed(
+                            context,
+                            AppRoutes.login,
+                          );
                         },
                         child: const Text(
                           'Sign In',
@@ -1300,7 +1845,10 @@ class _RegisterPageState extends State<RegisterPage> {
 
                   // Security Footer Badge
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 8,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xFFE0F7FA),
                       borderRadius: BorderRadius.circular(16),
@@ -1308,7 +1856,11 @@ class _RegisterPageState extends State<RegisterPage> {
                     child: const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.verified_user_outlined, size: 14, color: Color(0xFF00838F)),
+                        Icon(
+                          Icons.verified_user_outlined,
+                          size: 14,
+                          color: Color(0xFF00838F),
+                        ),
                         SizedBox(width: 6),
                         Text(
                           '256-Bit SSL Encrypted • Data Privacy Compliant',
@@ -1352,7 +1904,9 @@ class _RegisterPageState extends State<RegisterPage> {
             style: TextStyle(
               fontSize: 10.5,
               fontWeight: FontWeight.bold,
-              color: isSatisfied ? const Color(0xFF00838F) : const Color(0xFF64748B),
+              color: isSatisfied
+                  ? const Color(0xFF00838F)
+                  : const Color(0xFF64748B),
             ),
           ),
         ],
@@ -1389,6 +1943,83 @@ class _RegisterPageState extends State<RegisterPage> {
         borderSide: const BorderSide(color: Color(0xFFEF4444), width: 1.5),
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+    );
+  }
+}
+
+class _PasswordStrength extends StatelessWidget {
+  const _PasswordStrength({
+    required this.score,
+    required this.label,
+    required this.color,
+    required this.checks,
+  });
+
+  final int score;
+  final String label;
+  final Color color;
+  final List<(String, bool)> checks;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      liveRegion: true,
+      label: 'Password strength: $label',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Text(
+                'Password Strength',
+                style: Theme.of(context).textTheme.labelMedium,
+              ),
+              const Spacer(),
+              Text(
+                label,
+                style: Theme.of(context).textTheme.labelMedium
+                    ?.copyWith(color: color, fontWeight: FontWeight.w800),
+              ),
+            ],
+          ),
+          const SizedBox(height: NexoraSpacing.xs),
+          Row(
+            children: List.generate(4, (index) {
+              return Expanded(
+                child: AnimatedContainer(
+                  duration: NexoraMotion.resolve(context),
+                  height: 4,
+                  margin: EdgeInsetsDirectional.only(end: index < 3 ? 4 : 0),
+                  decoration: BoxDecoration(
+                    color: index < score
+                        ? color
+                        : Theme.of(context).colorScheme.outlineVariant,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              );
+            }),
+          ),
+          const SizedBox(height: NexoraSpacing.xs),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: checks.map((check) {
+              return Chip(
+                visualDensity: VisualDensity.compact,
+                avatar: Icon(
+                  check.$2 ? Icons.check_rounded : Icons.circle_outlined,
+                  size: 15,
+                  color: check.$2
+                      ? Theme.of(context).colorScheme.primary
+                      : Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+                label: Text(check.$1),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
     );
   }
 }

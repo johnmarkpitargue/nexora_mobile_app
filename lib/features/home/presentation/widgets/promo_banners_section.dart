@@ -1,5 +1,8 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:nexora_flutter_app/app/routes/app_routes.dart';
+import 'package:nexora_flutter_app/app/theme/nexora_theme.dart';
 
 class PromoBannersSection extends StatefulWidget {
   const PromoBannersSection({super.key});
@@ -9,81 +12,81 @@ class PromoBannersSection extends StatefulWidget {
 }
 
 class _PromoBannersSectionState extends State<PromoBannersSection> {
+  static const List<_CampaignData> _campaigns = [
+    _CampaignData(
+      title: 'SoundMax Pro 18',
+      releaseNote: 'New this week',
+      description: 'Spatial audio, ANC, and zero-latency listening.',
+      searchQuery: 'SoundMax Pro 18',
+      imageUrl: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=1200&q=88',
+      fallbackIcon: Icons.headphones_rounded,
+      gradient: [NexoraTheme.darkNavy, Color(0xFF0C4A6E)],
+    ),
+    _CampaignData(
+      title: 'AuraFit Ultra 2',
+      releaseNote: 'Limited stock',
+      description: 'A vivid AMOLED display with a 14-day battery.',
+      searchQuery: 'AuraFit Ultra 2',
+      imageUrl: 'https://images.unsplash.com/photo-1579586337278-3befd40fd17a?auto=format&fit=crop&w=1200&q=88',
+      fallbackIcon: Icons.watch_rounded,
+      gradient: [Color(0xFF071631), Color(0xFF0B4D99)],
+    ),
+    _CampaignData(
+      title: 'Apex Pro Keyboards',
+      releaseNote: 'Special edition',
+      description: 'Responsive switches and focused desk-ready lighting.',
+      searchQuery: 'Apex Pro Keyboards',
+      imageUrl: 'https://images.unsplash.com/photo-1587829741301-dc798b83add3?auto=format&fit=crop&w=1200&q=88',
+      fallbackIcon: Icons.keyboard_rounded,
+      gradient: [Color(0xFF0A1028), Color(0xFF123B68)],
+    ),
+  ];
+
   late final PageController _pageController;
   Timer? _autoSlideTimer;
   int _currentPage = 0;
-
-  final List<Map<String, dynamic>> _heroBanners = [
-    {
-      'tag': 'NEXORA FLAGSHIP',
-      'releaseDate': 'Oct 16 Release',
-      'titleLine1': 'SoundMax ',
-      'titleLine2': 'Pro 18',
-      'subtitle': 'Spatial Audio ANC • Zero Latency...',
-      'badgeColor': const Color(0xFF00E5FF),
-      'gradient': const [
-        Color(0xFF030A1C),
-        Color(0xFF071E42),
-        Color(0xFF0C3866),
-      ],
-      'imageUrl':
-          'https://lh3.googleusercontent.com/aida-public/AB6AXuALgo4xVz9Wo_SuIU15ulvo-3G_HtejrhhLzW9Fgxp3t8CaI9fDN_t1BdIIRcHxxXEMC-7rLUJYBpIuY-c5YZ6dEo1scBwFSm14g-9T0PjdIixf5vHFuKFaU5-JDEnk_S8XO6M25JsCrNtVix9tigvacz5nurRgwZsHt4omGOaVSmm9mBM54NxSPO4-UO5xlTtt4Xb4p2y-MJVDYmv1KBa-MXWZ1XH_wb0wGPMd0IUiLGZ54l_WY1s',
-      'fallbackIcon': Icons.headphones,
-    },
-    {
-      'tag': 'EXCLUSIVE PRE-ORDER',
-      'releaseDate': 'Limited Stock',
-      'titleLine1': 'AuraFit ',
-      'titleLine2': 'Ultra 2',
-      'subtitle': 'AMOLED Display • 14-Day Battery...',
-      'badgeColor': const Color(0xFFFFD700),
-      'gradient': const [
-        Color(0xFF0F172A),
-        Color(0xFF1E293B),
-        Color(0xFF0284C7),
-      ],
-      'imageUrl':
-          'https://images.unsplash.com/photo-1579586337278-3befd40fd17a?auto=format&fit=crop&w=400&q=80',
-      'fallbackIcon': Icons.watch_outlined,
-    },
-    {
-      'tag': 'MEGA DROP',
-      'releaseDate': 'Special Edition',
-      'titleLine1': 'Apex Pro ',
-      'titleLine2': 'Keyboards',
-      'subtitle': 'Gateron Switches • RGB Lighting...',
-      'badgeColor': const Color(0xFFE11D48),
-      'gradient': const [
-        Color(0xFF1F0929),
-        Color(0xFF4C1D95),
-        Color(0xFF06B6D4),
-      ],
-      'imageUrl':
-          'https://images.unsplash.com/photo-1587829741301-dc798b83add3?auto=format&fit=crop&w=400&q=80',
-      'fallbackIcon': Icons.keyboard,
-    },
-  ];
+  bool? _reduceMotion;
 
   @override
   void initState() {
     super.initState();
-    _pageController = PageController(initialPage: 0);
-    _startAutoSlideTimer();
+    _pageController = PageController();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final reduceMotion =
+        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    if (_reduceMotion == reduceMotion) return;
+
+    _reduceMotion = reduceMotion;
+    if (reduceMotion) {
+      _autoSlideTimer?.cancel();
+    } else {
+      _startAutoSlideTimer();
+    }
   }
 
   void _startAutoSlideTimer() {
     _autoSlideTimer?.cancel();
-    _autoSlideTimer = Timer.periodic(const Duration(seconds: 4), (timer) {
-      if (!mounted) return;
-      if (_pageController.hasClients) {
-        final nextPage = (_currentPage + 1) % _heroBanners.length;
-        _pageController.animateToPage(
-          nextPage,
-          duration: const Duration(milliseconds: 500),
-          curve: Curves.fastOutSlowIn,
-        );
-      }
+    _autoSlideTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      if (!mounted || !_pageController.hasClients) return;
+      final nextPage = (_currentPage + 1) % _campaigns.length;
+      _pageController.animateToPage(
+        nextPage,
+        duration: NexoraMotion.emphasized,
+        curve: NexoraMotion.emphasizedCurve,
+      );
     });
+  }
+
+  void _openCampaign(_CampaignData campaign) {
+    Navigator.pushNamed(
+      context,
+      AppRoutes.search,
+      arguments: campaign.searchQuery,
+    );
   }
 
   @override
@@ -95,214 +98,210 @@ class _PromoBannersSectionState extends State<PromoBannersSection> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-      child: Column(
-        children: [
-          // 1. Sliding Top Hero Campaign & Pre-order Banner
-          SizedBox(
-            height: 128,
-            child: Stack(
-              children: [
-                PageView.builder(
-                  controller: _pageController,
-                  onPageChanged: (index) {
-                    setState(() {
-                      _currentPage = index;
-                    });
-                  },
-                  itemCount: _heroBanners.length,
-                  itemBuilder: (context, index) {
-                    final banner = _heroBanners[index];
-                    return AnimatedContainer(
-                      duration: const Duration(milliseconds: 300),
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(16),
-                        gradient: LinearGradient(
-                          colors: banner['gradient'] as List<Color>,
-                          begin: Alignment.centerLeft,
-                          end: Alignment.centerRight,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.15),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: Stack(
-                        children: [
-                          Positioned(
-                            left: 14,
-                            top: 12,
-                            bottom: 12,
-                            right: 125,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 6, vertical: 2),
-                                      decoration: BoxDecoration(
-                                        color: banner['badgeColor'] as Color,
-                                        borderRadius: BorderRadius.circular(10),
-                                      ),
-                                      child: Text(
-                                        banner['tag'] as String,
-                                        style: const TextStyle(
-                                          color: Color(0xFF030A1C),
-                                          fontSize: 8.5,
-                                          fontWeight: FontWeight.w900,
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Flexible(
-                                      child: Text(
-                                        banner['releaseDate'] as String,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          color: Colors.white70,
-                                          fontSize: 9.5,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 4),
-                                RichText(
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  text: TextSpan(
-                                    children: [
-                                      TextSpan(
-                                        text: banner['titleLine1'] as String,
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w900,
-                                        ),
-                                      ),
-                                      TextSpan(
-                                        text: banner['titleLine2'] as String,
-                                        style: TextStyle(
-                                          color: banner['badgeColor'] as Color,
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w900,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  banner['subtitle'] as String,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    color: Colors.white60,
-                                    fontSize: 10,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                AnimatedScale(
-                                  duration: const Duration(milliseconds: 200),
-                                  scale: _currentPage == index ? 1.0 : 0.95,
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 10, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFF00A3FF),
-                                      borderRadius: BorderRadius.circular(14),
-                                    ),
-                                    child: const Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Text(
-                                          'PRE-ORDER NOW',
-                                          style: TextStyle(
-                                            color: Colors.white,
-                                            fontWeight: FontWeight.w900,
-                                            fontSize: 9.5,
-                                          ),
-                                        ),
-                                        SizedBox(width: 2),
-                                        Icon(
-                                          Icons.arrow_circle_right,
-                                          size: 11,
-                                          color: Colors.white,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
+    final motionDuration = NexoraMotion.resolve(context);
+    final theme = Theme.of(context);
 
-                          // Right Product Preview Image
-                          Positioned(
-                            right: 8,
-                            top: 8,
-                            bottom: 8,
-                            width: 110,
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(12),
-                              child: Image.network(
-                                banner['imageUrl'] as String,
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) =>
-                                    Container(
-                                  color: const Color(0xFF0F172A),
-                                  child: Icon(
-                                    banner['fallbackIcon'] as IconData,
-                                    color: banner['badgeColor'] as Color,
-                                    size: 40,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
+    return Column(
+      children: [
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final textScale = MediaQuery.textScalerOf(context).scale(1);
+            final accessibilityGrowth = ((textScale - 1).clamp(0.0, 1.0) * 138);
+            final bannerHeight =
+                ((constraints.maxWidth * 0.68).clamp(232.0, 310.0) +
+                        accessibilityGrowth)
+                    .clamp(232.0, 448.0);
+
+            return SizedBox(
+              height: bannerHeight,
+              child: PageView.builder(
+                key: const ValueKey('campaign-hero-rail'),
+                controller: _pageController,
+                onPageChanged: (index) => setState(() => _currentPage = index),
+                itemCount: _campaigns.length,
+                itemBuilder: (context, index) {
+                  final campaign = _campaigns[index];
+                  return _CampaignCard(
+                    key: ValueKey('promo-page-$index'),
+                    campaign: campaign,
+                    pageIndex: index,
+                    pageCount: _campaigns.length,
+                    onPressed: () => _openCampaign(campaign),
+                  );
+                },
+              ),
+            );
+          },
+        ),
+        const SizedBox(height: NexoraSpacing.sm),
+        ExcludeSemantics(
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(_campaigns.length, (index) {
+              final isSelected = _currentPage == index;
+              return AnimatedContainer(
+                duration: motionDuration,
+                curve: NexoraMotion.standardCurve,
+                width: isSelected ? 24 : 7,
+                height: 7,
+                margin: const EdgeInsets.symmetric(horizontal: 4),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? theme.colorScheme.primary
+                      : theme.colorScheme.outline,
+                  borderRadius: BorderRadius.circular(NexoraRadius.full),
                 ),
+              );
+            }),
+          ),
+        ),
+      ],
+    );
+  }
+}
 
-                // Carousel Indicator Dots
-                Positioned(
-                  bottom: 8,
-                  left: 14,
-                  child: Row(
-                    children: List.generate(_heroBanners.length, (index) {
-                      final isSelected = _currentPage == index;
-                      return AnimatedContainer(
-                        duration: const Duration(milliseconds: 300),
-                        margin: const EdgeInsets.only(right: 4),
-                        height: 5,
-                        width: isSelected ? 16 : 5,
-                        decoration: BoxDecoration(
-                          color: isSelected
-                              ? const Color(0xFF00E5FF)
-                              : Colors.white.withValues(alpha: 0.4),
-                          borderRadius: BorderRadius.circular(3),
-                        ),
-                      );
-                    }),
+class _CampaignCard extends StatelessWidget {
+  const _CampaignCard({
+    super.key,
+    required this.campaign,
+    required this.pageIndex,
+    required this.pageCount,
+    required this.onPressed,
+  });
+
+  final _CampaignData campaign;
+  final int pageIndex;
+  final int pageCount;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final textScale = MediaQuery.textScalerOf(context).scale(1);
+    final contentWidth = textScale > 1.3 ? 0.92 : 0.76;
+
+    return Semantics(
+      label: 'Promotion ${pageIndex + 1} of $pageCount',
+      container: true,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: campaign.gradient,
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+          ),
+        ),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Image.network(
+              campaign.imageUrl,
+              fit: BoxFit.cover,
+              alignment: Alignment.centerRight,
+              excludeFromSemantics: true,
+              errorBuilder: (context, error, stackTrace) => Align(
+                alignment: Alignment.centerRight,
+                child: Padding(
+                  padding: const EdgeInsets.only(right: NexoraSpacing.xxl),
+                  child: Icon(
+                    campaign.fallbackIcon,
+                    size: 92,
+                    color: NexoraTheme.secondary.withValues(alpha: 0.42),
                   ),
                 ),
-              ],
+              ),
             ),
-          ),
-        ],
+            DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    NexoraTheme.darkNavy.withValues(alpha: 0.98),
+                    NexoraTheme.darkNavy.withValues(alpha: 0.82),
+                    NexoraTheme.darkNavy.withValues(alpha: 0.12),
+                  ],
+                  stops: const [0, 0.58, 1],
+                ),
+              ),
+            ),
+            FractionallySizedBox(
+              widthFactor: contentWidth,
+              alignment: Alignment.centerLeft,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  NexoraSpacing.lg,
+                  NexoraSpacing.xl,
+                  NexoraSpacing.sm,
+                  NexoraSpacing.xl,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      campaign.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 28,
+                        height: 1.06,
+                        letterSpacing: -0.5,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: NexoraSpacing.sm),
+                    Text(
+                      '${campaign.releaseNote} \u2022 ${campaign.description}',
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.82),
+                        fontSize: 13,
+                        height: 1.45,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const Spacer(),
+                    FilledButton.icon(
+                      key: ValueKey('promo-cta-$pageIndex'),
+                      onPressed: onPressed,
+                      style: FilledButton.styleFrom(
+                        foregroundColor: NexoraTheme.darkNavy,
+                        backgroundColor: Colors.white,
+                        minimumSize: const Size(0, 48),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: NexoraSpacing.md,
+                        ),
+                      ),
+                      iconAlignment: IconAlignment.end,
+                      icon: const Icon(Icons.arrow_forward_rounded, size: 17),
+                      label: const Text('Shop now'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
+}
+
+class _CampaignData {
+  const _CampaignData({
+    required this.title,
+    required this.releaseNote,
+    required this.description,
+    required this.searchQuery,
+    required this.imageUrl,
+    required this.fallbackIcon,
+    required this.gradient,
+  });
+
+  final String title;
+  final String releaseNote;
+  final String description;
+  final String searchQuery;
+  final String imageUrl;
+  final IconData fallbackIcon;
+  final List<Color> gradient;
 }

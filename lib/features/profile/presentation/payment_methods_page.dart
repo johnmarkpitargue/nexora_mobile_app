@@ -1,6 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../../../core/services/payment_method_service.dart';
+
+import '../../../app/theme/nexora_theme.dart';
+import '../../../core/services/payment_method_service.dart';
+import 'widgets/account_components.dart';
+
+const bool _useLegacyPaymentExperience = bool.fromEnvironment(
+  'NEXORA_LEGACY_PAYMENT_METHODS',
+);
 
 class PaymentMethodsPage extends StatefulWidget {
   const PaymentMethodsPage({super.key});
@@ -14,6 +21,299 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
 
   @override
   Widget build(BuildContext context) {
+    return _useLegacyPaymentExperience
+        ? _buildLegacyExperience(context)
+        : _buildRefinedExperience(context);
+  }
+
+  Widget _buildRefinedExperience(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Payment methods')),
+      body: AnimatedBuilder(
+        animation: _service,
+        builder: (context, _) {
+          final defaultMethod = _service.defaultMethod;
+          final methods = _service.methods;
+
+          return ListView(
+            key: const Key('payment-methods-scroll'),
+            padding: const EdgeInsets.fromLTRB(
+              NexoraSpacing.md,
+              NexoraSpacing.xs,
+              NexoraSpacing.md,
+              NexoraSpacing.xxl,
+            ),
+            children: [
+              AccountSection(
+                title: 'Primary Payment Method',
+                description:
+                    'This option is selected automatically when you check out.',
+                child: _buildRefinedPrimaryMethod(context, defaultMethod),
+              ),
+              const SizedBox(height: NexoraSpacing.xl),
+              AccountSection(
+                title: 'All payment options',
+                description: 'Select a linked method to make it your default.',
+                child: Column(
+                  children: [
+                    for (var i = 0; i < methods.length; i++) ...[
+                      _buildRefinedPaymentOption(context, methods[i]),
+                      if (i != methods.length - 1)
+                        const SizedBox(height: NexoraSpacing.sm),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: NexoraSpacing.md),
+              OutlinedButton.icon(
+                key: const Key('add-payment-card-action'),
+                onPressed: () => _showAddCardDialog(context),
+                icon: const Icon(Icons.add_card_outlined),
+                label: const Text('Add credit or debit card'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildRefinedPrimaryMethod(
+    BuildContext context,
+    PaymentMethodModel method,
+  ) {
+    final theme = Theme.of(context);
+    final details = switch (method.type) {
+      PaymentType.cod => 'Pay when your parcel arrives',
+      PaymentType.gcash =>
+        method.isLinked
+            ? method.formattedDisplay
+            : 'Link an account to use GCash',
+      PaymentType.card => method.accountNumber,
+      PaymentType.maya => method.accountNumber,
+    };
+    final icon = switch (method.type) {
+      PaymentType.cod => Icons.payments_outlined,
+      PaymentType.gcash => Icons.account_balance_wallet_outlined,
+      PaymentType.card => Icons.credit_card_rounded,
+      PaymentType.maya => Icons.account_balance_wallet_outlined,
+    };
+
+    return Semantics(
+      container: true,
+      label: '${method.name}, $details, default payment method',
+      child: DecoratedBox(
+        key: const Key('primary-payment-card'),
+        decoration: BoxDecoration(
+          color: NexoraTheme.darkNavy,
+          borderRadius: BorderRadius.circular(NexoraRadius.large),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(NexoraSpacing.lg),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(NexoraRadius.control),
+                    ),
+                    child: Icon(icon, color: Colors.white),
+                  ),
+                  const SizedBox(width: NexoraSpacing.sm),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          method.name,
+                          style: theme.textTheme.headlineSmall?.copyWith(
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: NexoraSpacing.xs),
+                        Text(
+                          details,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: Colors.white.withValues(alpha: 0.78),
+                            height: 1.4,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              if (method.accountHolder.isNotEmpty) ...[
+                const SizedBox(height: NexoraSpacing.md),
+                Text(
+                  method.accountHolder,
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: Colors.white.withValues(alpha: 0.72),
+                  ),
+                ),
+              ],
+              const SizedBox(height: NexoraSpacing.md),
+              Row(
+                children: [
+                  const Icon(
+                    Icons.check_circle_rounded,
+                    color: NexoraTheme.secondary,
+                    size: 18,
+                  ),
+                  const SizedBox(width: NexoraSpacing.xs),
+                  Expanded(
+                    child: Text(
+                      'Default at checkout',
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              if (method.type == PaymentType.gcash && method.isLinked) ...[
+                const SizedBox(height: NexoraSpacing.xs),
+                TextButton.icon(
+                  onPressed: () =>
+                      _showLinkGCashSheet(context, existing: method),
+                  style: TextButton.styleFrom(foregroundColor: Colors.white),
+                  icon: const Icon(Icons.edit_outlined, size: 18),
+                  label: const Text('Update GCash account'),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRefinedPaymentOption(
+    BuildContext context,
+    PaymentMethodModel method,
+  ) {
+    final theme = Theme.of(context);
+    final isGcash = method.type == PaymentType.gcash;
+    final icon = switch (method.type) {
+      PaymentType.cod => Icons.payments_outlined,
+      PaymentType.gcash => Icons.account_balance_wallet_outlined,
+      PaymentType.card => Icons.credit_card_rounded,
+      PaymentType.maya => Icons.account_balance_wallet_outlined,
+    };
+    final subtitle = method.isLinked
+        ? (method.type == PaymentType.cod
+              ? 'Pay when your parcel arrives'
+              : method.formattedDisplay)
+        : 'Not linked';
+
+    return AccountPanel(
+      padding: EdgeInsets.zero,
+      child: Semantics(
+        button: true,
+        selected: method.isDefault && method.isLinked,
+        label:
+            '${method.name}, $subtitle${method.isDefault ? ', default' : ''}',
+        child: InkWell(
+          borderRadius: BorderRadius.circular(NexoraRadius.card),
+          onTap: () {
+            if (!method.isLinked && isGcash) {
+              _showLinkGCashSheet(context, existing: method);
+            } else {
+              _service.setDefault(method.id);
+            }
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(NexoraSpacing.md),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final largeText =
+                    MediaQuery.textScalerOf(context).scale(1) > 1.3;
+                final stackAction = constraints.maxWidth < 310 || largeText;
+                final details = Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 42,
+                      height: 42,
+                      decoration: BoxDecoration(
+                        color: method.isDefault
+                            ? theme.colorScheme.primaryContainer
+                            : theme.colorScheme.surfaceContainer,
+                        borderRadius: BorderRadius.circular(
+                          NexoraRadius.control,
+                        ),
+                      ),
+                      child: Icon(
+                        icon,
+                        color: method.isDefault
+                            ? theme.colorScheme.primary
+                            : theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(width: NexoraSpacing.sm),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(method.name, style: theme.textTheme.titleMedium),
+                          const SizedBox(height: NexoraSpacing.xxs),
+                          Text(subtitle, style: theme.textTheme.bodySmall),
+                        ],
+                      ),
+                    ),
+                    if (!stackAction) ...[
+                      const SizedBox(width: NexoraSpacing.sm),
+                      _paymentOptionAction(context, method),
+                    ],
+                  ],
+                );
+
+                if (!stackAction) return details;
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    details,
+                    const SizedBox(height: NexoraSpacing.sm),
+                    Align(
+                      alignment: AlignmentDirectional.centerEnd,
+                      child: _paymentOptionAction(context, method),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _paymentOptionAction(BuildContext context, PaymentMethodModel method) {
+    if (method.isDefault && method.isLinked) {
+      return const Chip(
+        avatar: Icon(Icons.check_circle_rounded, size: 16),
+        label: Text('Default'),
+      );
+    }
+    if (!method.isLinked && method.type == PaymentType.gcash) {
+      return FilledButton.tonal(
+        onPressed: () => _showLinkGCashSheet(context, existing: method),
+        child: const Text('Link GCash'),
+      );
+    }
+    return TextButton(
+      onPressed: () => _service.setDefault(method.id),
+      child: const Text('Use as default'),
+    );
+  }
+
+  Widget _buildLegacyExperience(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
@@ -21,7 +321,11 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
         elevation: 0,
         surfaceTintColor: Colors.transparent,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Color(0xFF0F172A), size: 20),
+          icon: const Icon(
+            Icons.arrow_back_ios_new_rounded,
+            color: Color(0xFF0F172A),
+            size: 20,
+          ),
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
@@ -47,7 +351,10 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
               children: [
                 // Top Trust / Security Banner
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFEFF6FF),
                     borderRadius: BorderRadius.circular(12),
@@ -55,7 +362,11 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
                   ),
                   child: const Row(
                     children: [
-                      Icon(Icons.verified_user_rounded, color: Color(0xFF0066FF), size: 20),
+                      Icon(
+                        Icons.verified_user_rounded,
+                        color: Color(0xFF0066FF),
+                        size: 20,
+                      ),
                       SizedBox(width: 10),
                       Expanded(
                         child: Text(
@@ -85,10 +396,18 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
                         letterSpacing: 0.3,
                       ),
                     ),
-                    if (defaultMethod.type == PaymentType.gcash && defaultMethod.isLinked)
+                    if (defaultMethod.type == PaymentType.gcash &&
+                        defaultMethod.isLinked)
                       TextButton.icon(
-                        onPressed: () => _showLinkGCashSheet(context, existing: defaultMethod),
-                        icon: const Icon(Icons.edit_outlined, size: 15, color: Color(0xFF005CE6)),
+                        onPressed: () => _showLinkGCashSheet(
+                          context,
+                          existing: defaultMethod,
+                        ),
+                        icon: const Icon(
+                          Icons.edit_outlined,
+                          size: 15,
+                          color: Color(0xFF005CE6),
+                        ),
                         label: const Text(
                           'Update',
                           style: TextStyle(
@@ -135,7 +454,10 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
                   borderRadius: BorderRadius.circular(14),
                   child: Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 14,
+                      horizontal: 16,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(14),
@@ -148,7 +470,11 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
                     child: const Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.add_circle_outline_rounded, color: Color(0xFF0066FF), size: 20),
+                        Icon(
+                          Icons.add_circle_outline_rounded,
+                          color: Color(0xFF0066FF),
+                          size: 20,
+                        ),
                         SizedBox(width: 8),
                         Text(
                           'Add Credit / Debit Card',
@@ -172,7 +498,10 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
     );
   }
 
-  Widget _buildActiveHeroCard(BuildContext context, PaymentMethodModel defaultMethod) {
+  Widget _buildActiveHeroCard(
+    BuildContext context,
+    PaymentMethodModel defaultMethod,
+  ) {
     if (defaultMethod.type == PaymentType.gcash) {
       return _buildGCashCard(context, defaultMethod);
     } else if (defaultMethod.type == PaymentType.cod) {
@@ -220,7 +549,11 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: const Center(
-                      child: Icon(Icons.local_shipping_rounded, color: Color(0xFF0F766E), size: 22),
+                      child: Icon(
+                        Icons.local_shipping_rounded,
+                        color: Color(0xFF0F766E),
+                        size: 22,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -248,16 +581,25 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
                 ],
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.4)),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.4),
+                  ),
                 ),
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.check_circle_rounded, color: Colors.white, size: 14),
+                    Icon(
+                      Icons.check_circle_rounded,
+                      color: Colors.white,
+                      size: 14,
+                    ),
                     SizedBox(width: 4),
                     Text(
                       'Default',
@@ -294,7 +636,11 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
           const SizedBox(height: 14),
           Row(
             children: const [
-              Icon(Icons.verified_user_outlined, color: Colors.white70, size: 14),
+              Icon(
+                Icons.verified_user_outlined,
+                color: Colors.white70,
+                size: 14,
+              ),
               SizedBox(width: 6),
               Text(
                 'Nexora Guarantee Verified • 100% Risk Free',
@@ -349,7 +695,11 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: const Center(
-                      child: Icon(Icons.credit_card_rounded, color: Color(0xFF1E293B), size: 22),
+                      child: Icon(
+                        Icons.credit_card_rounded,
+                        color: Color(0xFF1E293B),
+                        size: 22,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -377,16 +727,25 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
                 ],
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.4)),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.4),
+                  ),
                 ),
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.check_circle_rounded, color: Colors.white, size: 14),
+                    Icon(
+                      Icons.check_circle_rounded,
+                      color: Colors.white,
+                      size: 14,
+                    ),
                     SizedBox(width: 4),
                     Text(
                       'Default',
@@ -429,7 +788,9 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    card.accountHolder.isNotEmpty ? card.accountHolder : 'CARD HOLDER',
+                    card.accountHolder.isNotEmpty
+                        ? card.accountHolder
+                        : 'CARD HOLDER',
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 13,
@@ -440,7 +801,11 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
                 ],
               ),
               IconButton(
-                icon: const Icon(Icons.delete_outline_rounded, color: Colors.white70, size: 20),
+                icon: const Icon(
+                  Icons.delete_outline_rounded,
+                  color: Colors.white70,
+                  size: 20,
+                ),
                 onPressed: () {
                   _service.removeMethod(card.id);
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -510,7 +875,10 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
                       SizedBox(height: 2),
                       Text(
                         'Link your mobile number for quick 1-tap checkout.',
-                        style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF64748B),
+                        ),
                       ),
                     ],
                   ),
@@ -529,7 +897,9 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   elevation: 0,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                 ),
               ),
             ),
@@ -612,16 +982,25 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
               ),
               if (gcash.isDefault)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: Colors.white.withValues(alpha: 0.4)),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.4),
+                    ),
                   ),
                   child: const Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.check_circle_rounded, color: Colors.white, size: 14),
+                      Icon(
+                        Icons.check_circle_rounded,
+                        color: Colors.white,
+                        size: 14,
+                      ),
                       SizedBox(width: 4),
                       Text(
                         'Default',
@@ -639,10 +1018,15 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
                   onPressed: () => _service.setDefault(gcash.id),
                   style: TextButton.styleFrom(
                     backgroundColor: Colors.white.withValues(alpha: 0.15),
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
                     minimumSize: Size.zero,
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
                   ),
                   child: const Text(
                     'Set as Default',
@@ -683,7 +1067,9 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    gcash.accountHolder.isNotEmpty ? gcash.accountHolder : 'ALEXA N. SANTOS',
+                    gcash.accountHolder.isNotEmpty
+                        ? gcash.accountHolder
+                        : 'ALEXA N. SANTOS',
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 13,
@@ -694,7 +1080,11 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
                 ],
               ),
               PopupMenuButton<String>(
-                icon: const Icon(Icons.more_vert_rounded, color: Colors.white, size: 20),
+                icon: const Icon(
+                  Icons.more_vert_rounded,
+                  color: Colors.white,
+                  size: 20,
+                ),
                 onSelected: (val) {
                   if (val == 'edit') {
                     _showLinkGCashSheet(context, existing: gcash);
@@ -720,9 +1110,16 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
                     value: 'unlink',
                     child: Row(
                       children: [
-                        Icon(Icons.link_off_rounded, size: 18, color: Colors.red),
+                        Icon(
+                          Icons.link_off_rounded,
+                          size: 18,
+                          color: Colors.red,
+                        ),
                         SizedBox(width: 8),
-                        Text('Unlink Account', style: TextStyle(color: Colors.red)),
+                        Text(
+                          'Unlink Account',
+                          style: TextStyle(color: Colors.red),
+                        ),
                       ],
                     ),
                   ),
@@ -764,7 +1161,11 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
           color: const Color(0xFF00B4D8).withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(10),
         ),
-        child: const Icon(Icons.local_shipping_outlined, color: Color(0xFF0096C7), size: 22),
+        child: const Icon(
+          Icons.local_shipping_outlined,
+          color: Color(0xFF0096C7),
+          size: 22,
+        ),
       );
     } else {
       iconWidget = Container(
@@ -774,7 +1175,11 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
           color: method.brandColor.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(10),
         ),
-        child: const Icon(Icons.credit_card_rounded, color: Color(0xFF1E293B), size: 22),
+        child: const Icon(
+          Icons.credit_card_rounded,
+          color: Color(0xFF1E293B),
+          size: 22,
+        ),
       );
     }
 
@@ -784,7 +1189,9 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: method.isDefault ? const Color(0xFF0066FF) : const Color(0xFFE2E8F0),
+          color: method.isDefault
+              ? const Color(0xFF0066FF)
+              : const Color(0xFFE2E8F0),
           width: method.isDefault ? 1.5 : 1.0,
         ),
       ),
@@ -792,7 +1199,10 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
         color: Colors.transparent,
         borderRadius: BorderRadius.circular(14),
         child: ListTile(
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 4,
+          ),
           onTap: () {
             if (!method.isLinked && method.type == PaymentType.gcash) {
               _showLinkGCashSheet(context, existing: method);
@@ -815,7 +1225,10 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
               ),
               if (method.isDefault && method.isLinked)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFEFF6FF),
                     borderRadius: BorderRadius.circular(12),
@@ -832,19 +1245,27 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
             ],
           ),
           subtitle: Text(
-            method.isLinked ? method.accountNumber : 'Not linked • Tap to link your GCash account',
+            method.isLinked
+                ? method.accountNumber
+                : 'Not linked • Tap to link your GCash account',
             style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
           ),
           trailing: !method.isLinked
               ? ElevatedButton(
-                  onPressed: () => _showLinkGCashSheet(context, existing: method),
+                  onPressed: () =>
+                      _showLinkGCashSheet(context, existing: method),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF005CE6),
                     foregroundColor: Colors.white,
                     visualDensity: VisualDensity.compact,
                     elevation: 0,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 2,
+                    ),
                   ),
                   child: const Text(
                     'Link GCash',
@@ -852,31 +1273,51 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
                   ),
                 )
               : (method.isDefault
-                  ? const Icon(Icons.check_circle_rounded, color: Color(0xFF0066FF), size: 22)
-                  : OutlinedButton(
-                      onPressed: () => _service.setDefault(method.id),
-                      style: OutlinedButton.styleFrom(
-                        visualDensity: VisualDensity.compact,
-                        side: const BorderSide(color: Color(0xFFCBD5E1)),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-                      ),
-                      child: const Text(
-                        'Use as Default',
-                        style: TextStyle(fontSize: 11, color: Color(0xFF475569)),
-                      ),
-                    )),
+                    ? const Icon(
+                        Icons.check_circle_rounded,
+                        color: Color(0xFF0066FF),
+                        size: 22,
+                      )
+                    : OutlinedButton(
+                        onPressed: () => _service.setDefault(method.id),
+                        style: OutlinedButton.styleFrom(
+                          visualDensity: VisualDensity.compact,
+                          side: const BorderSide(color: Color(0xFFCBD5E1)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 2,
+                          ),
+                        ),
+                        child: const Text(
+                          'Use as Default',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF475569),
+                          ),
+                        ),
+                      )),
         ),
       ),
     );
   }
 
-  void _showLinkGCashSheet(BuildContext context, {PaymentMethodModel? existing}) {
+  void _showLinkGCashSheet(
+    BuildContext context, {
+    PaymentMethodModel? existing,
+  }) {
     final phoneController = TextEditingController(
-      text: (existing != null && existing.isLinked) ? existing.accountNumber : '',
+      text: (existing != null && existing.isLinked)
+          ? existing.accountNumber
+          : '',
     );
     final nameController = TextEditingController(
-      text: (existing != null && existing.isLinked && existing.accountHolder.isNotEmpty)
+      text:
+          (existing != null &&
+              existing.isLinked &&
+              existing.accountHolder.isNotEmpty)
           ? existing.accountHolder
           : '',
     );
@@ -926,14 +1367,22 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
                     child: const Center(
                       child: Text(
                         'G',
-                        style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ),
                   const SizedBox(width: 10),
                   const Text(
                     'Link GCash Account',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF0F172A),
+                    ),
                   ),
                 ],
               ),
@@ -947,7 +1396,11 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
               // Mobile Number Input
               const Text(
                 'GCash Mobile Number',
-                style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: Color(0xFF334155)),
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF334155),
+                ),
               ),
               const SizedBox(height: 6),
               TextField(
@@ -959,12 +1412,18 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
                 decoration: InputDecoration(
                   hintText: '0917 123 4567',
                   prefixIcon: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 12,
+                    ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
                             color: const Color(0x1F0066FF),
                             borderRadius: BorderRadius.circular(4),
@@ -1003,7 +1462,10 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Color(0xFF005CE6), width: 1.5),
+                    borderSide: const BorderSide(
+                      color: Color(0xFF005CE6),
+                      width: 1.5,
+                    ),
                   ),
                 ),
               ),
@@ -1013,7 +1475,11 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
               // Account Name Input
               const Text(
                 'Account Holder Name',
-                style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: Color(0xFF334155)),
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF334155),
+                ),
               ),
               const SizedBox(height: 6),
               TextField(
@@ -1033,7 +1499,10 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Color(0xFF005CE6), width: 1.5),
+                    borderSide: const BorderSide(
+                      color: Color(0xFF005CE6),
+                      width: 1.5,
+                    ),
                   ),
                 ),
               ),
@@ -1044,10 +1513,15 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
               CheckboxListTile(
                 contentPadding: EdgeInsets.zero,
                 value: makeDefault,
-                onChanged: (val) => setModalState(() => makeDefault = val ?? true),
+                onChanged: (val) =>
+                    setModalState(() => makeDefault = val ?? true),
                 title: const Text(
                   'Set as primary payment method',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF0F172A)),
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF0F172A),
+                  ),
                 ),
                 activeColor: const Color(0xFF005CE6),
                 controlAffinity: ListTileControlAffinity.leading,
@@ -1067,17 +1541,25 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
 
                           if (phone.isEmpty) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Please enter a valid GCash mobile number.')),
+                              const SnackBar(
+                                content: Text(
+                                  'Please enter a valid GCash mobile number.',
+                                ),
+                              ),
                             );
                             return;
                           }
 
                           setModalState(() => isVerifying = true);
-                          await Future.delayed(const Duration(milliseconds: 600));
+                          await Future.delayed(
+                            const Duration(milliseconds: 600),
+                          );
 
                           _service.linkGCash(
                             phoneNumber: phone,
-                            accountHolder: name.isNotEmpty ? name : 'ALEXA N. SANTOS',
+                            accountHolder: name.isNotEmpty
+                                ? name
+                                : 'ALEXA N. SANTOS',
                             makeDefault: makeDefault,
                           );
 
@@ -1085,7 +1567,9 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
                             Navigator.pop(ctx);
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: Text('GCash account $phone successfully linked!'),
+                                content: Text(
+                                  'GCash account $phone successfully linked!',
+                                ),
                                 backgroundColor: const Color(0xFF005CE6),
                               ),
                             );
@@ -1096,17 +1580,25 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     elevation: 0,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                   child: isVerifying
                       ? const SizedBox(
                           height: 20,
                           width: 20,
-                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
                         )
                       : const Text(
                           'Verify & Save GCash',
-                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                 ),
               ),
@@ -1126,7 +1618,10 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Add Debit / Credit Card', style: TextStyle(fontWeight: FontWeight.w700)),
+        title: const Text(
+          'Add Debit / Credit Card',
+          style: TextStyle(fontWeight: FontWeight.w700),
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -1170,7 +1665,9 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
               _service.addCard(
                 cardNumber: cardCtrl.text,
                 expiry: expCtrl.text,
-                cardHolder: holderCtrl.text.isNotEmpty ? holderCtrl.text : 'Alexa Santos',
+                cardHolder: holderCtrl.text.isNotEmpty
+                    ? holderCtrl.text
+                    : 'Alexa Santos',
               );
               Navigator.pop(ctx);
               ScaffoldMessenger.of(context).showSnackBar(

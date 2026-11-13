@@ -1,8 +1,10 @@
 import 'dart:io' show Platform;
+
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:nexora_flutter_app/app/routes/app_routes.dart';
+import 'package:nexora_flutter_app/app/theme/nexora_theme.dart';
 import 'package:nexora_flutter_app/core/models/shop_models.dart';
 import 'package:nexora_flutter_app/core/services/cart_service.dart';
 import 'package:nexora_flutter_app/core/services/chat_service.dart';
@@ -12,8 +14,11 @@ import 'package:nexora_flutter_app/core/services/wishlist_service.dart';
 import 'package:nexora_flutter_app/core/utils/guest_auth_guard.dart';
 import 'package:nexora_flutter_app/core/widgets/add_to_cart_bottom_sheet.dart';
 import 'package:nexora_flutter_app/core/widgets/added_to_cart_hud.dart';
+import 'package:nexora_flutter_app/core/widgets/added_to_wishlist_hud.dart';
+import 'package:nexora_flutter_app/core/widgets/nexora_widgets.dart';
 import 'package:nexora_flutter_app/features/chat/presentation/chat_detail_page.dart';
 import 'package:nexora_flutter_app/features/home/presentation/widgets/product_card.dart';
+import 'package:nexora_flutter_app/features/product_details/presentation/product_reviews_page.dart';
 
 class ProductDetailsPage extends StatefulWidget {
   const ProductDetailsPage({super.key});
@@ -38,6 +43,7 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
   int _selectedImageIndex = 0;
   late final PageController _pageController;
   late final TextEditingController _quantityController;
+  final ScrollController _scrollController = ScrollController();
   int _selectedColorIndex = 0;
   int _selectedSwitchIndex = 0;
   int _selectedLayoutIndex = 0;
@@ -94,6 +100,7 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
     AddedToCartHUD.dismiss();
     _pageController.dispose();
     _quantityController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -108,22 +115,24 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
       } else if (args is String) {
         _productArg = ShopService.instance.getProductById(args);
       }
-      if (_productArg != null) {
-        _productImages.clear();
-        if (_productArg!.galleryImages != null && _productArg!.galleryImages!.isNotEmpty) {
-          _productImages.addAll(_productArg!.galleryImages!);
-        } else if (_productArg!.imageUrl.isNotEmpty) {
-          _productImages.add(_productArg!.imageUrl);
-        }
+      _productArg ??= ShopService.allAppProducts.first;
+      _productImages.clear();
+      if (_productArg!.galleryImages != null &&
+          _productArg!.galleryImages!.isNotEmpty) {
+        _productImages.addAll(_productArg!.galleryImages!);
+      } else if (_productArg!.imageUrl.isNotEmpty) {
+        _productImages.add(_productArg!.imageUrl);
       }
     }
   }
 
   bool get _areAllVariantsSelected {
-    if (_productArg?.variantGroups == null || _productArg!.variantGroups!.isEmpty) {
+    if (_productArg?.variantGroups == null ||
+        _productArg!.variantGroups!.isEmpty) {
       return true;
     }
-    return _selectedVariantGroupIndices.length == _productArg!.variantGroups!.length;
+    return _selectedVariantGroupIndices.length ==
+        _productArg!.variantGroups!.length;
   }
 
   String get _productTitle =>
@@ -139,14 +148,19 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
       final grp1 = _productArg!.variantGroups![1];
       final sel0 = _selectedVariantGroupIndices[0];
       final sel1 = _selectedVariantGroupIndices[1];
-      if (sel0 != null && sel1 != null && sel0 < grp0.options.length && sel1 < grp1.options.length) {
+      if (sel0 != null &&
+          sel1 != null &&
+          sel0 < grp0.options.length &&
+          sel1 < grp1.options.length) {
         final key = '${grp0.options[sel0].name}-${grp1.options[sel1].name}';
         if (_productArg!.combinationStock!.containsKey(key)) {
           return _productArg!.combinationStock![key]!;
         }
       } else if (sel0 != null && sel0 < grp0.options.length) {
         final prefix = '${grp0.options[sel0].name}-';
-        final matchingKeys = _productArg!.combinationStock!.keys.where((k) => k.startsWith(prefix));
+        final matchingKeys = _productArg!.combinationStock!.keys.where(
+          (k) => k.startsWith(prefix),
+        );
         if (matchingKeys.isNotEmpty) {
           return _productArg!.combinationStock![matchingKeys.first]!;
         }
@@ -168,7 +182,10 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
   double get _productBasePrice {
     if (_productArg == null) return 3200.0;
     if (_productArg!.isFlashSale && _productArg!.flashSalePrice != null) {
-      final clean = _productArg!.flashSalePrice!.replaceAll(RegExp(r'[^0-9.]'), '');
+      final clean = _productArg!.flashSalePrice!.replaceAll(
+        RegExp(r'[^0-9.]'),
+        '',
+      );
       return double.tryParse(clean) ?? 299.0;
     }
     final clean = _productArg!.price.replaceAll(RegExp(r'[^0-9.]'), '');
@@ -176,8 +193,13 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
   }
 
   double get _productOriginalPrice {
-    if (_productArg == null || _productArg!.originalPrice == null) return 4000.0;
-    final clean = _productArg!.originalPrice!.replaceAll(RegExp(r'[^0-9.]'), '');
+    if (_productArg == null || _productArg!.originalPrice == null) {
+      return 4000.0;
+    }
+    final clean = _productArg!.originalPrice!.replaceAll(
+      RegExp(r'[^0-9.]'),
+      '',
+    );
     return double.tryParse(clean) ?? (_productBasePrice * 1.25);
   }
 
@@ -198,7 +220,8 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
   double get _effectivePrice => _productBasePrice + _currentPriceOffset;
 
   String get _currentVariantSummary {
-    if (_productArg?.variantGroups != null && _productArg!.variantGroups!.isNotEmpty) {
+    if (_productArg?.variantGroups != null &&
+        _productArg!.variantGroups!.isNotEmpty) {
       final parts = <String>[];
       for (int i = 0; i < _productArg!.variantGroups!.length; i++) {
         final grp = _productArg!.variantGroups![i];
@@ -209,9 +232,49 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
       }
       return parts.join(' • ');
     }
-    final selectedColor = _colorVariants[_selectedColorIndex]['label'] as String;
-    final selectedSwitch = _switchOptions[_selectedSwitchIndex]['title'] as String;
+    final selectedColor =
+        _colorVariants[_selectedColorIndex]['label'] as String;
+    final selectedSwitch =
+        _switchOptions[_selectedSwitchIndex]['title'] as String;
     return '$selectedColor, $selectedSwitch';
+  }
+
+  String get _productKey =>
+      _productArg?.id.isNotEmpty == true ? _productArg!.id : _productTitle;
+
+  ProductModel get _resolvedProduct =>
+      _productArg ??
+      ProductModel(
+        id: _productKey,
+        title: _productTitle,
+        imageUrl: _productImages.isNotEmpty ? _productImages.first : '',
+        category: 'Tech & Gadgets',
+        price: '₱${_effectivePrice.toStringAsFixed(0)}',
+        originalPrice: '₱${_productOriginalPrice.toStringAsFixed(0)}',
+        rating: 4.9,
+        soldCount: '1.2k',
+        shippingTag: '2-3 Days | Metro Manila',
+        isMall: true,
+      );
+
+  void _navigateToReviewsPage() {
+    Navigator.pushNamed(
+      context,
+      AppRoutes.productReviews,
+      arguments: {
+        'product': _resolvedProduct,
+        'variant': _currentVariantSummary,
+      },
+    );
+  }
+
+  void _openWriteReviewModal() {
+    showWriteProductReviewModal(
+      context,
+      product: _resolvedProduct,
+      initialVariant: _currentVariantSummary,
+      productKey: _productKey,
+    );
   }
 
   String? _validateQuantityInput(String input) {
@@ -224,14 +287,15 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
     }
     final intVal = parsed.toInt();
     if (intVal <= 0) return 'Quantity must be at least 1';
-    if (intVal > 20) return 'Maximum order limit is 20 units';
-    if (intVal > _maxStock) return 'Quantity exceeds available stock ($_maxStock)';
+    if (intVal > _maxStock) {
+      return 'Quantity exceeds available stock ($_maxStock)';
+    }
     return null;
   }
 
   void _incrementQuantity() {
     final current = int.tryParse(_quantityController.text.trim()) ?? _quantity;
-    if (current < _maxStock && current < 20) {
+    if (current < _maxStock) {
       setState(() {
         _quantity = current + 1;
         _quantityController.text = '$_quantity';
@@ -239,11 +303,7 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            current >= 20
-                ? 'Maximum order limit is 20 units'
-                : 'Reached max available quantity ($current)',
-          ),
+          content: Text('Reached max available quantity ($current)'),
           duration: const Duration(seconds: 1),
         ),
       );
@@ -276,7 +336,9 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
     if (_productArg?.isOnVacation == true) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Seller is on vacation. Purchasing is temporarily unavailable.'),
+          content: Text(
+            'Seller is on vacation. Purchasing is temporarily unavailable.',
+          ),
           backgroundColor: Color(0xFFEA580C),
         ),
       );
@@ -316,7 +378,9 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
       // Per-buyer Purchase Limit Check (BUY-PDP-005)
       final limit = _productArg?.perBuyerLimit;
       if (limit != null) {
-        final pid = _productArg!.id.isNotEmpty ? _productArg!.id : _productTitle;
+        final pid = _productArg!.id.isNotEmpty
+            ? _productArg!.id
+            : _productTitle;
         final purchasedCount = CartService.instance.getPurchasedCount(pid);
         final inCartCount = CartService.instance.items
             .where((i) => i.title == _productTitle)
@@ -325,7 +389,9 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
           ScaffoldMessenger.of(context).hideCurrentSnackBar();
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Per-buyer purchase limit of $limit items reached for this product.'),
+              content: Text(
+                'Per-buyer purchase limit of $limit items reached for this product.',
+              ),
               backgroundColor: const Color(0xFFEF4444),
               duration: const Duration(seconds: 2),
             ),
@@ -340,8 +406,14 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
         price: _effectivePrice,
         originalPrice: _productOriginalPrice,
         imageUrl: _productImages.first,
-        storeName: _productArg?.shopName ?? (_productArg?.isMall == true ? 'Nexora Official Store' : 'Nexora Preferred Store'),
-        storeBadge: _productArg?.shopBadge ?? (_productArg?.isMall == true ? 'MALL' : 'OFFICIAL STORE'),
+        storeName:
+            _productArg?.shopName ??
+            (_productArg?.isMall == true
+                ? 'Nexora Official Store'
+                : 'Nexora Preferred Store'),
+        storeBadge:
+            _productArg?.shopBadge ??
+            (_productArg?.isMall == true ? 'MALL' : 'OFFICIAL STORE'),
         quantity: _quantity,
       );
 
@@ -362,7 +434,8 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
     }
 
     // In live application (device / web): open the modern Shopee-standard Add to Cart Bottom Sheet modal!
-    final productToOrder = _productArg ??
+    final productToOrder =
+        _productArg ??
         ProductModel(
           title: _productTitle,
           imageUrl: _productImages.isNotEmpty ? _productImages.first : '',
@@ -402,7 +475,9 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
     if (_productArg?.isOnVacation == true) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Seller is on vacation. Purchasing is temporarily unavailable.'),
+          content: Text(
+            'Seller is on vacation. Purchasing is temporarily unavailable.',
+          ),
           backgroundColor: Color(0xFFEA580C),
         ),
       );
@@ -459,7 +534,9 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
         ScaffoldMessenger.of(context).hideCurrentSnackBar();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Per-buyer purchase limit of $limit items reached for this product.'),
+            content: Text(
+              'Per-buyer purchase limit of $limit items reached for this product.',
+            ),
             backgroundColor: const Color(0xFFEF4444),
             duration: const Duration(seconds: 2),
           ),
@@ -475,64 +552,67 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
       price: _effectivePrice,
       originalPrice: _productOriginalPrice,
       imageUrl: _productImages.first,
-      storeName: _productArg?.shopName ?? (_productArg?.isMall == true ? 'Nexora Official Store' : 'Nexora Preferred Store'),
-      storeBadge: _productArg?.shopBadge ?? (_productArg?.isMall == true ? 'MALL' : 'PREFERRED'),
+      storeName:
+          _productArg?.shopName ??
+          (_productArg?.isMall == true
+              ? 'Nexora Official Store'
+              : 'Nexora Preferred Store'),
+      storeBadge:
+          _productArg?.shopBadge ??
+          (_productArg?.isMall == true ? 'MALL' : 'PREFERRED'),
       quantity: _quantity,
     );
 
     Navigator.pushNamed(context, AppRoutes.checkout);
   }
 
-
   @override
   Widget build(BuildContext context) {
     // Product screen of an unavailable product (BUY-PDP-008)
-    if (_productArg == null || !_productArg!.isActive || _productArg!.isDeleted) {
+    if (_productArg == null ||
+        !_productArg!.isActive ||
+        _productArg!.isDeleted) {
       return _buildProductUnavailableView(context);
     }
 
+    final theme = Theme.of(context);
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F8FC),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFFF6F8FC),
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF0F172A)),
-          onPressed: () {
-            if (Navigator.canPop(context)) {
-              Navigator.pop(context);
-            } else {
-              Navigator.pushReplacementNamed(context, AppRoutes.home);
-            }
-          },
-        ),
-        title: const Text(
-          'Product Details',
-          style: TextStyle(
-            color: Color(0xFF0F172A),
-            fontWeight: FontWeight.w800,
-            fontSize: 17,
-          ),
-        ),
-        centerTitle: true,
+      backgroundColor: theme.scaffoldBackgroundColor,
+      appBar: NexoraAppBar(
+        fallbackRoute: AppRoutes.home,
+        titleText: 'Product Details',
+        toolbarHeight: 56,
+        showBottomDivider: true,
         actions: [
           AnimatedBuilder(
             animation: WishlistService.instance,
             builder: (context, _) {
-              final isFavorite = WishlistService.instance.isInWishlist(_productTitle);
+              final isFavorite = WishlistService.instance.isInWishlist(
+                _productTitle,
+              );
               return IconButton(
+                tooltip: isFavorite
+                    ? 'Remove from wishlist'
+                    : 'Save to wishlist',
                 icon: Icon(
-                  isFavorite ? Icons.favorite : Icons.favorite_border,
-                  color: isFavorite ? const Color(0xFFE11D48) : const Color(0xFF0F172A),
+                  isFavorite
+                      ? Icons.favorite_rounded
+                      : Icons.favorite_border_rounded,
+                  color: isFavorite
+                      ? theme.colorScheme.tertiary
+                      : theme.colorScheme.onSurface,
                 ),
                 onPressed: () {
-                  final productToSave = _productArg ??
+                  final productToSave =
+                      _productArg ??
                       ProductModel(
                         title: _productTitle,
                         imageUrl: _productImages.first,
                         category: 'Tech & Gadgets',
                         price: '₱${_productBasePrice.toStringAsFixed(2)}',
-                        originalPrice: '₱${_productOriginalPrice.toStringAsFixed(2)}',
+                        originalPrice:
+                            '₱${_productOriginalPrice.toStringAsFixed(2)}',
                         rating: 4.9,
                         soldCount: '1.2k',
                         shippingTag: '2-3 Days | Metro Manila',
@@ -540,26 +620,36 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                       );
 
                   WishlistService.instance.toggleWishlist(productToSave);
-                  ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        isFavorite
-                            ? 'Removed from Wishlist'
-                            : 'Saved to Wishlist!',
+                  if (!isFavorite) {
+                    AddedToWishlistHUD.show(
+                      context,
+                      message: 'Saved to Wishlist',
+                      count: WishlistService.instance.itemCount,
+                    );
+                  } else {
+                    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          'Removed from Wishlist (${WishlistService.instance.itemCount} remaining)',
+                        ),
+                        duration: const Duration(seconds: 1),
                       ),
-                      duration: const Duration(seconds: 1),
-                    ),
-                  );
+                    );
+                  }
                 },
               );
             },
           ),
           IconButton(
-            icon: const Icon(Icons.share_outlined, color: Color(0xFF0F172A)),
+            tooltip: 'Copy product link',
+            icon: const Icon(Icons.share_outlined),
+            color: theme.colorScheme.onSurface,
             onPressed: () {
               // Universal Share Link (BUY-PDP-010)
-              final prodId = _productArg?.id.isNotEmpty == true ? _productArg!.id : 'P-01';
+              final prodId = _productArg?.id.isNotEmpty == true
+                  ? _productArg!.id
+                  : 'P-01';
               final shareUrl = 'https://nexora.app/products/$prodId';
               Clipboard.setData(ClipboardData(text: shareUrl));
               ScaffoldMessenger.of(context).hideCurrentSnackBar();
@@ -567,27 +657,28 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                 SnackBar(
                   content: Text('Product link copied: $shareUrl'),
                   duration: const Duration(seconds: 2),
-                  backgroundColor: const Color(0xFF050B28),
+                  backgroundColor: NexoraTheme.darkNavy,
                 ),
               );
             },
           ),
         ],
       ),
-      body: Stack(
-        children: [
-          SingleChildScrollView(
-            physics: const BouncingScrollPhysics(),
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 6),
-                if (_productArg?.isActive == false) ...[
+      body: SingleChildScrollView(
+        controller: _scrollController,
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(16, 6, 16, 24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (_productArg?.isActive == false) ...[
                   Container(
                     width: double.infinity,
                     margin: const EdgeInsets.only(bottom: 12),
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xFFFEE2E2),
                       borderRadius: BorderRadius.circular(12),
@@ -595,7 +686,11 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                     ),
                     child: const Row(
                       children: [
-                        Icon(Icons.error_outline_rounded, color: Color(0xFFDC2626), size: 20),
+                        Icon(
+                          Icons.error_outline_rounded,
+                          color: Color(0xFFDC2626),
+                          size: 20,
+                        ),
                         SizedBox(width: 10),
                         Expanded(
                           child: Text(
@@ -615,7 +710,10 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                   Container(
                     width: double.infinity,
                     margin: const EdgeInsets.only(bottom: 12),
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xFFFFFBEB),
                       borderRadius: BorderRadius.circular(12),
@@ -623,7 +721,11 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                     ),
                     child: const Row(
                       children: [
-                        Icon(Icons.beach_access_rounded, color: Color(0xFFD97706), size: 20),
+                        Icon(
+                          Icons.beach_access_rounded,
+                          color: Color(0xFFD97706),
+                          size: 20,
+                        ),
                         SizedBox(width: 10),
                         Expanded(
                           child: Text(
@@ -646,59 +748,81 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                 // Title & Subtitle Header
                 Text(
                   _productTitle,
-                  style: const TextStyle(
+                  style: TextStyle(
+                    fontFamily: NexoraTheme.fontFamily,
                     fontSize: 22,
-                    fontWeight: FontWeight.w900,
-                    color: Color(0xFF0F172A),
-                    height: 1.2,
+                    fontWeight: FontWeight.w700,
+                    color: Theme.of(context).colorScheme.onSurface,
+                    height: 1.25,
+                    letterSpacing: -0.3,
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  _productArg?.description ??
-                      'Chalk White & Violet Edition • CNC Anodized Aluminum • Gasket Mount Hot-Swap',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Color(0xFF64748B),
-                    height: 1.3,
-                  ),
-                ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 12),
 
                 // Rating & Category Rank Row
-                Row(
-                  children: [
-                    const Icon(Icons.star_rounded, size: 16, color: Color(0xFFF59E0B)),
-                    const SizedBox(width: 4),
-                    Text(
-                      _productArg?.rating.toStringAsFixed(1) ?? '4.9',
-                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      '• ${_productArg?.reviews?.length == 1 ? '1 review' : '${_productArg?.reviews?.length ?? 520} reviews'}',
-                      style: const TextStyle(
-                        color: Color(0xFF0066FF),
-                        fontWeight: FontWeight.w700,
-                        fontSize: 12,
-                        decoration: TextDecoration.underline,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      '• 🏆 ${_cleanSoldCount(_productArg?.soldCount ?? '1.2k+')}',
-                      style: const TextStyle(
-                        color: Color(0xFF0891B2),
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
+                AnimatedBuilder(
+                  animation: ShopService.instance,
+                  builder: (context, _) {
+                    final avgRating =
+                        ShopService.instance.getProductAverageRating(
+                      _productKey,
+                      _productArg?.rating ?? 4.9,
+                    );
+                    final reviewCount =
+                        ShopService.instance.getProductReviewCount(
+                      _productKey,
+                      _productArg?.reviews?.length ?? 1,
+                    );
+                    return Wrap(
+                      spacing: NexoraSpacing.sm,
+                      runSpacing: NexoraSpacing.xs,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.star_rounded,
+                          size: 16,
+                          color: Color(0xFFF59E0B),
+                        ),
+                        Text(
+                          avgRating.toStringAsFixed(1),
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 13,
+                            color: Theme.of(context).colorScheme.onSurface,
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: _navigateToReviewsPage,
+                          child: Text(
+                            reviewCount == 1
+                                ? '1 review'
+                                : '$reviewCount reviews',
+                            style: TextStyle(
+                              color: theme.colorScheme.primary,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 12,
+                              decoration: TextDecoration.underline,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          _cleanSoldCount(_productArg?.soldCount ?? '1.2k+'),
+                          style: TextStyle(
+                            color: theme.colorScheme.onSurfaceVariant,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    );
+                  },
                 ),
                 const SizedBox(height: 12),
 
                 // Price Box Banner
-                _buildPriceCard(),
+                const bool.fromEnvironment('NEXORA_LEGACY_SHOPPING')
+                    ? _buildPriceCard()
+                    : _buildRefinedPricePanel(),
 
                 // Claimable Vouchers (BUY-PDP-006)
                 _buildClaimableVouchersSection(),
@@ -711,40 +835,28 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                 _buildQuantitySection(),
                 const SizedBox(height: 18),
 
-                // Priority Dispatch & Warranty Banner
-                _buildDispatchWarrantyCard(),
-                const SizedBox(height: 18),
-
                 // Official Shop Store Profile Banner (Clickable -> ShopPage)
                 _buildShopStoreBanner(),
                 const SizedBox(height: 20),
 
                 // Dedicated Product Description & Details Section
                 _buildProductDescriptionSection(),
-                const SizedBox(height: 20),
-
-                // Key Spec Features Grid
-                _buildSpecFeaturesGrid(),
                 const SizedBox(height: 24),
 
                 // Ratings & Reviews Section (Interactive reviews list)
                 _buildReviewsSection(),
-                const SizedBox(height: 110),
+                const SizedBox(height: 24),
               ],
             ),
           ),
-
-          // Bottom Action Navigation Bar
-          Align(
-            alignment: Alignment.bottomCenter,
-            child: _buildBottomActionDock(),
-          ),
-        ],
-      ),
+      bottomNavigationBar: const bool.fromEnvironment('NEXORA_LEGACY_SHOPPING')
+          ? _buildBottomActionDock()
+          : _buildRefinedBottomActionDock(),
     );
   }
 
   Widget _buildGallerySection() {
+    final theme = Theme.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -752,8 +864,9 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
           height: 260,
           width: double.infinity,
           decoration: BoxDecoration(
-            color: const Color(0xFFEEECFF),
-            borderRadius: BorderRadius.circular(24),
+            color: theme.colorScheme.surfaceContainerLowest,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: theme.colorScheme.outlineVariant),
           ),
           clipBehavior: Clip.antiAlias,
           child: Stack(
@@ -774,11 +887,12 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                         child: Image.network(
                           _productImages[index],
                           fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) => const Icon(
-                            Icons.keyboard,
-                            size: 64,
-                            color: Color(0xFF94A3B8),
-                          ),
+                          errorBuilder: (context, error, stackTrace) =>
+                              const Icon(
+                                Icons.keyboard,
+                                size: 64,
+                                color: Color(0xFF94A3B8),
+                              ),
                         ),
                       ),
                     );
@@ -790,8 +904,10 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                 bottom: 12,
                 right: 12,
                 child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.black.withValues(alpha: 0.6),
                     borderRadius: BorderRadius.circular(10),
@@ -820,43 +936,49 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.start,
               children: List.generate(_productImages.length, (index) {
-              final isSelected = _selectedImageIndex == index;
-              return Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      _selectedImageIndex = index;
-                      if (_pageController.hasClients) {
-                        _pageController.jumpToPage(index);
-                      }
-                    });
-                  },
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    width: 64,
-                    height: 52,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: isSelected ? const Color(0xFF0066FF) : const Color(0xFFE2E8F0),
-                        width: isSelected ? 2 : 1,
+                final isSelected = _selectedImageIndex == index;
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _selectedImageIndex = index;
+                        if (_pageController.hasClients) {
+                          _pageController.jumpToPage(index);
+                        }
+                      });
+                    },
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      width: 64,
+                      height: 52,
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.surfaceContainerLowest,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isSelected
+                              ? theme.colorScheme.primary
+                              : theme.colorScheme.outlineVariant,
+                          width: isSelected ? 2 : 1,
+                        ),
                       ),
-                    ),
-                    clipBehavior: Clip.antiAlias,
-                    child: Image.network(
-                      _productImages[index],
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => Container(
-                        color: const Color(0xFFE2E8F0),
-                        child: const Icon(Icons.image, size: 20, color: Colors.grey),
+                      clipBehavior: Clip.antiAlias,
+                      child: Image.network(
+                        _productImages[index],
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) => Container(
+                          color: const Color(0xFFE2E8F0),
+                          child: const Icon(
+                            Icons.image,
+                            size: 20,
+                            color: Colors.grey,
+                          ),
+                        ),
                       ),
                     ),
                   ),
-                ),
-              );
-            }),
+                );
+              }),
             ),
           ),
         ),
@@ -864,9 +986,109 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
     );
   }
 
+  Widget _buildRefinedPricePanel() {
+    final theme = Theme.of(context);
+    final isFlashSale = _productArg?.isFlashSale == true;
+    final discount = _productArg?.discountTag;
+    final stockLeft = isFlashSale
+        ? _productArg?.flashSaleStockRemaining ?? _maxStock
+        : _maxStock;
+
+    return Material(
+      color: theme.colorScheme.surfaceContainerLowest,
+      borderRadius: BorderRadius.circular(NexoraRadius.card),
+      clipBehavior: Clip.antiAlias,
+      child: Padding(
+        padding: const EdgeInsets.all(NexoraSpacing.md),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (isFlashSale)
+              Padding(
+                padding: const EdgeInsets.only(bottom: NexoraSpacing.sm),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.bolt_rounded,
+                      size: 18,
+                      color: theme.colorScheme.tertiary,
+                    ),
+                    const SizedBox(width: NexoraSpacing.xs),
+                    Text(
+                      'FLASH SALE',
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        color: theme.colorScheme.tertiary,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const Spacer(),
+                    Text(
+                      'Ends in ${_productArg?.flashSaleTimeRemaining != null ? _formatDuration(_productArg!.flashSaleTimeRemaining!) : '02:45:18'}',
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            Wrap(
+              spacing: NexoraSpacing.sm,
+              runSpacing: NexoraSpacing.xs,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Text(
+                  '₱${_effectivePrice.toStringAsFixed(2)}',
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    color: NexoraTheme.priceColor(context),
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -0.5,
+                  ),
+                ),
+                if (_productOriginalPrice > _effectivePrice)
+                  Text(
+                    '₱${_productOriginalPrice.toStringAsFixed(2)}',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                      decoration: TextDecoration.lineThrough,
+                    ),
+                  ),
+                if (discount != null)
+                  Chip(
+                    label: Text(discount),
+                    visualDensity: VisualDensity.compact,
+                  ),
+              ],
+            ),
+            if (stockLeft <= 0) ...[
+              const SizedBox(height: NexoraSpacing.xs),
+              Text(
+                'Currently out of stock',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.error,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ] else if (isFlashSale) ...[
+              const SizedBox(height: NexoraSpacing.xs),
+              Text(
+                'Limited-time offer',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildPriceCard() {
     final isFlash = _productArg?.isFlashSale == true;
-    final discount = _productArg?.discountTag ?? (isFlash ? '-33% FLASH' : '-20% OFF');
+    final discount =
+        _productArg?.discountTag ?? (isFlash ? '-33% FLASH' : '-20% OFF');
 
     return Container(
       decoration: BoxDecoration(
@@ -902,7 +1124,11 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                     ),
                   ),
                   const Spacer(),
-                  const Icon(Icons.timer_outlined, size: 14, color: Colors.white),
+                  const Icon(
+                    Icons.timer_outlined,
+                    size: 14,
+                    color: Colors.white,
+                  ),
                   const SizedBox(width: 4),
                   Text(
                     'Ends in ${_productArg?.flashSaleTimeRemaining != null ? _formatDuration(_productArg!.flashSaleTimeRemaining!) : "02:45:18"}',
@@ -944,7 +1170,10 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                     ),
                     const SizedBox(width: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFFEF4444),
                         borderRadius: BorderRadius.circular(6),
@@ -961,10 +1190,15 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                   ],
                 ),
                 const SizedBox(height: 4),
-                if (isFlash && _productArg?.flashSaleStockRemaining != null) ...[
+                if (isFlash &&
+                    _productArg?.flashSaleStockRemaining != null) ...[
                   Row(
                     children: [
-                      const Icon(Icons.local_fire_department, size: 14, color: Color(0xFFEF4444)),
+                      const Icon(
+                        Icons.local_fire_department,
+                        size: 14,
+                        color: Color(0xFFEF4444),
+                      ),
                       const SizedBox(width: 4),
                       Text(
                         '${_productArg!.flashSaleStockRemaining} flash units left',
@@ -979,10 +1213,14 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                 ] else ...[
                   Row(
                     children: [
-                      const Icon(Icons.whatshot, size: 14, color: Color(0xFFEF4444)),
+                      const Icon(
+                        Icons.whatshot,
+                        size: 14,
+                        color: Color(0xFFEF4444),
+                      ),
                       const SizedBox(width: 4),
                       Text(
-                        'Only $_maxStock left in stock - order soon!',
+                        'In stock',
                         style: const TextStyle(
                           fontSize: 11.5,
                           fontWeight: FontWeight.bold,
@@ -1001,18 +1239,19 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
   }
 
   Widget _buildColorPaletteSection() {
+    final theme = Theme.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text(
+            Text(
               'Color Palette',
               style: TextStyle(
                 fontWeight: FontWeight.w800,
                 fontSize: 14,
-                color: Color(0xFF0F172A),
+                color: theme.colorScheme.onSurface,
               ),
             ),
             const SizedBox(width: 8),
@@ -1021,10 +1260,10 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                 _colorVariants[_selectedColorIndex]['name'] as String,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: TextStyle(
                   fontWeight: FontWeight.w700,
                   fontSize: 12,
-                  color: Color(0xFF0066FF),
+                  color: theme.colorScheme.primary,
                 ),
               ),
             ),
@@ -1048,17 +1287,19 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                     });
                   },
                   child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
                     decoration: BoxDecoration(
                       color: isSelected
-                          ? const Color(0xFFE0F7FA)
-                          : Colors.white,
+                          ? theme.colorScheme.primaryContainer
+                          : theme.colorScheme.surfaceContainerLowest,
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
                         color: isSelected
-                            ? const Color(0xFF00D2FF)
-                            : const Color(0xFFE2E8F0),
+                            ? theme.colorScheme.primary
+                            : theme.colorScheme.outlineVariant,
                         width: 1.5,
                       ),
                     ),
@@ -1072,8 +1313,11 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                             shape: BoxShape.circle,
                           ),
                           child: isSelected
-                              ? const Icon(Icons.check,
-                                  size: 13, color: Colors.white)
+                              ? const Icon(
+                                  Icons.check,
+                                  size: 13,
+                                  color: Colors.white,
+                                )
                               : null,
                         ),
                         const SizedBox(width: 8),
@@ -1081,9 +1325,12 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                           variant['label'] as String,
                           style: TextStyle(
                             fontSize: 12,
-                            fontWeight:
-                                isSelected ? FontWeight.w800 : FontWeight.w600,
-                            color: const Color(0xFF0F172A),
+                            fontWeight: isSelected
+                                ? FontWeight.w800
+                                : FontWeight.w600,
+                            color: isSelected
+                                ? theme.colorScheme.onPrimaryContainer
+                                : theme.colorScheme.onSurface,
                           ),
                         ),
                       ],
@@ -1099,18 +1346,19 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
   }
 
   Widget _buildSwitchOptionsSection() {
+    final theme = Theme.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text(
+            Text(
               'Mechanical Switches',
               style: TextStyle(
                 fontWeight: FontWeight.w800,
                 fontSize: 14,
-                color: Color(0xFF0F172A),
+                color: theme.colorScheme.onSurface,
               ),
             ),
             const SizedBox(width: 8),
@@ -1119,10 +1367,10 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                 _switchOptions[_selectedSwitchIndex]['title']!,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: TextStyle(
                   fontWeight: FontWeight.w700,
                   fontSize: 11.5,
-                  color: Color(0xFF0066FF),
+                  color: theme.colorScheme.primary,
                 ),
               ),
             ),
@@ -1146,13 +1394,13 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: isSelected
-                      ? const Color(0xFF050B28)
-                      : Colors.white,
+                      ? theme.colorScheme.primaryContainer
+                      : theme.colorScheme.surfaceContainerLowest,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
                     color: isSelected
-                        ? const Color(0xFF00D2FF)
-                        : const Color(0xFFE2E8F0),
+                        ? theme.colorScheme.primary
+                        : theme.colorScheme.outlineVariant,
                     width: 1.5,
                   ),
                 ),
@@ -1164,16 +1412,21 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: isSelected
-                            ? const Color(0xFF00D2FF)
+                            ? theme.colorScheme.primary
                             : Colors.transparent,
                         border: isSelected
                             ? null
                             : Border.all(
-                                color: const Color(0xFFCBD5E1), width: 2),
+                                color: theme.colorScheme.outlineVariant,
+                                width: 2,
+                              ),
                       ),
                       child: isSelected
-                          ? const Icon(Icons.check,
-                              size: 12, color: Color(0xFF050B28))
+                          ? const Icon(
+                              Icons.check,
+                              size: 12,
+                              color: Colors.white,
+                            )
                           : null,
                     ),
                     const SizedBox(width: 12),
@@ -1186,7 +1439,9 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                             style: TextStyle(
                               fontWeight: FontWeight.w800,
                               fontSize: 13,
-                              color: isSelected ? Colors.white : const Color(0xFF0F172A),
+                              color: isSelected
+                                  ? theme.colorScheme.onPrimaryContainer
+                                  : theme.colorScheme.onSurface,
                             ),
                           ),
                           const SizedBox(height: 2),
@@ -1195,8 +1450,9 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                             style: TextStyle(
                               fontSize: 11,
                               color: isSelected
-                                  ? const Color(0xFF94A3B8)
-                                  : Colors.grey.shade600,
+                                  ? theme.colorScheme.onPrimaryContainer
+                                      .withValues(alpha: 0.8)
+                                  : theme.colorScheme.onSurfaceVariant,
                             ),
                           ),
                         ],
@@ -1213,15 +1469,16 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
   }
 
   Widget _buildFormFactorSection() {
+    final theme = Theme.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Form Factor',
           style: TextStyle(
             fontWeight: FontWeight.w800,
             fontSize: 14,
-            color: Color(0xFF0F172A),
+            color: theme.colorScheme.onSurface,
           ),
         ),
         const SizedBox(height: 10),
@@ -1240,23 +1497,31 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                     });
                   },
                   child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
                     decoration: BoxDecoration(
                       color: isSelected
-                          ? const Color(0xFF00D2FF)
-                          : const Color(0xFFEEF2FF),
+                          ? theme.colorScheme.primaryContainer
+                          : theme.colorScheme.surfaceContainerLowest,
                       borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: isSelected
+                            ? theme.colorScheme.primary
+                            : theme.colorScheme.outlineVariant,
+                      ),
                     ),
                     child: Text(
                       _formFactors[index],
                       style: TextStyle(
-                        fontWeight:
-                            isSelected ? FontWeight.w900 : FontWeight.w600,
+                        fontWeight: isSelected
+                            ? FontWeight.w900
+                            : FontWeight.w600,
                         fontSize: 11.5,
                         color: isSelected
-                            ? Colors.white
-                            : const Color(0xFF475569),
+                            ? theme.colorScheme.onPrimaryContainer
+                            : theme.colorScheme.onSurface,
                       ),
                     ),
                   ),
@@ -1270,41 +1535,47 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
   }
 
   Widget _buildQuantitySection() {
+    final theme = Theme.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFFEEF2FF),
+        color: theme.colorScheme.surfaceContainerLowest,
         borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: NexoraSpacing.md,
+        runSpacing: NexoraSpacing.sm,
         children: [
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 'Quantity',
                 style: TextStyle(
                   fontWeight: FontWeight.w800,
                   fontSize: 13.5,
-                  color: Color(0xFF0F172A),
+                  color: theme.colorScheme.onSurface,
                 ),
               ),
               Text(
-                '$_maxStock pieces in stock • Limit 20/order',
-                style: const TextStyle(
+                '$_maxStock pieces in stock',
+                style: TextStyle(
                   fontSize: 10.5,
-                  color: Color(0xFF64748B),
+                  color: theme.colorScheme.onSurfaceVariant,
                   fontWeight: FontWeight.w600,
                 ),
               ),
             ],
           ),
           Container(
-            height: 32,
+            height: 36,
             decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
+              color: theme.colorScheme.surfaceContainerLow,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: theme.colorScheme.outlineVariant),
             ),
             child: Row(
               children: [
@@ -1312,7 +1583,10 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                   icon: const Icon(Icons.remove, size: 15),
                   onPressed: _decrementQuantity,
                   padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  constraints: const BoxConstraints(
+                    minWidth: 36,
+                    minHeight: 36,
+                  ),
                 ),
                 SizedBox(
                   width: 44,
@@ -1320,10 +1594,10 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                     controller: _quantityController,
                     keyboardType: TextInputType.text,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 13,
-                      color: Color(0xFF0F172A),
+                      color: theme.colorScheme.onSurface,
                     ),
                     decoration: const InputDecoration(
                       border: InputBorder.none,
@@ -1332,7 +1606,7 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                     ),
                     onChanged: (val) {
                       final parsed = int.tryParse(val.trim());
-                      if (parsed != null && parsed >= 1 && parsed <= 20) {
+                      if (parsed != null && parsed >= 1 && parsed <= _maxStock) {
                         _quantity = parsed;
                       }
                     },
@@ -1342,7 +1616,10 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                   icon: const Icon(Icons.add, size: 15),
                   onPressed: _incrementQuantity,
                   padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  constraints: const BoxConstraints(
+                    minWidth: 36,
+                    minHeight: 36,
+                  ),
                 ),
               ],
             ),
@@ -1354,137 +1631,151 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
 
   Widget _buildShopStoreBanner() {
     final shop = ShopService.instance.getShopById(_productArg?.shopId);
+    final theme = Theme.of(context);
 
-    return GestureDetector(
+    return NexoraCard(
       onTap: () {
         Navigator.pushNamed(context, AppRoutes.shop, arguments: shop);
       },
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: const Color(0xFFE2E8F0)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.03),
-              blurRadius: 8,
-              offset: const Offset(0, 3),
+      padding: const EdgeInsets.all(NexoraSpacing.md),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: shop.avatarBg,
+              border: Border.all(color: NexoraTheme.primary, width: 1.8),
             ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: shop.avatarBg,
-                border: Border.all(color: const Color(0xFF0066FF), width: 1.8),
-              ),
-              child: Center(
-                child: Text(
-                  shop.initials,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w900,
-                    fontSize: 10.5,
-                    height: 1.1,
-                  ),
+            child: Center(
+              child: Text(
+                shop.initials,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 10.5,
+                  height: 1.1,
                 ),
               ),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          shop.name,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w800,
-                            fontSize: 14,
-                            color: Color(0xFF0F172A),
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        shop.name,
+                        style: TextStyle(
+                          fontFamily: NexoraTheme.fontFamily,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14,
+                          color: theme.colorScheme.onSurface,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(width: 4),
-                      const Icon(Icons.chevron_right, size: 16, color: Color(0xFF64748B)),
-                    ],
-                  ),
-                  const SizedBox(height: 2),
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFE0F2FE),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          shop.badge,
-                          style: const TextStyle(
-                            fontSize: 8.5,
-                            fontWeight: FontWeight.w900,
-                            color: Color(0xFF0284C7),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      const Icon(Icons.star, size: 12, color: Color(0xFFF59E0B)),
-                      const SizedBox(width: 2),
-                      Text(
-                        '${shop.rating}',
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF475569),
-                        ),
-                      ),
-                      Text(
-                        ' (${shop.followers})',
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: Color(0xFF94A3B8),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 10),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-              decoration: BoxDecoration(
-                color: const Color(0xFF0066FF).withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFF0066FF), width: 1.2),
-              ),
-              child: const Text(
-                'Visit Shop',
-                style: TextStyle(
-                  color: Color(0xFF0066FF),
-                  fontWeight: FontWeight.w800,
-                  fontSize: 12,
+                    ),
+                    const SizedBox(width: 2),
+                    Icon(
+                      Icons.chevron_right,
+                      size: 16,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ],
                 ),
+                const SizedBox(height: 4),
+                Wrap(
+                  spacing: NexoraSpacing.xs,
+                  runSpacing: NexoraSpacing.xxs,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.primaryContainer,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        shop.badge,
+                        style: TextStyle(
+                          fontSize: 8.5,
+                          fontWeight: FontWeight.w900,
+                          color: theme.colorScheme.onPrimaryContainer,
+                        ),
+                      ),
+                    ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.star_rounded,
+                          size: 13,
+                          color: Color(0xFFF59E0B),
+                        ),
+                        const SizedBox(width: 2),
+                        Text(
+                          '${shop.rating}',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: theme.colorScheme.onSurface,
+                          ),
+                        ),
+                        Flexible(
+                          child: Text(
+                            ' (${shop.followers})',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: NexoraTheme.primary.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: NexoraTheme.primary, width: 1.2),
+            ),
+            child: const Text(
+              'Visit Shop',
+              style: TextStyle(
+                color: NexoraTheme.primary,
+                fontWeight: FontWeight.w800,
+                fontSize: 11.5,
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildDynamicVariantsSection() {
-    if (_productArg?.variantGroups == null || _productArg!.variantGroups!.isEmpty) {
+    if (_productArg?.variantGroups == null ||
+        _productArg!.variantGroups!.isEmpty) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1498,6 +1789,7 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
       );
     }
 
+    final theme = Theme.of(context);
     final groups = _productArg!.variantGroups!;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1515,19 +1807,19 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                 children: [
                   Text(
                     grp.groupName,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontWeight: FontWeight.w800,
                       fontSize: 14,
-                      color: Color(0xFF0F172A),
+                      color: theme.colorScheme.onSurface,
                     ),
                   ),
                   if (selIdx != null && selIdx < grp.options.length)
                     Text(
                       grp.options[selIdx].name,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontWeight: FontWeight.w700,
                         fontSize: 12,
-                        color: Color(0xFF0066FF),
+                        color: theme.colorScheme.primary,
                       ),
                     ),
                 ],
@@ -1544,12 +1836,19 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
 
                       // Combination stock check (BUY-PDP-003)
                       bool isOutOfStock = opt.stock <= 0;
-                      if (_productArg?.combinationStock != null && _productArg!.variantGroups!.length >= 2) {
-                        if (grpIdx == 0 && _selectedVariantGroupIndices.containsKey(1)) {
-                          final sizeOpt = _productArg!.variantGroups![1].options[_selectedVariantGroupIndices[1]!];
+                      if (_productArg?.combinationStock != null &&
+                          _productArg!.variantGroups!.length >= 2) {
+                        if (grpIdx == 0 &&
+                            _selectedVariantGroupIndices.containsKey(1)) {
+                          final sizeOpt = _productArg!
+                              .variantGroups![1]
+                              .options[_selectedVariantGroupIndices[1]!];
                           final combKey = '${opt.name}-${sizeOpt.name}';
-                          if (_productArg!.combinationStock!.containsKey(combKey)) {
-                            isOutOfStock = _productArg!.combinationStock![combKey]! <= 0;
+                          if (_productArg!.combinationStock!.containsKey(
+                            combKey,
+                          )) {
+                            isOutOfStock =
+                                _productArg!.combinationStock![combKey]! <= 0;
                           }
                         }
                       }
@@ -1561,7 +1860,9 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                             if (isOutOfStock) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
-                                  content: Text('This variation is currently out of stock'),
+                                  content: Text(
+                                    'This variation is currently out of stock',
+                                  ),
                                   backgroundColor: Color(0xFFEF4444),
                                   duration: Duration(seconds: 2),
                                 ),
@@ -1570,8 +1871,11 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                             }
                             setState(() {
                               _selectedVariantGroupIndices[grpIdx] = optIdx;
-                              if (opt.imageUrl != null && opt.imageUrl!.isNotEmpty) {
-                                final imgIdx = _productImages.indexOf(opt.imageUrl!);
+                              if (opt.imageUrl != null &&
+                                  opt.imageUrl!.isNotEmpty) {
+                                final imgIdx = _productImages.indexOf(
+                                  opt.imageUrl!,
+                                );
                                 if (imgIdx != -1) {
                                   _selectedImageIndex = imgIdx;
                                   if (_pageController.hasClients) {
@@ -1589,16 +1893,26 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                           },
                           child: AnimatedContainer(
                             duration: const Duration(milliseconds: 200),
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 8,
+                            ),
                             decoration: BoxDecoration(
                               color: isOutOfStock
-                                  ? const Color(0xFFF1F5F9)
-                                  : (isSel ? const Color(0xFFEEF2FF) : Colors.white),
+                                  ? theme.colorScheme.surfaceContainerHigh
+                                        .withValues(alpha: 0.3)
+                                  : (isSel
+                                        ? theme.colorScheme.primaryContainer
+                                        : theme
+                                              .colorScheme
+                                              .surfaceContainerLowest),
                               borderRadius: BorderRadius.circular(16),
                               border: Border.all(
                                 color: isOutOfStock
-                                    ? const Color(0xFFCBD5E1)
-                                    : (isSel ? const Color(0xFF0066FF) : const Color(0xFFE2E8F0)),
+                                    ? theme.colorScheme.outlineVariant
+                                    : (isSel
+                                          ? theme.colorScheme.primary
+                                          : theme.colorScheme.outlineVariant),
                                 width: isSel ? 1.5 : 1,
                               ),
                             ),
@@ -1609,22 +1923,38 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                                     width: 14,
                                     height: 14,
                                     decoration: BoxDecoration(
-                                      color: isOutOfStock ? opt.colorHex!.withValues(alpha: 0.3) : opt.colorHex,
+                                      color: isOutOfStock
+                                          ? opt.colorHex!.withValues(alpha: 0.3)
+                                          : opt.colorHex,
                                       shape: BoxShape.circle,
-                                      border: Border.all(color: const Color(0xFFCBD5E1), width: 1),
+                                      border: Border.all(
+                                        color: theme.colorScheme.outlineVariant,
+                                        width: 1,
+                                      ),
                                     ),
                                   ),
                                   const SizedBox(width: 8),
                                 ],
                                 Text(
-                                  isOutOfStock ? '${opt.name} (Out of stock)' : opt.name,
+                                  isOutOfStock
+                                      ? '${opt.name} (Out of stock)'
+                                      : opt.name,
                                   style: TextStyle(
                                     fontSize: 12,
-                                    fontWeight: isSel ? FontWeight.w800 : FontWeight.w600,
+                                    fontWeight: isSel
+                                        ? FontWeight.w800
+                                        : FontWeight.w600,
                                     color: isOutOfStock
-                                        ? const Color(0xFF94A3B8)
-                                        : (isSel ? const Color(0xFF0066FF) : const Color(0xFF334155)),
-                                    decoration: isOutOfStock ? TextDecoration.lineThrough : null,
+                                        ? theme.colorScheme.onSurfaceVariant
+                                              .withValues(alpha: 0.5)
+                                        : (isSel
+                                              ? theme
+                                                    .colorScheme
+                                                    .onPrimaryContainer
+                                              : theme.colorScheme.onSurface),
+                                    decoration: isOutOfStock
+                                        ? TextDecoration.lineThrough
+                                        : null,
                                   ),
                                 ),
                               ],
@@ -1643,12 +1973,19 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
 
                     // Out-of-stock combination check (BUY-PDP-003: Black-M is disabled for Black)
                     bool isOutOfStock = opt.stock <= 0;
-                    if (_productArg?.combinationStock != null && _productArg!.variantGroups!.length >= 2) {
-                      if (grpIdx == 1 && _selectedVariantGroupIndices.containsKey(0)) {
-                        final colorOpt = _productArg!.variantGroups![0].options[_selectedVariantGroupIndices[0]!];
+                    if (_productArg?.combinationStock != null &&
+                        _productArg!.variantGroups!.length >= 2) {
+                      if (grpIdx == 1 &&
+                          _selectedVariantGroupIndices.containsKey(0)) {
+                        final colorOpt = _productArg!
+                            .variantGroups![0]
+                            .options[_selectedVariantGroupIndices[0]!];
                         final combKey = '${colorOpt.name}-${opt.name}';
-                        if (_productArg!.combinationStock!.containsKey(combKey)) {
-                          isOutOfStock = _productArg!.combinationStock![combKey]! <= 0;
+                        if (_productArg!.combinationStock!.containsKey(
+                          combKey,
+                        )) {
+                          isOutOfStock =
+                              _productArg!.combinationStock![combKey]! <= 0;
                         }
                       }
                     }
@@ -1660,7 +1997,9 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                           if (isOutOfStock) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
-                                content: Text('This variation is currently out of stock'),
+                                content: Text(
+                                  'This variation is currently out of stock',
+                                ),
                                 backgroundColor: Color(0xFFEF4444),
                                 duration: Duration(seconds: 2),
                               ),
@@ -1669,8 +2008,11 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                           }
                           setState(() {
                             _selectedVariantGroupIndices[grpIdx] = optIdx;
-                            if (opt.imageUrl != null && opt.imageUrl!.isNotEmpty) {
-                              final imgIdx = _productImages.indexOf(opt.imageUrl!);
+                            if (opt.imageUrl != null &&
+                                opt.imageUrl!.isNotEmpty) {
+                              final imgIdx = _productImages.indexOf(
+                                opt.imageUrl!,
+                              );
                               if (imgIdx != -1) {
                                 _selectedImageIndex = imgIdx;
                                 if (_pageController.hasClients) {
@@ -1691,22 +2033,22 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
                             color: isOutOfStock
-                                ? const Color(0xFFF8FAFC)
-                                : (isSel ? const Color(0xFF050B28) : Colors.white),
+                                ? theme.colorScheme.surfaceContainerHigh
+                                      .withValues(alpha: 0.3)
+                                : (isSel
+                                      ? theme.colorScheme.primaryContainer
+                                      : theme
+                                            .colorScheme
+                                            .surfaceContainerLowest),
                             borderRadius: BorderRadius.circular(14),
                             border: Border.all(
                               color: isOutOfStock
-                                  ? const Color(0xFFCBD5E1)
-                                  : (isSel ? const Color(0xFF0066FF) : const Color(0xFFE2E8F0)),
+                                  ? theme.colorScheme.outlineVariant
+                                  : (isSel
+                                        ? theme.colorScheme.primary
+                                        : theme.colorScheme.outlineVariant),
                               width: isSel ? 1.5 : 1,
                             ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.02),
-                                blurRadius: 6,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
                           ),
                           child: Row(
                             children: [
@@ -1716,20 +2058,35 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
                                   color: isOutOfStock
-                                      ? const Color(0xFFF1F5F9)
-                                      : (isSel ? const Color(0xFF0066FF) : Colors.transparent),
+                                      ? theme.colorScheme.surfaceContainerHigh
+                                      : (isSel
+                                            ? theme.colorScheme.primary
+                                            : Colors.transparent),
                                   border: Border.all(
                                     color: isOutOfStock
-                                        ? const Color(0xFFCBD5E1)
-                                        : (isSel ? const Color(0xFF0066FF) : const Color(0xFFCBD5E1)),
+                                        ? theme.colorScheme.outlineVariant
+                                        : (isSel
+                                              ? theme.colorScheme.primary
+                                              : theme
+                                                    .colorScheme
+                                                    .outlineVariant),
                                     width: 1.5,
                                   ),
                                 ),
                                 child: isOutOfStock
-                                    ? const Icon(Icons.block, size: 11, color: Color(0xFF94A3B8))
+                                    ? Icon(
+                                        Icons.block,
+                                        size: 11,
+                                        color:
+                                            theme.colorScheme.onSurfaceVariant,
+                                      )
                                     : (isSel
-                                        ? const Icon(Icons.check, size: 12, color: Color(0xFF050B28))
-                                        : null),
+                                          ? const Icon(
+                                              Icons.check,
+                                              size: 12,
+                                              color: Colors.white,
+                                            )
+                                          : null),
                               ),
                               const SizedBox(width: 10),
                               Expanded(
@@ -1737,14 +2094,25 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      isOutOfStock ? '${opt.name} (Out of stock)' : opt.name,
+                                      isOutOfStock
+                                          ? '${opt.name} (Out of stock)'
+                                          : opt.name,
                                       style: TextStyle(
                                         fontWeight: FontWeight.w800,
                                         fontSize: 12.5,
                                         color: isOutOfStock
-                                            ? const Color(0xFF94A3B8)
-                                            : (isSel ? Colors.white : const Color(0xFF0F172A)),
-                                        decoration: isOutOfStock ? TextDecoration.lineThrough : null,
+                                            ? theme.colorScheme.onSurfaceVariant
+                                                  .withValues(alpha: 0.5)
+                                            : (isSel
+                                                  ? theme
+                                                        .colorScheme
+                                                        .onPrimaryContainer
+                                                  : theme
+                                                        .colorScheme
+                                                        .onSurface),
+                                        decoration: isOutOfStock
+                                            ? TextDecoration.lineThrough
+                                            : null,
                                       ),
                                     ),
                                     if (opt.subtitle != null) ...[
@@ -1754,8 +2122,10 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                                         style: TextStyle(
                                           fontSize: 10.5,
                                           color: isOutOfStock
-                                              ? const Color(0xFFCBD5E1)
-                                              : (isSel ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+                                              ? theme.colorScheme.outlineVariant
+                                              : theme
+                                                    .colorScheme
+                                                    .onSurfaceVariant,
                                         ),
                                       ),
                                     ],
@@ -1769,8 +2139,10 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                                     fontWeight: FontWeight.w800,
                                     fontSize: 11.5,
                                     color: isOutOfStock
-                                        ? const Color(0xFF94A3B8)
-                                        : (isSel ? const Color(0xFF38BDF8) : const Color(0xFF0F172A)),
+                                        ? theme.colorScheme.onSurfaceVariant
+                                        : (isSel
+                                              ? const Color(0xFF38BDF8)
+                                              : theme.colorScheme.onSurface),
                                   ),
                                 ),
                             ],
@@ -1788,623 +2160,365 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
     );
   }
 
-  Widget _buildDispatchWarrantyCard() {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFFEEECFF),
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: const BoxDecoration(
-                  color: Color(0xFFE0F7FA),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.electric_rickshaw,
-                    color: Color(0xFF00B4D8), size: 20),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Text(
-                          'Nexora Priority Dispatch ',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w800,
-                            fontSize: 13,
-                            color: Color(0xFF0F172A),
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 5, vertical: 1),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF00B4D8),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: const Text(
-                            'FASTEST',
-                            style: TextStyle(
-                              fontSize: 8.5,
-                              fontWeight: FontWeight.w900,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 2),
-                    const Text(
-                      'Get it tomorrow by 4:00 PM',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 13,
-                        color: Color(0xFF0F172A),
-                      ),
-                    ),
-                    const SizedBox(height: 1),
-                    const Text(
-                      'Order within 1h 48m • Dispatched from Makati Central Hub',
-                      style: TextStyle(
-                        fontSize: 10.5,
-                        color: Color(0xFF64748B),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 10),
-            child: Divider(height: 1, color: Color(0xFFCBD5E1)),
-          ),
-          const Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              Row(
-                children: [
-                  Icon(Icons.shield_outlined,
-                      size: 15, color: Color(0xFF0066FF)),
-                  SizedBox(width: 4),
-                  Text(
-                    '2-Year Official Warranty',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF475569),
-                    ),
-                  ),
-                ],
-              ),
-              Row(
-                children: [
-                  Icon(Icons.sync, size: 15, color: Color(0xFF0066FF)),
-                  SizedBox(width: 4),
-                  Text(
-                    '7-Day Free Replacement',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF475569),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
   String _cleanSoldCount(String val) {
-    if (val.toLowerCase().contains('sold')) return val;
-    return '$val sold';
+    final clean = val
+        .replaceAll(RegExp(r'\bsold\b', caseSensitive: false), '')
+        .trim();
+    return '$clean sold';
   }
 
   Widget _buildProductDescriptionSection() {
-    final desc = _productArg?.description ??
+    final theme = Theme.of(context);
+    final desc =
+        _productArg?.description ??
         'Crafted with premium materials and engineered for everyday excellence. Each unit undergoes strict quality control and comes with official brand warranty.';
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 8,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Row(
-            children: [
-              Icon(Icons.description_outlined, size: 18, color: Color(0xFF0066FF)),
-              SizedBox(width: 8),
-              Text(
-                'Product Description & Details',
-                style: TextStyle(
-                  fontWeight: FontWeight.w800,
-                  fontSize: 14.5,
-                  color: Color(0xFF0F172A),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text(
-            desc,
-            style: const TextStyle(
-              fontSize: 12.5,
-              color: Color(0xFF334155),
-              height: 1.5,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF8FAFC),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.verified_user_outlined, size: 16, color: Color(0xFF0D9488)),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    '100% Genuine ${_productArg?.category ?? 'Authentic'} Item • Official Store Warranty Included',
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF0D9488),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  List<Map<String, dynamic>> _getDynamicSpecsForCategory(String category) {
-    final cat = category.toLowerCase();
-    if (cat.contains('apparel') || cat.contains('fashion')) {
-      return const [
-        {
-          'icon': Icons.checkroom,
-          'title': 'Premium Fabric',
-          'subtitle': 'Heavyweight combed organic cotton for maximum durability.',
-        },
-        {
-          'icon': Icons.straighten,
-          'title': 'Tailored Silhouette',
-          'subtitle': 'Engineered modern fit with reinforced seams and hems.',
-        },
-        {
-          'icon': Icons.wash,
-          'title': 'Pre-Shrunk Weave',
-          'subtitle': 'Zero shrinkage and wash-resistant reactive dye colors.',
-        },
-        {
-          'icon': Icons.air,
-          'title': 'Breathable All-Day',
-          'subtitle': 'Moisture-wicking airflow properties for warm weather.',
-        },
-      ];
-    } else if (cat.contains('home')) {
-      return const [
-        {
-          'icon': Icons.park,
-          'title': 'Sustainable Materials',
-          'subtitle': 'Crafted with sustainably sourced natural materials.',
-        },
-        {
-          'icon': Icons.handyman,
-          'title': 'Artisan Handcrafted',
-          'subtitle': 'Handmade quality with precision attention to detail.',
-        },
-        {
-          'icon': Icons.cleaning_services,
-          'title': 'Easy Maintenance',
-          'subtitle': 'Wipes clean effortlessly with protective non-toxic finish.',
-        },
-        {
-          'icon': Icons.home,
-          'title': 'Modern Aesthetic',
-          'subtitle': 'Elevates interior decor with minimalist timeless design.',
-        },
-      ];
-    } else if (cat.contains('gaming')) {
-      return const [
-        {
-          'icon': Icons.speed,
-          'title': 'Esports Performance',
-          'subtitle': 'Ultra-low latency responsiveness for competitive gaming.',
-        },
-        {
-          'icon': Icons.tune,
-          'title': 'Customizable Hardware',
-          'subtitle': 'Hot-swappable modular components and firmware tuning.',
-        },
-        {
-          'icon': Icons.wifi,
-          'title': 'Tri-Mode Wireless',
-          'subtitle': '2.4GHz low latency, Bluetooth 5.3, and USB-C connectivity.',
-        },
-        {
-          'icon': Icons.battery_charging_full,
-          'title': 'Extended Battery',
-          'subtitle': 'High-capacity battery lasting weeks of intense sessions.',
-        },
-      ];
-    } else if (cat.contains('audio')) {
-      return const [
-        {
-          'icon': Icons.mic,
-          'title': 'Studio Acoustic Capture',
-          'subtitle': 'Precision cardioid capsule for clear, warm vocal tones.',
-        },
-        {
-          'icon': Icons.noise_control_off,
-          'title': 'Active Noise Isolation',
-          'subtitle': 'Filters background keyboard clicks and room resonance.',
-        },
-        {
-          'icon': Icons.cable,
-          'title': 'Dual Connection',
-          'subtitle': 'Plug-and-play USB and studio XLR outputs supported.',
-        },
-        {
-          'icon': Icons.headset,
-          'title': 'Zero-Latency Monitor',
-          'subtitle': 'Real-time headphone monitoring with tactile volume dial.',
-        },
-      ];
-    }
-
-    return const [
-      {
-        'icon': Icons.verified,
-        'title': '100% Authentic',
-        'subtitle': 'Guaranteed original manufacturer direct authenticity.',
-      },
-      {
-        'icon': Icons.local_shipping,
-        'title': 'Priority Dispatch',
-        'subtitle': 'Carefully packaged and inspected before courier hand-off.',
-      },
-      {
-        'icon': Icons.shield,
-        'title': 'Official Warranty',
-        'subtitle': 'Backed by full replacement and technical repair guarantee.',
-      },
-      {
-        'icon': Icons.sync,
-        'title': '7-Day Return',
-        'subtitle': 'Hassle-free return policy if item has manufacturing defect.',
-      },
-    ];
-  }
-
-  Widget _buildSpecFeaturesGrid() {
-    final specs = (_productArg?.specs != null && _productArg!.specs!.isNotEmpty)
-        ? _productArg!.specs!
-        : _getDynamicSpecsForCategory(_productArg?.category ?? '');
-
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: specs.length,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 10,
-        mainAxisSpacing: 10,
-        childAspectRatio: 1.25,
-      ),
-      itemBuilder: (context, index) {
-        final item = specs[index];
-        return Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(18),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.02),
-                blurRadius: 8,
-                offset: const Offset(0, 3),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                item['icon'] as IconData,
-                color: const Color(0xFF0066FF),
-                size: 22,
-              ),
-              const SizedBox(height: 6),
-              Text(
-                item['title'] as String,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w800,
-                  fontSize: 12.5,
-                  color: Color(0xFF0F172A),
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                item['subtitle'] as String,
-                style: const TextStyle(
-                  fontSize: 10,
-                  color: Color(0xFF64748B),
-                  height: 1.25,
-                ),
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  List<ProductReviewModel> get _defaultFallbackReviews => [
-        ProductReviewModel(
-          id: 'fb_rev1',
-          userName: 'Kiko Valenzuela',
-          initials: 'KV',
-          avatarColor: const Color(0xFF5038ED),
-          rating: 5.0,
-          date: '2d ago',
-          variantName: 'Chalk White / Violet',
-          comment:
-              'Hands down the cleanest sounding stock board I have ever tested. The switches came factory lubricated to absolute perfection. Zero rattle on the spacebar and the violet knob is super tactile!',
-          reviewImages: [
-            'https://images.unsplash.com/photo-1587829741301-dc798b83add3?auto=format&fit=crop&w=300&q=80',
-          ],
-          helpfulCount: 38,
-        ),
-        ProductReviewModel(
-          id: 'fb_rev2',
-          userName: 'Marianne Cruz',
-          initials: 'MC',
-          avatarColor: const Color(0xFF00B4D8),
-          rating: 5.0,
-          date: '5d ago',
-          variantName: 'Chalk White / Violet',
-          comment:
-              'Arrived in less than 24 hours in BGC! Packaged in heavy luxury matte presentation box with switch pullers and coiled lavender cable included. Typing experience is pillowy and deep.',
-          helpfulCount: 24,
-        ),
-      ];
-
-  Widget _buildReviewsSection() {
-    final List<ProductReviewModel> reviews =
-        _productArg?.reviews ?? _defaultFallbackReviews;
-    final ratingVal = _productArg?.rating ?? 4.9;
-    final breakdown = _productArg?.ratingBreakdown ??
-        {5: 0.88, 4: 0.09, 3: 0.02, 2: 0.01, 1: 0.0};
-
-    List<ProductReviewModel> filtered = reviews;
-    if (_selectedReviewFilter == 'With Photos') {
-      filtered = reviews.where((r) => r.reviewImages.isNotEmpty).toList();
-    } else if (_selectedReviewFilter == '5 Star') {
-      filtered = reviews.where((r) => r.rating >= 4.8).toList();
-    } else if (_selectedReviewFilter == '4 Star') {
-      filtered = reviews.where((r) => r.rating >= 3.8 && r.rating < 4.8).toList();
-    }
-
-    final withPhotosCount =
-        reviews.where((r) => r.reviewImages.isNotEmpty).length;
-    final fiveStarCount =
-        reviews.where((r) => r.rating >= 4.8).length;
-    final fourStarCount =
-        reviews.where((r) => r.rating >= 3.8 && r.rating < 4.8).length;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        Text(
+          'About this item',
+          style: theme.textTheme.headlineSmall?.copyWith(
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: NexoraSpacing.sm),
+        Text(
+          desc,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+            height: 1.55,
+          ),
+        ),
+      ],
+    );
+  }
+
+  List<ProductReviewModel> get _defaultFallbackReviews => [
+    ProductReviewModel(
+      id: 'fb_rev1',
+      userName: 'Kiko Valenzuela',
+      initials: 'KV',
+      avatarColor: const Color(0xFF5038ED),
+      rating: 5.0,
+      date: '2d ago',
+      variantName: 'Chalk White / Violet',
+      comment: 'Hands down the cleanest sounding stock board I have ever tested. The switches came factory lubricated to absolute perfection. Zero rattle on the spacebar and the violet knob is super tactile!',
+      reviewImages: [
+        'https://images.unsplash.com/photo-1587829741301-dc798b83add3?auto=format&fit=crop&w=300&q=80',
+      ],
+      helpfulCount: 38,
+    ),
+    ProductReviewModel(
+      id: 'fb_rev2',
+      userName: 'Marianne Cruz',
+      initials: 'MC',
+      avatarColor: const Color(0xFF00B4D8),
+      rating: 5.0,
+      date: '5d ago',
+      variantName: 'Chalk White / Violet',
+      comment: 'Arrived in less than 24 hours in BGC! Packaged in heavy luxury matte presentation box with switch pullers and coiled lavender cable included. Typing experience is pillowy and deep.',
+      helpfulCount: 24,
+    ),
+  ];
+
+  Widget _buildReviewsSection() {
+    return AnimatedBuilder(
+      animation: ShopService.instance,
+      builder: (context, _) {
+        final List<ProductReviewModel> reviews =
+            ShopService.instance.getReviewsForProduct(
+          _productKey,
+          _productArg?.reviews ?? _defaultFallbackReviews,
+        );
+        final ratingVal = ShopService.instance.getProductAverageRating(
+          _productKey,
+          _productArg?.rating ?? 4.9,
+        );
+        final breakdown =
+            ShopService.instance.getProductRatingBreakdown(_productKey);
+
+        List<ProductReviewModel> filtered = reviews;
+        if (_selectedReviewFilter == 'With Photos') {
+          filtered = reviews
+              .where((r) =>
+                  r.reviewImages.isNotEmpty || r.reviewImageBytes.isNotEmpty)
+              .toList();
+        } else if (_selectedReviewFilter == '5 Star') {
+          filtered = reviews.where((r) => r.rating >= 4.8).toList();
+        } else if (_selectedReviewFilter == '4 Star') {
+          filtered = reviews
+              .where((r) => r.rating >= 3.8 && r.rating < 4.8)
+              .toList();
+        }
+
+        final withPhotosCount = reviews
+            .where((r) =>
+                r.reviewImages.isNotEmpty || r.reviewImageBytes.isNotEmpty)
+            .length;
+        final fiveStarCount = reviews.where((r) => r.rating >= 4.8).length;
+        final fourStarCount = reviews
+            .where((r) => r.rating >= 3.8 && r.rating < 4.8)
+            .length;
+
+        final theme = Theme.of(context);
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: NexoraSpacing.sm,
+              runSpacing: NexoraSpacing.xs,
               children: [
-                const Icon(Icons.rate_review_outlined,
-                    size: 16, color: Color(0xFF0066FF)),
-                const SizedBox(width: 6),
-                const Text(
-                  'Ratings & Reviews',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 14,
-                    color: Color(0xFF0F172A),
-                  ),
+                Wrap(
+                  spacing: NexoraSpacing.xs,
+                  runSpacing: NexoraSpacing.xs,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.rate_review_outlined,
+                      size: 16,
+                      color: Color(0xFF0066FF),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Ratings & Reviews',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 14,
+                        color: theme.colorScheme.onSurface,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      '(${reviews.length})',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 4),
-                Text(
-                  '(${reviews.length})',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 12,
-                    color: Color(0xFF64748B),
-                  ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextButton.icon(
+                      onPressed: _openWriteReviewModal,
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      icon: const Icon(
+                        Icons.add_comment_outlined,
+                        size: 14,
+                        color: Color(0xFF0066FF),
+                      ),
+                      label: const Text(
+                        'Write Review',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF0066FF),
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    InkWell(
+                      onTap: _navigateToReviewsPage,
+                      child: const Padding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 4,
+                        ),
+                        child: Text(
+                          'View All >',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF0066FF),
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
-            InkWell(
-              onTap: () {
-                setState(() => _selectedReviewFilter = 'All');
-              },
-              child: const Text(
-                'View All',
-                style: TextStyle(
-                  fontSize: 11.5,
-                  color: Color(0xFF0066FF),
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
+            const SizedBox(height: 12),
 
-        // Overall score banner
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.02),
-                blurRadius: 8,
-                offset: const Offset(0, 3),
+            // Overall score banner
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surfaceContainerLowest,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: theme.colorScheme.outlineVariant),
               ),
-            ],
-          ),
-          child: Row(
-            children: [
-              Column(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text(
-                    ratingVal.toStringAsFixed(1),
-                    style: const TextStyle(
-                      fontSize: 32,
-                      fontWeight: FontWeight.w900,
-                      color: Color(0xFF0F172A),
-                    ),
+                  Column(
+                    children: [
+                      Text(
+                        ratingVal.toStringAsFixed(1),
+                        style: TextStyle(
+                          fontSize: 32,
+                          fontWeight: FontWeight.w900,
+                          color: theme.colorScheme.onSurface,
+                        ),
+                      ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: List.generate(5, (index) {
+                          final filled = index < ratingVal.floor();
+                          final half = !filled && index < ratingVal;
+                          return Icon(
+                            half ? Icons.star_half_rounded : Icons.star_rounded,
+                            size: 14,
+                            color: const Color(0xFFF59E0B),
+                          );
+                        }),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '98% Recommended',
+                        style: TextStyle(
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w600,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
                   ),
-                  Row(
-                    children: List.generate(5, (index) {
-                      return const Icon(Icons.star,
-                          size: 13, color: Color(0xFFF59E0B));
-                    }),
-                  ),
-                  const SizedBox(height: 2),
-                  const Text(
-                    '98% Recommended',
-                    style: TextStyle(
-                      fontSize: 9.5,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF64748B),
-                    ),
+                  const SizedBox(height: NexoraSpacing.md),
+                  Column(
+                    children: [
+                      _buildStarProgressRow('5', breakdown[5] ?? 0.88),
+                      _buildStarProgressRow('4', breakdown[4] ?? 0.09),
+                      _buildStarProgressRow('3', breakdown[3] ?? 0.02),
+                      _buildStarProgressRow('2', breakdown[2] ?? 0.01),
+                      _buildStarProgressRow('1', breakdown[1] ?? 0.00),
+                    ],
                   ),
                 ],
               ),
-              const SizedBox(width: 20),
-              Expanded(
-                child: Column(
-                  children: [
-                    _buildStarProgressRow('5', breakdown[5] ?? 0.88),
-                    _buildStarProgressRow('4', breakdown[4] ?? 0.09),
-                    _buildStarProgressRow('3', breakdown[3] ?? 0.02),
-                    _buildStarProgressRow('2', breakdown[2] ?? 0.01),
-                    _buildStarProgressRow('1', breakdown[1] ?? 0.00),
-                  ],
+            ),
+            const SizedBox(height: 12),
+
+            // Review Filter Chips
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              child: Row(
+                children: [
+                  _buildReviewFilterChip(
+                    'All (${reviews.length})',
+                    isSelected: _selectedReviewFilter == 'All',
+                    onTap: () => setState(() => _selectedReviewFilter = 'All'),
+                  ),
+                  const SizedBox(width: 8),
+                  _buildReviewFilterChip(
+                    '📷 With Photos ($withPhotosCount)',
+                    isSelected: _selectedReviewFilter == 'With Photos',
+                    onTap: () =>
+                        setState(() => _selectedReviewFilter = 'With Photos'),
+                  ),
+                  const SizedBox(width: 8),
+                  _buildReviewFilterChip(
+                    '5 ★ ($fiveStarCount)',
+                    isSelected: _selectedReviewFilter == '5 Star',
+                    onTap: () =>
+                        setState(() => _selectedReviewFilter = '5 Star'),
+                  ),
+                  const SizedBox(width: 8),
+                  _buildReviewFilterChip(
+                    '4 ★ ($fourStarCount)',
+                    isSelected: _selectedReviewFilter == '4 Star',
+                    onTap: () =>
+                        setState(() => _selectedReviewFilter = '4 Star'),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+
+            // Dynamic Reviews List
+            if (filtered.isEmpty)
+              Container(
+                padding: const EdgeInsets.all(20),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceContainerLowest,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: theme.colorScheme.outlineVariant),
+                ),
+                child: Text(
+                  'No reviews under this filter yet.',
+                  style: TextStyle(
+                    color: theme.colorScheme.onSurfaceVariant,
+                    fontSize: 12,
+                  ),
+                ),
+              )
+            else
+              ...filtered.take(3).map((rev) {
+                final isLiked = ShopService.instance.hasLikedReview(rev.id);
+                final helpful = ShopService.instance.getReviewHelpfulCount(
+                  rev.id,
+                  rev.helpfulCount,
+                );
+
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _buildReviewCard(
+                    avatarColor: rev.avatarColor,
+                    initials: rev.initials,
+                    userName: rev.userName,
+                    rating: rev.rating,
+                    dateText: rev.date,
+                    variantText: rev.variantName,
+                    comment: rev.comment,
+                    imageUrl: rev.reviewImages.isNotEmpty
+                        ? rev.reviewImages.first
+                        : null,
+                    imageBytes: rev.reviewImageBytes.isNotEmpty
+                        ? rev.reviewImageBytes.first
+                        : null,
+                    helpfulCount: helpful,
+                    voted: isLiked,
+                    onHelpfulTap: () {
+                      setState(() {
+                        ShopService.instance.toggleReviewLike(rev.id);
+                      });
+                    },
+                  ),
+                );
+              }),
+            if (reviews.length > 3) ...[
+              Center(
+                child: TextButton(
+                  onPressed: _navigateToReviewsPage,
+                  child: Text(
+                    'View all ${reviews.length} reviews >',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                      color: Color(0xFF0066FF),
+                    ),
+                  ),
                 ),
               ),
             ],
-          ),
-        ),
-        const SizedBox(height: 12),
-
-        // Review Filter Chips
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          physics: const BouncingScrollPhysics(),
-          child: Row(
-            children: [
-              _buildReviewFilterChip(
-                'All (${reviews.length})',
-                isSelected: _selectedReviewFilter == 'All',
-                onTap: () => setState(() => _selectedReviewFilter = 'All'),
-              ),
-              const SizedBox(width: 8),
-              _buildReviewFilterChip(
-                '📷 With Photos ($withPhotosCount)',
-                isSelected: _selectedReviewFilter == 'With Photos',
-                onTap: () => setState(() => _selectedReviewFilter = 'With Photos'),
-              ),
-              const SizedBox(width: 8),
-              _buildReviewFilterChip(
-                '5 ★ ($fiveStarCount)',
-                isSelected: _selectedReviewFilter == '5 Star',
-                onTap: () => setState(() => _selectedReviewFilter = '5 Star'),
-              ),
-              const SizedBox(width: 8),
-              _buildReviewFilterChip(
-                '4 ★ ($fourStarCount)',
-                isSelected: _selectedReviewFilter == '4 Star',
-                onTap: () => setState(() => _selectedReviewFilter = '4 Star'),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 14),
-
-        // Dynamic Reviews List
-        if (filtered.isEmpty)
-          Container(
-            padding: const EdgeInsets.all(20),
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: const Text(
-              'No reviews under this filter yet.',
-              style: TextStyle(color: Color(0xFF64748B), fontSize: 12),
-            ),
-          )
-        else
-          ...filtered.map((rev) {
-            final isLiked = ShopService.instance.hasLikedReview(rev.id);
-            final helpful = ShopService.instance.getReviewHelpfulCount(rev.id, rev.helpfulCount);
-
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: _buildReviewCard(
-                avatarColor: rev.avatarColor,
-                initials: rev.initials,
-                userName: rev.userName,
-                dateText: rev.date,
-                variantText: rev.variantName,
-                comment: rev.comment,
-                imageUrl: rev.reviewImages.isNotEmpty ? rev.reviewImages.first : null,
-                helpfulCount: helpful,
-                voted: isLiked,
-                onHelpfulTap: () {
-                  setState(() {
-                    ShopService.instance.toggleReviewLike(rev.id);
-                  });
-                },
-              ),
-            );
-          }),
-      ],
+          ],
+        );
+      },
     );
   }
 
@@ -2451,7 +2565,11 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
     );
   }
 
-  Widget _buildReviewFilterChip(String label, {required bool isSelected, VoidCallback? onTap}) {
+  Widget _buildReviewFilterChip(
+    String label, {
+    required bool isSelected,
+    VoidCallback? onTap,
+  }) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -2460,7 +2578,9 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
           color: isSelected ? const Color(0xFF00D2FF) : Colors.white,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isSelected ? const Color(0xFF00D2FF) : const Color(0xFFE2E8F0),
+            color: isSelected
+                ? const Color(0xFF00D2FF)
+                : const Color(0xFFE2E8F0),
             width: 1,
           ),
         ),
@@ -2480,27 +2600,36 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
     required Color avatarColor,
     required String initials,
     required String userName,
+    required double rating,
     required String dateText,
     required String variantText,
     required String comment,
     required String? imageUrl,
+    Uint8List? imageBytes,
     required int helpfulCount,
     required bool voted,
     required VoidCallback onHelpfulTap,
   }) {
+    final theme = Theme.of(context);
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.colorScheme.surfaceContainerLowest,
         borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            spacing: NexoraSpacing.sm,
+            runSpacing: NexoraSpacing.sm,
             children: [
-              Row(
+              Wrap(
+                spacing: NexoraSpacing.xs,
+                runSpacing: NexoraSpacing.xs,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   CircleAvatar(
                     radius: 16,
@@ -2518,26 +2647,34 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
+                      Wrap(
+                        spacing: NexoraSpacing.xs,
+                        runSpacing: NexoraSpacing.xs,
+                        crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
                           Text(
                             userName,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontWeight: FontWeight.w800,
                               fontSize: 13,
-                              color: Color(0xFF0F172A),
+                              color: theme.colorScheme.onSurface,
                             ),
                           ),
                           const SizedBox(width: 4),
-                          const Icon(Icons.verified,
-                              size: 13, color: Color(0xFF0066FF)),
+                          const Icon(
+                            Icons.verified,
+                            size: 13,
+                            color: Color(0xFF0066FF),
+                          ),
                         ],
                       ),
-                      const Text(
-                        'Verified Buyer • Gateron Pro Yellow',
+                      Text(
+                        variantText.isNotEmpty
+                            ? 'Verified Buyer • $variantText'
+                            : 'Verified Buyer',
                         style: TextStyle(
                           fontSize: 10.5,
-                          color: Color(0xFF64748B),
+                          color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
                     ],
@@ -2546,65 +2683,82 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
               ),
               Text(
                 dateText,
-                style: const TextStyle(fontSize: 10.5, color: Color(0xFF94A3B8)),
+                style: TextStyle(
+                  fontSize: 10.5,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
               ),
             ],
           ),
           const SizedBox(height: 6),
-          const Row(
-            children: [
-              Icon(Icons.star, size: 14, color: Color(0xFFF59E0B)),
-              Icon(Icons.star, size: 14, color: Color(0xFFF59E0B)),
-              Icon(Icons.star, size: 14, color: Color(0xFFF59E0B)),
-              Icon(Icons.star, size: 14, color: Color(0xFFF59E0B)),
-              Icon(Icons.star, size: 14, color: Color(0xFFF59E0B)),
-            ],
+          Row(
+            children: List.generate(5, (idx) {
+              return Icon(
+                Icons.star_rounded,
+                size: 14,
+                color: idx < rating.round()
+                    ? const Color(0xFFF59E0B)
+                    : theme.colorScheme.outlineVariant,
+              );
+            }),
           ),
           const SizedBox(height: 6),
           Text(
             comment,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12,
-              color: Color(0xFF334155),
+              color: theme.colorScheme.onSurface,
               height: 1.35,
             ),
           ),
-          if (imageUrl != null) ...[
+          if (imageBytes != null || imageUrl != null) ...[
             const SizedBox(height: 10),
             Container(
               width: 110,
               height: 110,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(12),
-                color: const Color(0xFFF1F5F9),
+                color: theme.colorScheme.surfaceContainerLow,
               ),
               clipBehavior: Clip.antiAlias,
-              child: Image.network(
-                imageUrl,
-                fit: BoxFit.cover,
-              ),
+              child: imageBytes != null
+                  ? Image.memory(imageBytes, fit: BoxFit.cover)
+                  : Image.network(
+                      imageUrl!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, _, _) => const Center(
+                        child: Icon(Icons.broken_image, size: 24),
+                      ),
+                    ),
             ),
           ],
           const SizedBox(height: 10),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            spacing: NexoraSpacing.sm,
+            runSpacing: NexoraSpacing.xs,
             children: [
-              Expanded(
-                child: Text(
-                  variantText,
-                  style: const TextStyle(fontSize: 10.5, color: Color(0xFF94A3B8)),
-                  overflow: TextOverflow.ellipsis,
+              Text(
+                variantText,
+                style: TextStyle(
+                  fontSize: 10.5,
+                  color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
               const SizedBox(width: 8),
               GestureDetector(
                 onTap: onHelpfulTap,
-                child: Row(
+                child: Wrap(
+                  spacing: NexoraSpacing.xs,
+                  runSpacing: NexoraSpacing.xs,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     Icon(
                       voted ? Icons.thumb_up : Icons.thumb_up_alt_outlined,
                       size: 13,
-                      color: voted ? const Color(0xFF0066FF) : const Color(0xFF64748B),
+                      color: voted
+                          ? const Color(0xFF0066FF)
+                          : theme.colorScheme.onSurfaceVariant,
                     ),
                     const SizedBox(width: 4),
                     Text(
@@ -2614,7 +2768,7 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                         fontWeight: FontWeight.w700,
                         color: voted
                             ? const Color(0xFF0066FF)
-                            : const Color(0xFF64748B),
+                            : theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
                   ],
@@ -2627,21 +2781,157 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
     );
   }
 
+  void _openShopChat() {
+    final shop = ShopService.instance.getShopById(_productArg?.shopId);
+    final shopName = _productArg?.shopName.isNotEmpty == true
+        ? _productArg!.shopName
+        : shop.name;
+    final shopBadge = _productArg?.shopBadge.isNotEmpty == true
+        ? _productArg!.shopBadge
+        : shop.badge;
+    final shopId = _productArg?.shopId.isNotEmpty == true
+        ? _productArg!.shopId
+        : shop.id;
+    final conversation = ChatService.instance.getOrCreateShopConversation(
+      shopId: shopId,
+      shopName: shopName,
+      shopBadge: shopBadge,
+      avatarBg: shop.avatarBg,
+      initialProductSnippet: _productTitle,
+    );
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ChatDetailPage(
+          conversationId: conversation.id,
+          title: conversation.title,
+          subtitle: shopBadge,
+          avatarIcon: conversation.avatarIcon,
+          avatarBgColor: conversation.avatarBg,
+          orderRef: _productTitle,
+          initialMessages: conversation.messages
+              .map((message) => message.toMap())
+              .toList(),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRefinedBottomActionDock() {
+    final unavailable =
+        _productArg?.isActive == false ||
+        _productArg?.isOnVacation == true ||
+        _maxStock <= 0;
+    final total = _effectivePrice * _quantity;
+    final largeText = MediaQuery.textScalerOf(context).scale(1) > 1.3;
+
+    final chatButton = IconButton.filledTonal(
+      tooltip: 'Chat with shop',
+      onPressed: _openShopChat,
+      icon: const Icon(Icons.chat_bubble_outline_rounded),
+    );
+    final addButton = OutlinedButton.icon(
+      onPressed: unavailable ? null : _handleAddToCart,
+      icon: const Icon(Icons.shopping_bag_outlined, size: 19),
+      label: const Text('Add to Cart'),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: const Color(0xFF0066FF),
+        side: const BorderSide(color: Color(0xFF0066FF), width: 1.2),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(23),
+        ),
+      ),
+    );
+    final buyButton = ElevatedButton(
+      onPressed: unavailable ? null : _handleBuyNow,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: unavailable
+            ? const Color(0xFF94A3B8)
+            : const Color(0xFF0066FF),
+        foregroundColor: Colors.white,
+        elevation: 0,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(23),
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text(
+            'Buy Now',
+            style: TextStyle(
+              fontWeight: FontWeight.w800,
+              fontSize: 13,
+              color: Colors.white,
+              height: 1.1,
+            ),
+          ),
+          const SizedBox(height: 1),
+          Text(
+            '₱${total.toStringAsFixed(0)}',
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
+              fontSize: 11,
+              color: Colors.white.withValues(alpha: 0.95),
+              height: 1.1,
+            ),
+          ),
+        ],
+      ),
+    );
+
+    return Material(
+      color: Theme.of(context).colorScheme.surfaceContainerLowest,
+      shape: Border(
+        top: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.all(NexoraSpacing.sm),
+          child: largeText
+              ? Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      children: [
+                        chatButton,
+                        const SizedBox(width: NexoraSpacing.xs),
+                        Expanded(child: addButton),
+                      ],
+                    ),
+                    const SizedBox(height: NexoraSpacing.xs),
+                    buyButton,
+                  ],
+                )
+              : Row(
+                  children: [
+                    chatButton,
+                    const SizedBox(width: NexoraSpacing.xs),
+                    Expanded(child: addButton),
+                    const SizedBox(width: NexoraSpacing.xs),
+                    Expanded(child: buyButton),
+                  ],
+                ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildBottomActionDock() {
+    final theme = Theme.of(context);
     final totalPrice = _effectivePrice * _quantity;
-    final isUnavailable = _productArg?.isActive == false || _productArg?.isOnVacation == true;
+    final isUnavailable =
+        _productArg?.isActive == false || _productArg?.isOnVacation == true;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 20,
-            offset: const Offset(0, -4),
-          ),
-        ],
+        color: theme.colorScheme.surfaceContainerLowest,
+        border: Border(top: BorderSide(color: theme.colorScheme.outlineVariant)),
       ),
       child: SafeArea(
         top: false,
@@ -2650,14 +2940,22 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
             // Chat Icon Button
             GestureDetector(
               onTap: () {
-                final shop = ShopService.instance.getShopById(_productArg?.shopId);
-                final sName = (_productArg?.shopName != null && _productArg!.shopName.isNotEmpty)
+                final shop = ShopService.instance.getShopById(
+                  _productArg?.shopId,
+                );
+                final sName =
+                    (_productArg?.shopName != null &&
+                        _productArg!.shopName.isNotEmpty)
                     ? _productArg!.shopName
                     : shop.name;
-                final sBadge = (_productArg?.shopBadge != null && _productArg!.shopBadge.isNotEmpty)
+                final sBadge =
+                    (_productArg?.shopBadge != null &&
+                        _productArg!.shopBadge.isNotEmpty)
                     ? _productArg!.shopBadge
                     : shop.badge;
-                final sId = (_productArg?.shopId != null && _productArg!.shopId.isNotEmpty)
+                final sId =
+                    (_productArg?.shopId != null &&
+                        _productArg!.shopId.isNotEmpty)
                     ? _productArg!.shopId
                     : shop.id;
 
@@ -2678,7 +2976,9 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                       avatarIcon: conv.avatarIcon,
                       avatarBgColor: conv.avatarBg,
                       orderRef: _productTitle,
-                      initialMessages: conv.messages.map((m) => m.toMap()).toList(),
+                      initialMessages: conv.messages
+                          .map((m) => m.toMap())
+                          .toList(),
                     ),
                   ),
                 );
@@ -2687,45 +2987,53 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                 width: 46,
                 height: 46,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFEEF2FF),
+                  color: theme.colorScheme.primaryContainer,
                   borderRadius: BorderRadius.circular(16),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.chat_bubble_outline_rounded,
-                  color: Color(0xFF0066FF),
+                  color: theme.colorScheme.primary,
                   size: 20,
                 ),
               ),
             ),
             const SizedBox(width: 8),
 
-            // Add to Cart Dark Navy Button
+            // Add to Cart Button
             Expanded(
               flex: 4,
               child: SizedBox(
                 height: 46,
                 child: ElevatedButton.icon(
                   onPressed: _handleAddToCart,
-                  icon: const Icon(Icons.shopping_cart_outlined,
-                      size: 16, color: Colors.white),
-                  label: const Text(
+                  icon: Icon(
+                    Icons.shopping_cart_outlined,
+                    size: 16,
+                    color: isUnavailable
+                        ? theme.colorScheme.onSurfaceVariant
+                        : theme.colorScheme.onSurface,
+                  ),
+                  label: Text(
                     'Add to Cart',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontWeight: FontWeight.w800,
                       fontSize: 12.5,
-                      color: Colors.white,
+                      color: isUnavailable
+                          ? theme.colorScheme.onSurfaceVariant
+                          : theme.colorScheme.onSurface,
                     ),
                   ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: isUnavailable
-                        ? const Color(0xFF94A3B8)
-                        : const Color(0xFF0F172A),
+                        ? theme.colorScheme.surfaceContainerHigh
+                        : theme.colorScheme.surfaceContainer,
                     elevation: 0,
                     padding: const EdgeInsets.symmetric(horizontal: 8),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(23),
+                      side: BorderSide(color: theme.colorScheme.outlineVariant),
                     ),
                   ),
                 ),
@@ -2740,14 +3048,14 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                 height: 46,
                 decoration: BoxDecoration(
                   color: isUnavailable
-                      ? const Color(0xFF94A3B8)
-                      : const Color(0xFF0066FF),
+                      ? theme.colorScheme.surfaceContainerHigh
+                      : NexoraTheme.primary,
                   borderRadius: BorderRadius.circular(23),
                   boxShadow: [
                     BoxShadow(
                       color: isUnavailable
-                          ? Colors.black.withValues(alpha: 0.1)
-                          : const Color(0xFF0066FF).withValues(alpha: 0.28),
+                          ? Colors.transparent
+                          : NexoraTheme.primary.withValues(alpha: 0.28),
                       blurRadius: 10,
                       offset: const Offset(0, 4),
                     ),
@@ -2811,6 +3119,7 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
     if (vouchers == null || vouchers.isEmpty) {
       return const SizedBox.shrink();
     }
+    final theme = Theme.of(context);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2819,18 +3128,18 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text(
+            Text(
               'Shop Vouchers',
               style: TextStyle(
                 fontWeight: FontWeight.w800,
                 fontSize: 13.5,
-                color: Color(0xFF0F172A),
+                color: theme.colorScheme.onSurface,
               ),
             ),
             Text(
               '${vouchers.length} Available',
-              style: const TextStyle(
-                color: Color(0xFF0066FF),
+              style: TextStyle(
+                color: theme.colorScheme.primary,
                 fontWeight: FontWeight.w700,
                 fontSize: 11.5,
               ),
@@ -2844,33 +3153,31 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
             margin: const EdgeInsets.only(bottom: 8),
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: theme.colorScheme.surfaceContainerLowest,
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
-                color: isClaimed ? const Color(0xFFCBD5E1) : const Color(0xFF0066FF).withValues(alpha: 0.3),
+                color: isClaimed
+                    ? theme.colorScheme.outlineVariant
+                    : theme.colorScheme.primary.withValues(alpha: 0.3),
                 width: 1,
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.02),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
-                ),
-              ],
             ),
             child: Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFEEF2FF),
+                    color: theme.colorScheme.primaryContainer,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
                     voucher.id,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontWeight: FontWeight.w900,
-                      color: Color(0xFF0066FF),
+                      color: theme.colorScheme.onPrimaryContainer,
                       fontSize: 11,
                     ),
                   ),
@@ -2882,17 +3189,17 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                     children: [
                       Text(
                         voucher.discountTitle,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontWeight: FontWeight.w800,
                           fontSize: 12.5,
-                          color: Color(0xFF0F172A),
+                          color: theme.colorScheme.onSurface,
                         ),
                       ),
                       Text(
                         '${voucher.minSpend} • ${voucher.expiry}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 10.5,
-                          color: Color(0xFF64748B),
+                          color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
                     ],
@@ -2914,17 +3221,25 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                           );
                         },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: isClaimed ? const Color(0xFF94A3B8) : const Color(0xFF0066FF),
+                    backgroundColor: isClaimed
+                        ? const Color(0xFF94A3B8)
+                        : const Color(0xFF0066FF),
                     foregroundColor: Colors.white,
                     elevation: 0,
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 8,
+                    ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
                   child: Text(
                     isClaimed ? 'Claimed' : 'Claim',
-                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 11.5),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 11.5,
+                    ),
                   ),
                 ),
               ],
@@ -2980,7 +3295,11 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                         errorBuilder: (context, error, stackTrace) => Container(
                           color: const Color(0xFF1E293B),
                           child: const Center(
-                            child: Icon(Icons.broken_image, size: 64, color: Colors.grey),
+                            child: Icon(
+                              Icons.broken_image,
+                              size: 64,
+                              color: Colors.grey,
+                            ),
                           ),
                         ),
                       ),
@@ -3073,7 +3392,10 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                   backgroundColor: const Color(0xFF0066FF),
                   foregroundColor: Colors.white,
                   elevation: 0,
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 14,
+                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(20),
                   ),

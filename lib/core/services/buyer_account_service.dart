@@ -102,7 +102,16 @@ class BuyerAccountRecord {
   String firstName;
   String lastName;
   String email;
-  String mobileNumber;
+  String _mobileNumber;
+  String get mobileNumber {
+    final clean = _mobileNumber.trim();
+    if (clean == '09000000000' || clean == '+63 917 123 4567') return '';
+    return clean;
+  }
+  set mobileNumber(String value) {
+    final clean = value.trim();
+    _mobileNumber = (clean == '09000000000' || clean == '+63 917 123 4567') ? '' : clean;
+  }
   DateTime dateOfBirth;
   String accountStatus; // 'Unverified' or 'Active'
   String otpCode;
@@ -123,7 +132,7 @@ class BuyerAccountRecord {
     required this.firstName,
     required this.lastName,
     required this.email,
-    required this.mobileNumber,
+    required String mobileNumber,
     required this.dateOfBirth,
     this.accountStatus = 'Unverified',
     required this.otpCode,
@@ -138,7 +147,9 @@ class BuyerAccountRecord {
     this.resetOtpCode,
     this.resetOtpExpiresAt,
     this.resetOtpAttemptsRemaining = 3,
-  });
+  }) : _mobileNumber = (mobileNumber.trim() == '09000000000' || mobileNumber.trim() == '+63 917 123 4567')
+            ? ''
+            : mobileNumber.trim();
 
   String get fullName => '$firstName $lastName';
   bool get isVerified => accountStatus == 'Active';
@@ -166,12 +177,17 @@ class BuyerAccountRecord {
       };
 
   factory BuyerAccountRecord.fromJson(Map<String, dynamic> json) {
+    final rawPhone = json['mobileNumber'] as String? ?? '';
+    final sanitizedPhone =
+        (rawPhone == '09000000000' || rawPhone == '+63 917 123 4567')
+            ? ''
+            : rawPhone;
     return BuyerAccountRecord(
       id: json['id'] as String? ?? 'BUY-${DateTime.now().millisecondsSinceEpoch}',
       firstName: json['firstName'] as String? ?? '',
       lastName: json['lastName'] as String? ?? '',
       email: (json['email'] as String? ?? '').toLowerCase(),
-      mobileNumber: json['mobileNumber'] as String? ?? '',
+      mobileNumber: sanitizedPhone,
       dateOfBirth: DateTime.tryParse(json['dateOfBirth'] as String? ?? '') ?? DateTime(1995, 1, 1),
       accountStatus: json['accountStatus'] as String? ?? 'Active',
       otpCode: json['otpCode'] as String? ?? '123456',
@@ -288,6 +304,10 @@ class BuyerAccountService extends ChangeNotifier {
       final activeEmail = prefs.getString(_kActiveBuyerStorageKey);
       if (activeEmail != null && _buyers.containsKey(activeEmail.toLowerCase())) {
         _currentBuyerSession = _buyers[activeEmail.toLowerCase()];
+        if (_currentBuyerSession!.mobileNumber == '09000000000' ||
+            _currentBuyerSession!.mobileNumber == '+63 917 123 4567') {
+          _currentBuyerSession!.mobileNumber = '';
+        }
         ProfileService.instance.updateProfile(
           name: _currentBuyerSession!.fullName,
           email: _currentBuyerSession!.email,
@@ -797,7 +817,7 @@ class BuyerAccountService extends ChangeNotifier {
         firstName: firstName,
         lastName: lastName,
         email: cleanEmail,
-        mobileNumber: '09000000000',
+        mobileNumber: '',
         dateOfBirth: DateTime(2000, 1, 1),
         accountStatus: 'Active',
         otpCode: '123456',
@@ -1346,6 +1366,7 @@ class BuyerAccountService extends ChangeNotifier {
     final changedPhone = _pendingNewPhone!;
     _pendingNewPhone = null;
     _pendingPhoneOtp = null;
+    ProfileService.instance.updateProfile(phone: changedPhone);
     _saveToPersistence();
     notifyListeners();
 
