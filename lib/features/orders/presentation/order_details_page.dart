@@ -58,23 +58,44 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
 
   void _resolveLatestOrder() {
     final serverId = _currentOrder?.serverId ?? 0;
+    OrderItemModel? found;
     if (serverId > 0) {
-      final found = OrderService.instance.findOrderByServerId(serverId);
-      if (found != null && mounted) {
-        setState(() {
-          _currentOrder = found;
-        });
-        return;
+      found = OrderService.instance.findOrderByServerId(serverId);
+    }
+    if (found == null) {
+      final rawId = _currentOrder?.orderId ?? '';
+      if (rawId.isNotEmpty) {
+        found = OrderService.instance.findOrderById(rawId);
       }
     }
-    final rawId = _currentOrder?.orderId ?? '';
-    if (rawId.isNotEmpty) {
-      final found = OrderService.instance.findOrderById(rawId);
-      if (found != null && mounted) {
-        setState(() {
-          _currentOrder = found;
-        });
-      }
+    if (found != null && mounted) {
+      final preserved = (_currentOrder != null &&
+              _currentOrder!.statusHistory.isNotEmpty &&
+              found.statusHistory.isEmpty)
+          ? found.copyWith(
+              statusHistory: _currentOrder!.statusHistory,
+              dispute: found.dispute ?? _currentOrder!.dispute,
+              review: found.review ?? _currentOrder!.review,
+              courierName: found.courierName.isNotEmpty
+                  ? found.courierName
+                  : _currentOrder!.courierName,
+              courierPhone: (found.courierPhone?.isNotEmpty == true)
+                  ? found.courierPhone
+                  : _currentOrder!.courierPhone,
+              courierVehicle: (found.courierVehicle?.isNotEmpty == true)
+                  ? found.courierVehicle
+                  : _currentOrder!.courierVehicle,
+              courierPlateNumber: (found.courierPlateNumber?.isNotEmpty == true)
+                  ? found.courierPlateNumber
+                  : _currentOrder!.courierPlateNumber,
+              deliveryOtp: found.deliveryOtp.isNotEmpty
+                  ? found.deliveryOtp
+                  : _currentOrder!.deliveryOtp,
+            )
+          : found;
+      setState(() {
+        _currentOrder = preserved;
+      });
     }
   }
 
@@ -567,62 +588,180 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
               ),
             ),
           ],
-          if (order.statusHistory.isNotEmpty) ...[
-            const SizedBox(height: 14),
-            const Divider(height: 1, color: Color(0xFFF1F5F9)),
-            const SizedBox(height: 12),
-            const Text(
-              'Activity History',
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-                fontSize: 12.5,
-                color: Color(0xFF0F172A),
+          // Timeline Activity Section
+          const SizedBox(height: 16),
+          const Divider(height: 1, color: Color(0xFFF1F5F9)),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0066FF).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Icon(
+                  Icons.timeline_rounded,
+                  size: 16,
+                  color: Color(0xFF0066FF),
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
-            ...order.statusHistory.map((h) {
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
+              const SizedBox(width: 8),
+              const Text(
+                'Timeline Activity',
+                style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 13,
+                  color: Color(0xFF0F172A),
+                ),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF10B981).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
                 child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Container(
-                      margin: const EdgeInsets.only(top: 4),
-                      width: 8,
-                      height: 8,
+                      width: 5,
+                      height: 5,
                       decoration: const BoxDecoration(
-                        color: Color(0xFF0066FF),
+                        color: Color(0xFF10B981),
                         shape: BoxShape.circle,
                       ),
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            h.note.isNotEmpty ? h.note : h.status,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFF1E293B),
-                            ),
-                          ),
-                          if (h.changedAt.isNotEmpty)
-                            Text(
-                              h.changedAt,
-                              style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
-                            ),
-                        ],
+                    const SizedBox(width: 4),
+                    const Text(
+                      'Live Updates',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF059669),
                       ),
                     ),
                   ],
                 ),
-              );
-            }),
-          ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          _buildTimelineActivityList(order.resolvedStatusHistory),
         ],
       ),
+    );
+  }
+
+  Widget _buildTimelineActivityList(List<OrderStatusHistoryEntry> entries) {
+    if (entries.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      children: List.generate(entries.length, (index) {
+        final item = entries[index];
+        final isLatest = index == 0;
+        final isLast = index == entries.length - 1;
+
+        return IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                width: 22,
+                child: Column(
+                  children: [
+                    Container(
+                      width: 14,
+                      height: 14,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: isLatest
+                            ? const Color(0xFF0066FF)
+                            : const Color(0xFF10B981),
+                        border: Border.all(
+                          color: isLatest
+                              ? const Color(0xFFBFDBFE)
+                              : Colors.white,
+                          width: isLatest ? 3 : 1.5,
+                        ),
+                        boxShadow: isLatest
+                            ? [
+                                BoxShadow(
+                                  color: const Color(0xFF0066FF)
+                                      .withValues(alpha: 0.35),
+                                  blurRadius: 6,
+                                  spreadRadius: 1,
+                                ),
+                              ]
+                            : null,
+                      ),
+                      child: isLatest
+                          ? null
+                          : const Icon(
+                              Icons.check,
+                              size: 8,
+                              color: Colors.white,
+                            ),
+                    ),
+                    if (!isLast)
+                      Expanded(
+                        child: Container(
+                          width: 2,
+                          color: const Color(0xFFE2E8F0),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Padding(
+                  padding: EdgeInsets.only(bottom: isLast ? 0 : 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item.note.isNotEmpty ? item.note : item.status,
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight:
+                              isLatest ? FontWeight.w700 : FontWeight.w600,
+                          color: isLatest
+                              ? const Color(0xFF0F172A)
+                              : const Color(0xFF334155),
+                          height: 1.3,
+                        ),
+                      ),
+                      if (item.changedAt.isNotEmpty) ...[
+                        const SizedBox(height: 3),
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.schedule_outlined,
+                              size: 11,
+                              color: Color(0xFF94A3B8),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              item.changedAt,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                                color: Color(0xFF94A3B8),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      }),
     );
   }
 

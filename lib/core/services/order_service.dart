@@ -283,6 +283,121 @@ class OrderItemModel {
       rawStatus == 'returned_to_sender' ||
       hasDispute;
 
+  List<OrderStatusHistoryEntry> get resolvedStatusHistory {
+    if (statusHistory.isNotEmpty) return statusHistory;
+    return _synthesizeStatusHistory();
+  }
+
+  List<OrderStatusHistoryEntry> _synthesizeStatusHistory() {
+    final list = <OrderStatusHistoryEntry>[];
+    final date = orderDateTimeText.isNotEmpty
+        ? orderDateTimeText
+        : (dateText.isNotEmpty ? dateText : 'Today');
+
+    list.add(
+      OrderStatusHistoryEntry(
+        id: 1,
+        status: 'Order Placed',
+        note: 'Order #$orderId has been placed and payment is verified.',
+        changedAt: date,
+      ),
+    );
+
+    if (rawStatus != 'placed') {
+      list.add(
+        OrderStatusHistoryEntry(
+          id: 2,
+          status: 'Order Confirmed & Preparing',
+          note:
+              '${storeName.isNotEmpty ? storeName : "Seller"} confirmed order and is packing items.',
+          changedAt: date,
+        ),
+      );
+    }
+
+    const inTransitStatuses = {
+      'shipped',
+      'ready_for_pickup',
+      'assigned',
+      'picked_up',
+      'at_hub',
+      'at_sorting_center',
+      'received_at_hub',
+      'in_transit_hub',
+      'in_transit',
+      'sorting_hub',
+      'sorted',
+      'assigned_to_rider',
+      'out_for_delivery',
+      'delivered',
+      'completed',
+    };
+    if (inTransitStatuses.contains(rawStatus)) {
+      final hub = currentHubName ?? originHubName ?? 'Laguna Sorting Hub';
+      list.add(
+        OrderStatusHistoryEntry(
+          id: 3,
+          status: 'In Transit via Logistics Hub',
+          note: 'Package arrived and is undergoing sortation at $hub.',
+          changedAt: date,
+        ),
+      );
+    }
+
+    const outStatuses = {'out_for_delivery', 'delivered', 'completed'};
+    if (outStatuses.contains(rawStatus)) {
+      final rider =
+          courierName.isNotEmpty ? 'Rider $courierName' : 'Courier Rider';
+      list.add(
+        OrderStatusHistoryEntry(
+          id: 4,
+          status: 'Out for Delivery',
+          note: '$rider is out for delivery to your address.',
+          changedAt: date,
+        ),
+      );
+    }
+
+    if (rawStatus == 'delivered' || rawStatus == 'completed') {
+      list.add(
+        OrderStatusHistoryEntry(
+          id: 5,
+          status: 'Delivered Successfully',
+          note: 'Package was delivered and received safely by recipient.',
+          changedAt: date,
+        ),
+      );
+    }
+
+    if (hasDispute) {
+      list.add(
+        OrderStatusHistoryEntry(
+          id: 6,
+          status: 'Return / Refund Requested',
+          note: dispute?.reason.isNotEmpty == true
+              ? 'Dispute filed: ${dispute!.reason}'
+              : 'Return and refund request submitted for seller review.',
+          changedAt: date,
+        ),
+      );
+    }
+
+    if (rawStatus == 'cancelled') {
+      list.add(
+        OrderStatusHistoryEntry(
+          id: 99,
+          status: 'Order Cancelled',
+          note: cancellationReason.isNotEmpty
+              ? cancellationReason
+              : 'Order was cancelled.',
+          changedAt: date,
+        ),
+      );
+    }
+
+    return list.reversed.toList();
+  }
+
   bool matchesTab(String tab) {
     switch (tab) {
       case 'all':
@@ -1040,10 +1155,41 @@ class OrderService extends ChangeNotifier {
       final newActive = <OrderItemModel>[];
       final newPast = <OrderItemModel>[];
       for (final o in parsed) {
-        if (o.isPastOrder) {
-          newPast.add(o);
+        final existing =
+            findOrderByServerId(o.serverId) ?? findOrderById(o.orderId);
+        final merged = existing != null &&
+                existing.statusHistory.isNotEmpty &&
+                o.statusHistory.isEmpty
+            ? o.copyWith(
+                statusHistory: existing.statusHistory,
+                dispute: existing.dispute ?? o.dispute,
+                review: existing.review ?? o.review,
+                courierName: o.courierName.isNotEmpty
+                    ? o.courierName
+                    : existing.courierName,
+                courierPhone: (o.courierPhone?.isNotEmpty == true)
+                    ? o.courierPhone
+                    : existing.courierPhone,
+                courierVehicle: (o.courierVehicle?.isNotEmpty == true)
+                    ? o.courierVehicle
+                    : existing.courierVehicle,
+                courierPlateNumber: (o.courierPlateNumber?.isNotEmpty == true)
+                    ? o.courierPlateNumber
+                    : existing.courierPlateNumber,
+                deliveryOtp: o.deliveryOtp.isNotEmpty
+                    ? o.deliveryOtp
+                    : existing.deliveryOtp,
+                originHubName: o.originHubName ?? existing.originHubName,
+                currentHubName: o.currentHubName ?? existing.currentHubName,
+                destinationHubName:
+                    o.destinationHubName ?? existing.destinationHubName,
+              )
+            : o;
+
+        if (merged.isPastOrder) {
+          newPast.add(merged);
         } else {
-          newActive.add(o);
+          newActive.add(merged);
         }
       }
 
@@ -1420,19 +1566,48 @@ class OrderService extends ChangeNotifier {
     final oldActiveIdx = active.indexWhere(matches);
     final oldPastIdx = past.indexWhere(matches);
 
+    final existing = oldActiveIdx >= 0
+        ? active[oldActiveIdx]
+        : (oldPastIdx >= 0 ? past[oldPastIdx] : null);
+
+    final merged = (existing != null &&
+            existing.statusHistory.isNotEmpty &&
+            order.statusHistory.isEmpty)
+        ? order.copyWith(
+            statusHistory: existing.statusHistory,
+            dispute: existing.dispute ?? order.dispute,
+            review: existing.review ?? order.review,
+            courierName: order.courierName.isNotEmpty
+                ? order.courierName
+                : existing.courierName,
+            courierPhone: (order.courierPhone?.isNotEmpty == true)
+                ? order.courierPhone
+                : existing.courierPhone,
+            courierVehicle: (order.courierVehicle?.isNotEmpty == true)
+                ? order.courierVehicle
+                : existing.courierVehicle,
+            courierPlateNumber: (order.courierPlateNumber?.isNotEmpty == true)
+                ? order.courierPlateNumber
+                : existing.courierPlateNumber,
+            deliveryOtp: order.deliveryOtp.isNotEmpty
+                ? order.deliveryOtp
+                : existing.deliveryOtp,
+          )
+        : order;
+
     active.removeWhere(matches);
     past.removeWhere(matches);
 
-    if (order.isPastOrder) {
-      final insertIdx = (oldPastIdx >= 0 && oldPastIdx <= past.length)
-          ? oldPastIdx
-          : 0;
-      past.insert(insertIdx, order);
+    if (merged.isPastOrder) {
+      final insertIdx =
+          (oldPastIdx >= 0 && oldPastIdx <= past.length) ? oldPastIdx : 0;
+      past.insert(insertIdx, merged);
     } else {
-      final insertIdx = (oldActiveIdx >= 0 && oldActiveIdx <= active.length)
-          ? oldActiveIdx
-          : 0;
-      active.insert(insertIdx, order);
+      final insertIdx =
+          (oldActiveIdx >= 0 && oldActiveIdx <= active.length)
+              ? oldActiveIdx
+              : 0;
+      active.insert(insertIdx, merged);
     }
   }
 
