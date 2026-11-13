@@ -328,40 +328,45 @@ class _OrdersPageState extends State<OrdersPage>
               _buildOrdersTabList(
                 tabKey: 'all',
                 emptyTitle: 'No Orders Yet',
-                emptySubtitle: 'When you place orders, they will appear here with real-time hub tracking.',
+                emptySubtitle:
+                    'When you place orders, they will appear here with real-time tracking.',
                 emptyIcon: Icons.shopping_bag_outlined,
                 showGuaranteeFooter: true,
               ),
               _buildOrdersTabList(
                 tabKey: 'to_ship',
                 emptyTitle: 'No Orders To Ship',
-                emptySubtitle: 'Items will appear here once placed and while sellers prepare your parcel.',
+                emptySubtitle:
+                    'Items will appear here once placed and while sellers prepare your parcel.',
                 emptyIcon: Icons.inventory_2_outlined,
               ),
               _buildOrdersTabList(
                 tabKey: 'to_receive',
                 emptyTitle: 'No Orders To Receive',
-                emptySubtitle: 'Hub transit, pickup, and delivery updates will appear here once dispatched.',
+                emptySubtitle:
+                    'Tracking and delivery updates will appear here once parcels are in transit.',
                 emptyIcon: Icons.local_shipping_outlined,
               ),
               _buildOrdersTabList(
                 tabKey: 'completed',
                 emptyTitle: 'No Completed Orders',
                 emptySubtitle:
-                    'Delivered and confirmed orders will appear here.',
+                    'Delivered and received orders will appear here for review and reorder.',
                 emptyIcon: Icons.check_circle_outline,
               ),
               _buildOrdersTabList(
                 tabKey: 'return_refund',
                 emptyTitle: 'No Return or Refund Requests',
-                emptySubtitle: 'You do not have any return or refund requests at this time.',
+                emptySubtitle:
+                    'You do not have any return or refund requests. All your purchases are protected by Nexora Guarantee.',
                 emptyIcon: Icons.assignment_return_outlined,
                 showReturnBanner: true,
               ),
               _buildOrdersTabList(
                 tabKey: 'cancelled',
                 emptyTitle: 'No Cancelled Orders',
-                emptySubtitle: 'You have no cancelled orders at this time.',
+                emptySubtitle:
+                    'You have no cancelled orders at this time.',
                 emptyIcon: Icons.cancel_outlined,
               ),
             ],
@@ -479,13 +484,24 @@ class _OrdersPageState extends State<OrdersPage>
     if (orders.isEmpty) {
       return RefreshIndicator(
         onRefresh: _onRefresh,
-        child: ListView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.only(bottom: 24),
-          children: [
-            if (showReturnBanner) _buildReturnGuaranteeBanner(),
-            _buildEmptyOrdersState(emptyTitle, emptySubtitle, emptyIcon),
-          ],
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: constraints.maxHeight,
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    if (showReturnBanner) _buildReturnGuaranteeBanner(),
+                    _buildEmptyOrdersState(emptyTitle, emptySubtitle, emptyIcon),
+                  ],
+                ),
+              ),
+            );
+          },
         ),
       );
     }
@@ -507,7 +523,7 @@ class _OrdersPageState extends State<OrdersPage>
   Widget _buildEmptyOrdersState(String title, String subtitle, IconData icon) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 56, horizontal: 24),
+        padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 28),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -515,7 +531,7 @@ class _OrdersPageState extends State<OrdersPage>
               width: 72,
               height: 72,
               decoration: BoxDecoration(
-                color: const Color(0xFF0066FF).withValues(alpha: 0.1),
+                color: const Color(0xFF0066FF).withValues(alpha: 0.08),
                 shape: BoxShape.circle,
               ),
               child: Icon(icon, size: 36, color: const Color(0xFF0066FF)),
@@ -529,11 +545,15 @@ class _OrdersPageState extends State<OrdersPage>
                 color: Color(0xFF0F172A),
               ),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 8),
             Text(
               subtitle,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+              style: const TextStyle(
+                fontSize: 13,
+                height: 1.4,
+                color: Color(0xFF64748B),
+              ),
             ),
             const SizedBox(height: 20),
             ElevatedButton(
@@ -549,10 +569,11 @@ class _OrdersPageState extends State<OrdersPage>
                   horizontal: 24,
                   vertical: 10,
                 ),
+                elevation: 0,
               ),
               child: const Text(
                 'Discover Products',
-                style: TextStyle(fontWeight: FontWeight.bold),
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
               ),
             ),
           ],
@@ -925,180 +946,229 @@ class _OrdersPageState extends State<OrdersPage>
 
                 const SizedBox(height: 12),
 
-                // Server-driven Action Buttons
-                Wrap(
-                  alignment: WrapAlignment.end,
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    if (order.canBeCancelled)
-                      OutlinedButton(
-                        onPressed: () =>
-                            OrderActionDialogs.showCancelOrderDialog(
-                              context,
-                              order,
+                // Server-driven Action Buttons (Standardized single-row placement rule)
+                Builder(
+                  builder: (context) {
+                    final List<Widget> buttons = [];
+
+                    // 1. Cancel Order (if eligible)
+                    if (order.canBeCancelled) {
+                      buttons.add(
+                        OutlinedButton(
+                          onPressed: () =>
+                              OrderActionDialogs.showCancelOrderDialog(
+                                context,
+                                order,
+                              ),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFFE11D48),
+                            side: const BorderSide(color: Color(0xFFFECDD3)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(6),
                             ),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFFE11D48),
-                          side: const BorderSide(color: Color(0xFFFECDD3)),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 8,
-                          ),
-                          minimumSize: const Size(0, 34),
-                        ),
-                        child: const Text(
-                          'Cancel Order',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    if (order.canBeReturned)
-                      OutlinedButton(
-                        onPressed: () =>
-                            OrderActionDialogs.showReturnRequestDialog(
-                              context,
-                              order,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 11,
+                              vertical: 7,
                             ),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFF7C3AED),
-                          side: const BorderSide(color: Color(0xFFDDD6FE)),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(6),
+                            minimumSize: const Size(0, 32),
                           ),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 8,
-                          ),
-                          minimumSize: const Size(0, 34),
-                        ),
-                        child: const Text(
-                          'Return / Refund',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    if (canConfirmReceipt)
-                      ElevatedButton.icon(
-                        onPressed: () =>
-                            OrderActionDialogs.showConfirmReceiptDialog(
-                              context,
-                              order,
+                          child: const Text(
+                            'Cancel Order',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
                             ),
-                        icon: const Icon(Icons.check_circle_outline, size: 15),
-                        label: const Text(
-                          'Order Received',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
                           ),
                         ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF0066FF),
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(6),
+                      );
+                    }
+
+                    // 2. Return / Refund (if eligible and not already in dispute)
+                    if (order.canBeReturned && !order.hasDispute) {
+                      buttons.add(
+                        OutlinedButton(
+                          onPressed: () =>
+                              OrderActionDialogs.showReturnRequestDialog(
+                                context,
+                                order,
+                              ),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFF7C3AED),
+                            side: const BorderSide(color: Color(0xFFDDD6FE)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 11,
+                              vertical: 7,
+                            ),
+                            minimumSize: const Size(0, 32),
                           ),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 8,
+                          child: const Text(
+                            'Return / Refund',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
-                          minimumSize: const Size(0, 34),
                         ),
-                      ),
+                      );
+                    }
+
+                    // 3. Order Received (Primary action for receipt confirmation)
+                    if (canConfirmReceipt) {
+                      buttons.add(
+                        ElevatedButton.icon(
+                          onPressed: () =>
+                              OrderActionDialogs.showConfirmReceiptDialog(
+                                context,
+                                order,
+                              ),
+                          icon: const Icon(
+                            Icons.check_circle_outline,
+                            size: 14,
+                          ),
+                          label: const Text(
+                            'Order Received',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF0066FF),
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 11,
+                              vertical: 7,
+                            ),
+                            minimumSize: const Size(0, 32),
+                          ),
+                        ),
+                      );
+                    }
+
+                    // 4. Rate & Review / Edit Review (Primary action for completed orders)
                     if (order.canBeReviewed &&
-                        (order.review == null || order.review!.canBeEdited))
-                      ElevatedButton.icon(
-                        onPressed: () => Navigator.pushNamed(
-                          context,
-                          AppRoutes.rateProduct,
-                          arguments: order,
-                        ),
-                        icon: const Icon(Icons.star_rounded, size: 15),
-                        label: Text(
-                          order.review != null
-                              ? 'Edit Review'
-                              : 'Rate & Review',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
+                        (order.review == null || order.review!.canBeEdited)) {
+                      buttons.add(
+                        ElevatedButton.icon(
+                          onPressed: () => Navigator.pushNamed(
+                            context,
+                            AppRoutes.rateProduct,
+                            arguments: order,
+                          ),
+                          icon: const Icon(Icons.star_rounded, size: 14),
+                          label: Text(
+                            order.review != null
+                                ? 'Edit Review'
+                                : 'Rate & Review',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFF59E0B),
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 11,
+                              vertical: 7,
+                            ),
+                            minimumSize: const Size(0, 32),
                           ),
                         ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFF59E0B),
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 8,
-                          ),
-                          minimumSize: const Size(0, 34),
-                        ),
-                      ),
-                    if (firstProductId != null &&
+                      );
+                    }
+
+                    // 5. Buy Again (Only when receipt is completed/closed, not while receipt confirmation is pending)
+                    final canBuyAgain = firstProductId != null &&
+                        !canConfirmReceipt &&
                         (order.rawStatus == 'cancelled' ||
                             order.rawStatus == 'completed' ||
-                            order.rawStatus == 'delivered'))
-                      OutlinedButton(
-                        onPressed: () => Navigator.pushNamed(
-                          context,
-                          AppRoutes.productDetails,
-                          arguments: firstProductId,
+                            order.hasDispute);
+
+                    if (canBuyAgain) {
+                      buttons.add(
+                        OutlinedButton(
+                          onPressed: () => Navigator.pushNamed(
+                            context,
+                            AppRoutes.productDetails,
+                            arguments: firstProductId,
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFF0F172A),
+                            side: const BorderSide(color: Color(0xFFCBD5E1)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 11,
+                              vertical: 7,
+                            ),
+                            minimumSize: const Size(0, 32),
+                          ),
+                          child: const Text(
+                            'Buy Again',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                         ),
+                      );
+                    }
+
+                    // 6. View Details (Always the anchor button on the right)
+                    buttons.add(
+                      OutlinedButton(
+                        onPressed: () => _openOrderDetails(order),
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFF0F172A),
-                          side: const BorderSide(color: Color(0xFFE2E8F0)),
+                          foregroundColor: const Color(0xFF0066FF),
+                          side: const BorderSide(color: Color(0xFFBFDBFE)),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(6),
                           ),
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 8,
+                            horizontal: 11,
+                            vertical: 7,
                           ),
-                          minimumSize: const Size(0, 34),
+                          minimumSize: const Size(0, 32),
                         ),
                         child: const Text(
-                          'Buy Again',
+                          'View Details',
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
                       ),
-                    OutlinedButton(
-                      onPressed: () => _openOrderDetails(order),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFF0066FF),
-                        side: const BorderSide(color: Color(0xFFBFDBFE)),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 8,
-                        ),
-                        minimumSize: const Size(0, 34),
+                    );
+
+                    // Standard rule: cap at 3 buttons so they always fit on a single line
+                    final displayButtons = buttons.length > 3
+                        ? [buttons[0], buttons[1], buttons.last]
+                        : buttons;
+
+                    return Align(
+                      alignment: Alignment.centerRight,
+                      child: Wrap(
+                        alignment: WrapAlignment.end,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: displayButtons,
                       ),
-                      child: const Text(
-                        'View Details',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
+                    );
+                  },
                 ),
               ],
             ),
