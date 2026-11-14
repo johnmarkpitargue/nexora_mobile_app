@@ -175,14 +175,17 @@ class _LoginPageState extends State<LoginPage> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       body: SafeArea(
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 440),
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
                 // Top Circular Back Button
                 Align(
                   alignment: Alignment.centerLeft,
@@ -618,78 +621,25 @@ class _LoginPageState extends State<LoginPage> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 22),
+                const SizedBox(height: 24),
 
-                // Google Sign In (Hidden: web backend does not support mobile Google OAuth)
-                Opacity(
-                  opacity: 0.0,
-                  child: IgnorePointer(
-                    child: Column(
+                // Hidden: Google Sign In (Offstage to avoid layout ghost spacing while preserving widget hooks)
+                Offstage(
+                  offstage: true,
+                  child: Column(
                     children: [
-                      // Divider: OR CONTINUE WITH
-                      Row(
-                        children: [
-                          const Expanded(
-                            child: Divider(color: Color(0xFFE2E8F0), thickness: 1),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 14),
-                            child: Text(
-                              'OR CONTINUE WITH',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 0.8,
-                                color: const Color(0xFF94A3B8),
-                              ),
-                            ),
-                          ),
-                          const Expanded(
-                            child: Divider(color: Color(0xFFE2E8F0), thickness: 1),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 18),
-
-                      // Continue with Google Button
-                      SizedBox(
-                        width: double.infinity,
-                        height: 50,
-                        child: OutlinedButton(
-                          onPressed: _isLoading ? null : _handleGoogleSignIn,
-                          style: OutlinedButton.styleFrom(
-                            backgroundColor: Colors.white,
-                            side: const BorderSide(
-                              color: Color(0xFFE2E8F0),
-                              width: 1.2,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                            elevation: 0,
-                          ),
-                          child: const Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              GoogleLogoIcon(size: 20),
-                              SizedBox(width: 10),
-                              Text(
-                                'Continue with Google',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w700,
-                                  color: Color(0xFF0F172A),
-                                ),
-                              ),
-                            ],
-                          ),
+                      OutlinedButton(
+                        onPressed: _isLoading ? null : _handleGoogleSignIn,
+                        child: const Row(
+                          children: [
+                            GoogleLogoIcon(size: 20),
+                            Text('Continue with Google'),
+                          ],
                         ),
                       ),
                     ],
                   ),
                 ),
-                ),
-                const SizedBox(height: 24),
 
                 // Footer: Don't have an account? Create Account
                 Row(
@@ -727,6 +677,8 @@ class _LoginPageState extends State<LoginPage> {
           ),
         ),
       ),
-    );
+    ),
+  ),
+);
   }
 }
