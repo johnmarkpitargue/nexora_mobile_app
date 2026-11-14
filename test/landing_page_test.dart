@@ -100,4 +100,25 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Home destination'), findsOneWidget);
   });
+
+  testWidgets('landing adapts cleanly to iPad Pro and tablet screens without overflow', (tester) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.binding.setSurfaceSize(const Size(1024, 1366)); // iPad Pro 12.9" Portrait
+
+    await tester.pumpWidget(
+      buildApp(const LandingPage(), disableAnimations: true),
+    );
+    await tester.pump();
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('Good finds, without the noise.'), findsOneWidget);
+    expect(find.text('Studio Pro headphones'), findsOneWidget);
+    expect(find.byKey(const ValueKey('landing-explore-action')), findsOneWidget);
+    expect(find.byKey(const ValueKey('landing-register-action')), findsOneWidget);
+
+    // Test iPad landscape as well
+    await tester.binding.setSurfaceSize(const Size(1366, 1024)); // iPad Pro 12.9" Landscape
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+  });
 }

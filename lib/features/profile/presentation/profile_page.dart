@@ -823,8 +823,11 @@ class _ProfilePageState extends State<ProfilePage> {
       appBar: AppBar(title: const Text('Profile')),
       body: SafeArea(
         top: false,
-        child: ListView(
-          key: const ValueKey('profile-dashboard-scroll'),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 820),
+            child: ListView(
+              key: const ValueKey('profile-dashboard-scroll'),
           physics: const BouncingScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(
             NexoraSpacing.md,
@@ -1038,6 +1041,8 @@ class _ProfilePageState extends State<ProfilePage> {
           ],
         ),
       ),
+    ),
+  ),
     );
   }
 
