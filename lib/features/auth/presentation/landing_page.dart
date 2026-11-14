@@ -1,6 +1,9 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
+
 import '../../../app/routes/app_routes.dart';
+import '../../../app/theme/nexora_theme.dart';
 import '../../../core/services/buyer_account_service.dart';
 
 class LandingPage extends StatefulWidget {
@@ -11,490 +14,398 @@ class LandingPage extends StatefulWidget {
 }
 
 class _LandingPageState extends State<LandingPage> {
-  late final PageController _heroPageController;
-  int _activeHeroIndex = 0;
+  final PageController _pageController = PageController(viewportFraction: 0.92);
   Timer? _autoSlideTimer;
+  int _activeIndex = 0;
+  bool? _animationsDisabled;
 
-  // Curated showcase products representing Nexora's flagship collections
-  final List<_HeroProduct> _heroProducts = const [
+  static const _products = [
     _HeroProduct(
-      title: 'Nexora ANC Studio Pro',
-      subtitle: 'Spatial Audio • Active Noise Cancelling',
-      category: 'AUDIO & TECH',
-      price: '₱2,450',
-      originalPrice: '₱3,499',
-      rating: '4.9',
-      reviews: '6.4k',
-      badge: 'FEATURED',
-      badgeColor: Color(0xFF0066FF),
-      imageUrl:
-          'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=600&q=80',
+      title: 'Studio Pro headphones',
+      detail: 'Immersive sound with all-day comfort.',
+      price: '\u20B12,450',
+      imageUrl: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=1000&q=88',
+      fallbackIcon: Icons.headphones_rounded,
     ),
     _HeroProduct(
-      title: 'CyberPulse Ultra Watch',
-      subtitle: 'AMOLED Display • Titanium Finish',
-      category: 'WEARABLES',
-      price: '₱1,890',
-      originalPrice: '₱2,700',
-      rating: '4.8',
-      reviews: '3.9k',
-      badge: 'TOP PICK',
-      badgeColor: Color(0xFF7C3AED),
-      imageUrl:
-          'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=600&q=80',
+      title: 'CyberPulse watch',
+      detail: 'A clear view of every move.',
+      price: '\u20B11,890',
+      imageUrl: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=1000&q=88',
+      fallbackIcon: Icons.watch_rounded,
     ),
     _HeroProduct(
-      title: 'Street Runner V2 Prime',
-      subtitle: 'Ultralight Cushion • Breathable Knit',
-      category: 'FOOTWEAR',
-      price: '₱3,200',
-      originalPrice: '₱4,500',
-      rating: '5.0',
-      reviews: '1.2k',
-      badge: 'LIMITED DROP',
-      badgeColor: Color(0xFFEA580C),
-      imageUrl:
-          'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=600&q=80',
-    ),
-    _HeroProduct(
-      title: 'Apex 75% Mechanical RGB',
-      subtitle: 'Hot-Swap Switches • Wireless 2.4G',
-      category: 'GAMING GEAR',
-      price: '₱3,890',
-      originalPrice: '₱5,200',
-      rating: '4.9',
-      reviews: '4.1k',
-      badge: 'HOT DEAL',
-      badgeColor: Color(0xFF0284C7),
-      imageUrl:
-          'https://images.unsplash.com/photo-1587829741301-dc798b83add3?auto=format&fit=crop&w=600&q=80',
+      title: 'Street Runner V2',
+      detail: 'Lightweight cushioning for everyday miles.',
+      price: '\u20B13,200',
+      imageUrl: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=1000&q=88',
+      fallbackIcon: Icons.directions_run_rounded,
     ),
   ];
 
   @override
-  void initState() {
-    super.initState();
-    _heroPageController = PageController(viewportFraction: 0.92);
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final disabled = MediaQuery.disableAnimationsOf(context);
+    if (_animationsDisabled == disabled) return;
 
-    // Auto-advance showcase carousel every 3.5 seconds
-    _autoSlideTimer = Timer.periodic(const Duration(milliseconds: 3500), (timer) {
-      if (!mounted) return;
-      if (_heroPageController.hasClients) {
-        final nextIndex = (_activeHeroIndex + 1) % _heroProducts.length;
-        _heroPageController.animateToPage(
-          nextIndex,
-          duration: const Duration(milliseconds: 650),
-          curve: Curves.easeOutCubic,
+    _animationsDisabled = disabled;
+    _autoSlideTimer?.cancel();
+    if (!disabled) {
+      _autoSlideTimer = Timer.periodic(const Duration(seconds: 6), (_) {
+        if (!mounted || !_pageController.hasClients) return;
+        final next = (_activeIndex + 1) % _products.length;
+        _pageController.animateToPage(
+          next,
+          duration: NexoraMotion.emphasized,
+          curve: NexoraMotion.emphasizedCurve,
         );
-      }
-    });
+      });
+    }
   }
 
   @override
   void dispose() {
     _autoSlideTimer?.cancel();
-    _heroPageController.dispose();
+    _pageController.dispose();
     super.dispose();
   }
 
-  void _onGetStarted() {
-    // Enable Guest Mode: directly explore shop without forcing login
+  void _exploreAsGuest() {
     BuyerAccountService.instance.enterGuestMode();
     Navigator.pushReplacementNamed(context, AppRoutes.home);
   }
 
-  void _onSignIn() {
+  void _openSignIn() {
     Navigator.pushNamed(context, AppRoutes.login);
   }
 
-  void _onRegister() {
+  void _openRegistration() {
     Navigator.pushNamed(context, AppRoutes.register);
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            return Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 480),
-                child: SingleChildScrollView(
-                  physics: const BouncingScrollPhysics(),
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                    child: IntrinsicHeight(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 12.0),
+    return Theme(
+      data: NexoraTheme.lightTheme,
+      child: Builder(
+        builder: (context) {
+          final theme = Theme.of(context);
+
+          return Scaffold(
+            backgroundColor: NexoraTheme.surface,
+            body: SafeArea(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final textScale = MediaQuery.textScalerOf(context).scale(1);
+                  final accessibilityGrowth =
+                      ((textScale - 1).clamp(0.0, 1.0) * 150);
+                  final storyHeight =
+                      ((constraints.maxHeight * 0.40).clamp(330.0, 390.0) +
+                              accessibilityGrowth)
+                          .clamp(330.0, 540.0);
+
+                  return SingleChildScrollView(
+                    key: const ValueKey('landing-scroll'),
+                    padding: const EdgeInsets.fromLTRB(
+                      NexoraSpacing.lg,
+                      NexoraSpacing.md,
+                      NexoraSpacing.lg,
+                      NexoraSpacing.xl,
+                    ),
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxWidth: 520,
+                          minHeight:
+                              (constraints.maxHeight -
+                                      NexoraSpacing.md -
+                                      NexoraSpacing.xl)
+                                  .clamp(0, double.infinity),
+                        ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            // 1. Top Brand Navigation Bar
-                            _buildHeader(),
-
-                            const SizedBox(height: 16),
-
-                            // 2. Interactive Flagship Hero Carousel
-                            _buildHeroCarousel(),
-
-                            const SizedBox(height: 12),
-
-                            // 3. Carousel Pagination Indicators
-                            _buildCarouselIndicators(),
-
-                            const SizedBox(height: 18),
-
-                            // 4. Headline & Brand Value Proposition
-                            _buildHeadlineSection(),
-
-                            const SizedBox(height: 18),
-
-                            // 5. Creative Bento Feature Highlights
-                            _buildBentoFeatures(),
-
-                            const Spacer(),
-
-                            const SizedBox(height: 24),
-
-                            // 6. Primary Action Buttons & Footer Anchoring
-                            _buildActionArea(),
-
-                            const SizedBox(height: 8),
+                            _LandingHeader(onSignIn: _openSignIn),
+                            const SizedBox(height: NexoraSpacing.xxl),
+                            Text(
+                              'Good finds, without the noise.',
+                              style: theme.textTheme.displaySmall?.copyWith(
+                                color: const Color(0xFF0F172A),
+                                fontWeight: FontWeight.w900,
+                                height: 1.05,
+                                letterSpacing: -1.2,
+                              ),
+                            ),
+                            const SizedBox(height: NexoraSpacing.sm),
+                            ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 430),
+                              child: Text(
+                                'Curated everyday essentials, clear prices, and a checkout that stays out of your way.',
+                                style: theme.textTheme.bodyLarge?.copyWith(
+                                  color: const Color(0xFF475569),
+                                  height: 1.5,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: NexoraSpacing.xl),
+                            SizedBox(
+                              height: storyHeight,
+                              child: PageView.builder(
+                                key: const ValueKey('landing-product-stories'),
+                                controller: _pageController,
+                                padEnds: false,
+                                itemCount: _products.length,
+                                onPageChanged: (index) =>
+                                    setState(() => _activeIndex = index),
+                                itemBuilder: (context, index) {
+                                  return Padding(
+                                    padding: EdgeInsetsDirectional.only(
+                                      end: index == _products.length - 1
+                                          ? 0
+                                          : NexoraSpacing.sm,
+                                    ),
+                                    child: _ProductStoryCard(
+                                      product: _products[index],
+                                      position: index + 1,
+                                      count: _products.length,
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                            const SizedBox(height: NexoraSpacing.sm),
+                            _StoryIndicator(
+                              activeIndex: _activeIndex,
+                              count: _products.length,
+                            ),
+                            const SizedBox(height: NexoraSpacing.xl),
+                            FilledButton.icon(
+                              key: const ValueKey('landing-explore-action'),
+                              onPressed: _exploreAsGuest,
+                              style: FilledButton.styleFrom(
+                                backgroundColor: NexoraTheme.primary,
+                                foregroundColor: Colors.white,
+                                minimumSize: const Size.fromHeight(52),
+                                elevation: 2,
+                                shadowColor:
+                                    NexoraTheme.primary.withValues(alpha: 0.3),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(
+                                    NexoraRadius.control,
+                                  ),
+                                ),
+                              ),
+                              iconAlignment: IconAlignment.end,
+                              icon: const Icon(
+                                Icons.arrow_forward_rounded,
+                                size: 19,
+                              ),
+                              label: const Text(
+                                'Explore the shop',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 15,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: NexoraSpacing.xs),
+                            OutlinedButton.icon(
+                              key: const ValueKey('landing-register-action'),
+                              onPressed: _openRegistration,
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: const Color(0xFF0F172A),
+                                side: const BorderSide(
+                                  color: Color(0xFFCBD5E1),
+                                  width: 1.2,
+                                ),
+                                minimumSize: const Size.fromHeight(50),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(
+                                    NexoraRadius.control,
+                                  ),
+                                ),
+                              ),
+                              iconAlignment: IconAlignment.end,
+                              icon: const Icon(
+                                Icons.arrow_outward_rounded,
+                                size: 18,
+                              ),
+                              label: const Text(
+                                'Create an account',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: NexoraSpacing.lg),
+                            const _TrustRow(),
                           ],
                         ),
                       ),
                     ),
-                  ),
-                ),
-              ),
-            );
-          },
-        ),
-      ),
-    );
-  }
-
-  // ---------------------------------------------------------------------------
-  // Top Header Bar
-  // ---------------------------------------------------------------------------
-  Widget _buildHeader() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        // Brand Identity Emblem
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: const Color(0xFF030D26),
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF0066FF).withValues(alpha: 0.25),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Image.asset(
-                  'assets/images/logo.png',
-                  width: 40,
-                  height: 40,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => const Center(
-                    child: Text(
-                      'N',
-                      style: TextStyle(
-                        color: Color(0xFF00A3FF),
-                        fontSize: 20,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ),
-                ),
+                  );
+                },
               ),
             ),
-            const SizedBox(width: 10),
-            const Text(
-              'Nexora',
-              style: TextStyle(
-                fontSize: 21,
-                fontWeight: FontWeight.w900,
-                color: Color(0xFF0F172A),
-                letterSpacing: -0.5,
-              ),
-            ),
-          ],
-        ),
-
-        // Quick Sign In Button
-        InkWell(
-          onTap: _onSignIn,
-          borderRadius: BorderRadius.circular(20),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF0F172A).withValues(alpha: 0.04),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: const Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.person_outline_rounded,
-                  size: 15,
-                  color: Color(0xFF0066FF),
-                ),
-                SizedBox(width: 5),
-                Text(
-                  'Sign In',
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xFF0066FF),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ---------------------------------------------------------------------------
-  // Interactive Flagship Hero Carousel
-  // ---------------------------------------------------------------------------
-  Widget _buildHeroCarousel() {
-    return SizedBox(
-      height: 220,
-      child: PageView.builder(
-        controller: _heroPageController,
-        itemCount: _heroProducts.length,
-        onPageChanged: (index) {
-          setState(() {
-            _activeHeroIndex = index;
-          });
-        },
-        itemBuilder: (context, index) {
-          final product = _heroProducts[index];
-          return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 6.0),
-            child: _buildHeroCard(product),
           );
         },
       ),
     );
   }
+}
 
-  Widget _buildHeroCard(_HeroProduct product) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFE2E8F0), width: 1.2),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF0F172A).withValues(alpha: 0.07),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
+class _LandingHeader extends StatelessWidget {
+  const _LandingHeader({required this.onSignIn});
+
+  final VoidCallback onSignIn;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 42,
+          height: 42,
+          padding: const EdgeInsets.all(7),
+          decoration: BoxDecoration(
+            color: NexoraTheme.darkNavy,
+            borderRadius: BorderRadius.circular(NexoraRadius.control),
           ),
-          BoxShadow(
-            color: product.badgeColor.withValues(alpha: 0.08),
-            blurRadius: 28,
-            offset: const Offset(0, 12),
+          child: Image.asset(
+            'assets/images/logo.png',
+            excludeFromSemantics: true,
+            errorBuilder: (_, _, _) => const Icon(
+              Icons.shopping_bag_rounded,
+              color: Colors.white,
+            ),
           ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(22),
-        child: Stack(
+        ),
+        const SizedBox(width: NexoraSpacing.sm),
+        const Expanded(
+          child: Text(
+            'NEXORA',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: Color(0xFF0F172A),
+              fontSize: 15,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 1.3,
+            ),
+          ),
+        ),
+        TextButton(
+          key: const ValueKey('landing-sign-in-action'),
+          onPressed: onSignIn,
+          style: TextButton.styleFrom(
+            foregroundColor: NexoraTheme.primary,
+            textStyle: const TextStyle(fontWeight: FontWeight.w700),
+          ),
+          child: const Text('Sign in'),
+        ),
+      ],
+    );
+  }
+}
+
+class _ProductStoryCard extends StatelessWidget {
+  const _ProductStoryCard({
+    required this.product,
+    required this.position,
+    required this.count,
+  });
+
+  final _HeroProduct product;
+  final int position;
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    final usesLargeText = MediaQuery.textScalerOf(context).scale(1) > 1.3;
+
+    return Semantics(
+      container: true,
+      label:
+          'Featured product $position of $count. ${product.title}. ${product.detail} ${product.price}.',
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(NexoraRadius.large),
+          border: Border.all(color: const Color(0xFFE2E8F0), width: 1.2),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF0F172A).withValues(alpha: 0.05),
+              blurRadius: 16,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Product Cover Imagery
-            Positioned(
-              right: -10,
-              top: -10,
-              bottom: -10,
-              width: 170,
+            Expanded(
+              flex: usesLargeText ? 5 : 7,
               child: Image.network(
                 product.imageUrl,
                 fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => Container(
+                excludeFromSemantics: true,
+                errorBuilder: (_, _, _) => ColoredBox(
                   color: const Color(0xFFF1F5F9),
-                  child: const Center(
-                    child: Icon(Icons.image_not_supported_outlined, color: Colors.grey),
+                  child: Icon(
+                    product.fallbackIcon,
+                    size: 64,
+                    color: NexoraTheme.primary,
                   ),
                 ),
               ),
             ),
-
-            // Left Gradient Mask for readability
-            Positioned.fill(
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      Colors.white,
-                      Colors.white.withValues(alpha: 0.95),
-                      Colors.white.withValues(alpha: 0.70),
-                      Colors.white.withValues(alpha: 0.0),
-                    ],
-                    stops: const [0.0, 0.52, 0.72, 1.0],
-                    begin: Alignment.centerLeft,
-                    end: Alignment.centerRight,
-                  ),
-                ),
-              ),
-            ),
-
-            // Card Content & Details
-            Positioned.fill(
+            Expanded(
+              flex: usesLargeText ? 6 : 4,
               child: Padding(
-                padding: const EdgeInsets.all(18.0),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: NexoraSpacing.md,
+                  vertical: NexoraSpacing.xs,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    // Badge & Category
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4.5),
-                          decoration: BoxDecoration(
-                            color: product.badgeColor,
-                            borderRadius: BorderRadius.circular(8),
-                            boxShadow: [
-                              BoxShadow(
-                                color: product.badgeColor.withValues(alpha: 0.35),
-                                blurRadius: 8,
-                                offset: const Offset(0, 3),
-                              ),
-                            ],
-                          ),
-                          child: Text(
-                            product.badge,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          product.category,
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 0.8,
-                            color: const Color(0xFF64748B).withValues(alpha: 0.9),
-                          ),
-                        ),
-                      ],
+                    Text(
+                      product.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF0F172A),
+                        letterSpacing: -0.3,
+                      ),
                     ),
-
-                    // Title & Description
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        SizedBox(
-                          width: 190,
-                          child: Text(
-                            product.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w900,
-                              color: Color(0xFF0F172A),
-                              letterSpacing: -0.4,
-                            ),
-                          ),
+                    const SizedBox(height: NexoraSpacing.xs),
+                    Expanded(
+                      child: Text(
+                        product.detail,
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                          color: Color(0xFF64748B),
+                          height: 1.4,
                         ),
-                        const SizedBox(height: 3),
-                        SizedBox(
-                          width: 175,
-                          child: Text(
-                            product.subtitle,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w500,
-                              color: Color(0xFF64748B),
-                            ),
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
-
-                    // Price & Rating
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          product.price,
-                          style: const TextStyle(
-                            fontSize: 21,
-                            fontWeight: FontWeight.w900,
-                            color: Color(0xFF0F172A),
-                            letterSpacing: -0.5,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 2.0),
-                          child: Text(
-                            product.originalPrice,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                              color: Color(0xFF94A3B8),
-                              decoration: TextDecoration.lineThrough,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2.5),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFEF3C7),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.star_rounded, size: 13, color: Color(0xFFD97706)),
-                              const SizedBox(width: 3),
-                              Text(
-                                product.rating,
-                                style: const TextStyle(
-                                  fontSize: 10.5,
-                                  fontWeight: FontWeight.w800,
-                                  color: Color(0xFFB45309),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
+                    const SizedBox(height: NexoraSpacing.xs),
+                    Text(
+                      product.price,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                        color: NexoraTheme.primary,
+                        fontFeatures: [FontFeature.tabularFigures()],
+                      ),
                     ),
                   ],
                 ),
@@ -505,402 +416,110 @@ class _LandingPageState extends State<LandingPage> {
       ),
     );
   }
+}
 
-  // ---------------------------------------------------------------------------
-  // Carousel Pagination Dots
-  // ---------------------------------------------------------------------------
-  Widget _buildCarouselIndicators() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: List.generate(_heroProducts.length, (index) {
-        final isActive = index == _activeHeroIndex;
-        return AnimatedContainer(
-          duration: const Duration(milliseconds: 300),
-          margin: const EdgeInsets.symmetric(horizontal: 3.5),
-          width: isActive ? 22 : 6,
-          height: 6,
-          decoration: BoxDecoration(
-            color: isActive ? const Color(0xFF0066FF) : const Color(0xFFCBD5E1),
-            borderRadius: BorderRadius.circular(3),
-            boxShadow: isActive
-                ? [
-                    BoxShadow(
-                      color: const Color(0xFF0066FF).withValues(alpha: 0.4),
-                      blurRadius: 6,
-                      offset: const Offset(0, 1),
-                    ),
-                  ]
-                : null,
-          ),
-        );
-      }),
-    );
-  }
+class _StoryIndicator extends StatelessWidget {
+  const _StoryIndicator({required this.activeIndex, required this.count});
 
-  // ---------------------------------------------------------------------------
-  // Headline & Brand Value Proposition
-  // ---------------------------------------------------------------------------
-  Widget _buildHeadlineSection() {
-    return Column(
-      children: [
-        // Welcome Pill
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-          decoration: BoxDecoration(
-            color: const Color(0xFFE0F2FE),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: const Color(0xFFBAE6FD), width: 1),
-          ),
-          child: const Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.bolt_rounded, size: 14, color: Color(0xFF0284C7)),
-              SizedBox(width: 5),
-              Text(
-                'THE PREMIER SHOPPING EXPERIENCE',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w800,
-                  color: Color(0xFF0284C7),
-                  letterSpacing: 0.6,
-                ),
+  final int activeIndex;
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: 'Featured product ${activeIndex + 1} of $count',
+      child: ExcludeSemantics(
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(count, (index) {
+            return AnimatedContainer(
+              duration: NexoraMotion.resolve(context),
+              curve: NexoraMotion.standardCurve,
+              width: index == activeIndex ? 24 : 7,
+              height: 7,
+              margin: const EdgeInsets.symmetric(horizontal: 3),
+              decoration: BoxDecoration(
+                color: index == activeIndex
+                    ? NexoraTheme.primary
+                    : const Color(0xFFCBD5E1),
+                borderRadius: BorderRadius.circular(NexoraRadius.full),
               ),
-            ],
-          ),
+            );
+          }),
         ),
-        const SizedBox(height: 12),
-
-        // Hero Typography
-        RichText(
-          textAlign: TextAlign.center,
-          text: const TextSpan(
-            children: [
-              TextSpan(
-                text: 'Everything You Need,\n',
-                style: TextStyle(
-                  fontSize: 27,
-                  height: 1.22,
-                  fontWeight: FontWeight.w900,
-                  color: Color(0xFF0F172A),
-                  letterSpacing: -0.6,
-                ),
-              ),
-              TextSpan(
-                text: 'Delivered Instantly',
-                style: TextStyle(
-                  fontSize: 27,
-                  height: 1.22,
-                  fontWeight: FontWeight.w900,
-                  color: Color(0xFF0066FF),
-                  letterSpacing: -0.6,
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 8),
-
-        // Subtitle
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 12.0),
-          child: Text(
-            'Shop 100% verified authentic brands, exclusive drops, and enjoy lightning-fast doorstep delivery nationwide.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 13.5,
-              height: 1.45,
-              color: Color(0xFF64748B),
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ---------------------------------------------------------------------------
-  // Creative Bento Feature Highlights
-  // ---------------------------------------------------------------------------
-  Widget _buildBentoFeatures() {
-    return Row(
-      children: [
-        Expanded(
-          child: _buildBentoCard(
-            icon: Icons.local_shipping_outlined,
-            iconColor: const Color(0xFF0284C7),
-            bgColor: const Color(0xFFE0F2FE),
-            title: 'Free Shipping',
-            subtitle: '₱0 Min Spend',
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: _buildBentoCard(
-            icon: Icons.verified_user_outlined,
-            iconColor: const Color(0xFF059669),
-            bgColor: const Color(0xFFD1FAE5),
-            title: '100% Authentic',
-            subtitle: 'Direct from Brands',
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: _buildBentoCard(
-            icon: Icons.payments_outlined,
-            iconColor: const Color(0xFF7C3AED),
-            bgColor: const Color(0xFFEDE9FE),
-            title: 'COD Ready',
-            subtitle: 'Doorstep Pay',
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildBentoCard({
-    required IconData icon,
-    required Color iconColor,
-    required Color bgColor,
-    required String title,
-    required String subtitle,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0), width: 1),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF0F172A).withValues(alpha: 0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: bgColor,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, size: 19, color: iconColor),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            title,
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 11.5,
-              fontWeight: FontWeight.w800,
-              color: Color(0xFF0F172A),
-              letterSpacing: -0.2,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            subtitle,
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 9.5,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF64748B),
-            ),
-          ),
-        ],
       ),
     );
   }
+}
 
-  // ---------------------------------------------------------------------------
-  // Action Area: Get Started & Sign In
-  // ---------------------------------------------------------------------------
-  Widget _buildActionArea() {
-    return Column(
+class _TrustRow extends StatelessWidget {
+  const _TrustRow();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Wrap(
+      alignment: WrapAlignment.center,
+      spacing: NexoraSpacing.lg,
+      runSpacing: NexoraSpacing.sm,
       children: [
-        // Primary Call to Action Button
-        Container(
-          width: double.infinity,
-          height: 54,
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [
-                Color(0xFF0066FF),
-                Color(0xFF00A3FF),
-              ],
-              begin: Alignment.centerLeft,
-              end: Alignment.centerRight,
-            ),
-            borderRadius: BorderRadius.circular(27),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF0066FF).withValues(alpha: 0.38),
-                blurRadius: 18,
-                offset: const Offset(0, 6),
-              ),
-            ],
-          ),
-          child: ElevatedButton(
-            onPressed: _onGetStarted,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.transparent,
-              shadowColor: Colors.transparent,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(27),
-              ),
-            ),
-            child: const Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  'Start Shopping as Guest',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16.5,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.2,
-                  ),
-                ),
-                SizedBox(width: 8),
-                Icon(
-                  Icons.arrow_forward_rounded,
-                  color: Colors.white,
-                  size: 20,
-                ),
-              ],
-            ),
-          ),
+        _TrustItem(icon: Icons.lock_outline_rounded, label: 'Secure checkout'),
+        _TrustItem(
+          icon: Icons.local_shipping_outlined,
+          label: 'Tracked delivery',
         ),
-        const SizedBox(height: 12),
-
-        // Inline Sign In & Create Account options
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Text(
-              'Already a member? ',
-              style: TextStyle(
-                color: Color(0xFF64748B),
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            InkWell(
-              onTap: _onSignIn,
-              borderRadius: BorderRadius.circular(6),
-              child: const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                child: Text(
-                  'Sign In',
-                  style: TextStyle(
-                    color: Color(0xFF0066FF),
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 4),
-            const Text('•', style: TextStyle(color: Color(0xFFCBD5E1))),
-            const SizedBox(width: 4),
-            InkWell(
-              onTap: _onRegister,
-              borderRadius: BorderRadius.circular(6),
-              child: const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                child: Text(
-                  'Register',
-                  style: TextStyle(
-                    color: Color(0xFF0F172A),
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-
-        // Trust & Guarantee Badges
-        const Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.shield_outlined, size: 14, color: Color(0xFF059669)),
-            SizedBox(width: 4),
-            Text(
-              '100% Buyer Protection',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF475569),
-              ),
-            ),
-            SizedBox(width: 8),
-            Text('•', style: TextStyle(color: Color(0xFF94A3B8))),
-            SizedBox(width: 8),
-            Icon(Icons.lock_outline_rounded, size: 13, color: Color(0xFF0284C7)),
-            SizedBox(width: 4),
-            Text(
-              '256-Bit SSL Secured',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF475569),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 6),
-
-        // Legal Terms
-        Text(
-          'By continuing, you agree to Nexora’s Terms of Service & Privacy Policy',
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.w500,
-            color: const Color(0xFF94A3B8).withValues(alpha: 0.9),
-          ),
-        ),
+        _TrustItem(icon: Icons.replay_rounded, label: 'Easy returns'),
       ],
     );
   }
 }
 
-// -----------------------------------------------------------------------------
-// Data Model for Hero Showcase Products
-// -----------------------------------------------------------------------------
-class _HeroProduct {
-  final String title;
-  final String subtitle;
-  final String category;
-  final String price;
-  final String originalPrice;
-  final String rating;
-  final String reviews;
-  final String badge;
-  final Color badgeColor;
-  final String imageUrl;
+class _TrustItem extends StatelessWidget {
+  const _TrustItem({required this.icon, required this.label});
 
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: label,
+      child: ExcludeSemantics(
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 17, color: const Color(0xFF64748B)),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: Color(0xFF475569),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HeroProduct {
   const _HeroProduct({
     required this.title,
-    required this.subtitle,
-    required this.category,
+    required this.detail,
     required this.price,
-    required this.originalPrice,
-    required this.rating,
-    required this.reviews,
-    required this.badge,
-    required this.badgeColor,
     required this.imageUrl,
+    required this.fallbackIcon,
   });
+
+  final String title;
+  final String detail;
+  final String price;
+  final String imageUrl;
+  final IconData fallbackIcon;
 }
