@@ -479,7 +479,7 @@ class ProductCard extends StatelessWidget {
             ),
           ),
           Expanded(
-            flex: 9,
+            flex: 10,
             child: Padding(
               padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
               child: Column(

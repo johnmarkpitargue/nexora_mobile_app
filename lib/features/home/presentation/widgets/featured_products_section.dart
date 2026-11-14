@@ -160,7 +160,7 @@ class _DailyDiscoverSectionState extends State<DailyDiscoverSection> {
                 final textScale = MediaQuery.textScalerOf(context).scale(1);
                 final accessibilityGrowth =
                     ((textScale - 1).clamp(0.0, 1.0) * 116);
-                final cardHeight = cardWidth + 148.0 + accessibilityGrowth;
+                final cardHeight = cardWidth + 168.0 + accessibilityGrowth;
 
                 return GridView.builder(
                   shrinkWrap: true,

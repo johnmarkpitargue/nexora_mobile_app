@@ -160,7 +160,10 @@ class _OrdersPageState extends State<OrdersPage>
               preferredSize: const Size.fromHeight(44),
               child: Container(
                 color: theme.colorScheme.surfaceContainerLowest,
-                child: TabBar(
+                alignment: Alignment.center,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 820),
+                  child: TabBar(
                   controller: _tabController,
                   isScrollable: true,
                   tabAlignment: TabAlignment.start,
@@ -198,6 +201,7 @@ class _OrdersPageState extends State<OrdersPage>
                 ),
               ),
             ),
+          ),
           ),
           body: !isAuthenticated
               ? _buildUnauthenticatedState()
@@ -510,14 +514,19 @@ class _OrdersPageState extends State<OrdersPage>
 
     return RefreshIndicator(
       onRefresh: _onRefresh,
-      child: ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.only(bottom: 24),
-        children: [
-          if (showReturnBanner) _buildReturnGuaranteeBanner(),
-          ...orders.map(_buildDynamicOrderCard),
-          if (showGuaranteeFooter) _buildNexoraGuaranteeFooter(),
-        ],
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 820),
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.only(bottom: 24),
+            children: [
+              if (showReturnBanner) _buildReturnGuaranteeBanner(),
+              ...orders.map(_buildDynamicOrderCard),
+              if (showGuaranteeFooter) _buildNexoraGuaranteeFooter(),
+            ],
+          ),
+        ),
       ),
     );
   }

@@ -71,40 +71,45 @@ class _NexoraHomePageState extends State<NexoraHomePage>
         physics: const AlwaysScrollableScrollPhysics(
           parent: BouncingScrollPhysics(),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Top Banners & Promo Action Pills Section
-            const PromoBannersSection(),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1200),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Top Banners & Promo Action Pills Section
+                const PromoBannersSection(),
 
-            // Dynamic Categories Section
-            CategorySection(
-              selectedCategory: _selectedCategory,
-              onCategorySelected: (categorySlug) {
-                setState(() {
-                  _selectedCategory = categorySlug;
-                });
-                ShopService.instance
-                    .loadCatalogRemote(category: categorySlug)
-                    .catchError((_) => <ProductModel>[]);
-              },
+                // Dynamic Categories Section
+                CategorySection(
+                  selectedCategory: _selectedCategory,
+                  onCategorySelected: (categorySlug) {
+                    setState(() {
+                      _selectedCategory = categorySlug;
+                    });
+                    ShopService.instance
+                        .loadCatalogRemote(category: categorySlug)
+                        .catchError((_) => <ProductModel>[]);
+                  },
+                ),
+
+                // DAILY DISCOVER Product Grid dynamically filtered by Category
+                DailyDiscoverSection(
+                  selectedCategory: _selectedCategory,
+                  onLoadMore: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('All recommendations loaded'),
+                        duration: Duration(seconds: 1),
+                      ),
+                    );
+                  },
+                ),
+
+                const SizedBox(height: 20),
+              ],
             ),
-
-            // DAILY DISCOVER Product Grid dynamically filtered by Category
-            DailyDiscoverSection(
-              selectedCategory: _selectedCategory,
-              onLoadMore: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('All recommendations loaded'),
-                    duration: Duration(seconds: 1),
-                  ),
-                );
-              },
-            ),
-
-            const SizedBox(height: 20),
-          ],
+          ),
         ),
       ),
     );

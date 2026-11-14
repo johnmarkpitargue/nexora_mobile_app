@@ -497,22 +497,41 @@ class _CategoryProductsPageState extends State<CategoryProductsPage> {
               ),
             )
           else
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
-              sliver: SliverGrid(
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 14,
-                  childAspectRatio: 0.58,
-                ),
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    return ProductCard(product: products[index]);
-                  },
-                  childCount: products.length,
-                ),
-              ),
+            SliverLayoutBuilder(
+              builder: (context, constraints) {
+                final crossAxisCount = switch (constraints.crossAxisExtent) {
+                  >= 1080 => 5,
+                  >= 820 => 4,
+                  >= 560 => 3,
+                  _ => 2,
+                };
+                const spacing = 12.0;
+                final cardWidth =
+                    (constraints.crossAxisExtent - 32 - spacing * (crossAxisCount - 1)) /
+                    crossAxisCount;
+                final textScale = MediaQuery.textScalerOf(context).scale(1);
+                final accessibilityGrowth =
+                    ((textScale - 1).clamp(0.0, 1.0) * 116);
+                final cardHeight = cardWidth + 168.0 + accessibilityGrowth;
+
+                return SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+                  sliver: SliverGrid(
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: crossAxisCount,
+                      crossAxisSpacing: spacing,
+                      mainAxisSpacing: 14,
+                      mainAxisExtent: cardHeight,
+                    ),
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) {
+                        return ProductCard(product: products[index]);
+                      },
+                      childCount: products.length,
+                    ),
+                  ),
+                );
+              },
             ),
         ],
       ),

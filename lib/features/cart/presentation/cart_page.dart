@@ -299,30 +299,35 @@ class _CartPageState extends State<CartPage> {
                   physics: const AlwaysScrollableScrollPhysics(
                     parent: BouncingScrollPhysics(),
                   ),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 12,
-                    ),
-                    child: Column(
-                      children: [
-                        if (!hasSession)
-                          _buildSignInPrompt(context)
-                        else if (_cartService.cartError != null)
-                          _buildErrorBanner(_cartService.cartError!)
-                        else if (_cartService.isLoadingCart &&
-                            _cartService.items.isEmpty)
-                          const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 80),
-                            child: Center(child: CircularProgressIndicator()),
-                          )
-                        else if (_cartService.items.isEmpty)
-                          _buildEmptyCartView(context)
-                        else
-                          ...groupedItems.values
-                              .map((storeItems) => _buildStoreGroupCard(storeItems, theme, isDark)),
-                        const SizedBox(height: 120),
-                      ],
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 820),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 12,
+                        ),
+                        child: Column(
+                          children: [
+                            if (!hasSession)
+                              _buildSignInPrompt(context)
+                            else if (_cartService.cartError != null)
+                              _buildErrorBanner(_cartService.cartError!)
+                            else if (_cartService.isLoadingCart &&
+                                _cartService.items.isEmpty)
+                              const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 80),
+                                child: Center(child: CircularProgressIndicator()),
+                              )
+                            else if (_cartService.items.isEmpty)
+                              _buildEmptyCartView(context)
+                            else
+                              ...groupedItems.values
+                                  .map((storeItems) => _buildStoreGroupCard(storeItems, theme, isDark)),
+                            const SizedBox(height: 120),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -330,7 +335,12 @@ class _CartPageState extends State<CartPage> {
               if (hasSession && _cartService.items.isNotEmpty)
                 Align(
                   alignment: Alignment.bottomCenter,
-                  child: _buildBottomDock(theme, isDark),
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 820),
+                      child: _buildBottomDock(theme, isDark),
+                    ),
+                  ),
                 ),
             ],
           ),

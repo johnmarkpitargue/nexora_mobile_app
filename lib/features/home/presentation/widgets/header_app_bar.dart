@@ -30,144 +30,149 @@ class HeaderAppBar extends StatelessWidget implements PreferredSizeWidget {
       backgroundColor: theme.scaffoldBackgroundColor,
       toolbarHeight: preferredSize.height,
       titleSpacing: 16,
-      title: Row(
-        children: [
-          Expanded(
-            child: Semantics(
-              button: true,
-              label: 'Search products and brands',
-              onTap: openSearch,
-              child: ExcludeSemantics(
-                child: Material(
-                  color: theme.colorScheme.surfaceContainerLowest,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    side: BorderSide(color: theme.colorScheme.outlineVariant),
-                  ),
-                  clipBehavior: Clip.antiAlias,
-                  child: InkWell(
-                    key: const ValueKey('home-search-action'),
-                    onTap: openSearch,
-                    child: SizedBox(
-                      height: 44,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 14),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.search_rounded,
-                              color: theme.colorScheme.primary,
-                              size: 22,
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                'Search products and brands',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w500,
+      title: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1200),
+          child: Row(
+            children: [
+              Expanded(
+                child: Semantics(
+                  button: true,
+                  label: 'Search products and brands',
+                  onTap: openSearch,
+                  child: ExcludeSemantics(
+                    child: Material(
+                      color: theme.colorScheme.surfaceContainerLowest,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        side: BorderSide(color: theme.colorScheme.outlineVariant),
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: InkWell(
+                        key: const ValueKey('home-search-action'),
+                        onTap: openSearch,
+                        child: SizedBox(
+                          height: 44,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 14),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.search_rounded,
+                                  color: theme.colorScheme.primary,
+                                  size: 22,
                                 ),
-                              ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    'Search products and brands',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color: theme.colorScheme.onSurfaceVariant,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
-                          ],
+                          ),
                         ),
                       ),
                     ),
                   ),
                 ),
               ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Semantics(
-            button: true,
-            label: 'Wishlist',
-            onTap: openWishlist,
-            child: ExcludeSemantics(
-              child: _HeaderWishlistButton(onTap: openWishlist),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Semantics(
-            button: true,
-            label: 'Notifications',
-            onTap: openNotifications,
-            child: ExcludeSemantics(
-              child: AnimatedBuilder(
-                animation: NotificationFeedService.instance,
-                builder: (context, _) {
-                  final unread = NotificationFeedService.instance.unreadCount;
-                  return Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      IconButton(
-                        key: const ValueKey('home-notifications-action'),
-                        onPressed: openNotifications,
-                        tooltip: 'Notifications ($unread)',
-                        style: IconButton.styleFrom(
-                          foregroundColor: theme.colorScheme.onSurface,
-                          backgroundColor:
-                              theme.colorScheme.surfaceContainerLowest,
-                          minimumSize: const Size(44, 44),
-                          maximumSize: const Size(44, 44),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                            side: BorderSide(
-                              color: theme.colorScheme.outlineVariant,
-                            ),
-                          ),
-                        ),
-                        icon: const Icon(
-                          Icons.notifications_none_rounded,
-                          size: 22,
-                        ),
-                      ),
-                      if (unread > 0)
-                        Positioned(
-                          top: -2,
-                          right: -2,
-                          child: IgnorePointer(
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 5,
-                                vertical: 1.5,
-                              ),
-                              constraints: const BoxConstraints(
-                                minWidth: 18,
-                                minHeight: 18,
-                              ),
-                              decoration: BoxDecoration(
-                                color: theme.colorScheme.primary,
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(
-                                  color: theme.scaffoldBackgroundColor,
-                                  width: 1.8,
+              const SizedBox(width: 8),
+              Semantics(
+                button: true,
+                label: 'Wishlist',
+                onTap: openWishlist,
+                child: ExcludeSemantics(
+                  child: _HeaderWishlistButton(onTap: openWishlist),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Semantics(
+                button: true,
+                label: 'Notifications',
+                onTap: openNotifications,
+                child: ExcludeSemantics(
+                  child: AnimatedBuilder(
+                    animation: NotificationFeedService.instance,
+                    builder: (context, _) {
+                      final unread = NotificationFeedService.instance.unreadCount;
+                      return Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          IconButton(
+                            key: const ValueKey('home-notifications-action'),
+                            onPressed: openNotifications,
+                            tooltip: 'Notifications ($unread)',
+                            style: IconButton.styleFrom(
+                              foregroundColor: theme.colorScheme.onSurface,
+                              backgroundColor:
+                                  theme.colorScheme.surfaceContainerLowest,
+                              minimumSize: const Size(44, 44),
+                              maximumSize: const Size(44, 44),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                                side: BorderSide(
+                                  color: theme.colorScheme.outlineVariant,
                                 ),
                               ),
-                              child: Center(
-                                child: Text(
-                                  unread > 99 ? '99+' : '$unread',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w900,
-                                    height: 1,
+                            ),
+                            icon: const Icon(
+                              Icons.notifications_none_rounded,
+                              size: 22,
+                            ),
+                          ),
+                          if (unread > 0)
+                            Positioned(
+                              top: -2,
+                              right: -2,
+                              child: IgnorePointer(
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 5,
+                                    vertical: 1.5,
+                                  ),
+                                  constraints: const BoxConstraints(
+                                    minWidth: 18,
+                                    minHeight: 18,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: theme.colorScheme.primary,
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(
+                                      color: theme.scaffoldBackgroundColor,
+                                      width: 1.8,
+                                    ),
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      unread > 99 ? '99+' : '$unread',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w900,
+                                        height: 1,
+                                      ),
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
-                          ),
-                        ),
-                    ],
-                  );
-                },
+                        ],
+                      );
+                    },
+                  ),
+                ),
               ),
-            ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

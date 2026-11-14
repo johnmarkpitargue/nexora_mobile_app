@@ -51,58 +51,63 @@ class FloatingNavDock extends StatelessWidget {
     return SafeArea(
       top: false,
       minimum: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(26),
-          border: Border.all(color: theme.colorScheme.outlineVariant, width: 1),
-          boxShadow: [
-            BoxShadow(
-              color: theme.brightness == Brightness.dark
-                  ? Colors.black.withValues(alpha: 0.5)
-                  : NexoraTheme.darkNavy.withValues(alpha: 0.10),
-              blurRadius: 24,
-              offset: const Offset(0, 8),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 520),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(26),
+              border: Border.all(color: theme.colorScheme.outlineVariant, width: 1),
+              boxShadow: [
+                BoxShadow(
+                  color: theme.brightness == Brightness.dark
+                      ? Colors.black.withValues(alpha: 0.5)
+                      : NexoraTheme.darkNavy.withValues(alpha: 0.10),
+                  blurRadius: 24,
+                  offset: const Offset(0, 8),
+                ),
+              ],
             ),
-          ],
-        ),
-        child: Material(
-          color: theme.colorScheme.surfaceContainerLowest,
-          borderRadius: BorderRadius.circular(26),
-          clipBehavior: Clip.antiAlias,
-          child: SizedBox(
-            height: 70,
-            child: Row(
-              children: List.generate(_items.length, (index) {
-                final item = _items[index];
-                final isSelected = currentIndex == index;
-                final badgeCount = switch (index) {
-                  1 => cartCount,
-                  3 => chatUnreadCount,
-                  _ => 0,
-                };
+            child: Material(
+              color: theme.colorScheme.surfaceContainerLowest,
+              borderRadius: BorderRadius.circular(26),
+              clipBehavior: Clip.antiAlias,
+              child: SizedBox(
+                height: 70,
+                child: Row(
+                  children: List.generate(_items.length, (index) {
+                    final item = _items[index];
+                    final isSelected = currentIndex == index;
+                    final badgeCount = switch (index) {
+                      1 => cartCount,
+                      3 => chatUnreadCount,
+                      _ => 0,
+                    };
 
-                return Expanded(
-                  child: _DockItem(
-                    key: ValueKey('nav-item-$index'),
-                    item: item,
-                    isSelected: isSelected,
-                    badgeCount: badgeCount,
-                    badgeKey: switch (index) {
-                      1 => const ValueKey('cart-nav-badge'),
-                      3 => const ValueKey('messages-nav-badge'),
-                      _ => null,
-                    },
-                    badgeColor: index == 3
-                        ? theme.colorScheme.tertiary
-                        : theme.colorScheme.secondary,
-                    badgeForegroundColor: index == 3
-                        ? Colors.white
-                        : NexoraTheme.darkNavy,
-                    motionDuration: motionDuration,
-                    onTap: () => onTap(index),
-                  ),
-                );
-              }),
+                    return Expanded(
+                      child: _DockItem(
+                        key: ValueKey('nav-item-$index'),
+                        item: item,
+                        isSelected: isSelected,
+                        badgeCount: badgeCount,
+                        badgeKey: switch (index) {
+                          1 => const ValueKey('cart-nav-badge'),
+                          3 => const ValueKey('messages-nav-badge'),
+                          _ => null,
+                        },
+                        badgeColor: index == 3
+                            ? theme.colorScheme.tertiary
+                            : theme.colorScheme.secondary,
+                        badgeForegroundColor: index == 3
+                            ? Colors.white
+                            : NexoraTheme.darkNavy,
+                        motionDuration: motionDuration,
+                        onTap: () => onTap(index),
+                      ),
+                    );
+                  }),
+                ),
+              ),
             ),
           ),
         ),

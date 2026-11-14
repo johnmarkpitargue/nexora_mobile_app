@@ -1159,48 +1159,58 @@ class _CheckoutPageState extends State<CheckoutPage> {
         children: [
           SingleChildScrollView(
             physics: const BouncingScrollPhysics(),
-            child: Column(
-              children: [
-                const SizedBox(height: 10),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 820),
+                child: Column(
+                  children: [
+                    const SizedBox(height: 10),
 
-                // 1. Delivery Address Card
-                _buildAddressCard(),
+                    // 1. Delivery Address Card
+                    _buildAddressCard(),
 
-                const SizedBox(height: 10),
+                    const SizedBox(height: 10),
 
-                // 2. Store & Item Card Group
-                _buildStoreAndItemCard(),
+                    // 2. Store & Item Card Group
+                    _buildStoreAndItemCard(),
 
-                const SizedBox(height: 10),
+                    const SizedBox(height: 10),
 
-                // 3. Shipping Option Card (Clickable to change delivery option!)
-                _buildShippingOptionCard(),
+                    // 3. Shipping Option Card (Clickable to change delivery option!)
+                    _buildShippingOptionCard(),
 
-                const SizedBox(height: 10),
+                    const SizedBox(height: 10),
 
-                // 4. Platform Vouchers Card
-                _buildVoucherCard(),
+                    // 4. Platform Vouchers Card
+                    _buildVoucherCard(),
 
-                const SizedBox(height: 10),
+                    const SizedBox(height: 10),
 
-                // 5. Payment Methods Card
-                _buildPaymentMethodsCard(),
+                    // 5. Payment Methods Card
+                    _buildPaymentMethodsCard(),
 
-                const SizedBox(height: 10),
+                    const SizedBox(height: 10),
 
-                // 6. Payment Details Summary Breakdown
-                _buildPaymentDetailsCard(),
+                    // 6. Payment Details Summary Breakdown
+                    _buildPaymentDetailsCard(),
 
-                // Clearance spacing for bottom dock
-                const SizedBox(height: 110),
-              ],
+                    // Clearance spacing for bottom dock
+                    const SizedBox(height: 110),
+                  ],
+                ),
+              ),
             ),
           ),
 
           // Bottom Fixed Action Bar
           Align(
             alignment: Alignment.bottomCenter,
-            child: _buildBottomCheckoutDock(),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 820),
+                child: _buildBottomCheckoutDock(),
+              ),
+            ),
           ),
         ],
       ),
