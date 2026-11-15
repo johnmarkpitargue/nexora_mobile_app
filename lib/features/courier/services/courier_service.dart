@@ -707,20 +707,8 @@ class CourierService extends ChangeNotifier {
       return parcel;
     }
 
-    // If not found in mock list, generate and accept into hub!
-    final newParcel = addInboundParcel(
-      merchantName: 'Nexora Laguna Logistics Hub',
-      customerName: 'Verified Nexora Buyer',
-      customerPhone: '+63 917 555 0192',
-      customerAddress: 'Nuvali Commercial District, Santa Rosa, Laguna',
-      city: 'Santa Rosa, Laguna',
-      itemsDescription: 'Express Priority Waybill Shipment',
-      weightKg: 1.0,
-      amountCod: 1500.00,
-      isCod: true,
-      notes: 'Scanned via Hub High-Speed Barcode Terminal',
-    );
-    return newParcel;
+    // Reject unknown tracking numbers instead of fabricating parcels locally.
+    return null;
   }
 
   /// Batch dispatch parcels to a rider

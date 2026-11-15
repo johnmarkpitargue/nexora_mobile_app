@@ -2,14 +2,28 @@ import 'package:flutter/material.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/services/rider_account_service.dart';
 import '../../../core/theme/rider_theme.dart';
+import '../../../core/widgets/parcel_barcode_scanner.dart';
 import '../../auth/presentation/rider_login_page.dart';
 import '../models/transfer_manifest_models.dart';
 import '../services/transfer_courier_service.dart';
 
 class ManifestDetailScreen extends StatefulWidget {
   final int manifestId;
+  final TransferManifestModel? initialManifestOverride;
+  final Future<ParcelScanSubmissionResult> Function(String trackingNumber)?
+      onScanBarcodeOverride;
+  final Widget Function(
+    BuildContext context,
+    void Function(String rawCode) emitBarcode,
+  )? scannerPreviewOverride;
 
-  const ManifestDetailScreen({super.key, required this.manifestId});
+  const ManifestDetailScreen({
+    super.key,
+    required this.manifestId,
+    this.initialManifestOverride,
+    this.onScanBarcodeOverride,
+    this.scannerPreviewOverride,
+  });
 
   @override
   State<ManifestDetailScreen> createState() => _ManifestDetailScreenState();
@@ -24,7 +38,12 @@ class _ManifestDetailScreenState extends State<ManifestDetailScreen> {
   @override
   void initState() {
     super.initState();
-    _loadManifest();
+    if (widget.initialManifestOverride != null) {
+      _manifest = widget.initialManifestOverride;
+      _isLoading = false;
+    } else {
+      _loadManifest();
+    }
   }
 
   Future<void> _loadManifest() async {
@@ -58,69 +77,69 @@ class _ManifestDetailScreenState extends State<ManifestDetailScreen> {
     }
   }
 
-  Future<void> _openScanParcelSheet() async {
-    final trackingController = TextEditingController();
-    await showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (ctx) {
-        return Padding(
-          padding: EdgeInsets.fromLTRB(
-            20,
-            20,
-            20,
-            24 + MediaQuery.of(ctx).viewInsets.bottom,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Text(
-                'Scan or Enter Parcel Tracking #',
-                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
-              ),
-              const SizedBox(height: 6),
-              const Text(
-                'Verify each parcel against this manifest before confirming departure.',
-                style: TextStyle(fontSize: 12, color: RiderTheme.textMuted),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: trackingController,
-                autofocus: true,
-                textCapitalization: TextCapitalization.characters,
-                decoration: const InputDecoration(
-                  labelText: 'Tracking Number',
-                  hintText: 'e.g. TRK-2026-000123',
-                  prefixIcon: Icon(Icons.qr_code_scanner_rounded),
-                ),
-              ),
-              const SizedBox(height: 16),
-              ElevatedButton.icon(
-                onPressed: () async {
-                  final code = trackingController.text.trim();
-                  if (code.isEmpty) return;
-                  Navigator.pop(ctx);
-                  await _scanTrackingNumber(code);
-                },
-                icon: const Icon(Icons.check_circle_outline_rounded),
-                label: const Text('Verify & Mark Loaded'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: RiderTheme.primary,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
+  Future<void> _openCameraScanner({
+    bool continuousScan = true,
+    String? expectedTrackingNumber,
+  }) async {
+    final m = _manifest;
+    if (m == null) return;
+
+    await ParcelBarcodeScanner.open(
+      context,
+      mode: ParcelScanMode.manifestLoading,
+      title: 'Manifest ${m.manifestNumber}',
+      subtitle:
+          '${m.originHub?.name ?? 'Origin'} → ${m.destinationHub?.name ?? 'Destination'}',
+      expectedTrackingNumber: expectedTrackingNumber,
+      continuousScan: continuousScan,
+      initialProgressText: '${m.loadedParcels} / ${m.totalParcels} parcels loaded',
+      scannerPreviewOverride: widget.scannerPreviewOverride,
+      onBarcodeSubmitted: (trackingNumber) async {
+        if (widget.onScanBarcodeOverride != null) {
+          return widget.onScanBarcodeOverride!(trackingNumber);
+        }
+
+        try {
+          final result = await TransferCourierService.instance
+              .scanParcel(widget.manifestId, trackingNumber);
+          final refreshed = await TransferCourierService.instance
+              .fetchManifestDetail(widget.manifestId);
+          if (mounted) {
+            setState(() => _manifest = refreshed);
+          }
+
+          final loaded = refreshed.loadedParcels;
+          final total = refreshed.totalParcels;
+          final hasMore = continuousScan && loaded < total;
+          final baseMsg =
+              result['message']?.toString().trim().isNotEmpty == true
+                  ? result['message'].toString()
+                  : 'Parcel $trackingNumber verified and loaded.';
+          final finalMsg = (!hasMore && loaded >= total && total > 0)
+              ? '$baseMsg All parcels loaded — ready for dispatch!'
+              : baseMsg;
+
+          return ParcelScanSubmissionResult(
+            success: true,
+            message: finalMsg,
+            progressText: '$loaded / $total parcels loaded',
+            keepScanning: hasMore,
+          );
+        } on ApiException catch (e) {
+          if (e.statusCode == 401 && mounted) {
+            Navigator.of(context).pop(false);
+            await _handleApiException(e);
+          }
+          return ParcelScanSubmissionResult(
+            success: false,
+            message: e.message,
+          );
+        } catch (e) {
+          return ParcelScanSubmissionResult(
+            success: false,
+            message: 'Unable to verify parcel $trackingNumber.',
+          );
+        }
       },
     );
   }
@@ -151,27 +170,6 @@ class _ManifestDetailScreenState extends State<ManifestDetailScreen> {
         backgroundColor: RiderTheme.errorRed,
       ),
     );
-  }
-
-  Future<void> _scanTrackingNumber(String trackingNumber) async {
-    if (_isSubmitting) return;
-    setState(() => _isSubmitting = true);
-    try {
-      final result = await TransferCourierService.instance
-          .scanParcel(widget.manifestId, trackingNumber);
-      await _loadManifest();
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(result['message']?.toString() ?? 'Parcel scanned.'),
-          backgroundColor: RiderTheme.onlineGreen,
-        ),
-      );
-    } on ApiException catch (e) {
-      await _handleApiException(e);
-    } finally {
-      if (mounted) setState(() => _isSubmitting = false);
-    }
   }
 
   Future<void> _confirmDeparture() async {
@@ -483,9 +481,11 @@ class _ManifestDetailScreenState extends State<ManifestDetailScreen> {
               children: [
                 Expanded(
                   child: ElevatedButton.icon(
-                    onPressed: _isSubmitting ? null : _openScanParcelSheet,
+                    onPressed: _isSubmitting
+                        ? null
+                        : () => _openCameraScanner(continuousScan: true),
                     icon: const Icon(Icons.qr_code_scanner_rounded),
-                    label: const Text('Scan Parcel'),
+                    label: const Text('Start Scanning Parcels'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: RiderTheme.primary,
                       foregroundColor: Colors.white,
@@ -594,11 +594,15 @@ class _ManifestDetailScreenState extends State<ManifestDetailScreen> {
                     ),
                   ),
                   if (m.canScanLoading && !item.isLoaded)
-                    TextButton(
+                    TextButton.icon(
                       onPressed: _isSubmitting
                           ? null
-                          : () => _scanTrackingNumber(item.trackingNumber),
-                      child: const Text('Scan'),
+                          : () => _openCameraScanner(
+                                continuousScan: false,
+                                expectedTrackingNumber: item.trackingNumber,
+                              ),
+                      icon: const Icon(Icons.qr_code_scanner_rounded, size: 16),
+                      label: const Text('Scan'),
                     ),
                   if (m.status != 'completed' && m.status != 'cancelled')
                     IconButton(

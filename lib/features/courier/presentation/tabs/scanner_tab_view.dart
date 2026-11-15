@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../../../core/widgets/parcel_barcode_scanner.dart';
 import '../../models/courier_models.dart';
 import '../../services/courier_service.dart';
 
@@ -22,15 +23,72 @@ class _ScannerTabViewState extends State<ScannerTabView> {
     super.dispose();
   }
 
+  CourierParcel? _findExactParcel(String code) {
+    final cleanUpper = code.trim().toUpperCase();
+    for (final p in _service.parcels) {
+      if (p.id.toUpperCase() == cleanUpper) {
+        return p;
+      }
+    }
+    return null;
+  }
+
+  Future<void> _openLiveCameraScanner() async {
+    await ParcelBarcodeScanner.open(
+      context,
+      mode: ParcelScanMode.parcelLookup,
+      title: 'Hub Waybill Lookup',
+      subtitle: 'Point camera at parcel Code 128 barcode or QR code',
+      onBarcodeSubmitted: (trackingNumber) async {
+        final found = _findExactParcel(trackingNumber);
+        if (found == null) {
+          setState(() {
+            _scannedParcel = null;
+            _scanErrorMessage = 'Parcel "$trackingNumber" was not found.';
+          });
+          return ParcelScanSubmissionResult(
+            success: false,
+            message: 'Parcel "$trackingNumber" not found.',
+          );
+        }
+        setState(() {
+          _scannedParcel = found;
+          _scanErrorMessage = null;
+        });
+        return ParcelScanSubmissionResult(
+          success: true,
+          message: 'Matched parcel ${found.id}',
+        );
+      },
+    );
+  }
+
   void _processScannedBarcode(String code) {
     HapticFeedback.mediumImpact();
     final cleanCode = code.trim();
     if (cleanCode.isEmpty) return;
 
-    final found = _service.parcels.firstWhere(
-      (p) => p.id.toUpperCase() == cleanCode.toUpperCase(),
-      orElse: () => _service.parcels.first,
-    );
+    final found = _findExactParcel(cleanCode);
+    if (found == null) {
+      setState(() {
+        _scannedParcel = null;
+        _scanErrorMessage = 'Parcel "$cleanCode" was not found.';
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.error_outline_rounded, color: Colors.white, size: 18),
+              const SizedBox(width: 8),
+              Expanded(child: Text('Parcel "$cleanCode" not found.')),
+            ],
+          ),
+          backgroundColor: const Color(0xFFDC2626),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
 
     setState(() {
       _scannedParcel = found;
@@ -104,7 +162,7 @@ class _ScannerTabViewState extends State<ScannerTabView> {
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: const Text(
-                        'AUTO-DETECT 60FPS',
+                        'CAMERA READY',
                         style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: Color(0xFF10B981)),
                       ),
                     ),
@@ -112,54 +170,58 @@ class _ScannerTabViewState extends State<ScannerTabView> {
                 ),
                 const SizedBox(height: 20),
 
-                // Mock Scan Viewport with Reticle
-                Container(
-                  width: double.infinity,
-                  height: 180,
-                  decoration: BoxDecoration(
-                    color: Colors.black,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: const Color(0xFF0066FF), width: 1.5),
-                  ),
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      Container(
-                        width: 220,
-                        height: 120,
-                        decoration: BoxDecoration(
-                          border: Border.all(color: const Color(0xFF0066FF), width: 2),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.barcode_reader, color: Colors.white70, size: 48),
-                              SizedBox(height: 4),
-                              Text(
-                                'Align Waybill Barcode',
-                                style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      Positioned(
-                        bottom: 12,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                // Live Camera Scanner Launcher
+                InkWell(
+                  onTap: _openLiveCameraScanner,
+                  borderRadius: BorderRadius.circular(16),
+                  child: Container(
+                    width: double.infinity,
+                    height: 180,
+                    decoration: BoxDecoration(
+                      color: Colors.black,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: const Color(0xFF0066FF), width: 1.5),
+                    ),
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Container(
+                          width: 220,
+                          height: 120,
                           decoration: BoxDecoration(
-                            color: Colors.white12,
-                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: const Color(0xFF0066FF), width: 2),
+                            borderRadius: BorderRadius.circular(12),
                           ),
-                          child: const Text(
-                            'Hold package steady within frame',
-                            style: TextStyle(color: Colors.white60, fontSize: 10),
+                          child: const Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.qr_code_scanner_rounded, color: Colors.white, size: 44),
+                                SizedBox(height: 6),
+                                Text(
+                                  'Tap to Open Camera Scanner',
+                                  style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                      ),
-                    ],
+                        Positioned(
+                          bottom: 12,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.white12,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: const Text(
+                              'Uses device camera for Code 128 & QR scanning',
+                              style: TextStyle(color: Colors.white70, fontSize: 10),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -205,6 +267,31 @@ class _ScannerTabViewState extends State<ScannerTabView> {
             ),
           ),
           const SizedBox(height: 16),
+
+          if (_scanErrorMessage != null) ...[
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEF2F2),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFFFCA5A5)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.error_outline_rounded, color: Color(0xFFDC2626), size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _scanErrorMessage!,
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF991B1B)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
 
           // Result Card if parcel was scanned
           if (_scannedParcel != null)

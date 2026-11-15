@@ -95,6 +95,7 @@ class DeliveryOrder {
   final bool fitsInsulatedBag;
   final String? offerId;
   final int? serverOrderId;
+  final String? trackingNumber;
 
   const DeliveryOrder({
     required this.id,
@@ -127,6 +128,7 @@ class DeliveryOrder {
     this.fitsInsulatedBag = true,
     this.offerId,
     this.serverOrderId,
+    this.trackingNumber,
   });
 
   double get riderEarnings => deliveryFee + tip;
@@ -171,6 +173,7 @@ class DeliveryOrder {
     bool? fitsInsulatedBag,
     String? offerId,
     int? serverOrderId,
+    String? trackingNumber,
   }) {
     return DeliveryOrder(
       id: id ?? this.id,
@@ -203,6 +206,7 @@ class DeliveryOrder {
       fitsInsulatedBag: fitsInsulatedBag ?? this.fitsInsulatedBag,
       offerId: offerId ?? this.offerId,
       serverOrderId: serverOrderId ?? this.serverOrderId,
+      trackingNumber: trackingNumber ?? this.trackingNumber,
     );
   }
 
@@ -243,6 +247,7 @@ class DeliveryOrder {
       acceptanceCountdownSec: expiresIn,
       offerId: rawOfferId,
       serverOrderId: serverOrderId,
+      trackingNumber: orderObj?['tracking_number']?.toString(),
     );
   }
 
@@ -312,6 +317,7 @@ class DeliveryOrder {
       createdAt: json['created_at'] != null ? DateTime.tryParse(json['created_at'].toString()) ?? DateTime.now() : DateTime.now(),
       status: status,
       serverOrderId: serverOrderId,
+      trackingNumber: json['tracking_number']?.toString(),
     );
   }
 }

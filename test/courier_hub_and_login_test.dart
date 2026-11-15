@@ -93,11 +93,10 @@ void main() {
       expect(scanned, isNotNull);
       expect(scanned!.id, equals(firstId));
 
-      // Scanning a brand new unknown tracking number creates an inbound parcel
+      // Scanning an unknown tracking number must NOT fabricate a fake parcel
       const newTracking = 'NX-PH-99998888';
-      final autoCreated = service.scanInboundWaybill(newTracking);
-      expect(autoCreated, isNotNull);
-      expect(autoCreated!.status, equals(CourierParcelStatus.sorting));
+      final rejected = service.scanInboundWaybill(newTracking);
+      expect(rejected, isNull);
     });
 
     test('batchDispatch assigns parcels to rider', () {

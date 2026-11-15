@@ -867,21 +867,42 @@ class DeliveryService extends ChangeNotifier {
     return true;
   }
 
-  Future<bool> confirmPickupRemote(String trackingNumber, {String? orderId}) async {
-    if (ApiClient.instance.isAuthenticated) {
-      final idempotencyKey = 'pickup_${trackingNumber}_${DateTime.now().millisecondsSinceEpoch}';
-      final path = orderId != null && orderId.isNotEmpty
-          ? '/api/mobile/v1/rider/deliveries/$orderId/pickup'
-          : ApiConstants.pickup;
-      await ApiClient.instance.post(
-        path,
-        body: {'tracking_number': trackingNumber.trim()},
-        headers: {'Idempotency-Key': idempotencyKey},
+  Future<bool> confirmPickupRemote(
+    String trackingNumber, {
+    String? orderId,
+    int? expectedOrderId,
+  }) async {
+    final normalized = trackingNumber.trim();
+    if (normalized.isEmpty) {
+      throw ApiException(
+        message: 'Tracking number is required to confirm pickup.',
+        statusCode: 422,
       );
-      updateActiveOrderStage(2);
-      return true;
     }
+    if (!ApiClient.instance.isAuthenticated) {
+      throw ApiException(
+        message: 'Sign in is required to confirm parcel pickup.',
+        statusCode: 401,
+      );
+    }
+
+    final resolvedExpectedOrderId =
+        expectedOrderId ?? _activeOrder?.serverOrderId ?? int.tryParse(orderId ?? '');
+    final idempotencyKey =
+        'pickup_${normalized}_${DateTime.now().millisecondsSinceEpoch}';
+
+    await ApiClient.instance.post(
+      ApiConstants.pickup,
+      body: {
+        'tracking_number': normalized,
+        'expected_order_id': ?resolvedExpectedOrderId,
+      },
+      headers: {'Idempotency-Key': idempotencyKey},
+    );
+
+    updateActiveOrderScanProgress(pkg1: true, pkg2: true);
     updateActiveOrderStage(2);
+    await fetchActiveDeliveriesRemote();
     return true;
   }
 

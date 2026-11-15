@@ -66,6 +66,8 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>Nexora Rider uses your camera to scan parcel Code 128 waybill barcodes for pickup, hub transfer manifest loading, and capture Proof of Delivery photos.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Nexora Rider needs precise GPS location to navigate active routes and broadcast accurate real-time delivery tracking and speed to customers.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>

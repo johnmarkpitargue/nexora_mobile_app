@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nexora_rider_app/core/models/delivery_order.dart';
+import 'package:nexora_rider_app/core/widgets/parcel_barcode_scanner.dart';
 import 'package:nexora_rider_app/features/delivery/presentation/active_delivery_screen.dart';
 import 'package:nexora_rider_app/features/delivery/presentation/widgets/route_progress_widget.dart';
 
 void main() {
   final testOrder = DeliveryOrder(
     id: 'NX-89244',
+    serverOrderId: 89244,
+    trackingNumber: 'NX-TRK-TEST01',
     customerName: 'Juan Dela Cruz',
     customerPhone: '+63 917 555 1234',
     customerAddress: 'Tower 1, High Street South, 26th St, Taguig City',
@@ -101,12 +104,12 @@ void main() {
       expect(find.text('NAVIGATE TO STORE (GOOGLE MAPS)'), findsOneWidget);
       expect(find.text('I HAVE ARRIVED AT STORE'), findsOneWidget);
 
-      // 3. Logistics Protocol: Package Manifest uses barcode/camera scanner buttons with SCAN badge, NOT static checkboxes
+      // 3. Logistics Protocol: Single canonical order waybill with barcode scanner button
       expect(find.text('PACKAGE MANIFEST'), findsOneWidget);
-      expect(find.text('Parcel #NX8942-A'), findsOneWidget);
-      expect(find.text('Parcel #NX8942-B'), findsOneWidget);
+      expect(find.text('1 Parcel'), findsOneWidget);
+      expect(find.text('Waybill NX-TRK-TEST01'), findsOneWidget);
       expect(find.byIcon(Icons.qr_code_scanner_rounded), findsWidgets);
-      expect(find.text('SCAN'), findsNWidgets(2));
+      expect(find.text('SCAN'), findsOneWidget);
 
       // 4. Scroll to and tap "I HAVE ARRIVED AT STORE" advances to Stage 1
       final arrivalBtn = find.text('I HAVE ARRIVED AT STORE');
@@ -124,11 +127,60 @@ void main() {
       expect(topHero, findsOneWidget);
       // Stepper shows Step 0 with green checkmark
       expect(find.byIcon(Icons.check_rounded), findsWidgets);
-      // Bottom CTA transitions to scanning
-      expect(find.textContaining('START SCANNING PARCELS'), findsOneWidget);
+      // Bottom CTA transitions to canonical waybill scanning
+      expect(find.text('SCAN WAYBILL BARCODE'), findsOneWidget);
     });
 
-    testWidgets('ActiveDeliveryScreen: Camera Barcode Scan modal authenticates parcel', (tester) async {
+    testWidgets('ActiveDeliveryScreen: Camera Barcode Scan authenticates parcel via backend hook', (tester) async {
+      tester.view.physicalSize = const Size(400, 950);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      String? submittedCode;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ActiveDeliveryScreen(
+            order: testOrder,
+            scannerPreviewOverride: (ctx, emitBarcode) => ElevatedButton(
+              onPressed: () => emitBarcode('NX-TRK-TEST01'),
+              child: const Text('EMIT MOCK BARCODE'),
+            ),
+            onPickupBarcodeSubmitOverride: (tracking) async {
+              submittedCode = tracking;
+              return ParcelScanSubmissionResult(
+                success: true,
+                message: 'Pickup verified for $tracking',
+                progressText: '1 / 1 verified',
+              );
+            },
+          ),
+        ),
+      );
+      await tester.pump();
+
+      // Tap SCAN button on the canonical waybill card
+      final scanBtn = find.text('SCAN');
+      expect(scanBtn, findsOneWidget);
+      await tester.tap(scanBtn);
+      await tester.pumpAndSettle();
+
+      // Shared camera barcode scanner opens
+      expect(find.text('Scan Order Waybill'), findsOneWidget);
+      expect(find.text('RIDER PICKUP SCAN'), findsOneWidget);
+
+      // Simulate decoded camera barcode
+      await tester.tap(find.text('EMIT MOCK BARCODE'));
+      await tester.pumpAndSettle();
+
+      expect(submittedCode, equals('NX-TRK-TEST01'));
+      expect(find.text('1/1 Verified'), findsOneWidget);
+      expect(find.text('START DELIVERY TO CUSTOMER'), findsOneWidget);
+    });
+
+    testWidgets('ActiveDeliveryScreen: Manual barcode fallback verifies parcel through shared validator', (tester) async {
       tester.view.physicalSize = const Size(400, 950);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() {
@@ -138,68 +190,52 @@ void main() {
 
       await tester.pumpWidget(
         MaterialApp(
-          home: ActiveDeliveryScreen(order: testOrder),
+          home: ActiveDeliveryScreen(
+            order: testOrder,
+            scannerPreviewOverride: (_, _) => const SizedBox.shrink(),
+            onPickupBarcodeSubmitOverride: (tracking) async {
+              if (tracking != 'NX-TRK-TEST01') {
+                return const ParcelScanSubmissionResult(
+                  success: false,
+                  message: 'Scanned barcode does not match this assigned order.',
+                );
+              }
+              return ParcelScanSubmissionResult(
+                success: true,
+                message: 'Pickup verified for $tracking',
+                progressText: '1 / 1 verified',
+              );
+            },
+          ),
         ),
       );
       await tester.pump();
 
-      // Tap first parcel SCAN button
-      final scanButtons = find.text('SCAN');
-      expect(scanButtons, findsWidgets);
-      await tester.tap(scanButtons.first);
+      // Open scanner
+      await tester.tap(find.text('SCAN'));
       await tester.pumpAndSettle();
 
-      // Viewfinder modal displays
-      expect(find.text('PARCEL SCAN VERIFICATION'), findsOneWidget);
-      expect(find.text('ALIGN PARCEL BARCODE WITHIN FRAME'), findsOneWidget);
+      final verifyBtn = find.widgetWithText(ElevatedButton, 'Verify');
 
-      // Tap SIMULATE CAMERA BARCODE SCAN
-      await tester.tap(find.text('SIMULATE CAMERA BARCODE SCAN'));
-      await tester.pumpAndSettle();
-
-      // Parcel is now verified
-      expect(find.text('VERIFIED'), findsOneWidget);
-    });
-
-    testWidgets('ActiveDeliveryScreen: Manual barcode typing fall-back authenticates parcel', (tester) async {
-      tester.view.physicalSize = const Size(400, 950);
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(() {
-        tester.view.resetPhysicalSize();
-        tester.view.resetDevicePixelRatio();
-      });
-
-      await tester.pumpWidget(
-        MaterialApp(
-          home: ActiveDeliveryScreen(order: testOrder),
-        ),
-      );
-      await tester.pump();
-
-      // Tap first parcel SCAN button
-      final scanButtons = find.text('SCAN');
-      expect(scanButtons, findsWidgets);
-      await tester.tap(scanButtons.first);
-      await tester.pumpAndSettle();
-
-      // Viewfinder modal displays
-      expect(find.text('PARCEL SCAN VERIFICATION'), findsOneWidget);
-      expect(find.text('CANNOT SCAN? ENTER MANUALLY'), findsOneWidget);
-
-      // Verify empty submission shows warning message
-      final verifyBtn = find.widgetWithText(ElevatedButton, 'VERIFY');
+      // Empty manual submission shows validation error
       await tester.tap(verifyBtn);
       await tester.pumpAndSettle();
-      expect(find.text('Please enter barcode or tracking number.'), findsOneWidget);
+      expect(find.text('Please enter or scan a valid tracking number.'), findsOneWidget);
 
-      // Enter manual code and verify
-      final inputField = find.byType(TextFormField);
-      await tester.enterText(inputField, 'NX-7829-01');
+      // Mismatched manual code fails without marking verified
+      final inputField = find.byType(TextField);
+      await tester.enterText(inputField, 'WRONG-CODE');
+      await tester.tap(verifyBtn);
+      await tester.pumpAndSettle();
+      expect(find.text('Scanned barcode does not match this assigned order.'), findsOneWidget);
+
+      // Matching manual code verifies parcel and returns to verified Stage 2
+      await tester.enterText(inputField, 'NX-TRK-TEST01');
       await tester.tap(verifyBtn);
       await tester.pumpAndSettle();
 
-      // Parcel is now verified
-      expect(find.text('VERIFIED'), findsOneWidget);
+      expect(find.text('1/1 Verified'), findsOneWidget);
+      expect(find.text('START DELIVERY TO CUSTOMER'), findsOneWidget);
     });
 
     testWidgets('ActiveDeliveryScreen: Stage 1 Handover Code Verification and Show My QR modal', (tester) async {
@@ -244,11 +280,11 @@ void main() {
       expect(find.text('HANDOVER CODE VERIFIED'), findsOneWidget);
       expect(find.textContaining('Code Authenticated: NX-8942-S'), findsOneWidget);
 
-      // Verify that Package 2 is scrollable and visible
-      final pkg2 = find.text('NX-PKG-8942-02');
-      await tester.ensureVisible(pkg2);
+      // Verify that canonical waybill tile is visible in Stage 1 At Store
+      final pkgTile = find.text('NX-TRK-TEST01');
+      await tester.ensureVisible(pkgTile);
       await tester.pumpAndSettle();
-      expect(pkg2, findsOneWidget);
+      expect(pkgTile, findsOneWidget);
     });
 
     testWidgets('ActiveDeliveryScreen: Stage 3 Masked Phone Privacy and Clean Map without Redundant Zoom Buttons', (tester) async {

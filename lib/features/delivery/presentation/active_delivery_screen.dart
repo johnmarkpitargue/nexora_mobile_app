@@ -15,15 +15,24 @@ import '../../chat/presentation/rider_chat_screen.dart';
 import '../../../core/services/chat_service.dart';
 import '../../../core/services/in_app_notification_service.dart';
 import '../../earnings/presentation/earnings_screen.dart';
+import '../../../core/widgets/parcel_barcode_scanner.dart';
 import 'widgets/rider_live_navigation_map.dart';
 import 'widgets/route_progress_widget.dart';
 
 class ActiveDeliveryScreen extends StatefulWidget {
   final DeliveryOrder order;
+  final Future<ParcelScanSubmissionResult> Function(String trackingNumber)?
+      onPickupBarcodeSubmitOverride;
+  final Widget Function(
+    BuildContext context,
+    void Function(String rawCode) emitBarcode,
+  )? scannerPreviewOverride;
 
   const ActiveDeliveryScreen({
     super.key,
     required this.order,
+    this.onPickupBarcodeSubmitOverride,
+    this.scannerPreviewOverride,
   });
 
   @override
@@ -137,10 +146,9 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
 
   void _nextStage() {
     if (_currentStage < 4) {
-      if (_currentStage == 1) {
-        _pkg1Scanned = true;
-        _pkg2Scanned = true;
-        DeliveryService.instance.confirmPickupRemote(widget.order.id, orderId: widget.order.id);
+      if (_currentStage == 1 && !_pkg1Scanned) {
+        _openWaybillPickupScanner();
+        return;
       }
 
       setState(() {
@@ -846,523 +854,84 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
     );
   }
 
-  void _showBarcodeScannerModal(String parcelId, String description, String barcode) {
-    final manualCodeController = TextEditingController();
-    String? statusMessage;
-    bool isStatusError = false;
-    bool isCameraLoading = false;
+  String get _canonicalTrackingNumber {
+    final tracking = widget.order.trackingNumber?.trim() ?? '';
+    if (tracking.isNotEmpty) return tracking;
+    return widget.order.id.replaceAll('#', '').trim();
+  }
 
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setModalState) {
-          final bottomInset = MediaQuery.of(ctx).viewInsets.bottom;
-
-          void completeVerification(String method) {
-            final messenger = ScaffoldMessenger.of(context);
-            Navigator.pop(ctx);
-            if (!mounted) return;
+  Future<void> _openWaybillPickupScanner() async {
+    final confirmed = await ParcelBarcodeScanner.open(
+      context,
+      mode: ParcelScanMode.riderPickup,
+      title: 'Scan Order Waybill',
+      subtitle: 'Point camera at ${widget.order.merchantName} parcel barcode',
+      expectedTrackingNumber: widget.order.trackingNumber,
+      initialProgressText: 'Order ${widget.order.id} • ${_pkg1Scanned ? 1 : 0}/1 verified',
+      scannerPreviewOverride: widget.scannerPreviewOverride,
+      onBarcodeSubmitted: (trackingNumber) async {
+        if (widget.onPickupBarcodeSubmitOverride != null) {
+          final result = await widget.onPickupBarcodeSubmitOverride!(trackingNumber);
+          if (result.success && mounted) {
             setState(() {
-              if (parcelId.contains('MASTER')) {
-                _pkg1Scanned = true;
-                _pkg2Scanned = true;
-              } else if (parcelId.contains('A') || parcelId.contains('01')) {
-                _pkg1Scanned = true;
-              } else {
-                _pkg2Scanned = true;
+              _pkg1Scanned = true;
+              _pkg2Scanned = true;
+              if (_currentStage < 2) {
+                _currentStage = 2;
               }
-              DeliveryService.instance.updateActiveOrderScanProgress(
-                pkg1: _pkg1Scanned,
-                pkg2: _pkg2Scanned,
-              );
             });
-            HapticFeedback.mediumImpact();
-            messenger.showSnackBar(
-              SnackBar(
-                content: Row(
-                  children: [
-                    const Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 18),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text('✓ $parcelId Barcode Authenticated & Security Seal Verified!'),
-                    ),
-                  ],
-                ),
-                backgroundColor: const Color(0xFF0B192C),
-                behavior: SnackBarBehavior.floating,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-            );
           }
-
-          Future<void> scanWithCamera() async {
-            setModalState(() {
-              isCameraLoading = true;
-              statusMessage = null;
-              isStatusError = false;
-            });
-            try {
-              final picker = ImagePicker();
-              final XFile? photo = await picker.pickImage(
-                source: ImageSource.camera,
-                preferredCameraDevice: CameraDevice.rear,
-                imageQuality: 85,
-              );
-              if (photo != null) {
-                completeVerification('Camera Photo Scan');
-              } else {
-                setModalState(() {
-                  isCameraLoading = false;
-                  statusMessage = 'Camera scan cancelled. You can enter the barcode manually below.';
-                  isStatusError = false;
-                });
-              }
-            } catch (e) {
-              setModalState(() {
-                isCameraLoading = false;
-                statusMessage = 'Camera unavailable on device. Please enter barcode manually below.';
-                isStatusError = true;
-              });
-            }
-          }
-
-          void submitManualBarcode() {
-            final input = manualCodeController.text.trim();
-            if (input.isEmpty) {
-              setModalState(() {
-                statusMessage = 'Please enter barcode or tracking number.';
-                isStatusError = true;
-              });
-              return;
-            }
-            completeVerification('Manual Code: $input');
-          }
-
-          return Container(
-            constraints: BoxConstraints(
-              maxHeight: MediaQuery.of(ctx).size.height * 0.92,
-            ),
-            padding: EdgeInsets.fromLTRB(20, 16, 20, 20 + bottomInset),
-            decoration: const BoxDecoration(
-              color: Color(0xFF0F172A),
-              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-            ),
-            child: SingleChildScrollView(
-              physics: const BouncingScrollPhysics(),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Center(
-                    child: Container(
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: Colors.white24,
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF0066FF).withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: const Icon(Icons.qr_code_scanner_rounded, color: Color(0xFF0066FF), size: 20),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'PARCEL SCAN VERIFICATION',
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w900,
-                                      color: Color(0xFF0066FF),
-                                      letterSpacing: 0.8,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  Text(
-                                    parcelId,
-                                    style: const TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w900,
-                                      color: Colors.white,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.close_rounded, color: Colors.white70),
-                        onPressed: () => Navigator.pop(ctx),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-
-                  // Camera Viewfinder Screen
-                  Container(
-                    width: double.infinity,
-                    height: 180,
-                    decoration: BoxDecoration(
-                      color: Colors.black,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: const Color(0xFF334155), width: 1.5),
-                    ),
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        // Viewfinder corner marks
-                        Positioned(
-                          top: 14,
-                          left: 18,
-                          right: 18,
-                          bottom: 14,
-                          child: Container(
-                            decoration: BoxDecoration(
-                              border: Border.all(color: const Color(0xFF0066FF), width: 2),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Center(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  const Icon(Icons.barcode_reader, size: 44, color: Colors.white70),
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    barcode,
-                                    style: const TextStyle(
-                                      color: Color(0xFF0066FF),
-                                      fontSize: 12,
-                                      letterSpacing: 2,
-                                      fontFamily: 'monospace',
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                        // Camera Scanning Laser animation bar
-                        Positioned(
-                          top: 90,
-                          left: 24,
-                          right: 24,
-                          child: Container(
-                            height: 2,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF0066FF),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: const Color(0xFF0066FF).withValues(alpha: 0.8),
-                                  blurRadius: 8,
-                                  spreadRadius: 2,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        Positioned(
-                          bottom: 6,
-                          child: Text(
-                            'ALIGN PARCEL BARCODE WITHIN FRAME',
-                            style: TextStyle(
-                              fontSize: 9,
-                              fontWeight: FontWeight.w800,
-                              color: Colors.white.withValues(alpha: 0.7),
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Parcel Description & Status
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.05),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.shield_outlined, size: 16, color: Color(0xFF0066FF)),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            description,
-                            style: const TextStyle(fontSize: 11.5, color: Colors.white70),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Real Camera Scan Action
-                  SizedBox(
-                    width: double.infinity,
-                    height: 46,
-                    child: ElevatedButton.icon(
-                      onPressed: isCameraLoading ? null : scanWithCamera,
-                      icon: isCameraLoading
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF0F172A)),
-                            )
-                          : const Icon(Icons.camera_alt_rounded, size: 18),
-                      label: Text(
-                        isCameraLoading ? 'STARTING CAMERA...' : 'OPEN CAMERA SCANNER',
-                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900, letterSpacing: 0.4),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF0066FF),
-                        foregroundColor: const Color(0xFF0F172A),
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-
-                  // Simulate Camera Scan (Fast fallback & automated tests)
-                  SizedBox(
-                    width: double.infinity,
-                    height: 42,
-                    child: OutlinedButton.icon(
-                      onPressed: () => completeVerification('Simulated Scan'),
-                      icon: const Icon(Icons.qr_code_scanner_rounded, size: 16, color: Color(0xFF0066FF)),
-                      label: const Text(
-                        'SIMULATE CAMERA BARCODE SCAN',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w800,
-                          color: Color(0xFF0066FF),
-                          letterSpacing: 0.3,
-                        ),
-                      ),
-                      style: OutlinedButton.styleFrom(
-                        side: BorderSide(color: const Color(0xFF0066FF).withValues(alpha: 0.35)),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        backgroundColor: const Color(0xFF0066FF).withValues(alpha: 0.05),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-
-                  // Manual Typing Section
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF1E293B).withValues(alpha: 0.7),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                        color: isStatusError
-                            ? const Color(0xFFEF4444).withValues(alpha: 0.5)
-                            : Colors.white.withValues(alpha: 0.12),
-                      ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            const Icon(Icons.edit_note_rounded, size: 16, color: Color(0xFF0066FF)),
-                            const SizedBox(width: 6),
-                            const Expanded(
-                              child: Text(
-                                'CANNOT SCAN? ENTER MANUALLY',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w900,
-                                  color: Color(0xFF94A3B8),
-                                  letterSpacing: 0.5,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF0066FF).withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: const Text(
-                                'FALLBACK',
-                                style: TextStyle(
-                                  fontSize: 8.5,
-                                  fontWeight: FontWeight.w800,
-                                  color: Color(0xFF0066FF),
-                                  letterSpacing: 0.5,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        const Text(
-                          'If barcode is torn, smudged, or camera cannot focus, type code below:',
-                          style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
-                        ),
-                        const SizedBox(height: 10),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: TextFormField(
-                                controller: manualCodeController,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 13,
-                                  fontFamily: 'monospace',
-                                  fontWeight: FontWeight.w700,
-                                ),
-                                textCapitalization: TextCapitalization.characters,
-                                decoration: InputDecoration(
-                                  hintText: 'e.g. $barcode',
-                                  hintStyle: TextStyle(
-                                    color: Colors.white.withValues(alpha: 0.35),
-                                    fontSize: 12,
-                                    fontFamily: 'monospace',
-                                  ),
-                                  prefixIcon: const Icon(
-                                    Icons.keyboard_alt_outlined,
-                                    size: 17,
-                                    color: Color(0xFF0066FF),
-                                  ),
-                                  suffixIcon: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      if (manualCodeController.text.isNotEmpty)
-                                        IconButton(
-                                          icon: const Icon(Icons.clear_rounded, size: 16, color: Colors.white60),
-                                          onPressed: () {
-                                            setModalState(() {
-                                              manualCodeController.clear();
-                                              statusMessage = null;
-                                            });
-                                          },
-                                        ),
-                                      IconButton(
-                                        tooltip: 'Paste barcode',
-                                        icon: const Icon(Icons.auto_fix_high_rounded, size: 16, color: Color(0xFF0066FF)),
-                                        onPressed: () {
-                                          setModalState(() {
-                                            manualCodeController.text = barcode;
-                                            statusMessage = null;
-                                            isStatusError = false;
-                                          });
-                                        },
-                                      ),
-                                    ],
-                                  ),
-                                  filled: true,
-                                  fillColor: const Color(0xFF0F172A),
-                                  isDense: true,
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                    borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.15)),
-                                  ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                    borderSide: const BorderSide(color: Color(0xFF0066FF), width: 1.5),
-                                  ),
-                                ),
-                                onChanged: (_) {
-                                  if (statusMessage != null) {
-                                    setModalState(() => statusMessage = null);
-                                  }
-                                },
-                                onFieldSubmitted: (_) => submitManualBarcode(),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            ElevatedButton(
-                              onPressed: submitManualBarcode,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF0066FF),
-                                foregroundColor: const Color(0xFF0F172A),
-                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                elevation: 0,
-                              ),
-                              child: const Text(
-                                'VERIFY',
-                                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 12),
-                              ),
-                            ),
-                          ],
-                        ),
-                        if (statusMessage != null) ...[
-                          const SizedBox(height: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: isStatusError
-                                  ? const Color(0xFFEF4444).withValues(alpha: 0.15)
-                                  : const Color(0xFF0066FF).withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  isStatusError ? Icons.error_outline_rounded : Icons.info_outline_rounded,
-                                  size: 14,
-                                  color: isStatusError ? const Color(0xFFF87171) : const Color(0xFF0066FF),
-                                ),
-                                const SizedBox(width: 6),
-                                Expanded(
-                                  child: Text(
-                                    statusMessage!,
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: isStatusError ? const Color(0xFFF87171) : const Color(0xFF0066FF),
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                ],
-              ),
-            ),
+          return result;
+        }
+        try {
+          await DeliveryService.instance.confirmPickupRemote(
+            trackingNumber,
+            orderId: widget.order.id,
+            expectedOrderId: widget.order.serverOrderId,
           );
-        },
-      ),
+          if (mounted) {
+            setState(() {
+              _pkg1Scanned = true;
+              _pkg2Scanned = true;
+              _currentStage = 2;
+            });
+            RiderLocationService.instance.updateOrderStatus('picked_up');
+          }
+          return ParcelScanSubmissionResult(
+            success: true,
+            message: 'Pickup verified for $trackingNumber',
+            progressText: '1 / 1 verified',
+          );
+        } on ApiException catch (e) {
+          return ParcelScanSubmissionResult(
+            success: false,
+            message: e.message,
+          );
+        } catch (e) {
+          return ParcelScanSubmissionResult(
+            success: false,
+            message: 'Unable to verify pickup: $e',
+          );
+        }
+      },
     );
+
+    if (confirmed == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.check_circle, color: Colors.white, size: 18),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text('Waybill $_canonicalTrackingNumber pickup confirmed.'),
+              ),
+            ],
+          ),
+          backgroundColor: const Color(0xFF10B981),
+        ),
+      );
+    }
   }
 
   void _validateHandoverCode(String input) {
@@ -1370,7 +939,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
     if (clean.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('⚠️ Please request the handover code from Marco R. at Counter Desk 02'),
+          content: Text('⚠️ Please request the handover code from the merchant counter staff'),
           backgroundColor: Color(0xFFDC2626),
         ),
       );
@@ -1456,7 +1025,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
             ),
             const SizedBox(height: 6),
             Text(
-              'Present this digital authorization badge to store attendant Marco R. at Counter Desk 02 to scan and verify package custody release.',
+              'Present this digital authorization badge to the merchant pickup attendant to verify package custody release.',
               textAlign: TextAlign.center,
               style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), height: 1.35),
             ),
@@ -1509,7 +1078,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                           Icon(Icons.verified_rounded, color: Colors.white, size: 18),
                           SizedBox(width: 8),
                           Expanded(
-                            child: Text('✓ Attendant Marco R. scanned rider badge! Handover authorized.'),
+                            child: Text('✓ Store attendant verified rider badge. Handover authorized.'),
                           ),
                         ],
                       ),
@@ -2246,7 +1815,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                           const SizedBox(width: 6),
                           Expanded(
                             child: Text(
-                              'Code Authenticated: ${_handoverCodeController.text.isNotEmpty ? _handoverCodeController.text : "NX-8942-S"} (Marco R.)',
+                              'Code Authenticated: ${_handoverCodeController.text.isNotEmpty ? _handoverCodeController.text : "VERIFIED"} (Merchant Staff)',
                               style: const TextStyle(
                                 fontSize: 11.5,
                                 fontWeight: FontWeight.w800,
@@ -2275,7 +1844,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                                 letterSpacing: 1.2,
                               ),
                               decoration: InputDecoration(
-                                hintText: 'Enter code from Marco R. (e.g. NX-8942-S)',
+                                hintText: 'Enter store handover code',
                                 hintStyle: TextStyle(
                                   fontSize: 10.5,
                                   fontWeight: FontWeight.w500,
@@ -2375,29 +1944,36 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'HANDOFF COMPLETE • LOADING BAY #2',
-                      style: TextStyle(
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w900,
-                        color: Color(0xFF0066FF),
-                        letterSpacing: 0.6,
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'HANDOFF COMPLETE • LOADING BAY #2',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w900,
+                          color: Color(0xFF0066FF),
+                          letterSpacing: 0.6,
+                        ),
                       ),
-                    ),
-                    SizedBox(height: 2),
-                    Text(
-                      'Handoff Verified & Inspected',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w900,
-                        color: Colors.white,
+                      SizedBox(height: 2),
+                      Text(
+                        'Handoff Verified & Inspected',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.white,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
+                const SizedBox(width: 8),
                 Container(
                   width: 36,
                   height: 36,
@@ -2421,42 +1997,56 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
               child: const Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'MERCHANT HANDOVER CODE',
-                        style: TextStyle(
-                          fontSize: 9.5,
-                          fontWeight: FontWeight.w800,
-                          color: Color(0xFF94A3B8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'MERCHANT HANDOVER CODE',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF94A3B8),
+                          ),
                         ),
-                      ),
-                      SizedBox(height: 2),
-                      Text(
-                        'NX-8942-S',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w900,
-                          color: Colors.white,
-                          letterSpacing: 1.0,
+                        SizedBox(height: 2),
+                        Text(
+                          'NX-8942-S',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.white,
+                            letterSpacing: 1.0,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                  Row(
-                    children: [
-                      Icon(Icons.check_circle_rounded, size: 14, color: Color(0xFF0066FF)),
-                      SizedBox(width: 4),
-                      Text(
-                        'ACCEPTED BY MERCHANT',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w900,
-                          color: Color(0xFF0066FF),
+                  SizedBox(width: 8),
+                  Flexible(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.check_circle_rounded, size: 14, color: Color(0xFF0066FF)),
+                        SizedBox(width: 4),
+                        Flexible(
+                          child: Text(
+                            'ACCEPTED BY MERCHANT',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w900,
+                              color: Color(0xFF0066FF),
+                            ),
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -2466,19 +2056,30 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
             const Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    Icon(Icons.badge_outlined, size: 14, color: Color(0xFF0066FF)),
-                    SizedBox(width: 4),
-                    Text(
-                      'Authorized Staff: Marco R.',
-                      style: TextStyle(fontSize: 11, color: Colors.white70, fontWeight: FontWeight.w600),
-                    ),
-                  ],
+                Expanded(
+                  child: Row(
+                    children: [
+                      Icon(Icons.badge_outlined, size: 14, color: Color(0xFF0066FF)),
+                      SizedBox(width: 4),
+                      Flexible(
+                        child: Text(
+                          'Authorized Merchant Pickup',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontSize: 11, color: Colors.white70, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                Text(
-                  'Counter Desk 02',
-                  style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    'Store Dispatch Counter',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                  ),
                 ),
               ],
             ),
@@ -2768,7 +2369,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                     color: const Color(0xFFF1F5F9),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Text('2 Parcels',
+                  child: const Text('1 Parcel',
                       style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: Color(0xFF64748B))),
                 ),
               ],
@@ -2777,30 +2378,12 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
 
             _buildManifestItem(
               isScanned: _pkg1Scanned,
-              title: 'Parcel #NX8942-A',
-              desc: 'Medium Sealed Box • Verified Security Seal',
-              tag: 'SEALED',
-              tagColor: const Color(0xFFFEE2E2),
-              tagTextColor: const Color(0xFFDC2626),
-              onScanTap: () => _showBarcodeScannerModal(
-                'Parcel #NX8942-A',
-                'Medium Sealed Box • Verified Security Seal',
-                '480651239842',
-              ),
-            ),
-            const SizedBox(height: 10),
-            _buildManifestItem(
-              isScanned: _pkg2Scanned,
-              title: 'Parcel #NX8942-B',
-              desc: 'Express Courier Pouch • Fragile Handle with Care',
-              tag: 'EXPRESS',
-              tagColor: const Color(0xFFDCFCE7),
-              tagTextColor: const Color(0xFF10B981),
-              onScanTap: () => _showBarcodeScannerModal(
-                'Parcel #NX8942-B',
-                'Express Courier Pouch • Fragile Handle with Care',
-                '480651239843',
-              ),
+              title: 'Waybill $_canonicalTrackingNumber',
+              desc: 'Order ${order.id} • ${order.items.length} item(s) • ${order.packageWeightKg.toStringAsFixed(2)} kg',
+              tag: order.isFragile ? 'FRAGILE' : 'WAYBILL',
+              tagColor: order.isFragile ? const Color(0xFFFEE2E2) : const Color(0xFFE0F2FE),
+              tagTextColor: order.isFragile ? const Color(0xFFDC2626) : const Color(0xFF0066FF),
+              onScanTap: _openWaybillPickupScanner,
             ),
           ],
         ),
@@ -2810,10 +2393,10 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
 
   // Stage 2 Content (At Store - Scanning)
   List<Widget> _buildStage2Content(DeliveryOrder order) {
-    final scannedCount = (_pkg1Scanned ? 1 : 0) + (_pkg2Scanned ? 1 : 0);
+    final scannedCount = _pkg1Scanned ? 1 : 0;
 
     return [
-      // Store Location & Staff Info Card
+      // Store Location & Dispatch Info Card
       Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
@@ -2852,22 +2435,22 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
             const SizedBox(height: 12),
             const Divider(height: 1, color: Color(0xFFF1F5F9)),
             const SizedBox(height: 10),
-            const Row(
+            Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Flexible(
                   child: Text(
-                    'Staff Counter Desk 02',
-                    style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: Color(0xFF0F172A)),
+                    'Order ${order.id}',
+                    style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: Color(0xFF0F172A)),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                SizedBox(width: 8),
+                const SizedBox(width: 8),
                 Flexible(
                   child: Text(
-                    'Attendant: Marco R.',
-                    style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: Color(0xFF0066FF)),
+                    'Waybill: $_canonicalTrackingNumber',
+                    style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: Color(0xFF0066FF)),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -2879,7 +2462,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
       ),
       const SizedBox(height: 14),
 
-      // Packages for Pickup (2 Total)
+      // Order Waybill Verification Card
       Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
@@ -2894,101 +2477,66 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
               children: [
                 const Flexible(
                   child: Text(
-                    'Packages for Pickup (2 Total)',
+                    'Order Waybill Verification',
                     style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 const SizedBox(width: 6),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: scannedCount == 2 ? const Color(0xFFDCFCE7) : const Color(0xFFE0F2FE),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Text(
-                        '$scannedCount/2 verified',
-                        style: TextStyle(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w800,
-                          color: scannedCount == 2 ? const Color(0xFF10B981) : const Color(0xFF0066FF),
-                        ),
-                      ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: _pkg1Scanned ? const Color(0xFFDCFCE7) : const Color(0xFFE0F2FE),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '$scannedCount/1 verified',
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w800,
+                      color: _pkg1Scanned ? const Color(0xFF10B981) : const Color(0xFF0066FF),
                     ),
-                    const SizedBox(width: 6),
-                    GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          _pkg1Scanned = true;
-                          _pkg2Scanned = true;
-                          DeliveryService.instance.updateActiveOrderScanProgress(
-                            pkg1: true,
-                            pkg2: true,
-                          );
-                        });
-                      },
-                      child: const Text('Verify All',
-                          style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: Color(0xFF0066FF))),
-                    ),
-                  ],
+                  ),
                 ),
               ],
             ),
             const SizedBox(height: 14),
 
-            // Scan Barcode CTA
+            // Scan Waybill Barcode CTA
             SizedBox(
               width: double.infinity,
               height: 42,
               child: ElevatedButton.icon(
-                onPressed: () => _showBarcodeScannerModal(
-                  'MASTER-DISPATCH-NX8942',
-                  'Store Master Dispatch Sheet • 2 Parcels',
-                  '480651239840',
+                onPressed: _openWaybillPickupScanner,
+                icon: Icon(
+                  _pkg1Scanned ? Icons.verified_rounded : Icons.qr_code_scanner_rounded,
+                  size: 16,
                 ),
-                icon: const Icon(Icons.qr_code_scanner_rounded, size: 16),
-                label: const Text('Scan Store Dispatch Barcode',
-                    style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800)),
+                label: Text(
+                  _pkg1Scanned ? 'Waybill Verified' : 'Scan Waybill Barcode',
+                  style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800),
+                ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFF0F9FF),
-                  foregroundColor: const Color(0xFF0066FF),
+                  backgroundColor: _pkg1Scanned ? const Color(0xFFDCFCE7) : const Color(0xFFF0F9FF),
+                  foregroundColor: _pkg1Scanned ? const Color(0xFF10B981) : const Color(0xFF0066FF),
                   elevation: 0,
-                  side: const BorderSide(color: Color(0xFFBAE6FD)),
+                  side: BorderSide(
+                    color: _pkg1Scanned ? const Color(0xFFA7F3D0) : const Color(0xFFBAE6FD),
+                  ),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
               ),
             ),
             const SizedBox(height: 14),
 
-            // Package 1
+            // Canonical Order Parcel Tile
             _buildPickupScanTile(
-              pkgId: 'NX-PKG-8942-01',
-              badge: 'FRAGILE',
-              desc: 'Sealed Box • 0.65 kg',
+              pkgId: _canonicalTrackingNumber,
+              badge: order.isFragile ? 'FRAGILE' : 'WAYBILL',
+              desc: '${order.items.length} item(s) • ${order.packageWeightKg.toStringAsFixed(2)} kg',
               isScanned: _pkg1Scanned,
-              onScanTap: () => _showBarcodeScannerModal(
-                'NX-PKG-8942-01',
-                'Sealed Box • 0.65 kg • Fragile Handling',
-                '480651239842',
-              ),
-            ),
-            const SizedBox(height: 10),
-
-            // Package 2
-            _buildPickupScanTile(
-              pkgId: 'NX-PKG-8942-02',
-              badge: 'STANDARD',
-              desc: 'Standard Pouch • 0.40 kg',
-              isScanned: _pkg2Scanned,
-              onScanTap: () => _showBarcodeScannerModal(
-                'NX-PKG-8942-02',
-                'Standard Courier Pouch • 0.40 kg',
-                '480651239843',
-              ),
+              onScanTap: _openWaybillPickupScanner,
             ),
           ],
         ),
@@ -3061,46 +2609,45 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
             const Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'Confidential Manifest',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
+                Expanded(
+                  child: Text(
+                    'Confidential Manifest',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
+                  ),
                 ),
-                Row(
-                  children: [
-                    Text('2/2 Verified',
-                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Color(0xFF0066FF))),
-                    SizedBox(width: 8),
-                    Icon(Icons.qr_code_scanner_rounded, size: 14, color: Color(0xFF0066FF)),
-                    SizedBox(width: 4),
-                    Text('All Scanned',
-                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Color(0xFF0066FF))),
-                  ],
+                SizedBox(width: 8),
+                Flexible(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('1/1 Verified',
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Color(0xFF0066FF))),
+                      SizedBox(width: 6),
+                      Icon(Icons.qr_code_scanner_rounded, size: 14, color: Color(0xFF0066FF)),
+                      SizedBox(width: 4),
+                      Flexible(
+                        child: Text('Waybill Scanned',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Color(0xFF0066FF))),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
             const SizedBox(height: 12),
 
-            // Item 1
             _buildVerifiedStowTile(
-              icon: Icons.shield_outlined,
+              icon: order.isFragile ? Icons.shield_outlined : Icons.inventory_2_outlined,
               iconColor: const Color(0xFF0066FF),
-              pkgId: 'NX-PKG-8942-01',
-              tag: 'FRAGILE',
-              desc: 'Sealed Box • 0.65 kg',
-              stowLocation: 'Stowed in Top Box',
-              bayText: 'BAY #2B',
-            ),
-            const SizedBox(height: 10),
-
-            // Item 2
-            _buildVerifiedStowTile(
-              icon: Icons.inventory_2_outlined,
-              iconColor: const Color(0xFF0066FF),
-              pkgId: 'NX-PKG-8942-02',
-              tag: 'STANDARD',
-              desc: 'Express Pouch • 0.40 kg',
-              stowLocation: 'Stowed in Motorcycle Carrier',
-              bayText: 'TOP BOX',
+              pkgId: _canonicalTrackingNumber,
+              tag: order.isFragile ? 'FRAGILE' : 'VERIFIED',
+              desc: '${order.items.length} item(s) • ${order.packageWeightKg.toStringAsFixed(2)} kg',
+              stowLocation: 'Stowed for Delivery',
+              bayText: 'ORDER ${order.id}',
             ),
           ],
         ),
@@ -3120,17 +2667,29 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
             const Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'SECURITY & DISPATCH CHECKLIST',
-                  style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w900, color: Color(0xFF94A3B8), letterSpacing: 0.6),
+                Expanded(
+                  child: Text(
+                    'SECURITY & DISPATCH CHECKLIST',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w900, color: Color(0xFF94A3B8), letterSpacing: 0.6),
+                  ),
                 ),
-                Row(
-                  children: [
-                    Icon(Icons.check_rounded, size: 14, color: Color(0xFF0066FF)),
-                    SizedBox(width: 4),
-                    Text('All Cleared',
-                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Color(0xFF0066FF))),
-                  ],
+                SizedBox(width: 8),
+                Flexible(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.check_rounded, size: 14, color: Color(0xFF0066FF)),
+                      SizedBox(width: 4),
+                      Flexible(
+                        child: Text('All Cleared',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Color(0xFF0066FF))),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -3190,18 +2749,27 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
       Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          const Text('Trip Guaranteed Payout',
-              style: TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.w600)),
-          RichText(
-            text: TextSpan(
-              text: '₱${order.riderEarnings.toStringAsFixed(2)} ',
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
-              children: const [
-                TextSpan(
-                  text: '+₱25 Bonus applied',
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Color(0xFF0066FF)),
-                ),
-              ],
+          const Flexible(
+            child: Text('Trip Guaranteed Payout',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.w600)),
+          ),
+          const SizedBox(width: 8),
+          Flexible(
+            child: RichText(
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              text: TextSpan(
+                text: '₱${order.riderEarnings.toStringAsFixed(2)} ',
+                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
+                children: const [
+                  TextSpan(
+                    text: '+₱25 Bonus applied',
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Color(0xFF0066FF)),
+                  ),
+                ],
+              ),
             ),
           ),
         ],
@@ -3265,16 +2833,9 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
 
             _buildTransitParcelTile(
               icon: Icons.inventory_2_outlined,
-              pkgId: 'NX-PKG-8942-01',
-              subtitle: '! FRAGILE Sealed Box',
-              vault: 'Vault A',
-            ),
-            const SizedBox(height: 8),
-            _buildTransitParcelTile(
-              icon: Icons.mail_outline_rounded,
-              pkgId: 'NX-PKG-8942-02',
-              subtitle: 'STANDARD Express Pouch',
-              vault: 'Vault B',
+              pkgId: _canonicalTrackingNumber,
+              subtitle: '${order.isFragile ? '! FRAGILE • ' : ''}${order.items.length} item(s) • ${order.packageWeightKg.toStringAsFixed(2)} kg',
+              vault: 'Order ${order.id}',
             ),
             const SizedBox(height: 8),
             const Text(
@@ -3616,7 +3177,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                const Text('2 / 2 Packages',
+                const Text('1 / 1 Parcel',
                     style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Color(0xFF64748B))),
               ],
             ),
@@ -3630,41 +3191,26 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                       color: const Color(0xFFF8FAFC),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Row(
+                    child: Row(
                       children: [
-                        Icon(Icons.check_circle_rounded, size: 14, color: Color(0xFF0066FF)),
-                        SizedBox(width: 6),
+                        const Icon(Icons.check_circle_rounded, size: 14, color: Color(0xFF0066FF)),
+                        const SizedBox(width: 6),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text('NX-PKG-8942-01', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800), maxLines: 1, overflow: TextOverflow.ellipsis),
-                              Text('Sealed • 1.2 kg', style: TextStyle(fontSize: 9.5, color: Color(0xFF64748B)), maxLines: 1, overflow: TextOverflow.ellipsis),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF8FAFC),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Row(
-                      children: [
-                        Icon(Icons.check_circle_rounded, size: 14, color: Color(0xFF0066FF)),
-                        SizedBox(width: 6),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('NX-PKG-8942-02', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800), maxLines: 1, overflow: TextOverflow.ellipsis),
-                              Text('Fragile • 0.8 kg', style: TextStyle(fontSize: 9.5, color: Color(0xFF64748B)), maxLines: 1, overflow: TextOverflow.ellipsis),
+                              Text(
+                                _canonicalTrackingNumber,
+                                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              Text(
+                                'Delivered • ${order.items.length} item(s) • ${order.packageWeightKg.toStringAsFixed(2)} kg',
+                                style: const TextStyle(fontSize: 9.5, color: Color(0xFF64748B)),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ],
                           ),
                         ),
@@ -4108,7 +3654,6 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
       );
     }
 
-    final scannedCount = (_pkg1Scanned ? 1 : 0) + (_pkg2Scanned ? 1 : 0);
     String btnText;
     IconData? prefixIcon;
     IconData? suffixIcon;
@@ -4116,31 +3661,17 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
     VoidCallback onCtaPressed = _nextStage;
 
     if (_currentStage == 1) {
-      if (scannedCount < 2) {
-        btnText = 'START SCANNING PARCELS ($scannedCount/2)';
+      if (!_pkg1Scanned) {
+        btnText = 'SCAN WAYBILL BARCODE';
         prefixIcon = Icons.qr_code_scanner_rounded;
         suffixIcon = null;
-        subLinkText = 'Cannot verify packages? Contact Dispatch';
-        onCtaPressed = () {
-          if (!_pkg1Scanned) {
-            _showBarcodeScannerModal(
-              'Parcel #NX8942-A',
-              'Medium Sealed Box • Verified Security Seal',
-              '480651239842',
-            );
-          } else if (!_pkg2Scanned) {
-            _showBarcodeScannerModal(
-              'Parcel #NX8942-B',
-              'Express Courier Pouch • Fragile Handle with Care',
-              '480651239843',
-            );
-          }
-        };
+        subLinkText = 'Scan printed waybill ($_canonicalTrackingNumber) to confirm pickup';
+        onCtaPressed = _openWaybillPickupScanner;
       } else {
         btnText = 'CONFIRM PICKUP & PROCEED';
         prefixIcon = Icons.check_circle_rounded;
         suffixIcon = Icons.arrow_forward_rounded;
-        subLinkText = 'All 2 parcels verified • Ready for vehicle stowage';
+        subLinkText = 'Waybill verified • Ready for delivery';
         onCtaPressed = _nextStage;
       }
     } else if (_currentStage == 2) {
@@ -4515,7 +4046,14 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                   children: [
                     Row(
                       children: [
-                        Text(pkgId, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900)),
+                        Flexible(
+                          child: Text(
+                            pkgId,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900),
+                          ),
+                        ),
                         const SizedBox(width: 6),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -4545,16 +4083,27 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    const Icon(Icons.archive_outlined, size: 13, color: Color(0xFF0066FF)),
-                    const SizedBox(width: 5),
-                    Text(stowLocation,
-                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF0066FF))),
-                  ],
+                Expanded(
+                  child: Row(
+                    children: [
+                      const Icon(Icons.archive_outlined, size: 13, color: Color(0xFF0066FF)),
+                      const SizedBox(width: 5),
+                      Flexible(
+                        child: Text(stowLocation,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF0066FF))),
+                      ),
+                    ],
+                  ),
                 ),
-                Text(bayText,
-                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Color(0xFF0F172A))),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(bayText,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Color(0xFF0F172A))),
+                ),
               ],
             ),
           ),
