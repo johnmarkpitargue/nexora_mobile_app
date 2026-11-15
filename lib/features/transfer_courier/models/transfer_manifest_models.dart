@@ -119,7 +119,13 @@ class TransferManifestModel {
       status == 'draft' || status == 'loading' || status == 'ready_to_dispatch';
   bool get canConfirmDeparture =>
       (status == 'loading' || status == 'ready_to_dispatch') && allLoaded;
-  bool get canMarkArrived => status == 'in_transit';
+  bool get canMarkArrived =>
+      (status == 'in_transit' || status == 'exception') && arrivedAt == null;
+  bool get canReportIssue =>
+      status == 'loading' ||
+      status == 'ready_to_dispatch' ||
+      status == 'in_transit' ||
+      (status == 'exception' && arrivedAt == null);
 
   factory TransferManifestModel.fromJson(Map<String, dynamic> json) {
     final rawItems = json['items'] as List<dynamic>? ?? [];

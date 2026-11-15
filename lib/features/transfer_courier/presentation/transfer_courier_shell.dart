@@ -38,7 +38,30 @@ class _TransferCourierShellState extends State<TransferCourierShell> {
   }
 
   void _onUpdate() {
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    if (TransferCourierService.instance.sessionExpired) {
+      _handleSessionExpired();
+      return;
+    }
+    setState(() {});
+  }
+
+  Future<void> _handleSessionExpired() async {
+    await ApiClient.instance.clearToken();
+    RiderAccountService.instance.logout();
+    TransferCourierService.instance.clear();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Your session has expired. Please sign in again.'),
+        backgroundColor: RiderTheme.errorRed,
+      ),
+    );
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (_) => const RiderLoginPage()),
+      (route) => false,
+    );
   }
 
   Future<void> _logout() async {

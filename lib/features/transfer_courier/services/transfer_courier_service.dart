@@ -9,18 +9,40 @@ class TransferCourierService extends ChangeNotifier {
   TransferCourierService._internal();
 
   bool _isLoading = false;
+  bool _sessionExpired = false;
   String? _errorMessage;
+  String _lastFilter = 'active';
   TransferCourierDashboardModel? _dashboard;
   List<TransferManifestModel> _manifests = [];
   List<TransferManifestItemModel> _inventory = [];
   Map<String, dynamic>? _profileData;
 
   bool get isLoading => _isLoading;
+  bool get sessionExpired => _sessionExpired;
   String? get errorMessage => _errorMessage;
   TransferCourierDashboardModel? get dashboard => _dashboard;
   List<TransferManifestModel> get manifests => _manifests;
   List<TransferManifestItemModel> get inventory => _inventory;
   Map<String, dynamic>? get profileData => _profileData;
+
+  String _formatApiError(ApiException e, String fallback) {
+    if (e.statusCode == 401) {
+      _sessionExpired = true;
+      return 'Your session has expired. Please sign in again.';
+    }
+    if (e.statusCode == 403) {
+      return e.message.isNotEmpty
+          ? e.message
+          : 'You are not authorized to perform this action.';
+    }
+    if (e.statusCode == 404) {
+      return e.message.isNotEmpty ? e.message : 'Requested record was not found.';
+    }
+    if (e.statusCode == 409 || e.statusCode == 422) {
+      return e.message.isNotEmpty ? e.message : fallback;
+    }
+    return e.message.isNotEmpty ? e.message : fallback;
+  }
 
   Future<void> fetchDashboard() async {
     _isLoading = true;
@@ -34,7 +56,7 @@ class TransferCourierService extends ChangeNotifier {
             res.data as Map<String, dynamic>);
       }
     } on ApiException catch (e) {
-      _errorMessage = e.message;
+      _errorMessage = _formatApiError(e, 'Failed to load transfer courier dashboard.');
     } catch (_) {
       _errorMessage = 'Failed to load transfer courier dashboard.';
     } finally {
@@ -44,6 +66,7 @@ class TransferCourierService extends ChangeNotifier {
   }
 
   Future<void> fetchManifests({String filter = 'all'}) async {
+    _lastFilter = filter;
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
@@ -58,7 +81,7 @@ class TransferCourierService extends ChangeNotifier {
           .map(TransferManifestModel.fromJson)
           .toList();
     } on ApiException catch (e) {
-      _errorMessage = e.message;
+      _errorMessage = _formatApiError(e, 'Failed to load assigned transfer manifests.');
     } catch (_) {
       _errorMessage = 'Failed to load assigned transfer manifests.';
     } finally {
@@ -103,7 +126,10 @@ class TransferCourierService extends ChangeNotifier {
       ApiConstants.transferCourierManifestScan(manifestId),
       body: {'tracking_number': trackingNumber.trim()},
     );
-    await fetchDashboard();
+    await Future.wait([
+      fetchDashboard(),
+      fetchManifests(filter: _lastFilter),
+    ]);
     return {
       'message': res.message,
       'data': res.data,
@@ -119,7 +145,10 @@ class TransferCourierService extends ChangeNotifier {
           'vehicle_plate_number': vehiclePlateNumber.trim(),
       },
     );
-    await fetchDashboard();
+    await Future.wait([
+      fetchDashboard(),
+      fetchManifests(filter: _lastFilter),
+    ]);
     return TransferManifestModel.fromJson(res.data as Map<String, dynamic>);
   }
 
@@ -127,7 +156,10 @@ class TransferCourierService extends ChangeNotifier {
     final res = await ApiClient.instance.post(
       ApiConstants.transferCourierManifestArrive(manifestId),
     );
-    await fetchDashboard();
+    await Future.wait([
+      fetchDashboard(),
+      fetchManifests(filter: _lastFilter),
+    ]);
     return TransferManifestModel.fromJson(res.data as Map<String, dynamic>);
   }
 
@@ -145,7 +177,10 @@ class TransferCourierService extends ChangeNotifier {
         'notes': notes.trim(),
       },
     );
-    await fetchDashboard();
+    await Future.wait([
+      fetchDashboard(),
+      fetchManifests(filter: _lastFilter),
+    ]);
   }
 
   Future<void> fetchProfile() async {
@@ -154,6 +189,11 @@ class TransferCourierService extends ChangeNotifier {
           await ApiClient.instance.get(ApiConstants.transferCourierProfile);
       if (res.data is Map<String, dynamic>) {
         _profileData = res.data as Map<String, dynamic>;
+        notifyListeners();
+      }
+    } on ApiException catch (e) {
+      if (e.statusCode == 401) {
+        _sessionExpired = true;
         notifyListeners();
       }
     } catch (_) {}
@@ -165,6 +205,7 @@ class TransferCourierService extends ChangeNotifier {
     _inventory = [];
     _profileData = null;
     _errorMessage = null;
+    _sessionExpired = false;
     notifyListeners();
   }
 }

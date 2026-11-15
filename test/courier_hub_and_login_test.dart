@@ -10,6 +10,7 @@ import 'package:nexora_rider_app/features/courier/models/courier_models.dart';
 import 'package:nexora_rider_app/features/courier/services/courier_service.dart';
 import 'package:nexora_rider_app/features/courier/presentation/courier_dashboard_page.dart';
 import 'package:nexora_rider_app/features/auth/presentation/rider_login_page.dart';
+import 'package:nexora_rider_app/features/transfer_courier/models/transfer_manifest_models.dart';
 import 'package:nexora_rider_app/features/transfer_courier/presentation/transfer_courier_shell.dart';
 
 void main() {
@@ -224,6 +225,65 @@ void main() {
 
       expect(find.byType(TransferCourierShell), findsOneWidget);
       expect(RiderAccountService.instance.currentUserRole, equals('courier'));
+    });
+
+    testWidgets('RiderLoginPage has no hardcoded credentials and shows unavailable forgot-password message', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(430, 932));
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: RiderLoginPage(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('pedrojose.garcia@example.com'), findsNothing);
+      expect(find.text('Rider@2026'), findsNothing);
+
+      final forgotBtn = find.textContaining('Forgot');
+      if (forgotBtn.evaluate().isNotEmpty) {
+        await tester.ensureVisible(forgotBtn.first);
+        await tester.tap(forgotBtn.first);
+        await tester.pumpAndSettle();
+        expect(find.text('Password Reset Unavailable'), findsOneWidget);
+      }
+    });
+
+    test('TransferManifestModel.canMarkArrived supports exception state before arrival', () {
+      const inTransit = TransferManifestModel(
+        id: 1,
+        manifestNumber: 'MF-001',
+        status: 'in_transit',
+        transferType: 'internal',
+        totalParcels: 2,
+        loadedParcels: 2,
+        loadingProgress: '2/2',
+        allLoaded: true,
+      );
+      const exceptionUnarrived = TransferManifestModel(
+        id: 2,
+        manifestNumber: 'MF-002',
+        status: 'exception',
+        transferType: 'internal',
+        totalParcels: 2,
+        loadedParcels: 2,
+        loadingProgress: '2/2',
+        allLoaded: true,
+      );
+      const exceptionArrived = TransferManifestModel(
+        id: 3,
+        manifestNumber: 'MF-003',
+        status: 'exception',
+        transferType: 'internal',
+        totalParcels: 2,
+        loadedParcels: 2,
+        loadingProgress: '2/2',
+        allLoaded: true,
+        arrivedAt: '2026-11-15T12:00:00Z',
+      );
+
+      expect(inTransit.canMarkArrived, isTrue);
+      expect(exceptionUnarrived.canMarkArrived, isTrue);
+      expect(exceptionArrived.canMarkArrived, isFalse);
     });
   });
 }

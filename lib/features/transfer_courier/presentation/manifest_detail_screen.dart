@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/services/rider_account_service.dart';
 import '../../../core/theme/rider_theme.dart';
+import '../../auth/presentation/rider_login_page.dart';
 import '../models/transfer_manifest_models.dart';
 import '../services/transfer_courier_service.dart';
 
@@ -123,7 +125,36 @@ class _ManifestDetailScreenState extends State<ManifestDetailScreen> {
     );
   }
 
+  Future<void> _handleApiException(ApiException e) async {
+    if (!mounted) return;
+    if (e.statusCode == 401) {
+      await ApiClient.instance.clearToken();
+      RiderAccountService.instance.logout();
+      TransferCourierService.instance.clear();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Your session has expired. Please sign in again.'),
+          backgroundColor: RiderTheme.errorRed,
+        ),
+      );
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => const RiderLoginPage()),
+        (route) => false,
+      );
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(e.message),
+        backgroundColor: RiderTheme.errorRed,
+      ),
+    );
+  }
+
   Future<void> _scanTrackingNumber(String trackingNumber) async {
+    if (_isSubmitting) return;
     setState(() => _isSubmitting = true);
     try {
       final result = await TransferCourierService.instance
@@ -137,13 +168,7 @@ class _ManifestDetailScreenState extends State<ManifestDetailScreen> {
         ),
       );
     } on ApiException catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(e.message),
-          backgroundColor: RiderTheme.errorRed,
-        ),
-      );
+      await _handleApiException(e);
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
@@ -191,7 +216,7 @@ class _ManifestDetailScreenState extends State<ManifestDetailScreen> {
       ),
     );
 
-    if (confirmed != true) return;
+    if (confirmed != true || _isSubmitting) return;
     setState(() => _isSubmitting = true);
     try {
       final updated = await TransferCourierService.instance.confirmDeparture(
@@ -201,24 +226,23 @@ class _ManifestDetailScreenState extends State<ManifestDetailScreen> {
       if (mounted) {
         setState(() => _manifest = updated);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Departure confirmed. Manifest is now In Transit.'),
+          SnackBar(
+            content: Text(
+              'Departure confirmed (${updated.status.toUpperCase().replaceAll('_', ' ')}).',
+            ),
             backgroundColor: RiderTheme.onlineGreen,
           ),
         );
       }
     } on ApiException catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.message), backgroundColor: RiderTheme.errorRed),
-        );
-      }
+      await _handleApiException(e);
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
   }
 
   Future<void> _markArrived() async {
+    if (_isSubmitting) return;
     setState(() => _isSubmitting = true);
     try {
       final updated =
@@ -226,19 +250,20 @@ class _ManifestDetailScreenState extends State<ManifestDetailScreen> {
       if (mounted) {
         setState(() => _manifest = updated);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text(
-                'Arrival reported. Destination hub staff will verify incoming parcels.'),
-            backgroundColor: RiderTheme.onlineGreen,
+              updated.status == 'exception'
+                  ? 'Arrival reported with unresolved exceptions. Destination hub will verify parcels.'
+                  : 'Arrival reported (${updated.status.toUpperCase().replaceAll('_', ' ')}). Destination hub staff will verify incoming parcels.',
+            ),
+            backgroundColor: updated.status == 'exception'
+                ? RiderTheme.warningOrange
+                : RiderTheme.onlineGreen,
           ),
         );
       }
     } on ApiException catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.message), backgroundColor: RiderTheme.errorRed),
-        );
-      }
+      await _handleApiException(e);
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
@@ -298,7 +323,7 @@ class _ManifestDetailScreenState extends State<ManifestDetailScreen> {
       ),
     );
 
-    if (submitted != true) return;
+    if (submitted != true || _isSubmitting) return;
     setState(() => _isSubmitting = true);
     try {
       await TransferCourierService.instance.reportIssue(
@@ -317,11 +342,7 @@ class _ManifestDetailScreenState extends State<ManifestDetailScreen> {
         );
       }
     } on ApiException catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.message), backgroundColor: RiderTheme.errorRed),
-        );
-      }
+      await _handleApiException(e);
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }

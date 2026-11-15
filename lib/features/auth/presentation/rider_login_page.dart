@@ -30,9 +30,9 @@ class _RiderLoginPageState extends State<RiderLoginPage> {
   void initState() {
     super.initState();
     _identifierController = TextEditingController(
-      text: widget.initialEmail ?? 'pedrojose.garcia@example.com',
+      text: widget.initialEmail ?? '',
     );
-    _passwordController = TextEditingController(text: 'Rider@2026');
+    _passwordController = TextEditingController();
   }
 
   @override
@@ -139,14 +139,16 @@ class _RiderLoginPageState extends State<RiderLoginPage> {
           children: [
             Icon(Icons.lock_reset_rounded, color: Color(0xFF0066FF), size: 24),
             SizedBox(width: 8),
-            Text(
-              'Reset Password or PIN',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+            Expanded(
+              child: Text(
+                'Password Reset Unavailable',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+              ),
             ),
           ],
         ),
         content: const Text(
-          'A 6-digit OTP verification token or password reset link will be sent to your registered email or verified mobile number.\n\nPlease ensure your device is able to receive SMS or inbox pings.',
+          'Self-service password reset is not available in the mobile app.\n\nPlease contact your logistics company administrator or use the Nexora web portal to reset your password.',
           style: TextStyle(
             fontSize: 13,
             height: 1.45,
@@ -154,22 +156,8 @@ class _RiderLoginPageState extends State<RiderLoginPage> {
           ),
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
           ElevatedButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text(
-                    'Reset instructions sent to your registered contact!',
-                  ),
-                  backgroundColor: Color(0xFF0066FF),
-                ),
-              );
-            },
+            onPressed: () => Navigator.pop(ctx),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF0066FF),
               foregroundColor: Colors.white,
@@ -177,7 +165,7 @@ class _RiderLoginPageState extends State<RiderLoginPage> {
                 borderRadius: BorderRadius.circular(12),
               ),
             ),
-            child: const Text('Send Reset Link'),
+            child: const Text('OK'),
           ),
         ],
       ),
