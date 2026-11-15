@@ -1,15 +1,30 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:nexora_rider_app/core/network/api_client.dart';
 import 'package:nexora_rider_app/core/services/earnings_service.dart';
 import 'package:nexora_rider_app/features/earnings/presentation/earnings_screen.dart';
 
 void main() {
-  setUp(() {
-    EarningsService.instance.resetCodBalanceForTest(640.00);
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUp(() async {
+    SharedPreferences.setMockInitialValues({
+      'nexora_rider_auth_token': 'rider_test_token',
+    });
+    await ApiClient.instance.init();
+    EarningsService.instance.resetForTest(
+      codBalance: 640.00,
+      earningsBalance: 240.00,
+      availableForPayout: 240.00,
+    );
   });
 
-  group('COD Cash Remittance Flows Test', () {
-    testWidgets('1. E-wallet Remittance Flow (GCash/Maya) clears held cash balance', (tester) async {
+  group('COD Cash Remittance Pending Verification Flows Test', () {
+    testWidgets('1. Non-cash GCash channel requires external reference and proof image', (tester) async {
       tester.view.physicalSize = const Size(450, 950);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() {
@@ -17,76 +32,74 @@ void main() {
         tester.view.resetDevicePixelRatio();
       });
 
-      await tester.pumpWidget(
-        const MaterialApp(
-          home: EarningsScreen(),
-        ),
-      );
+      ApiClient.instance.setMockClient(MockClient((req) async {
+        if (req.url.path.endsWith('/earnings')) {
+          return http.Response(
+            jsonEncode({
+              'data': {
+                'earnings_balance': 240.0,
+                'available_for_payout': 240.0,
+                'pending_payout_amount': 0.0,
+                'total_paid_out': 0.0,
+                'unremitted_cod_balance': 640.0,
+                'cod_wallet': {
+                  'cod_on_hand_balance': 640.0,
+                  'pending_verification_amount': 0.0,
+                  'available_for_new_remittance': 640.0,
+                  'open_collections': [],
+                },
+                'past_7_days': [],
+                'recent_earnings': [],
+                'recent_payouts': [],
+              },
+            }),
+            200,
+          );
+        }
+        if (req.url.path.endsWith('/cod-collections')) {
+          return http.Response(
+            jsonEncode({
+              'data': {
+                'cod_on_hand_balance': 640.0,
+                'pending_verification_amount': 0.0,
+                'available_for_new_remittance': 640.0,
+                'open_collections': [],
+                'recent_remittances': [],
+              },
+            }),
+            200,
+          );
+        }
+        return http.Response(jsonEncode({'data': {'payouts': []}}), 200);
+      }));
+
+      await tester.pumpWidget(const MaterialApp(home: EarningsScreen()));
       await tester.pumpAndSettle();
 
-      // Verify initial COD card shows 640 Held
-      expect(find.text('COD Remit'), findsOneWidget);
-      expect(find.text('₱640 Held'), findsOneWidget);
-
-      // Tap COD Remit Card to open bottom sheet
-      await tester.tap(find.text('COD Remit'));
-      await tester.pumpAndSettle();
-
-      // Verify bottom sheet appears with options
-      expect(find.text('COD Cash Remittance'), findsOneWidget);
+      expect(find.text('COD CASH ACCOUNTABILITY'), findsOneWidget);
       expect(find.text('₱640.00 Held'), findsOneWidget);
-      expect(find.text('Remit via GCash / Maya Direct'), findsOneWidget);
-      expect(find.text('Hub Counter Deposit (Pasig Central)'), findsOneWidget);
+      expect(find.text('Submit COD Remittance'), findsOneWidget);
 
-      // Tap Remit via GCash / Maya Direct
-      await tester.tap(find.text('Remit via GCash / Maya Direct'));
+      await tester.tap(find.text('Submit COD Remittance'));
       await tester.pumpAndSettle();
 
-      // E-wallet sheet is opened
-      expect(find.text('Remit via e-Wallet'), findsOneWidget);
-      expect(find.text('GCash Direct'), findsOneWidget);
-      expect(find.text('Maya Direct'), findsOneWidget);
-      expect(find.text('CONFIRM & REMIT ₱640.00'), findsOneWidget);
-
-      // Switch to Maya
-      await tester.tap(find.text('Maya Direct'));
-      await tester.pumpAndSettle();
-      expect(find.text('Maya Account'), findsOneWidget);
-
-      // Toggle to QR Ph Scan mode
-      await tester.tap(find.text('QR Ph Scan'));
-      await tester.pumpAndSettle();
-      expect(find.text('National Retail Payment System'), findsOneWidget);
-
-      // Toggle back to 1-Click Remit
-      await tester.tap(find.text('1-Click Remit'));
+      await tester.tap(find.text('GCash'));
       await tester.pumpAndSettle();
 
-      // Tap Confirm & Remit button
-      final confirmBtn = find.text('CONFIRM & REMIT ₱640.00');
-      expect(confirmBtn, findsOneWidget);
-      await tester.tap(confirmBtn);
+      expect(find.text('Upload Receipt / Proof Image *'), findsOneWidget);
 
-      // Pump through progress duration
-      await tester.pump(const Duration(milliseconds: 300));
-      await tester.pump(const Duration(milliseconds: 500));
+      await tester.tap(find.text('SUBMIT FOR LOGISTICS VERIFICATION'));
       await tester.pumpAndSettle();
 
-      // Check success dialog
-      expect(find.text('Remittance Complete!'), findsOneWidget);
-      expect(find.text('₱640.00 hand cash has been cleared.'), findsOneWidget);
-      expect(find.text('DONE'), findsOneWidget);
-
-      // Tap DONE to close dialog
-      await tester.tap(find.text('DONE'));
-      await tester.pumpAndSettle();
-
-      // Balance is now 0.00, COD card displays 'All Cleared'
-      expect(EarningsService.instance.codHeldBalance, 0.0);
-      expect(find.text('All Cleared'), findsOneWidget);
+      // Remains un-cleared and shows validation error
+      expect(
+        find.textContaining('External reference number is required'),
+        findsOneWidget,
+      );
+      expect(EarningsService.instance.codHeldBalance, 640.00);
     });
 
-    testWidgets('2. Hub Counter Deposit Flow displays barcode voucher and clears cash', (tester) async {
+    testWidgets('2. Physical cash remittance submits as pending verification without clearing locally', (tester) async {
       tester.view.physicalSize = const Size(450, 950);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() {
@@ -94,88 +107,85 @@ void main() {
         tester.view.resetDevicePixelRatio();
       });
 
-      await tester.pumpWidget(
-        const MaterialApp(
-          home: EarningsScreen(),
-        ),
+      ApiClient.instance.setMockClient(MockClient((req) async {
+        if (req.url.path.endsWith('/remittance') && req.method == 'POST') {
+          return http.Response(
+            jsonEncode({
+              'data': {
+                'id': 42,
+                'remittance_number': 'REM-LIVE-042',
+                'amount': 640.0,
+                'payment_method': 'physical_cash',
+                'status': 'submitted',
+              },
+              'message': 'Remittance submitted — pending verification.',
+            }),
+            201,
+          );
+        }
+        if (req.url.path.endsWith('/earnings')) {
+          return http.Response(
+            jsonEncode({
+              'data': {
+                'earnings_balance': 240.0,
+                'available_for_payout': 240.0,
+                'pending_payout_amount': 0.0,
+                'total_paid_out': 0.0,
+                'unremitted_cod_balance': 640.0,
+                'cod_wallet': {
+                  'cod_on_hand_balance': 640.0,
+                  'pending_verification_amount': 640.0,
+                  'available_for_new_remittance': 0.0,
+                  'open_collections': [],
+                },
+                'past_7_days': [],
+                'recent_earnings': [],
+                'recent_payouts': [],
+              },
+            }),
+            200,
+          );
+        }
+        if (req.url.path.endsWith('/cod-collections')) {
+          return http.Response(
+            jsonEncode({
+              'data': {
+                'cod_on_hand_balance': 640.0,
+                'pending_verification_amount': 640.0,
+                'available_for_new_remittance': 0.0,
+                'open_collections': [],
+                'recent_remittances': [
+                  {
+                    'id': 42,
+                    'remittance_number': 'REM-LIVE-042',
+                    'claimed_amount': 640.0,
+                    'payment_method': 'physical_cash',
+                    'status': 'submitted',
+                  },
+                ],
+              },
+            }),
+            200,
+          );
+        }
+        return http.Response(jsonEncode({'data': {'payouts': []}}), 200);
+      }));
+
+      await tester.pumpWidget(const MaterialApp(home: EarningsScreen()));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Submit COD Remittance'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('SUBMIT FOR LOGISTICS VERIFICATION'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.textContaining('Pending Verification'),
+        findsWidgets,
       );
-      await tester.pumpAndSettle();
-
-      // Open COD Remit Sheet
-      await tester.tap(find.text('COD Remit'));
-      await tester.pumpAndSettle();
-
-      // Tap Hub Counter Deposit
-      await tester.tap(find.text('Hub Counter Deposit (Pasig Central)'));
-      await tester.pumpAndSettle();
-
-      // Verify Hub Counter Deposit Pass is shown
-      expect(find.text('Hub Counter Deposit Pass'), findsOneWidget);
-      expect(find.text('Pasig Central Sorting Hub • Cluster 4B'), findsOneWidget);
-      expect(find.text('VCH-PASIG-COD-88412'), findsOneWidget);
-      expect(find.text('Cashier on Duty: Elena V. (ID: #PV-409)'), findsOneWidget);
-
-      // Tap CASHIER SCANNED & RECEIVED CASH
-      final cashierBtn = find.text('CASHIER SCANNED & RECEIVED CASH');
-      expect(cashierBtn, findsOneWidget);
-      await tester.tap(cashierBtn);
-
-      // Pump through progress duration
-      await tester.pump(const Duration(milliseconds: 300));
-      await tester.pump(const Duration(milliseconds: 500));
-      await tester.pumpAndSettle();
-
-      // Success dialog shown
-      expect(find.text('Remittance Complete!'), findsOneWidget);
-      expect(find.text('DONE'), findsOneWidget);
-      await tester.tap(find.text('DONE'));
-      await tester.pumpAndSettle();
-
-      // Verify balance cleared
-      expect(EarningsService.instance.codHeldBalance, 0.0);
-    });
-
-    testWidgets('3. Partial Remittance with amount chip selection', (tester) async {
-      tester.view.physicalSize = const Size(450, 950);
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(() {
-        tester.view.resetPhysicalSize();
-        tester.view.resetDevicePixelRatio();
-      });
-
-      await tester.pumpWidget(
-        const MaterialApp(
-          home: EarningsScreen(),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      // Open COD Remit Sheet
-      await tester.tap(find.text('COD Remit'));
-      await tester.pumpAndSettle();
-
-      // Open E-wallet sheet
-      await tester.tap(find.text('Remit via GCash / Maya Direct'));
-      await tester.pumpAndSettle();
-
-      // Select ₱200 chip
-      await tester.tap(find.text('₱200'));
-      await tester.pumpAndSettle();
-
-      expect(find.text('CONFIRM & REMIT ₱200.00'), findsOneWidget);
-      await tester.tap(find.text('CONFIRM & REMIT ₱200.00'));
-
-      await tester.pump(const Duration(milliseconds: 300));
-      await tester.pump(const Duration(milliseconds: 500));
-      await tester.pumpAndSettle();
-
-      expect(find.text('₱200.00 hand cash has been cleared.'), findsOneWidget);
-      await tester.tap(find.text('DONE'));
-      await tester.pumpAndSettle();
-
-      // Remaining is 640 - 200 = 440
-      expect(EarningsService.instance.codHeldBalance, 440.00);
-      expect(find.text('₱440 Held'), findsOneWidget);
+      expect(EarningsService.instance.codHeldBalance, 640.00);
+      expect(EarningsService.instance.codPendingVerificationAmount, 640.00);
     });
   });
 }

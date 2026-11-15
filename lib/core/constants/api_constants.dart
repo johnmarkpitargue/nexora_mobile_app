@@ -44,6 +44,8 @@ class ApiConstants {
       '/api/mobile/v1/rider/deliveries/$orderId/fail';
   static const String earnings = '/api/mobile/v1/rider/earnings';
   static const String riderEarnings = earnings;
+  static const String riderPayouts = '/api/mobile/v1/rider/payouts';
+  static const String riderCodCollections = '/api/mobile/v1/rider/cod-collections';
   static const String remittance = '/api/mobile/v1/rider/remittance';
   static const String submitRemittance = remittance;
 
@@ -52,6 +54,10 @@ class ApiConstants {
       '/api/mobile/v1/transfer-courier/dashboard';
   static const String transferCourierProfile =
       '/api/mobile/v1/transfer-courier/profile';
+  static const String transferCourierEarnings =
+      '/api/mobile/v1/transfer-courier/earnings';
+  static const String transferCourierPayouts =
+      '/api/mobile/v1/transfer-courier/payouts';
   static const String transferCourierInventory =
       '/api/mobile/v1/transfer-courier/inventory';
   static const String transferCourierManifests =

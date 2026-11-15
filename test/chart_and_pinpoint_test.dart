@@ -1,10 +1,31 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:nexora_rider_app/core/models/earning_record.dart';
 import 'package:nexora_rider_app/core/services/earnings_service.dart';
 import 'package:nexora_rider_app/features/earnings/presentation/widgets/weekly_chart_widget.dart';
 import 'package:nexora_rider_app/features/delivery/presentation/widgets/rider_live_navigation_map.dart';
 
 void main() {
+  setUp(() {
+    EarningsService.instance.setTestChartData(
+      weekly: const [
+        DayEarnings(dayName: 'Mon', amount: 1620.00, ordersCount: 6, hoursWorked: 4.2, tipsAmount: 0, dateLabel: 'Monday'),
+        DayEarnings(dayName: 'Tue', amount: 1410.00, ordersCount: 5, hoursWorked: 3.8, tipsAmount: 0, dateLabel: 'Tuesday'),
+        DayEarnings(dayName: 'Wed', amount: 1940.00, ordersCount: 8, hoursWorked: 5.0, tipsAmount: 0, dateLabel: 'Wednesday'),
+        DayEarnings(dayName: 'Thu', amount: 1510.00, ordersCount: 6, hoursWorked: 4.0, tipsAmount: 0, dateLabel: 'Thursday'),
+        DayEarnings(dayName: 'Fri', amount: 2150.00, ordersCount: 8, hoursWorked: 5.2, tipsAmount: 0, dateLabel: 'Friday'),
+        DayEarnings(dayName: 'Sat', amount: 2520.00, ordersCount: 10, hoursWorked: 5.8, tipsAmount: 0, dateLabel: 'Saturday'),
+        DayEarnings(dayName: 'Sun', amount: 1420.00, ordersCount: 5, hoursWorked: 4.5, tipsAmount: 0, dateLabel: 'Sunday', isCurrent: true),
+      ],
+      monthly: const [
+        DayEarnings(dayName: 'W1', amount: 11400.00, ordersCount: 46, hoursWorked: 31.0, tipsAmount: 0, dateLabel: 'Week 1'),
+        DayEarnings(dayName: 'W2', amount: 12200.00, ordersCount: 48, hoursWorked: 32.5, tipsAmount: 0, dateLabel: 'Week 2'),
+        DayEarnings(dayName: 'W3', amount: 12570.00, ordersCount: 48, hoursWorked: 32.5, tipsAmount: 0, dateLabel: 'Week 3', isCurrent: true),
+        DayEarnings(dayName: 'W4', amount: 9800.00, ordersCount: 38, hoursWorked: 26.0, tipsAmount: 0, dateLabel: 'Week 4'),
+      ],
+    );
+  });
+
   group('Task 4: Weekly Performance Chart Exclusive Selection Tests', () {
     testWidgets('Tapping on bars transfers highlight cleanly without stuck bars', (tester) async {
       await tester.pumpWidget(

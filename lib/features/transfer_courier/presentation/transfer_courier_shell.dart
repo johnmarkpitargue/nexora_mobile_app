@@ -3,6 +3,7 @@ import '../../../core/network/api_client.dart';
 import '../../../core/services/rider_account_service.dart';
 import '../../../core/theme/rider_theme.dart';
 import '../../auth/presentation/rider_login_page.dart';
+import '../../earnings/presentation/cash_out_screen.dart';
 import '../models/transfer_manifest_models.dart';
 import '../services/transfer_courier_service.dart';
 import 'manifest_detail_screen.dart';
@@ -27,6 +28,8 @@ class _TransferCourierShellState extends State<TransferCourierShell> {
     TransferCourierService.instance.fetchDashboard();
     TransferCourierService.instance.fetchManifests(filter: _tripFilter);
     TransferCourierService.instance.fetchInventory();
+    TransferCourierService.instance.fetchEarnings();
+    TransferCourierService.instance.fetchPayouts();
     TransferCourierService.instance.fetchProfile();
   }
 
@@ -90,6 +93,7 @@ class _TransferCourierShellState extends State<TransferCourierShell> {
             _buildHomeTab(),
             _buildTripsTab(),
             _buildInventoryTab(),
+            _buildEarningsTab(),
             _buildProfileTab(),
           ],
         ),
@@ -112,6 +116,10 @@ class _TransferCourierShellState extends State<TransferCourierShell> {
           BottomNavigationBarItem(
             icon: Icon(Icons.inventory_2_rounded),
             label: 'Inventory',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.account_balance_wallet_rounded),
+            label: 'Earnings',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person_rounded),
@@ -511,6 +519,276 @@ class _TransferCourierShellState extends State<TransferCourierShell> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildEarningsTab() {
+    final service = TransferCourierService.instance;
+    final policy = service.activePolicy;
+
+    return RefreshIndicator(
+      onRefresh: () => Future.wait([
+        service.fetchEarnings(),
+        service.fetchPayouts(),
+      ]),
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          const Text(
+            'Transfer Trip Earnings & Payouts',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF0A192F), Color(0xFF0F172A)],
+              ),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'AVAILABLE FOR PAYOUT',
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF94A3B8),
+                    letterSpacing: 0.7,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  '₱${service.availableForPayout.toStringAsFixed(2)}',
+                  style: const TextStyle(
+                    fontSize: 30,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 6,
+                  children: [
+                    Text(
+                      'Today (${service.todayTrips} trips): ₱${service.todayTotalPay.toStringAsFixed(2)}',
+                      style: const TextStyle(
+                        fontSize: 11.5,
+                        color: Colors.white70,
+                      ),
+                    ),
+                    Text(
+                      'Pending Payout: ₱${service.pendingPayoutAmount.toStringAsFixed(2)}',
+                      style: const TextStyle(
+                        fontSize: 11.5,
+                        color: Color(0xFFFBBF24),
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    Text(
+                      'Paid Out: ₱${service.totalPaidOut.toStringAsFixed(2)}',
+                      style: const TextStyle(
+                        fontSize: 11.5,
+                        color: Color(0xFF34D399),
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+                if (policy != null) ...[
+                  const SizedBox(height: 10),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      'Trip Rate: Base ₱${(policy['transfer_trip_base_rate'] as num?)?.toStringAsFixed(2) ?? '150.00'} + ₱${(policy['transfer_per_parcel_rate'] as num?)?.toStringAsFixed(2) ?? '5.00'}/parcel',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Colors.white70,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  height: 46,
+                  child: ElevatedButton.icon(
+                    onPressed: () async {
+                      final submitted = await Navigator.push<bool>(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              const CashOutScreen(isTransferCourier: true),
+                        ),
+                      );
+                      if (submitted == true) {
+                        await Future.wait([
+                          service.fetchEarnings(),
+                          service.fetchPayouts(),
+                        ]);
+                      }
+                    },
+                    icon: const Icon(Icons.payments_outlined, size: 18),
+                    label: const Text(
+                      'Request Earnings Payout',
+                      style: TextStyle(fontWeight: FontWeight.w900),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: RiderTheme.primary,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'Recent Transfer Compensation',
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: 8),
+          if (service.recentEarnings.isEmpty)
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: RiderTheme.cardBorder),
+              ),
+              child: const Center(
+                child: Text(
+                  'Completed manifest compensation will appear here.',
+                  style: TextStyle(fontSize: 12, color: RiderTheme.textMuted),
+                ),
+              ),
+            )
+          else
+            ...service.recentEarnings.map((e) {
+              final amt = (e['amount'] as num?)?.toDouble() ?? 0.0;
+              return Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: RiderTheme.cardBorder),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            e['description']?.toString() ?? 'Manifest Trip Pay',
+                            style: const TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          Text(
+                            (e['type'] ?? 'transfer_trip')
+                                .toString()
+                                .replaceAll('_', ' ')
+                                .toUpperCase(),
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: RiderTheme.textMuted,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Text(
+                      '+₱${amt.toStringAsFixed(2)}',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFF10B981),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          if (service.recentPayouts.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            const Text(
+              'Payout History',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900),
+            ),
+            const SizedBox(height: 8),
+            ...service.recentPayouts.map((p) {
+              final amt = (p['amount'] as num?)?.toDouble() ?? 0.0;
+              final status = (p['status'] ?? 'requested').toString().toUpperCase();
+              return Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: RiderTheme.cardBorder),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${p['payout_number'] ?? 'PAYOUT'} — ₱${amt.toStringAsFixed(2)}',
+                          style: const TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        Text(
+                          (p['payout_method'] ?? '')
+                              .toString()
+                              .replaceAll('_', ' ')
+                              .toUpperCase(),
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: RiderTheme.textMuted,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        status,
+                        style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ],
+        ],
+      ),
     );
   }
 

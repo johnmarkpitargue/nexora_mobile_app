@@ -185,35 +185,68 @@ void main() {
       expect(DeliveryService.instance.activeOrderStage, 0);
     });
 
-    test('R4: Remittance submits to server and updates unremitted COD balance', () async {
+    test('R4: Remittance submits to server and stays pending verification', () async {
       double remittedAmount = 0.0;
+      String? remittedMethod;
       final mockClient = MockClient((request) async {
         if (request.url.path.endsWith('/remittance') && request.method == 'POST') {
           final body = jsonDecode(request.body) as Map<String, dynamic>;
           remittedAmount = (body['amount'] as num).toDouble();
+          remittedMethod = body['payment_method']?.toString();
           return http.Response(
             jsonEncode({
               'data': {
                 'id': 1,
                 'remittance_number': 'REM-2026-001',
                 'amount': remittedAmount,
+                'payment_method': remittedMethod ?? 'physical_cash',
                 'status': 'submitted',
               },
               'message': 'Remittance submitted successfully',
             }),
-            200,
+            201,
           );
         }
         if (request.url.path.endsWith('/earnings') && request.method == 'GET') {
           return http.Response(
             jsonEncode({
               'data': {
-                'unremitted_cod_balance': 0.0,
+                'unremitted_cod_balance': 500.0,
                 'earnings_balance': 350.0,
-                'today_earnings': 100.0,
-                'total_deliveries': 12,
+                'available_for_payout': 350.0,
+                'pending_payout_amount': 0.0,
+                'total_paid_out': 0.0,
+                'cod_wallet': {
+                  'cod_on_hand_balance': 500.0,
+                  'pending_verification_amount': 500.0,
+                  'available_for_new_remittance': 0.0,
+                },
+                'today_summary': {'pickups': 1, 'deliveries': 1, 'total_pay': 80.0},
               },
               'message': 'Earnings retrieved',
+            }),
+            200,
+          );
+        }
+        if (request.url.path.endsWith('/cod-collections') && request.method == 'GET') {
+          return http.Response(
+            jsonEncode({
+              'data': {
+                'cod_on_hand_balance': 500.0,
+                'pending_verification_amount': 500.0,
+                'available_for_new_remittance': 0.0,
+                'open_collections': [],
+                'recent_remittances': [
+                  {
+                    'id': 1,
+                    'remittance_number': 'REM-2026-001',
+                    'claimed_amount': 500.0,
+                    'payment_method': 'physical_cash',
+                    'status': 'submitted',
+                  }
+                ],
+              },
+              'message': 'COD collections retrieved',
             }),
             200,
           );
@@ -223,17 +256,20 @@ void main() {
 
       ApiClient.instance.setMockClient(mockClient);
 
-      EarningsService.instance.resetCodBalanceForTest(500.0);
+      EarningsService.instance.resetForTest(codBalance: 500.0);
       expect(EarningsService.instance.codHeldBalance, 500.0);
 
-      final ok = await EarningsService.instance.submitRemittanceRemote(
+      final created = await EarningsService.instance.submitRemittanceRemote(
         amount: 500.0,
-        notes: 'GCash ref: 90218847192',
+        paymentMethod: 'physical_cash',
+        notes: 'Turned over at Santa Cruz hub',
       );
 
-      expect(ok, isTrue);
+      expect(created, isNotNull);
+      expect(created!['status'], 'submitted');
       expect(remittedAmount, 500.0);
-      expect(EarningsService.instance.codHeldBalance, 0.0);
+      expect(EarningsService.instance.codHeldBalance, 500.0);
+      expect(EarningsService.instance.codPendingVerificationAmount, 500.0);
     });
 
     test('R5: Rider profile syncs real rating, reviews, deliveries, and company name from API', () async {

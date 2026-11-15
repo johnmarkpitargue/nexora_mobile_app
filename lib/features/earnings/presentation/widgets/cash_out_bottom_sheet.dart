@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
-import '../../../../core/theme/rider_theme.dart';
-import '../../../../core/services/rider_service.dart';
+import '../../../../core/network/api_client.dart';
 import '../../../../core/services/earnings_service.dart';
+import '../../../../core/services/rider_account_service.dart';
+import '../../../../core/services/rider_service.dart';
+import '../../../../core/theme/rider_theme.dart';
 
 class CashOutBottomSheet extends StatefulWidget {
   const CashOutBottomSheet({super.key});
@@ -12,332 +14,220 @@ class CashOutBottomSheet extends StatefulWidget {
 
 class _CashOutBottomSheetState extends State<CashOutBottomSheet> {
   final TextEditingController _amountController = TextEditingController();
+  final TextEditingController _accountNameController = TextEditingController();
   final TextEditingController _accountController = TextEditingController();
-  String _selectedMethod = 'GCash';
+  String _selectedMethod = 'gcash';
   bool _isLoading = false;
 
-  final List<Map<String, dynamic>> _methods = [
+  static const List<Map<String, dynamic>> _methods = [
     {
+      'key': 'gcash',
       'name': 'GCash',
       'icon': Icons.phone_android_rounded,
       'color': Color(0xFF007DFE),
-      'defaultAcc': '0918 555 0192',
     },
     {
+      'key': 'maya',
       'name': 'Maya',
       'icon': Icons.account_balance_wallet_rounded,
       'color': Color(0xFF22C55E),
-      'defaultAcc': '0918 555 0192',
     },
     {
-      'name': 'BDO Unibank',
+      'key': 'bank_transfer',
+      'name': 'Bank Transfer',
       'icon': Icons.account_balance_rounded,
       'color': Color(0xFF1E3A8A),
-      'defaultAcc': '0049 8812 4432',
     },
     {
-      'name': 'BPI Bank',
-      'icon': Icons.account_balance_rounded,
-      'color': Color(0xFFB91C1C),
-      'defaultAcc': '1829 3341 09',
+      'key': 'physical_cash',
+      'name': 'Hub Counter',
+      'icon': Icons.storefront_rounded,
+      'color': Color(0xFFD97706),
     },
   ];
 
   @override
   void initState() {
     super.initState();
+    final session = RiderAccountService.instance.activeRiderSession;
     _amountController.text =
-        RiderService.instance.profile.walletBalance.toStringAsFixed(0);
-    _accountController.text = _methods.first['defaultAcc'] as String;
+        EarningsService.instance.availableForPayout.toStringAsFixed(2);
+    _accountNameController.text =
+        session?.fullName ?? RiderService.instance.profile.name;
+    _accountController.text =
+        session?.mobileNumber ?? RiderService.instance.profile.phone;
   }
 
   @override
   void dispose() {
     _amountController.dispose();
+    _accountNameController.dispose();
     _accountController.dispose();
     super.dispose();
   }
 
-  void _processCashOut() {
+  Future<void> _processCashOut() async {
     final amount = double.tryParse(_amountController.text.trim()) ?? 0.0;
-    final maxBalance = RiderService.instance.profile.walletBalance;
+    final maxBalance = EarningsService.instance.availableForPayout;
+    final accountName = _accountNameController.text.trim();
+    final accountNumber = _accountController.text.trim();
 
-    if (amount <= 0) {
+    if (amount < 100.0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a valid amount.')),
+        const SnackBar(content: Text('Minimum payout request is ₱100.00.')),
       );
       return;
     }
 
-    if (amount > maxBalance) {
+    if (amount > maxBalance + 0.001) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Amount exceeds your available wallet balance.')),
+        const SnackBar(
+          content: Text('Amount exceeds available withdrawable balance.'),
+        ),
+      );
+      return;
+    }
+
+    if (accountName.isEmpty || accountNumber.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Account holder name and account number are required.'),
+        ),
       );
       return;
     }
 
     setState(() => _isLoading = true);
-
-    Future.delayed(const Duration(milliseconds: 1000), () {
-      if (!mounted) return;
-      final success = EarningsService.instance.requestCashOut(
-        amount,
-        _selectedMethod,
-        _accountController.text.trim(),
+    try {
+      final created = await EarningsService.instance.requestPayoutRemote(
+        amount: amount,
+        payoutMethod: _selectedMethod,
+        accountName: accountName,
+        accountNumber: accountNumber,
       );
 
-      setState(() => _isLoading = false);
-
-      if (success) {
-        Navigator.pop(context);
+      if (!mounted) return;
+      Navigator.pop(context);
+      final payoutNumber = created?['payout_number'] ?? 'PENDING';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Payout request $payoutNumber for ₱${amount.toStringAsFixed(2)} submitted — Pending Logistics Verification.',
+          ),
+          backgroundColor: RiderTheme.onlineGreen,
+        ),
+      );
+    } on ApiException catch (e) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              '🎉 ₱${amount.toStringAsFixed(2)} transferred to $_selectedMethod successfully!',
-            ),
-            backgroundColor: RiderTheme.onlineGreen,
+            content: Text(e.message),
+            backgroundColor: const Color(0xFFEF4444),
           ),
         );
       }
-    });
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final maxBalance = RiderService.instance.profile.walletBalance;
+    final available = EarningsService.instance.availableForPayout;
 
-    return Container(
+    return Padding(
       padding: EdgeInsets.only(
-        top: 20,
-        left: 20,
-        right: 20,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+        bottom: MediaQuery.of(context).viewInsets.bottom,
       ),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-      ),
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Center(
-              child: Container(
-                width: 44,
-                height: 5,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Instant Cash Out',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w900,
-                color: RiderTheme.textDark,
-              ),
-            ),
-            Text(
-              'Available balance: ₱${maxBalance.toStringAsFixed(2)}',
-              style: const TextStyle(
-                fontSize: 13,
-                color: RiderTheme.textMuted,
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // Method Selector
-            const Text(
-              'Select Destination',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
-                color: RiderTheme.textDark,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: _methods.map((method) {
-                final isSelected = _selectedMethod == method['name'];
-                return Expanded(
-                  child: InkWell(
-                    onTap: () {
-                      setState(() {
-                        _selectedMethod = method['name'] as String;
-                        _accountController.text =
-                            method['defaultAcc'] as String;
-                      });
-                    },
-                    child: Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 4),
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      decoration: BoxDecoration(
-                        color: isSelected
-                            ? RiderTheme.primaryContainer
-                            : const Color(0xFFF8FAFC),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: isSelected
-                              ? RiderTheme.primary
-                              : RiderTheme.cardBorder,
-                          width: isSelected ? 1.5 : 1.0,
-                        ),
-                      ),
-                      child: Column(
-                        children: [
-                          Icon(method['icon'] as IconData,
-                              size: 20,
-                              color: isSelected
-                                  ? RiderTheme.primary
-                                  : Colors.grey.shade600),
-                          const SizedBox(height: 4),
-                          Text(
-                            method['name'] as String,
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w800,
-                              color: isSelected
-                                  ? RiderTheme.primary
-                                  : RiderTheme.textDark,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 16),
-
-            // Account number
-            const Text(
-              'Recipient Account Number / Mobile',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
-                color: RiderTheme.textDark,
-              ),
-            ),
-            const SizedBox(height: 6),
-            TextField(
-              controller: _accountController,
-              decoration: InputDecoration(
-                filled: true,
-                fillColor: const Color(0xFFF8FAFC),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: RiderTheme.cardBorder),
-                ),
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              ),
-            ),
-            const SizedBox(height: 14),
-
-            // Amount input
-            const Text(
-              'Amount to Cash Out (₱)',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
-                color: RiderTheme.textDark,
-              ),
-            ),
-            const SizedBox(height: 6),
-            TextField(
-              controller: _amountController,
-              keyboardType: TextInputType.number,
-              decoration: InputDecoration(
-                prefixText: '₱ ',
-                filled: true,
-                fillColor: const Color(0xFFF8FAFC),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: RiderTheme.cardBorder),
-                ),
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              ),
-            ),
-            const SizedBox(height: 10),
-
-            // Preset Amount Pills
-            Row(
-              children: [
-                _presetPill(500),
-                _presetPill(1000),
-                _presetPill(2000),
-                _presetPill(maxBalance.toInt(), isMax: true),
-              ],
-            ),
-            const SizedBox(height: 22),
-
-            // Confirm Button
-            SizedBox(
-              width: double.infinity,
-              height: 52,
-              child: ElevatedButton(
-                onPressed: _isLoading ? null : _processCashOut,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: RiderTheme.onlineGreen,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                ),
-                child: _isLoading
-                    ? const SizedBox(
-                        width: 22,
-                        height: 22,
-                        child: CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 2.5,
-                        ),
-                      )
-                    : const Text(
-                        'Transfer Immediately',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _presetPill(int amount, {bool isMax = false}) {
-    return Expanded(
       child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 3),
-        child: OutlinedButton(
-          onPressed: () {
-            setState(() {
-              _amountController.text = amount.toString();
-            });
-          },
-          style: OutlinedButton.styleFrom(
-            side: const BorderSide(color: RiderTheme.cardBorder),
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
-          ),
-          child: Text(
-            isMax ? 'ALL' : '₱$amount',
-            style: const TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w800,
-              color: RiderTheme.textDark,
-            ),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Request Earnings Payout',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Available: ₱${available.toStringAsFixed(2)} • Verified by Logistics Finance',
+                style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+              ),
+              const SizedBox(height: 14),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: _methods.map((m) {
+                  return ChoiceChip(
+                    label: Text(m['name'] as String),
+                    selected: _selectedMethod == m['key'],
+                    onSelected: (_) =>
+                        setState(() => _selectedMethod = m['key'] as String),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: _accountNameController,
+                decoration: const InputDecoration(
+                  labelText: 'Account Holder Name',
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: _accountController,
+                decoration: const InputDecoration(
+                  labelText: 'Account / Mobile Number',
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: _amountController,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(
+                  labelText: 'Amount (Min. ₱100.00)',
+                  prefixText: '₱ ',
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton(
+                  onPressed: _isLoading ? null : _processCashOut,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0066FF),
+                    foregroundColor: Colors.white,
+                  ),
+                  child: _isLoading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text(
+                          'SUBMIT PAYOUT REQUEST',
+                          style: TextStyle(fontWeight: FontWeight.w900),
+                        ),
+                ),
+              ),
+            ],
           ),
         ),
       ),

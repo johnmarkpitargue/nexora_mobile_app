@@ -1,202 +1,228 @@
+import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 import '../constants/api_constants.dart';
-import '../network/api_client.dart';
 import '../models/earning_record.dart';
+import '../network/api_client.dart';
 import 'rider_service.dart';
 
 class EarningsService extends ChangeNotifier {
   static final EarningsService instance = EarningsService._();
-  EarningsService._() {
-    _initSampleTransactions();
-  }
+  EarningsService._();
 
   final List<EarningTransaction> _transactions = [];
-
   List<EarningTransaction> get transactions => List.unmodifiable(_transactions);
 
   List<DayEarnings> _weeklyData = [];
-  List<DayEarnings> get weeklyData =>
-      _weeklyData.isNotEmpty ? List.unmodifiable(_weeklyData) : _fallbackWeeklyData;
+  List<DayEarnings> get weeklyData => _weeklyData.isNotEmpty
+      ? List.unmodifiable(_weeklyData)
+      : _emptyWeekPlaceholder();
 
-  static const List<DayEarnings> _fallbackWeeklyData = [
-    DayEarnings(
-      dayName: 'Mon',
-      amount: 1620.00,
-      ordersCount: 6,
-      hoursWorked: 4.2,
-      tipsAmount: 70.0,
-      dateLabel: 'Monday, Oct 12',
-    ),
-    DayEarnings(
-      dayName: 'Tue',
-      amount: 1410.00,
-      ordersCount: 5,
-      hoursWorked: 3.8,
-      tipsAmount: 60.0,
-      dateLabel: 'Tuesday, Oct 13',
-    ),
-    DayEarnings(
-      dayName: 'Wed',
-      amount: 1940.00,
-      ordersCount: 8,
-      hoursWorked: 5.0,
-      tipsAmount: 90.0,
-      dateLabel: 'Wednesday, Oct 14',
-    ),
-    DayEarnings(
-      dayName: 'Thu',
-      amount: 1510.00,
-      ordersCount: 6,
-      hoursWorked: 4.0,
-      tipsAmount: 65.0,
-      dateLabel: 'Thursday, Oct 15',
-    ),
-    DayEarnings(
-      dayName: 'Fri',
-      amount: 2150.00,
-      ordersCount: 8,
-      hoursWorked: 5.2,
-      tipsAmount: 110.0,
-      dateLabel: 'Friday, Oct 16',
-    ),
-    DayEarnings(
-      dayName: 'Sat',
-      amount: 2520.00,
-      ordersCount: 10,
-      hoursWorked: 5.8,
-      tipsAmount: 105.0,
-      dateLabel: 'Saturday, Oct 17',
-    ),
-    DayEarnings(
-      dayName: 'Sun',
-      amount: 1420.00,
-      ordersCount: 5,
-      hoursWorked: 4.5,
-      tipsAmount: 60.0,
-      dateLabel: 'Sunday, Oct 18 (Today)',
-      isCurrent: true,
-    ),
-  ];
+  List<DayEarnings>? _testMonthlyData;
 
-  final List<DayEarnings> todayData = const [
-    DayEarnings(
-      dayName: '08:00',
-      amount: 320.00,
-      ordersCount: 2,
-      hoursWorked: 1.5,
-      tipsAmount: 20.0,
-      dateLabel: 'Morning Rush (08:00–11:00)',
-    ),
-    DayEarnings(
-      dayName: '11:00',
-      amount: 540.00,
-      ordersCount: 3,
-      hoursWorked: 1.8,
-      tipsAmount: 40.0,
-      dateLabel: 'Lunch Peak Rush (11:00–14:00)',
-    ),
-    DayEarnings(
-      dayName: '14:00',
-      amount: 280.00,
-      ordersCount: 2,
-      hoursWorked: 1.2,
-      tipsAmount: 20.0,
-      dateLabel: 'Afternoon Route (14:00–17:00)',
-    ),
-    DayEarnings(
-      dayName: '17:00',
-      amount: 280.00,
-      ordersCount: 2,
-      hoursWorked: 1.0,
-      tipsAmount: 40.0,
-      dateLabel: 'Dinner Surge (17:00–21:00)',
-      isCurrent: true,
-    ),
-  ];
+  bool _isLoading = false;
+  bool get isLoading => _isLoading;
 
-  final List<DayEarnings> monthlyData = const [
-    DayEarnings(
-      dayName: 'W1',
-      amount: 11400.00,
-      ordersCount: 46,
-      hoursWorked: 31.0,
-      tipsAmount: 520.0,
-      dateLabel: 'Week 1 (Oct 01 - Oct 07)',
-    ),
-    DayEarnings(
-      dayName: 'W2',
-      amount: 12200.00,
-      ordersCount: 48,
-      hoursWorked: 32.5,
-      tipsAmount: 560.0,
-      dateLabel: 'Week 2 (Oct 08 - Oct 14)',
-    ),
-    DayEarnings(
-      dayName: 'W3',
-      amount: 12570.00,
-      ordersCount: 48,
-      hoursWorked: 32.5,
-      tipsAmount: 560.0,
-      dateLabel: 'Week 3 (Oct 15 - Oct 21)',
-      isCurrent: true,
-    ),
-    DayEarnings(
-      dayName: 'W4',
-      amount: 9800.00,
-      ordersCount: 38,
-      hoursWorked: 26.0,
-      tipsAmount: 440.0,
-      dateLabel: 'Week 4 (Oct 22 - Oct 28)',
-    ),
-  ];
+  String? _lastError;
+  String? get lastError => _lastError;
 
-  void _initSampleTransactions() {
+  // Earnings & Payout Wallet (strictly separate from COD cash collected)
+  double _earningsBalance = 0.0;
+  double get earningsBalance => _earningsBalance;
+
+  double _availableForPayout = 0.0;
+  double get availableForPayout => _availableForPayout;
+
+  double _pendingPayoutAmount = 0.0;
+  double get pendingPayoutAmount => _pendingPayoutAmount;
+
+  double _totalPaidOut = 0.0;
+  double get totalPaidOut => _totalPaidOut;
+
+  double _onHoldAmount = 0.0;
+  double get onHoldAmount => _onHoldAmount;
+
+  double _totalEarnedAllTime = 0.0;
+  double get totalEarnedAllTime => _totalEarnedAllTime;
+
+  double _weeklyTotalPay = 0.0;
+  double get weeklyTotalPay => _weeklyTotalPay;
+
+  // COD Cash Accountability Wallet (never combined with courier earnings)
+  double _codHeldBalance = 0.0;
+  double get codHeldBalance => _codHeldBalance;
+
+  double _codPendingVerificationAmount = 0.0;
+  double get codPendingVerificationAmount => _codPendingVerificationAmount;
+
+  double _codAvailableForRemittance = 0.0;
+  double get codAvailableForRemittance => _codAvailableForRemittance;
+
+  double _codTotalCollectedLifetime = 0.0;
+  double get codTotalCollectedLifetime => _codTotalCollectedLifetime;
+
+  double _codTotalVerifiedRemitted = 0.0;
+  double get codTotalVerifiedRemitted => _codTotalVerifiedRemitted;
+
+  double _codTotalShortageFlagged = 0.0;
+  double get codTotalShortageFlagged => _codTotalShortageFlagged;
+
+  List<Map<String, dynamic>> _openCodCollections = [];
+  List<Map<String, dynamic>> get openCodCollections =>
+      List.unmodifiable(_openCodCollections);
+
+  List<Map<String, dynamic>> _recentRemittances = [];
+  List<Map<String, dynamic>> get recentRemittances =>
+      List.unmodifiable(_recentRemittances);
+
+  List<Map<String, dynamic>> _recentPayouts = [];
+  List<Map<String, dynamic>> get recentPayouts =>
+      List.unmodifiable(_recentPayouts);
+
+  Map<String, dynamic>? _activePolicy;
+  Map<String, dynamic>? get activePolicy => _activePolicy;
+
+  List<DayEarnings> _emptyWeekPlaceholder() {
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    return List.generate(days.length, (i) {
+      return DayEarnings(
+        dayName: days[i],
+        amount: 0.0,
+        ordersCount: 0,
+        hoursWorked: 0.0,
+        tipsAmount: 0.0,
+        dateLabel: days[i],
+        isCurrent: i == days.length - 1,
+      );
+    });
+  }
+
+  List<DayEarnings> get todayData {
     final now = DateTime.now();
-    _transactions.addAll([
-      EarningTransaction(
-        id: 'TXN-1085',
-        title: 'Weekend Milestone Quest',
-        subtitle: 'Completed 18 Peak-Hour Trips • #Q-402',
-        amount: 400.00,
-        timestamp: DateTime(now.year, now.month, now.day, 16, 45),
-        type: TransactionType.bonus,
+    final todayTxns = _transactions.where((t) =>
+        t.amount > 0 &&
+        t.timestamp.year == now.year &&
+        t.timestamp.month == now.month &&
+        t.timestamp.day == now.day);
+
+    final buckets = <String, List<EarningTransaction>>{
+      '08:00': [],
+      '11:00': [],
+      '14:00': [],
+      '17:00': [],
+    };
+    for (final t in todayTxns) {
+      final h = t.timestamp.hour;
+      if (h < 11) {
+        buckets['08:00']!.add(t);
+      } else if (h < 14) {
+        buckets['11:00']!.add(t);
+      } else if (h < 17) {
+        buckets['14:00']!.add(t);
+      } else {
+        buckets['17:00']!.add(t);
+      }
+    }
+
+    const labels = {
+      '08:00': 'Morning (00:00-11:00)',
+      '11:00': 'Midday (11:00-14:00)',
+      '14:00': 'Afternoon (14:00-17:00)',
+      '17:00': 'Evening (17:00-24:00)',
+    };
+
+    final keys = buckets.keys.toList();
+    return List.generate(keys.length, (idx) {
+      final key = keys[idx];
+      final list = buckets[key]!;
+      return DayEarnings(
+        dayName: key,
+        amount: list.fold(0.0, (sum, item) => sum + item.amount),
+        ordersCount: list.length,
+        hoursWorked: 0.0,
+        tipsAmount: 0.0,
+        dateLabel: labels[key]!,
+        isCurrent: idx == keys.length - 1,
+      );
+    });
+  }
+
+  List<DayEarnings> get monthlyData {
+    if (_testMonthlyData != null) {
+      return List.unmodifiable(_testMonthlyData!);
+    }
+    final weekSum = _weeklyData.fold(0.0, (s, d) => s + d.amount);
+    final weekTrips = _weeklyData.fold(0, (s, d) => s + d.ordersCount);
+    return [
+      DayEarnings(
+        dayName: 'W1',
+        amount: 0.0,
+        ordersCount: 0,
+        hoursWorked: 0.0,
+        tipsAmount: 0.0,
+        dateLabel: 'Week 1',
       ),
-      EarningTransaction(
-        id: 'TXN-1084',
-        title: 'Trip Payout - NX-9104-ORD',
-        subtitle: 'Delivery (₱145.00) + Tip (₱50.00)',
-        amount: 195.00,
-        timestamp: DateTime(now.year, now.month, now.day, 15, 19),
-        type: TransactionType.deliveryFee,
-        relatedOrderId: 'NX-9104-ORD',
+      DayEarnings(
+        dayName: 'W2',
+        amount: 0.0,
+        ordersCount: 0,
+        hoursWorked: 0.0,
+        tipsAmount: 0.0,
+        dateLabel: 'Week 2',
       ),
-      EarningTransaction(
-        id: 'TXN-1082',
-        title: 'Trip Payout - NX-8720-ORD',
-        subtitle: 'Standard Express + Tip (₱30.00)',
-        amount: 160.00,
-        timestamp: DateTime(now.year, now.month, now.day, 13, 19),
-        type: TransactionType.deliveryFee,
-        relatedOrderId: 'NX-8720-ORD',
+      DayEarnings(
+        dayName: 'W3',
+        amount: 0.0,
+        ordersCount: 0,
+        hoursWorked: 0.0,
+        tipsAmount: 0.0,
+        dateLabel: 'Week 3',
       ),
-      EarningTransaction(
-        id: 'TXN-1081',
-        title: 'Trip Payout - NX-8641-ORD',
-        subtitle: 'Standard Express + Tip (₱20.00)',
-        amount: 170.00,
-        timestamp: DateTime(now.year, now.month, now.day, 11, 19),
-        type: TransactionType.deliveryFee,
-        relatedOrderId: 'NX-8641-ORD',
+      DayEarnings(
+        dayName: 'W4',
+        amount: weekSum,
+        ordersCount: weekTrips,
+        hoursWorked: 0.0,
+        tipsAmount: 0.0,
+        dateLabel: 'Current 7 Days',
+        isCurrent: true,
       ),
-      EarningTransaction(
-        id: 'TXN-1075',
-        title: 'Instant Cash-out to GCash',
-        subtitle: 'Ref: GCASH-0918***0192',
-        amount: -2500.00,
-        timestamp: now.subtract(const Duration(days: 1)),
-        type: TransactionType.cashOut,
-      ),
-    ]);
+    ];
+  }
+
+  @visibleForTesting
+  void setTestChartData({
+    List<DayEarnings>? weekly,
+    List<DayEarnings>? monthly,
+  }) {
+    if (weekly != null) _weeklyData = List.of(weekly);
+    _testMonthlyData = monthly != null ? List.of(monthly) : null;
+    notifyListeners();
+  }
+
+  @visibleForTesting
+  void resetForTest({
+    double codBalance = 0.0,
+    double earningsBalance = 0.0,
+    double availableForPayout = 0.0,
+    List<Map<String, dynamic>>? openCollections,
+    List<Map<String, dynamic>>? recentRemittances,
+  }) {
+    _transactions.clear();
+    _weeklyData = [];
+    _testMonthlyData = null;
+    _codHeldBalance = codBalance;
+    _codAvailableForRemittance = codBalance;
+    _codPendingVerificationAmount = 0.0;
+    _earningsBalance = earningsBalance;
+    _availableForPayout = availableForPayout;
+    _pendingPayoutAmount = 0.0;
+    _totalPaidOut = 0.0;
+    _openCodCollections = openCollections ?? [];
+    _recentRemittances = recentRemittances ?? [];
+    _recentPayouts = [];
+    _lastError = null;
+    notifyListeners();
   }
 
   void recordDeliveryEarnings({
@@ -205,83 +231,79 @@ class EarningsService extends ChangeNotifier {
     required double tip,
   }) {
     final total = deliveryFee + tip;
+    if (total <= 0) return;
     final txn = EarningTransaction(
-      id: 'TXN-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}',
-      title: 'Trip Payout - $orderId',
-      subtitle: tip > 0
-          ? 'Delivery (₱${deliveryFee.toStringAsFixed(2)}) + Tip (₱${tip.toStringAsFixed(2)})'
-          : 'Standard Delivery Payout',
+      id: 'TXN-${DateTime.now().millisecondsSinceEpoch}',
+      title: 'Trip Pay - $orderId',
+      subtitle: 'Credited upon server verification',
       amount: total,
       timestamp: DateTime.now(),
       type: TransactionType.deliveryFee,
       relatedOrderId: orderId,
     );
-
     _transactions.insert(0, txn);
     notifyListeners();
   }
 
-  bool requestCashOut(double amount, String method, String accountNo) {
-    if (amount <= 0 || amount > RiderService.instance.profile.walletBalance) {
-      return false;
+  void _applyCodWalletPayload(Map<String, dynamic>? wallet) {
+    if (wallet == null) return;
+    _codHeldBalance =
+        (wallet['cod_on_hand_balance'] as num?)?.toDouble() ?? _codHeldBalance;
+    _codPendingVerificationAmount =
+        (wallet['pending_verification_amount'] as num?)?.toDouble() ?? 0.0;
+    _codAvailableForRemittance =
+        (wallet['available_for_new_remittance'] as num?)?.toDouble() ??
+            (_codHeldBalance - _codPendingVerificationAmount).clamp(0.0, double.infinity);
+    _codTotalCollectedLifetime =
+        (wallet['total_collected_lifetime'] as num?)?.toDouble() ?? 0.0;
+    _codTotalVerifiedRemitted =
+        (wallet['total_verified_remitted'] as num?)?.toDouble() ?? 0.0;
+    _codTotalShortageFlagged =
+        (wallet['total_shortage_flagged'] as num?)?.toDouble() ?? 0.0;
+
+    final openList = wallet['open_collections'] as List<dynamic>?;
+    if (openList != null) {
+      _openCodCollections =
+          openList.whereType<Map<String, dynamic>>().toList();
     }
-
-    RiderService.instance.deductCashOut(amount);
-
-    final txn = EarningTransaction(
-      id: 'TXN-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}',
-      title: 'Cash Out to $method',
-      subtitle: 'Ref: $accountNo',
-      amount: -amount,
-      timestamp: DateTime.now(),
-      type: TransactionType.cashOut,
-    );
-
-    _transactions.insert(0, txn);
-    notifyListeners();
-    return true;
-  }
-
-  double _codHeldBalance = 0.0;
-  double get codHeldBalance => _codHeldBalance;
-
-  void remitCodCash({
-    required double amount,
-    required String method,
-    String? referenceNumber,
-    String? hubOfficer,
-  }) {
-    if (amount <= 0) return;
-    _codHeldBalance = (_codHeldBalance - amount).clamp(0.0, double.infinity);
-
-    final isEwallet = method.contains('GCash') || method.contains('Maya');
-    final txn = EarningTransaction(
-      id: 'REMIT-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}',
-      title: 'COD Cash Remitted ($method)',
-      subtitle: isEwallet
-          ? 'Ref: ${referenceNumber ?? "NEX-EWALLET-OK"} • Instant Clear'
-          : 'Hub Counter Voucher • Approved by ${hubOfficer ?? "Elena V. (Hub 4B)"}',
-      amount: -amount,
-      timestamp: DateTime.now(),
-      type: TransactionType.cashOut,
-    );
-    _transactions.insert(0, txn);
-    notifyListeners();
-  }
-
-  void resetCodBalanceForTest([double balance = 640.00]) {
-    _codHeldBalance = balance;
-    notifyListeners();
   }
 
   Future<Map<String, dynamic>?> fetchEarningsRemote() async {
     if (!ApiClient.instance.isAuthenticated) return null;
+    _isLoading = true;
+    _lastError = null;
     try {
       final res = await ApiClient.instance.get(ApiConstants.riderEarnings);
       final data = res.data as Map<String, dynamic>;
+
+      _earningsBalance =
+          (data['earnings_balance'] as num?)?.toDouble() ?? 0.0;
+      _availableForPayout =
+          (data['available_for_payout'] as num?)?.toDouble() ?? _earningsBalance;
+      _pendingPayoutAmount =
+          (data['pending_payout_amount'] as num?)?.toDouble() ?? 0.0;
+      _totalPaidOut = (data['total_paid_out'] as num?)?.toDouble() ?? 0.0;
+      _onHoldAmount = (data['on_hold_amount'] as num?)?.toDouble() ?? 0.0;
+      _totalEarnedAllTime =
+          (data['total_earned_all_time'] as num?)?.toDouble() ?? 0.0;
+      _weeklyTotalPay =
+          (data['weekly_total_pay'] as num?)?.toDouble() ?? 0.0;
+
       final unremitted = (data['unremitted_cod_balance'] as num?)?.toDouble();
       if (unremitted != null) {
         _codHeldBalance = unremitted;
+      }
+
+      if (data['cod_wallet'] is Map<String, dynamic>) {
+        _applyCodWalletPayload(data['cod_wallet'] as Map<String, dynamic>);
+      }
+      if (data['active_policy'] is Map<String, dynamic>) {
+        _activePolicy = data['active_policy'] as Map<String, dynamic>;
+      }
+
+      final payoutsList = data['recent_payouts'] as List<dynamic>?;
+      if (payoutsList != null) {
+        _recentPayouts = payoutsList.whereType<Map<String, dynamic>>().toList();
       }
 
       final todaySummary = data['today_summary'] as Map<String, dynamic>?;
@@ -289,24 +311,20 @@ class EarningsService extends ChangeNotifier {
       final todayTrips = ((todaySummary?['pickups'] as num?)?.toInt() ?? 0) +
           ((todaySummary?['deliveries'] as num?)?.toInt() ?? 0);
 
-      final balance = (data['earnings_balance'] as num?)?.toDouble();
-      if (balance != null) {
-        RiderService.instance.updateProfileFromApi(
-          id: RiderService.instance.profile.id,
-          name: RiderService.instance.profile.name,
-          email: RiderService.instance.profile.email,
-          phone: RiderService.instance.profile.phone,
-          plateNumber: RiderService.instance.profile.plateNumber,
-          vehicleType: RiderService.instance.profile.vehicleType,
-          isOnline: RiderService.instance.profile.isOnline,
-          rating: RiderService.instance.profile.rating,
-          walletBalance: balance,
-          todayDeliveries: todayTrips,
-          todayEarnings: todayPay,
-        );
-      }
+      RiderService.instance.updateProfileFromApi(
+        id: RiderService.instance.profile.id,
+        name: RiderService.instance.profile.name,
+        email: RiderService.instance.profile.email,
+        phone: RiderService.instance.profile.phone,
+        plateNumber: RiderService.instance.profile.plateNumber,
+        vehicleType: RiderService.instance.profile.vehicleType,
+        isOnline: RiderService.instance.profile.isOnline,
+        rating: RiderService.instance.profile.rating,
+        walletBalance: _availableForPayout,
+        todayDeliveries: todayTrips,
+        todayEarnings: todayPay,
+      );
 
-      // Parse 7-day performance breakdown for weekly performance chart
       final past7Days = data['past_7_days'] as List<dynamic>?;
       if (past7Days != null && past7Days.isNotEmpty) {
         final parsed = <DayEarnings>[];
@@ -325,26 +343,34 @@ class EarningsService extends ChangeNotifier {
         _weeklyData = parsed;
       }
 
-      // Parse real transaction history from server
       final recentEarnings = data['recent_earnings'] as List<dynamic>?;
       if (recentEarnings != null) {
         _transactions.clear();
         for (final item in recentEarnings) {
           if (item is Map<String, dynamic>) {
             final typeStr = (item['type'] ?? '').toString();
-            final isPickup = typeStr == 'pickup';
             final orderNum = item['order_number']?.toString() ?? '';
             final desc = (item['description'] ?? '').toString();
+            final status = (item['status'] ?? 'available').toString();
 
             _transactions.add(EarningTransaction(
               id: 'TXN-${item['id']}',
-              title: desc.isNotEmpty ? desc : (isPickup ? 'Pickup Pay' : 'Delivery Pay'),
+              title: desc.isNotEmpty
+                  ? desc
+                  : (typeStr == 'pickup'
+                      ? 'Pickup Pay'
+                      : (typeStr == 'failed_delivery'
+                          ? 'Failed Attempt Pay'
+                          : 'Delivery Pay')),
               subtitle: orderNum.isNotEmpty
-                  ? 'Order #$orderNum'
-                  : (isPickup ? 'Store Parcel Pickup' : 'Customer Delivery'),
+                  ? 'Order #$orderNum • ${status.toUpperCase()}'
+                  : status.toUpperCase(),
               amount: (item['amount'] as num?)?.toDouble() ?? 0.0,
-              timestamp: DateTime.tryParse(item['earned_at']?.toString() ?? '') ?? DateTime.now(),
-              type: TransactionType.deliveryFee,
+              timestamp: DateTime.tryParse(item['earned_at']?.toString() ?? '') ??
+                  DateTime.now(),
+              type: typeStr == 'bonus'
+                  ? TransactionType.bonus
+                  : TransactionType.deliveryFee,
               relatedOrderId: orderNum.isNotEmpty ? orderNum : null,
             ));
           }
@@ -353,37 +379,249 @@ class EarningsService extends ChangeNotifier {
 
       notifyListeners();
       return data;
+    } on ApiException catch (e) {
+      _lastError = e.message;
+      notifyListeners();
+      return null;
+    } catch (_) {
+      _lastError = 'Unable to load earnings summary.';
+      notifyListeners();
+      return null;
+    } finally {
+      _isLoading = false;
+    }
+  }
+
+  Future<Map<String, dynamic>?> fetchCodCollectionsRemote() async {
+    if (!ApiClient.instance.isAuthenticated) return null;
+    try {
+      final res =
+          await ApiClient.instance.get(ApiConstants.riderCodCollections);
+      final data = res.data as Map<String, dynamic>;
+      _applyCodWalletPayload(data);
+      final remits = data['recent_remittances'] as List<dynamic>?;
+      if (remits != null) {
+        _recentRemittances = remits.whereType<Map<String, dynamic>>().toList();
+      }
+      notifyListeners();
+      return data;
+    } on ApiException catch (e) {
+      _lastError = e.message;
+      notifyListeners();
+      return null;
     } catch (_) {
       return null;
     }
   }
 
-  Future<bool> submitRemittanceRemote({
+  Future<Map<String, dynamic>?> fetchPayoutsRemote() async {
+    if (!ApiClient.instance.isAuthenticated) return null;
+    try {
+      final res = await ApiClient.instance.get(ApiConstants.riderPayouts);
+      final data = res.data as Map<String, dynamic>;
+      _availableForPayout =
+          (data['available_for_payout'] as num?)?.toDouble() ?? _availableForPayout;
+      _pendingPayoutAmount =
+          (data['pending_payout_amount'] as num?)?.toDouble() ?? _pendingPayoutAmount;
+      _totalPaidOut =
+          (data['total_paid_out'] as num?)?.toDouble() ?? _totalPaidOut;
+      final payouts = data['payouts'] as List<dynamic>?;
+      if (payouts != null) {
+        _recentPayouts = payouts.whereType<Map<String, dynamic>>().toList();
+      }
+      notifyListeners();
+      return data;
+    } on ApiException catch (e) {
+      _lastError = e.message;
+      notifyListeners();
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Submit a genuine Rider-to-Logistics COD remittance.
+  /// Never clears held COD cash locally — waits for Logistics verification.
+  Future<Map<String, dynamic>?> submitRemittanceRemote({
     required double amount,
+    String paymentMethod = 'physical_cash',
+    String? externalReference,
+    DateTime? transferDate,
+    List<int>? orderIds,
+    String? proofFilePath,
     String? notes,
   }) async {
-    if (amount <= 0) return false;
+    if (amount <= 0) {
+      throw ApiException(
+        message: 'Remittance amount must be greater than ₱0.00.',
+        statusCode: 422,
+      );
+    }
 
-    if (ApiClient.instance.isAuthenticated) {
-      final idempotencyKey = 'remit_${DateTime.now().millisecondsSinceEpoch}';
-      final res = await ApiClient.instance.post(
+    if (paymentMethod != 'physical_cash') {
+      if (externalReference == null || externalReference.trim().isEmpty) {
+        throw ApiException(
+          message:
+              'External reference number is required for $paymentMethod transfers.',
+          statusCode: 422,
+        );
+      }
+      if (proofFilePath == null || proofFilePath.trim().isEmpty) {
+        throw ApiException(
+          message: 'Please attach a transaction receipt image for manual verification.',
+          statusCode: 422,
+        );
+      }
+    }
+
+    if (!ApiClient.instance.isAuthenticated) {
+      throw ApiException(
+        message: 'Sign in required to submit a COD remittance.',
+        statusCode: 401,
+      );
+    }
+
+    final idempotencyKey =
+        'remit_${DateTime.now().millisecondsSinceEpoch}_${amount.toStringAsFixed(2)}';
+    final headers = {'Idempotency-Key': idempotencyKey};
+
+    ApiResponse<dynamic> res;
+    if (proofFilePath != null &&
+        proofFilePath.trim().isNotEmpty &&
+        File(proofFilePath).existsSync()) {
+      final fields = <String, String>{
+        'amount': amount.toStringAsFixed(2),
+        'payment_method': paymentMethod,
+        if (externalReference != null && externalReference.trim().isNotEmpty)
+          'external_reference': externalReference.trim(),
+        if (transferDate != null)
+          'transfer_date': transferDate.toIso8601String(),
+        if (notes != null && notes.trim().isNotEmpty) 'notes': notes.trim(),
+      };
+      if (orderIds != null && orderIds.isNotEmpty) {
+        for (int i = 0; i < orderIds.length; i++) {
+          fields['order_ids[$i]'] = orderIds[i].toString();
+        }
+      }
+      final file = await http.MultipartFile.fromPath('proof_file', proofFilePath);
+      res = await ApiClient.instance.multipartPost(
+        ApiConstants.remittance,
+        fields: fields,
+        files: {'proof_file': file},
+        headers: headers,
+      );
+    } else {
+      res = await ApiClient.instance.post(
         ApiConstants.remittance,
         body: {
           'amount': amount,
-          if (notes != null && notes.isNotEmpty) 'notes': notes,
+          'payment_method': paymentMethod,
+          if (externalReference != null && externalReference.trim().isNotEmpty)
+            'external_reference': externalReference.trim(),
+          if (transferDate != null)
+            'transfer_date': transferDate.toIso8601String(),
+          if (orderIds != null && orderIds.isNotEmpty) 'order_ids': orderIds,
+          if (notes != null && notes.trim().isNotEmpty) 'notes': notes.trim(),
         },
-        headers: {'Idempotency-Key': idempotencyKey},
+        headers: headers,
       );
-      remitCodCash(
-        amount: amount,
-        method: 'Mobile Remittance',
-        referenceNumber: (res.data as Map<String, dynamic>?)?['remittance_number']?.toString(),
-      );
-      await fetchEarningsRemote();
-      return true;
     }
 
-    remitCodCash(amount: amount, method: 'Direct Hub');
-    return true;
+    final payload = res.data as Map<String, dynamic>?;
+    if (payload != null) {
+      _recentRemittances.insert(0, payload);
+      // Reflect pending verification honestly — DO NOT mark cash cleared yet!
+      _codPendingVerificationAmount += amount;
+      _codAvailableForRemittance = (_codHeldBalance - _codPendingVerificationAmount)
+          .clamp(0.0, double.infinity);
+    }
+
+    await Future.wait([
+      fetchEarningsRemote(),
+      fetchCodCollectionsRemote(),
+    ]);
+    notifyListeners();
+    return payload;
+  }
+
+  /// Submit a genuine Courier Payout Request. Status stays 'requested' until
+  /// Logistics Finance manually processes and verifies the payout reference.
+  Future<Map<String, dynamic>?> requestPayoutRemote({
+    required double amount,
+    required String payoutMethod,
+    required String accountName,
+    required String accountNumber,
+    String? courierNotes,
+  }) async {
+    if (amount <= 0) {
+      throw ApiException(
+        message: 'Payout amount must be greater than zero.',
+        statusCode: 422,
+      );
+    }
+    if (accountName.trim().isEmpty || accountNumber.trim().isEmpty) {
+      throw ApiException(
+        message: 'Account holder name and account/mobile number are required.',
+        statusCode: 422,
+      );
+    }
+    if (!ApiClient.instance.isAuthenticated) {
+      throw ApiException(
+        message: 'Sign in required to submit a payout request.',
+        statusCode: 401,
+      );
+    }
+
+    final res = await ApiClient.instance.post(
+      ApiConstants.riderPayouts,
+      body: {
+        'amount': amount,
+        'payout_method': payoutMethod,
+        'account_name': accountName.trim(),
+        'account_number': accountNumber.trim(),
+        if (courierNotes != null && courierNotes.trim().isNotEmpty)
+          'courier_notes': courierNotes.trim(),
+      },
+    );
+
+    final created = res.data as Map<String, dynamic>?;
+    if (created != null) {
+      _recentPayouts.insert(0, created);
+      _pendingPayoutAmount += amount;
+      _availableForPayout =
+          (_availableForPayout - amount).clamp(0.0, double.infinity);
+    }
+
+    await Future.wait([
+      fetchEarningsRemote(),
+      fetchPayoutsRemote(),
+    ]);
+    notifyListeners();
+    return created;
+  }
+
+  void clear() {
+    _transactions.clear();
+    _weeklyData = [];
+    _testMonthlyData = null;
+    _earningsBalance = 0.0;
+    _availableForPayout = 0.0;
+    _pendingPayoutAmount = 0.0;
+    _totalPaidOut = 0.0;
+    _onHoldAmount = 0.0;
+    _totalEarnedAllTime = 0.0;
+    _weeklyTotalPay = 0.0;
+    _codHeldBalance = 0.0;
+    _codPendingVerificationAmount = 0.0;
+    _codAvailableForRemittance = 0.0;
+    _codTotalCollectedLifetime = 0.0;
+    _codTotalVerifiedRemitted = 0.0;
+    _codTotalShortageFlagged = 0.0;
+    _openCodCollections = [];
+    _recentRemittances = [];
+    _recentPayouts = [];
+    _activePolicy = null;
+    _lastError = null;
+    notifyListeners();
   }
 }
