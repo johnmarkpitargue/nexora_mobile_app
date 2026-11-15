@@ -49,6 +49,7 @@ class ApiClient {
   static const String _userRoleKey = 'nexora_rider_role';
 
   String? _cachedToken;
+  String? _cachedRole;
   http.Client _client = http.Client();
 
   /// Visible for testing to inject custom mock client
@@ -59,9 +60,11 @@ class ApiClient {
   Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
     _cachedToken = prefs.getString(_tokenKey);
+    _cachedRole = prefs.getString(_userRoleKey);
   }
 
   String? get token => _cachedToken;
+  String? get savedRole => _cachedRole;
   bool get isAuthenticated => _cachedToken != null && _cachedToken!.isNotEmpty;
   bool get hasToken => isAuthenticated;
 
@@ -70,12 +73,14 @@ class ApiClient {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_tokenKey, token);
     if (role != null) {
+      _cachedRole = role;
       await prefs.setString(_userRoleKey, role);
     }
   }
 
   Future<void> clearToken() async {
     _cachedToken = null;
+    _cachedRole = null;
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_tokenKey);
     await prefs.remove(_userRoleKey);

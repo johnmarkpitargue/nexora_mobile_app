@@ -46,4 +46,26 @@ class ApiConstants {
   static const String riderEarnings = earnings;
   static const String remittance = '/api/mobile/v1/rider/remittance';
   static const String submitRemittance = remittance;
+
+  // Transfer Courier Operations
+  static const String transferCourierDashboard =
+      '/api/mobile/v1/transfer-courier/dashboard';
+  static const String transferCourierProfile =
+      '/api/mobile/v1/transfer-courier/profile';
+  static const String transferCourierInventory =
+      '/api/mobile/v1/transfer-courier/inventory';
+  static const String transferCourierManifests =
+      '/api/mobile/v1/transfer-courier/manifests';
+  static String transferCourierManifestDetail(dynamic id) =>
+      '/api/mobile/v1/transfer-courier/manifests/$id';
+  static String transferCourierManifestInventory(dynamic id) =>
+      '/api/mobile/v1/transfer-courier/manifests/$id/inventory';
+  static String transferCourierManifestScan(dynamic id) =>
+      '/api/mobile/v1/transfer-courier/manifests/$id/scan';
+  static String transferCourierManifestDepart(dynamic id) =>
+      '/api/mobile/v1/transfer-courier/manifests/$id/depart';
+  static String transferCourierManifestArrive(dynamic id) =>
+      '/api/mobile/v1/transfer-courier/manifests/$id/arrive';
+  static String transferCourierManifestReportIssue(dynamic id) =>
+      '/api/mobile/v1/transfer-courier/manifests/$id/report-issue';
 }

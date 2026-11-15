@@ -3,6 +3,10 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../../core/network/api_client.dart';
+import '../../../core/services/rider_account_service.dart';
+import '../../shell/presentation/rider_shell.dart';
+import '../../transfer_courier/presentation/transfer_courier_shell.dart';
 import 'rider_login_page.dart';
 import 'add_rider_page.dart';
 
@@ -87,6 +91,21 @@ class _RiderLandingPageState extends State<RiderLandingPage>
     )..repeat();
 
     _startAutoRotation();
+    _restoreAuthenticatedSession();
+  }
+
+  Future<void> _restoreAuthenticatedSession() async {
+    if (!ApiClient.instance.isAuthenticated) return;
+    final role = await RiderAccountService.instance.restoreSessionRemote();
+    if (!mounted || role == null) return;
+    final target = role == 'courier'
+        ? const TransferCourierShell()
+        : const RiderShell();
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (_) => target),
+      (route) => false,
+    );
   }
 
   @override

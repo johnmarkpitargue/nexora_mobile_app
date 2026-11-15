@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/services/rider_service.dart';
 import '../../../core/services/rider_account_service.dart';
 import '../../shell/presentation/rider_shell.dart';
-import '../../courier/presentation/courier_dashboard_page.dart';
-import '../../courier/services/courier_profile_service.dart';
+import '../../transfer_courier/presentation/transfer_courier_shell.dart';
 
 class RiderLoginPage extends StatefulWidget {
   final String? initialEmail;
@@ -71,111 +69,45 @@ class _RiderLoginPageState extends State<RiderLoginPage> {
     }
 
     setState(() => _isLoading = true);
-    await Future.delayed(const Duration(milliseconds: 600));
 
-    if (!mounted) return;
-    setState(() => _isLoading = false);
-
-    // 0. COURIER HUB DISPATCH ACCOUNT REDIRECTION
-    // If logging into the dedicated Courier Hub account, immediately redirect to CourierDashboardPage
-    final cleanIdentifier = identifier.toLowerCase().trim();
-    final cleanPhone = identifier.replaceAll(RegExp(r'[\s\-\+]'), '');
-    final isCourierAccount =
-        cleanIdentifier == 'courier@nexora.io' ||
-        cleanIdentifier == 'courier.hub@nexora.io' ||
-        cleanIdentifier == 'courier@example.com' ||
-        cleanIdentifier == 'ernesto.villareal@example.com' ||
-        cleanIdentifier == 'courier1@bilishatid.example.com' ||
-        cleanIdentifier == 'courier2@bilishatid.example.com' ||
-        cleanIdentifier == 'courier3@bilishatid.example.com' ||
-        cleanIdentifier.contains('courier') ||
-        cleanIdentifier == 'operations@bilishatid.example.com' ||
-        cleanPhone.endsWith('9189876543') ||
-        cleanPhone.endsWith('9285551234');
-
-    if (isCourierAccount) {
-      final isCourierPassword =
-          password == 'Courier@2026' ||
-          password == 'Passw0rd!' ||
-          password == '123456' ||
-          password == 'password123' ||
-          password == 'Rider@2026';
-
-      if (!isCourierPassword) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Invalid Courier credentials. Use password Courier@2026 or 123456.',
-            ),
-            backgroundColor: Color(0xFFEF4444),
-          ),
-        );
-        return;
-      }
-
-      // Switch active courier profile fixture for COU-PROF-001 to 008
-      if (cleanIdentifier.contains('courier3') ||
-          cleanIdentifier.contains('suspended')) {
-        CourierProfileService.instance.switchCourier('NX-CR-003');
-      } else if (cleanIdentifier.contains('courier2')) {
-        CourierProfileService.instance.switchCourier('NX-CR-002');
-      } else {
-        CourierProfileService.instance.switchCourier('NX-CR-001');
-      }
-
-      // Authorize and set courier session in RiderAccountService
-      RiderAccountService.instance.setSession(
-        role: 'courier',
-        company: CourierProfileService.instance.profile.company,
-        email: cleanIdentifier,
-      );
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Row(
-            children: [
-              Icon(Icons.hub_rounded, color: Colors.white, size: 20),
-              SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  'Courier Hub verified! Redirecting to Courier Dispatch Dashboard...',
-                ),
-              ),
-            ],
-          ),
-          backgroundColor: Color(0xFF0066FF),
-          duration: Duration(seconds: 2),
-        ),
-      );
-
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (ctx) => const CourierDashboardPage()),
-        (route) => false,
-      );
-      return;
-    }
-
-    // 1. Check if rider is registered in RiderAccountService (supports email or mobile)
+    // Authenticate via unified Laravel backend (/api/mobile/v1/auth/rider/login)
     final accountResult = await RiderAccountService.instance.loginRemote(
       email: identifier,
       password: password,
     );
 
     if (!mounted) return;
+    setState(() => _isLoading = false);
 
     if (accountResult.success) {
-      // Activated rider authenticated
-      RiderService.instance.switchRider('NX-RD-001');
+      final role = RiderAccountService.instance.currentUserRole;
+      final fullName = accountResult.rider?.fullName.trim().isNotEmpty == true
+          ? accountResult.rider!.fullName
+          : (role == 'courier' ? 'Transfer Courier' : 'Rider');
+      final company = accountResult.rider?.companyName ?? 'Logistics Partner';
 
-      final riderName = accountResult.rider?.fullName ?? 'Pedro Jose Garcia';
-      final company =
-          accountResult.rider?.companyName ?? 'Bilis Hatid Express Inc.';
+      if (role == 'courier') {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Welcome back, $fullName! Transfer Courier dashboard loaded for $company.',
+            ),
+            backgroundColor: const Color(0xFF0066FF),
+          ),
+        );
+
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (ctx) => const TransferCourierShell()),
+          (route) => false,
+        );
+        return;
+      }
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Welcome back, $riderName! Daily dispatch route loaded for $company.',
+            'Welcome back, $fullName! Daily dispatch route loaded for $company.',
           ),
           backgroundColor: const Color(0xFF10B981),
         ),
@@ -189,44 +121,6 @@ class _RiderLoginPageState extends State<RiderLoginPage> {
       return;
     }
 
-    // 2. If account exists in service but is Pending Activation or Suspended, block with error message
-    if (accountResult.isPendingActivation ||
-        accountResult.message.toLowerCase().contains('pending activation') ||
-        accountResult.message.toLowerCase().contains('suspended')) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(accountResult.message),
-          backgroundColor: const Color(0xFFEF4444),
-        ),
-      );
-      return;
-    }
-
-    // 3. Fallback / Seeded Demo Rider access
-    final isDemoEmail =
-        identifier.toLowerCase() == 'pedrojose.garcia@example.com';
-    final isDemoPhone = cleanPhone.contains('9171234567');
-    final isDemoPassword = password == 'Rider@2026' || password == '123456';
-
-    if (isDemoEmail || isDemoPhone || isDemoPassword) {
-      RiderService.instance.switchRider('NX-RD-001');
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Welcome back, Pedro! Daily dispatch route loaded.'),
-          backgroundColor: Color(0xFF10B981),
-        ),
-      );
-
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (ctx) => const RiderShell()),
-        (route) => false,
-      );
-      return;
-    }
-
-    // Otherwise show error
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(accountResult.message),

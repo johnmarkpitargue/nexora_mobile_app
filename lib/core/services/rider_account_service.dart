@@ -766,13 +766,16 @@ class RiderAccountService extends ChangeNotifier {
         },
       );
 
-      final token = res.data['token']?.toString();
-      if (token != null) {
-        await ApiClient.instance.saveToken(token, 'rider');
-      }
-
       final userData = res.data['user'] as Map<String, dynamic>?;
       final courierProfileData = res.data['courier_profile'] as Map<String, dynamic>?;
+      final role = res.data['role']?.toString() ??
+          userData?['role']?.toString() ??
+          'rider';
+
+      final token = res.data['token']?.toString();
+      if (token != null) {
+        await ApiClient.instance.saveToken(token, role);
+      }
 
       final rider = RiderAccountRecord(
         id: userData?['id']?.toString() ?? 'rider-${DateTime.now().millisecondsSinceEpoch}',
@@ -783,27 +786,31 @@ class RiderAccountService extends ChangeNotifier {
         mobileNumber: userData?['contact_number']?.toString() ?? '',
         licenseNumber: courierProfileData?['license_number']?.toString() ?? '',
         licenseExpiryDate: courierProfileData?['license_expiry_date']?.toString() ?? '',
-        vehicleType: courierProfileData?['vehicle_type']?.toString() ?? 'Motorcycle',
+        vehicleType: courierProfileData?['vehicle_type']?.toString() ?? '',
         plateNumber: courierProfileData?['plate_number']?.toString() ?? '',
         licenseDocName: 'license.jpg',
         orCrDocName: 'or_cr.jpg',
-        companyName: courierProfileData?['sorting_center']?.toString() ?? 'Central Hub',
+        companyName: courierProfileData?['company_name']?.toString() ??
+            courierProfileData?['sorting_center']?.toString() ??
+            'Logistics Partner',
         accountStatus: userData?['account_status']?.toString() == 'active' ? 'Active' : 'Pending Activation',
       );
 
       _activeRiderSession = rider;
-      _currentUserRole = 'rider';
+      _currentUserRole = role;
 
-      // Synchronize active profile with RiderService
-      RiderService.instance.updateProfileFromApi(
-        id: rider.id,
-        name: rider.fullName,
-        email: rider.email,
-        phone: rider.mobileNumber,
-        plateNumber: rider.plateNumber,
-        vehicleType: rider.vehicleType,
-        isOnline: courierProfileData?['is_online'] == true,
-      );
+      // Synchronize active profile with RiderService when role is rider
+      if (role == 'rider') {
+        RiderService.instance.updateProfileFromApi(
+          id: rider.id,
+          name: rider.fullName,
+          email: rider.email,
+          phone: rider.mobileNumber,
+          plateNumber: rider.plateNumber,
+          vehicleType: rider.vehicleType.isNotEmpty ? rider.vehicleType : 'Motorcycle',
+          isOnline: courierProfileData?['is_online'] == true,
+        );
+      }
 
       notifyListeners();
 
@@ -816,8 +823,59 @@ class RiderAccountService extends ChangeNotifier {
       final msg = firstErr is List ? firstErr.first.toString() : e.message;
       return RiderOpResult.fail(msg);
     } catch (_) {
-      // Fallback for tests or offline local simulation
-      return loginRider(email: email, password: password);
+      return RiderOpResult.fail(
+        'Unable to connect to the server. Please check your internet connection.',
+      );
+    }
+  }
+
+  /// Restore authenticated session & role from backend on app startup
+  Future<String?> restoreSessionRemote() async {
+    if (!ApiClient.instance.isAuthenticated) return null;
+    try {
+      final res = await ApiClient.instance.get(ApiConstants.me);
+      final userData = res.data['user'] as Map<String, dynamic>?;
+      final courierProfileData = res.data['courier_profile'] as Map<String, dynamic>?;
+      final role = res.data['role']?.toString() ??
+          userData?['role']?.toString() ??
+          ApiClient.instance.savedRole ??
+          'rider';
+
+      if (ApiClient.instance.token != null) {
+        await ApiClient.instance.saveToken(ApiClient.instance.token!, role);
+      }
+
+      _currentUserRole = role;
+      _activeRiderSession = RiderAccountRecord(
+        id: userData?['id']?.toString() ?? '',
+        firstName: userData?['first_name']?.toString() ?? '',
+        lastName: userData?['last_name']?.toString() ?? '',
+        dateOfBirth: userData?['birthday']?.toString() ?? '1995-01-01',
+        email: userData?['email']?.toString() ?? '',
+        mobileNumber: userData?['contact_number']?.toString() ?? '',
+        licenseNumber: courierProfileData?['license_number']?.toString() ?? '',
+        licenseExpiryDate: courierProfileData?['license_expiry_date']?.toString() ?? '',
+        vehicleType: courierProfileData?['vehicle_type']?.toString() ?? '',
+        plateNumber: courierProfileData?['plate_number']?.toString() ?? '',
+        licenseDocName: 'license.jpg',
+        orCrDocName: 'or_cr.jpg',
+        companyName: courierProfileData?['company_name']?.toString() ??
+            courierProfileData?['sorting_center']?.toString() ??
+            'Logistics Partner',
+        accountStatus: userData?['account_status']?.toString() == 'active' ? 'Active' : 'Pending Activation',
+      );
+      notifyListeners();
+      return role;
+    } on ApiException catch (e) {
+      if (e.statusCode == 401 || e.statusCode == 403) {
+        await ApiClient.instance.clearToken();
+        _activeRiderSession = null;
+        _currentUserRole = 'guest';
+        notifyListeners();
+      }
+      return null;
+    } catch (_) {
+      return ApiClient.instance.savedRole;
     }
   }
 
