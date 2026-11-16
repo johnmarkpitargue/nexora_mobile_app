@@ -44,23 +44,26 @@ class CheckoutSummaryPreview {
 
     final rawStores = json['stores'] is List
         ? (json['stores'] as List)
-            .whereType<Map>()
-            .map((e) => Map<String, dynamic>.from(e))
-            .toList()
+              .whereType<Map>()
+              .map((e) => Map<String, dynamic>.from(e))
+              .toList()
         : <Map<String, dynamic>>[];
 
     final rawVouchers = json['available_vouchers'] is List
         ? (json['available_vouchers'] as List)
-            .whereType<Map>()
-            .map((e) => PlatformVoucherModel.fromJson(Map<String, dynamic>.from(e)))
-            .toList()
+              .whereType<Map>()
+              .map(
+                (e) =>
+                    PlatformVoucherModel.fromJson(Map<String, dynamic>.from(e)),
+              )
+              .toList()
         : <PlatformVoucherModel>[];
 
     final rawErrors = json['voucher_errors'] is List
         ? (json['voucher_errors'] as List)
-            .map((e) => e.toString())
-            .where((e) => e.trim().isNotEmpty)
-            .toList()
+              .map((e) => e.toString())
+              .where((e) => e.trim().isNotEmpty)
+              .toList()
         : <String>[];
 
     return CheckoutSummaryPreview(
@@ -484,8 +487,9 @@ class OrderItemModel {
 
     const outStatuses = {'out_for_delivery', 'delivered', 'completed'};
     if (outStatuses.contains(rawStatus)) {
-      final rider =
-          courierName.isNotEmpty ? 'Rider $courierName' : 'Courier Rider';
+      final rider = courierName.isNotEmpty
+          ? 'Rider $courierName'
+          : 'Courier Rider';
       list.add(
         OrderStatusHistoryEntry(
           id: 4,
@@ -543,8 +547,12 @@ class OrderItemModel {
       case 'to_pay':
         return false; // COD only (matches backend OrderController@index)
       case 'to_ship':
-        return const {'placed', 'confirmed', 'preparing', 'processing'}
-            .contains(rawStatus);
+        return const {
+          'placed',
+          'confirmed',
+          'preparing',
+          'processing',
+        }.contains(rawStatus);
       case 'to_receive':
         return const {
           'ready_for_pickup',
@@ -712,7 +720,8 @@ class OrderItemModel {
           tabBucket: 'to_receive',
           statusColor: Color(0xFFDC2626),
           progress: 0.75,
-          etaText: 'Delivery attempt unsuccessful • Will retry or return to hub',
+          etaText:
+              'Delivery attempt unsuccessful • Will retry or return to hub',
           etaTime: 'Pending re-delivery',
         );
       case 'delivered':
@@ -762,10 +771,10 @@ class OrderItemModel {
           statusText: s.isEmpty
               ? 'Unknown'
               : s
-                  .split('_')
-                  .where((w) => w.isNotEmpty)
-                  .map((w) => '${w[0].toUpperCase()}${w.substring(1)}')
-                  .join(' '),
+                    .split('_')
+                    .where((w) => w.isNotEmpty)
+                    .map((w) => '${w[0].toUpperCase()}${w.substring(1)}')
+                    .join(' '),
           tabBucket: 'to_ship',
           statusColor: const Color(0xFF64748B),
           progress: 0.2,
@@ -888,7 +897,9 @@ class OrderItemModel {
 
   factory OrderItemModel.fromApiJson(Map<String, dynamic> json) {
     final parsedId = int.tryParse((json['id'] ?? '').toString()) ?? 0;
-    final rawStatus = (json['status'] as String? ?? 'placed').toLowerCase().trim();
+    final rawStatus = (json['status'] as String? ?? 'placed')
+        .toLowerCase()
+        .trim();
 
     final sellerObj = json['seller'] is Map<String, dynamic>
         ? json['seller'] as Map<String, dynamic>
@@ -896,27 +907,33 @@ class OrderItemModel {
     final resolvedSellerId = int.tryParse(
       (json['seller_id'] ?? sellerObj?['id'] ?? '').toString(),
     );
-    final resolvedSellerName = (json['seller_name'] ??
-            sellerObj?['name'] ??
-            sellerObj?['store_name'] ??
-            'Seller')
-        .toString()
-        .trim();
+    final resolvedSellerName =
+        (json['seller_name'] ??
+                sellerObj?['name'] ??
+                sellerObj?['store_name'] ??
+                'Seller')
+            .toString()
+            .trim();
 
-    final currentHubName = (json['current_hub_name'] ??
-            (json['current_hub'] is Map ? json['current_hub']['name'] : null))
-        ?.toString()
-        .trim();
-    final originHubName = (json['origin_hub_name'] ??
-            (json['origin_hub'] is Map ? json['origin_hub']['name'] : null))
-        ?.toString()
-        .trim();
-    final destinationHubName = (json['destination_hub_name'] ??
-            (json['destination_hub'] is Map
-                ? json['destination_hub']['name']
-                : null))
-        ?.toString()
-        .trim();
+    final currentHubName =
+        (json['current_hub_name'] ??
+                (json['current_hub'] is Map
+                    ? json['current_hub']['name']
+                    : null))
+            ?.toString()
+            .trim();
+    final originHubName =
+        (json['origin_hub_name'] ??
+                (json['origin_hub'] is Map ? json['origin_hub']['name'] : null))
+            ?.toString()
+            .trim();
+    final destinationHubName =
+        (json['destination_hub_name'] ??
+                (json['destination_hub'] is Map
+                    ? json['destination_hub']['name']
+                    : null))
+            ?.toString()
+            .trim();
 
     final dispute = json['dispute'] is Map<String, dynamic>
         ? OrderDisputeInfo.fromJson(json['dispute'] as Map<String, dynamic>)
@@ -924,10 +941,8 @@ class OrderItemModel {
     final review = json['review'] is Map<String, dynamic>
         ? OrderReviewInfo.fromJson(json['review'] as Map<String, dynamic>)
         : null;
-    final hasDispute =
-        (json['has_dispute'] as bool?) ?? (dispute != null);
-    final hasReview =
-        (json['has_review'] as bool?) ?? (review != null);
+    final hasDispute = (json['has_dispute'] as bool?) ?? (dispute != null);
+    final hasReview = (json['has_review'] as bool?) ?? (review != null);
 
     final statusDesc = describeStatus(
       rawStatus,
@@ -950,7 +965,8 @@ class OrderItemModel {
               productId: rawItem['product_id']?.toString(),
               sellerId: resolvedSellerId,
               storeName: resolvedSellerName,
-              title: rawItem['product_name']?.toString() ??
+              title:
+                  rawItem['product_name']?.toString() ??
                   rawItem['name']?.toString() ??
                   rawItem['title']?.toString() ??
                   'Product',
@@ -959,7 +975,8 @@ class OrderItemModel {
               imageUrl: ImageUrlHelper.resolve(
                 rawItem['image'] ?? rawItem['image_url'] ?? '',
               ),
-              price: (rawItem['price'] as num?)?.toDouble() ??
+              price:
+                  (rawItem['price'] as num?)?.toDouble() ??
                   (rawItem['unit_price'] as num?)?.toDouble() ??
                   0.0,
               quantity: (rawItem['quantity'] as num?)?.toInt() ?? 1,
@@ -991,25 +1008,26 @@ class OrderItemModel {
     String addressStr = '';
     if (shippingAddr is Map<String, dynamic>) {
       recipientName = (shippingAddr['recipient_name'] ?? '').toString().trim();
-      recipientPhone = (shippingAddr['recipient_phone'] ??
-              shippingAddr['phone'] ??
-              '')
+      recipientPhone =
+          (shippingAddr['recipient_phone'] ?? shippingAddr['phone'] ?? '')
+              .toString()
+              .trim();
+      final explicitFull = (shippingAddr['full_address'] ?? '')
           .toString()
           .trim();
-      final explicitFull =
-          (shippingAddr['full_address'] ?? '').toString().trim();
       if (explicitFull.isNotEmpty) {
         addressStr = explicitFull;
       } else {
-        addressStr = [
-          shippingAddr['street'],
-          shippingAddr['barangay_name'] ?? shippingAddr['barangay'],
-          shippingAddr['municipality_name'] ?? shippingAddr['city'],
-          shippingAddr['province_name'] ?? shippingAddr['province'],
-        ]
-            .map((e) => (e ?? '').toString().trim())
-            .where((e) => e.isNotEmpty)
-            .join(', ');
+        addressStr =
+            [
+                  shippingAddr['street'],
+                  shippingAddr['barangay_name'] ?? shippingAddr['barangay'],
+                  shippingAddr['municipality_name'] ?? shippingAddr['city'],
+                  shippingAddr['province_name'] ?? shippingAddr['province'],
+                ]
+                .map((e) => (e ?? '').toString().trim())
+                .where((e) => e.isNotEmpty)
+                .join(', ');
       }
     } else if (shippingAddr is String) {
       addressStr = shippingAddr.trim();
@@ -1023,7 +1041,9 @@ class OrderItemModel {
     final courierVehicle = courier?['vehicle_type']?.toString().trim();
     final courierPlate = courier?['plate_number']?.toString().trim();
 
-    final placedRaw = (json['placed_at'] ?? json['created_at'] ?? '').toString().trim();
+    final placedRaw = (json['placed_at'] ?? json['created_at'] ?? '')
+        .toString()
+        .trim();
     final dateOnly = placedRaw.isNotEmpty
         ? placedRaw.split(RegExp(r'[T ]')).first
         : '';
@@ -1038,10 +1058,11 @@ class OrderItemModel {
         ? orderNumber
         : '#$parsedId';
 
-    final rawPm = (json['payment_method'] ?? 'cod').toString().trim().toLowerCase();
-    final displayPm = rawPm == 'cod'
-        ? 'Cash on Delivery'
-        : rawPm.toUpperCase();
+    final rawPm = (json['payment_method'] ?? 'cod')
+        .toString()
+        .trim()
+        .toLowerCase();
+    final displayPm = rawPm == 'cod' ? 'Cash on Delivery' : rawPm.toUpperCase();
 
     return OrderItemModel(
       serverId: parsedId,
@@ -1053,11 +1074,15 @@ class OrderItemModel {
       trackingNumber: (json['tracking_number'] ?? '').toString().trim(),
       deliveryOtp: (json['delivery_otp'] ?? '').toString().trim(),
       cancellationReason: (json['cancellation_reason'] ?? '').toString().trim(),
-      currentHubName: currentHubName?.isNotEmpty == true ? currentHubName : null,
+      currentHubName: currentHubName?.isNotEmpty == true
+          ? currentHubName
+          : null,
       originHubName: originHubName?.isNotEmpty == true ? originHubName : null,
-      destinationHubName:
-          destinationHubName?.isNotEmpty == true ? destinationHubName : null,
-      canBeCancelled: json['can_be_cancelled'] as bool? ??
+      destinationHubName: destinationHubName?.isNotEmpty == true
+          ? destinationHubName
+          : null,
+      canBeCancelled:
+          json['can_be_cancelled'] as bool? ??
           (rawStatus == 'placed' || rawStatus == 'confirmed'),
       canBeReturned: json['can_be_returned'] as bool? ?? false,
       canBeReviewed: json['can_be_reviewed'] as bool? ?? false,
@@ -1071,23 +1096,30 @@ class OrderItemModel {
       etaTime: statusDesc.etaTime,
       progress: statusDesc.progress,
       items: itemsList,
-      totalPrice: (json['total'] as num?)?.toDouble() ??
+      totalPrice:
+          (json['total'] as num?)?.toDouble() ??
           (json['total_amount'] as num?)?.toDouble() ??
           0.0,
       subtotal: (json['subtotal'] as num?)?.toDouble() ?? 0.0,
       shippingFee: (json['shipping_fee'] as num?)?.toDouble() ?? 0.0,
-      discount: (json['discount'] as num?)?.toDouble() ??
+      discount:
+          (json['discount'] as num?)?.toDouble() ??
           (json['discount_amount'] as num?)?.toDouble() ??
           0.0,
       paymentMethod: displayPm,
       courierName: courierName,
       courierPhone: courierPhone?.isNotEmpty == true ? courierPhone : null,
-      courierVehicle: courierVehicle?.isNotEmpty == true ? courierVehicle : null,
-      courierPlateNumber: courierPlate?.isNotEmpty == true ? courierPlate : null,
+      courierVehicle: courierVehicle?.isNotEmpty == true
+          ? courierVehicle
+          : null,
+      courierPlateNumber: courierPlate?.isNotEmpty == true
+          ? courierPlate
+          : null,
       recipientName: recipientName,
       recipientPhone: recipientPhone,
       shippingAddress: addressStr,
-      isRiderAccepted: courierName.isNotEmpty ||
+      isRiderAccepted:
+          courierName.isNotEmpty ||
           const {
             'assigned',
             'picked_up',
@@ -1299,7 +1331,8 @@ class OrderService extends ChangeNotifier {
       for (final o in parsed) {
         final existing =
             findOrderByServerId(o.serverId) ?? findOrderById(o.orderId);
-        final merged = existing != null &&
+        final merged =
+            existing != null &&
                 existing.statusHistory.isNotEmpty &&
                 o.statusHistory.isEmpty
             ? o.copyWith(
@@ -1380,7 +1413,9 @@ class OrderService extends ChangeNotifier {
       );
     }
 
-    final res = await ApiClient.instance.get(ApiConstants.orderDetail(serverId));
+    final res = await ApiClient.instance.get(
+      ApiConstants.orderDetail(serverId),
+    );
     final payload = res.data;
     if (payload is! Map<String, dynamic>) {
       throw const ApiException(
@@ -1471,7 +1506,9 @@ class OrderService extends ChangeNotifier {
     );
 
     final data = res['data'];
-    if (data is Map && data['orders'] is List && (data['orders'] as List).isNotEmpty) {
+    if (data is Map &&
+        data['orders'] is List &&
+        (data['orders'] as List).isNotEmpty) {
       final orders = (data['orders'] as List)
           .whereType<Map<String, dynamic>>()
           .toList();
@@ -1540,12 +1577,17 @@ class OrderService extends ChangeNotifier {
   }
 
   /// Compatibility wrapper for UI action buttons to cancel order
-  Future<void> cancelOrder(String orderId, {String reason = 'Cancelled by buyer'}) async {
+  Future<void> cancelOrder(
+    String orderId, {
+    String reason = 'Cancelled by buyer',
+  }) async {
     final order = getOrderById(orderId);
     if (order != null && order.serverId > 0) {
       await cancelOrderRemote(order.serverId, reason: reason);
     } else if (order != null) {
-      _upsertOrder(order.copyWith(statusText: 'Cancelled', tabBucket: 'cancelled'));
+      _upsertOrder(
+        order.copyWith(statusText: 'Cancelled', tabBucket: 'cancelled'),
+      );
       notifyListeners();
     }
   }
@@ -1566,7 +1608,9 @@ class OrderService extends ChangeNotifier {
     if (order?.serverId != null && order!.serverId > 0) {
       await confirmReceiptRemote(order.serverId);
     } else if (order != null) {
-      _upsertOrder(order.copyWith(statusText: 'Completed', tabBucket: 'completed'));
+      _upsertOrder(
+        order.copyWith(statusText: 'Completed', tabBucket: 'completed'),
+      );
       notifyListeners();
     }
   }
@@ -1638,15 +1682,13 @@ class OrderService extends ChangeNotifier {
     final res = await ApiClient.instance.multipart(
       'POST',
       ApiConstants.buyerOrderReturn(serverId),
-      fields: {
-        'reason': reason.trim(),
-        'details': details.trim(),
-      },
+      fields: {'reason': reason.trim(), 'details': details.trim()},
       files: mediaFiles,
     );
 
     final rawData = res.data;
-    final orderMap = (rawData is Map && rawData['order'] is Map<String, dynamic>)
+    final orderMap =
+        (rawData is Map && rawData['order'] is Map<String, dynamic>)
         ? rawData['order'] as Map<String, dynamic>
         : (rawData is Map<String, dynamic> ? rawData : null);
 
@@ -1684,7 +1726,8 @@ class OrderService extends ChangeNotifier {
       body: {'return_tracking_number': returnTrackingNumber.trim()},
     );
     final rawData = res.data;
-    final orderMap = (rawData is Map && rawData['order'] is Map<String, dynamic>)
+    final orderMap =
+        (rawData is Map && rawData['order'] is Map<String, dynamic>)
         ? rawData['order'] as Map<String, dynamic>
         : (rawData is Map<String, dynamic> ? rawData : null);
     if (orderMap != null) {
@@ -1746,7 +1789,8 @@ class OrderService extends ChangeNotifier {
     }
 
     final rawData = res.data;
-    final orderMap = (rawData is Map && rawData['order'] is Map<String, dynamic>)
+    final orderMap =
+        (rawData is Map && rawData['order'] is Map<String, dynamic>)
         ? rawData['order'] as Map<String, dynamic>
         : (rawData is Map<String, dynamic> ? rawData : null);
 
@@ -1784,7 +1828,8 @@ class OrderService extends ChangeNotifier {
         ? active[oldActiveIdx]
         : (oldPastIdx >= 0 ? past[oldPastIdx] : null);
 
-    final merged = (existing != null &&
+    final merged =
+        (existing != null &&
             existing.statusHistory.isNotEmpty &&
             order.statusHistory.isEmpty)
         ? order.copyWith(
@@ -1813,14 +1858,14 @@ class OrderService extends ChangeNotifier {
     past.removeWhere(matches);
 
     if (merged.isPastOrder) {
-      final insertIdx =
-          (oldPastIdx >= 0 && oldPastIdx <= past.length) ? oldPastIdx : 0;
+      final insertIdx = (oldPastIdx >= 0 && oldPastIdx <= past.length)
+          ? oldPastIdx
+          : 0;
       past.insert(insertIdx, merged);
     } else {
-      final insertIdx =
-          (oldActiveIdx >= 0 && oldActiveIdx <= active.length)
-              ? oldActiveIdx
-              : 0;
+      final insertIdx = (oldActiveIdx >= 0 && oldActiveIdx <= active.length)
+          ? oldActiveIdx
+          : 0;
       active.insert(insertIdx, merged);
     }
   }
@@ -1919,8 +1964,7 @@ class OrderService extends ChangeNotifier {
     double? courierRating,
     bool? riderAccepted,
     Map<String, dynamic>? rowData,
-  }) =>
-      false;
+  }) => false;
 
   Future<void> updateOrderDeliveryPin({
     required String orderId,
