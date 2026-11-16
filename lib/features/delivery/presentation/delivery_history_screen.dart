@@ -194,12 +194,40 @@ class _DeliveryHistoryScreenState extends State<DeliveryHistoryScreen> {
                                   mainAxisAlignment:
                                       MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Text(
-                                      order.id,
-                                      style: const TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w900,
-                                        color: RiderTheme.textDark,
+                                    Expanded(
+                                      child: Row(
+                                        children: [
+                                          Text(
+                                            order.id,
+                                            style: const TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w900,
+                                              color: RiderTheme.textDark,
+                                            ),
+                                          ),
+                                          if (order.taskType != null) ...[
+                                            const SizedBox(width: 6),
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                              decoration: BoxDecoration(
+                                                color: order.taskType == 'pickup'
+                                                    ? const Color(0xFFFEF3C7)
+                                                    : const Color(0xFFDBEAFE),
+                                                borderRadius: BorderRadius.circular(6),
+                                              ),
+                                              child: Text(
+                                                order.taskType == 'pickup' ? 'PICKUP' : 'DELIVERY',
+                                                style: TextStyle(
+                                                  fontSize: 10,
+                                                  fontWeight: FontWeight.w800,
+                                                  color: order.taskType == 'pickup'
+                                                      ? const Color(0xFFB45309)
+                                                      : const Color(0xFF1D4ED8),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ],
                                       ),
                                     ),
                                     Container(
@@ -208,17 +236,25 @@ class _DeliveryHistoryScreenState extends State<DeliveryHistoryScreen> {
                                       decoration: BoxDecoration(
                                         color: isActive
                                             ? RiderTheme.primaryContainer
-                                            : RiderTheme.onlineGreenLight,
+                                            : (order.taskStatus == 'failed' || order.status == DeliveryStatus.cancelled
+                                                ? const Color(0xFFFEE2E2)
+                                                : RiderTheme.onlineGreenLight),
                                         borderRadius: BorderRadius.circular(8),
                                       ),
                                       child: Text(
-                                        order.status.label,
+                                        order.taskOutcome == 'picked_up'
+                                            ? 'Picked Up'
+                                            : (order.taskOutcome == 'failed_delivery'
+                                                ? 'Failed Delivery'
+                                                : order.status.label),
                                         style: TextStyle(
                                           fontSize: 11,
                                           fontWeight: FontWeight.w800,
                                           color: isActive
                                               ? RiderTheme.primary
-                                              : const Color(0xFF10B981),
+                                              : (order.taskStatus == 'failed' || order.status == DeliveryStatus.cancelled
+                                                  ? const Color(0xFFDC2626)
+                                                  : const Color(0xFF10B981)),
                                         ),
                                       ),
                                     ),
@@ -226,7 +262,9 @@ class _DeliveryHistoryScreenState extends State<DeliveryHistoryScreen> {
                                 ),
                                 const SizedBox(height: 10),
                                 Text(
-                                  'Merchant: ${order.merchantName}',
+                                  order.taskType == 'pickup'
+                                      ? 'Seller: ${order.counterpartyName ?? order.merchantName}'
+                                      : 'Customer: ${order.counterpartyName ?? order.customerName}',
                                   style: const TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w700,
@@ -234,7 +272,9 @@ class _DeliveryHistoryScreenState extends State<DeliveryHistoryScreen> {
                                   ),
                                 ),
                                 Text(
-                                  'Destination: ${order.customerAddress}',
+                                  order.taskType == 'pickup'
+                                      ? 'Pickup: ${order.merchantAddress}'
+                                      : 'Destination: ${order.customerAddress}',
                                   style: const TextStyle(
                                     fontSize: 11,
                                     color: RiderTheme.textMuted,
@@ -242,6 +282,16 @@ class _DeliveryHistoryScreenState extends State<DeliveryHistoryScreen> {
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),
+                                if (order.completedAt != null) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Completed: ${order.completedAt!.toLocal().toString().substring(0, 16)}',
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      color: RiderTheme.textMuted,
+                                    ),
+                                  ),
+                                ],
                                 const SizedBox(height: 12),
                                 const Divider(
                                     height: 1, color: RiderTheme.cardBorder),

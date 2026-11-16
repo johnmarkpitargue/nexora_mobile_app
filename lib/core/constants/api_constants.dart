@@ -36,6 +36,8 @@ class ApiConstants {
       '/api/mobile/v1/rider/deliveries/history';
   static String showDelivery(dynamic orderId) =>
       '/api/mobile/v1/rider/deliveries/$orderId';
+  static String startDelivery(dynamic orderId) =>
+      '/api/mobile/v1/rider/deliveries/$orderId/start';
   static String completeDelivery(dynamic orderId) =>
       '/api/mobile/v1/rider/deliveries/$orderId/complete';
   static String deliver(dynamic orderId) =>

@@ -335,6 +335,15 @@ class RiderService extends ChangeNotifier {
       final serverAvatar = (user?['avatar_url'] ?? '').toString();
       final cleanAvatar = serverAvatar.contains('unsplash.com') ? '' : serverAvatar;
 
+      final todayEarningsVal =
+          (data['today_earnings'] as num?)?.toDouble() ?? _profile.todayEarnings;
+      final todayDeliveriesVal =
+          (data['today_deliveries'] as num?)?.toInt() ?? _profile.todayDeliveries;
+      final walletVal =
+          (data['available_for_payout'] as num?)?.toDouble() ??
+          (data['earnings_balance'] as num?)?.toDouble() ??
+          _profile.walletBalance;
+
       updateProfileFromApi(
         id: (user?['id'] ?? _profile.id).toString(),
         name: (user?['full_name'] ?? user?['name'] ?? _profile.name).toString(),
@@ -353,7 +362,9 @@ class RiderService extends ChangeNotifier {
         rating: ratingVal,
         totalDeliveries: totalDeliveriesVal,
         reviewsCount: reviewsCountVal,
-        walletBalance: (data['earnings_balance'] as num?)?.toDouble() ?? _profile.walletBalance,
+        walletBalance: walletVal,
+        todayDeliveries: todayDeliveriesVal,
+        todayEarnings: todayEarningsVal,
       );
 
       final recentReviewsList = data['recent_reviews'] as List<dynamic>?;

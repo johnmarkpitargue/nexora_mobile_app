@@ -48,6 +48,27 @@ class EarningsService extends ChangeNotifier {
   double _weeklyTotalPay = 0.0;
   double get weeklyTotalPay => _weeklyTotalPay;
 
+  bool _hasFetchedRemote = false;
+  bool get hasFetchedRemote => _hasFetchedRemote;
+
+  double _todayPay = 0.0;
+  double get todayPay => _todayPay;
+
+  double _todayPickupPay = 0.0;
+  double get todayPickupPay => _todayPickupPay;
+
+  double _todayDeliveryPay = 0.0;
+  double get todayDeliveryPay => _todayDeliveryPay;
+
+  double _todayFailedDeliveryPay = 0.0;
+  double get todayFailedDeliveryPay => _todayFailedDeliveryPay;
+
+  int _todayPickupsCount = 0;
+  int get todayPickupsCount => _todayPickupsCount;
+
+  int _todayDeliveriesCount = 0;
+  int get todayDeliveriesCount => _todayDeliveriesCount;
+
   // COD Cash Accountability Wallet (never combined with courier earnings)
   double _codHeldBalance = 0.0;
   double get codHeldBalance => _codHeldBalance;
@@ -308,8 +329,19 @@ class EarningsService extends ChangeNotifier {
 
       final todaySummary = data['today_summary'] as Map<String, dynamic>?;
       final todayPay = (todaySummary?['total_pay'] as num?)?.toDouble() ?? 0.0;
-      final todayTrips = ((todaySummary?['pickups'] as num?)?.toInt() ?? 0) +
-          ((todaySummary?['deliveries'] as num?)?.toInt() ?? 0);
+      final todayPickups = (todaySummary?['pickups'] as num?)?.toInt() ?? 0;
+      final todayDeliveries = (todaySummary?['deliveries'] as num?)?.toInt() ?? 0;
+      final todayFailed = (todaySummary?['failed_deliveries'] as num?)?.toInt() ?? 0;
+      final todayTrips = todayPickups + todayDeliveries + todayFailed;
+
+      _todayPay = todayPay;
+      _todayPickupsCount = todayPickups;
+      _todayDeliveriesCount = todayDeliveries;
+      _todayPickupPay = (todaySummary?['pickup_pay'] as num?)?.toDouble() ?? 0.0;
+      _todayDeliveryPay = (todaySummary?['delivery_pay'] as num?)?.toDouble() ?? 0.0;
+      _todayFailedDeliveryPay =
+          (todaySummary?['failed_delivery_pay'] as num?)?.toDouble() ?? 0.0;
+      _hasFetchedRemote = true;
 
       RiderService.instance.updateProfileFromApi(
         id: RiderService.instance.profile.id,

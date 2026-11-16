@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/rider_theme.dart';
 import '../../../../core/services/rider_service.dart';
+import '../../../../core/services/earnings_service.dart';
 
 class EarningsSummaryCard extends StatelessWidget {
   final VoidCallback onSeeWallet;
@@ -13,9 +14,16 @@ class EarningsSummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: RiderService.instance,
+      animation: Listenable.merge([
+        RiderService.instance,
+        EarningsService.instance,
+      ]),
       builder: (context, _) {
         final profile = RiderService.instance.profile;
+        final earnings = EarningsService.instance;
+        final displayedTodayEarnings = earnings.hasFetchedRemote
+            ? earnings.todayPay
+            : profile.todayEarnings;
 
         return Container(
           padding: const EdgeInsets.all(18),
@@ -65,7 +73,7 @@ class EarningsSummaryCard extends StatelessWidget {
                                 ),
                               ),
                               Text(
-                                profile.todayEarnings.toStringAsFixed(2),
+                                displayedTodayEarnings.toStringAsFixed(2),
                                 style: const TextStyle(
                                   fontSize: 26,
                                   fontWeight: FontWeight.w900,

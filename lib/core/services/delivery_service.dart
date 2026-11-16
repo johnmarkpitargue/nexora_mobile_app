@@ -423,7 +423,9 @@ class DeliveryService extends ChangeNotifier {
               double.tryParse(payload['new_courier_rating']?.toString() ?? '');
           final comment = (payload['comment'] ?? '').toString();
           final rawTags = payload['tags'];
-          final tags = rawTags is List ? rawTags.map((e) => e.toString()).toList() : <String>[];
+          final tags = rawTags is List
+              ? rawTags.map((e) => e.toString()).toList()
+              : <String>[];
 
           final updatedRating = RiderService.instance.applyBuyerRating(
             orderId: orderCode,
@@ -914,16 +916,18 @@ class DeliveryService extends ChangeNotifier {
 
     _completedOrders.insert(0, completed);
 
-    // Credit Rider earnings
-    final earnings = completed.riderEarnings;
-    RiderService.instance.addEarnings(earnings);
+    // Only credit locally in offline/test mode; authenticated sessions use
+    // Laravel's authoritative RiderEarning ledger refreshed after completion.
+    if (!ApiClient.instance.isAuthenticated) {
+      final earnings = completed.riderEarnings;
+      RiderService.instance.addEarnings(earnings);
 
-    // Record earnings transaction
-    EarningsService.instance.recordDeliveryEarnings(
-      orderId: completed.id,
-      deliveryFee: completed.deliveryFee,
-      tip: completed.tip,
-    );
+      EarningsService.instance.recordDeliveryEarnings(
+        orderId: completed.id,
+        deliveryFee: completed.deliveryFee,
+        tip: completed.tip,
+      );
+    }
 
     _activeOrder = null;
     _activeOrderStage = 0;
@@ -1026,7 +1030,50 @@ class DeliveryService extends ChangeNotifier {
     updateActiveOrderScanProgress(pkg1: true, pkg2: true);
     updateActiveOrderStage(2);
     await fetchActiveDeliveriesRemote();
+    await EarningsService.instance.fetchEarningsRemote();
+    await RiderService.instance.fetchProfileRemote();
+    await fetchDeliveryHistoryRemote().catchError((_) => <DeliveryOrder>[]);
     return true;
+  }
+
+  bool _isStartingDelivery = false;
+
+  Future<DeliveryOrder> startDeliveryRemote(String orderId) async {
+    if (_isStartingDelivery) {
+      throw ApiException(statusCode: 409, message: 'Start delivery request already in progress.');
+    }
+    _isStartingDelivery = true;
+    try {
+      final clean = orderId.replaceAll('#', '').trim();
+      final effectiveId = _activeOrder?.serverOrderId?.toString() ?? clean;
+
+      if (!ApiClient.instance.isAuthenticated) {
+        updateActiveOrderStage(3);
+        return _activeOrder!;
+      }
+
+      final idempotencyKey =
+          'start_delivery_${effectiveId}_${DateTime.now().millisecondsSinceEpoch}';
+      final res = await ApiClient.instance.post(
+        ApiConstants.startDelivery(effectiveId),
+        headers: {'Idempotency-Key': idempotencyKey},
+      );
+
+      final data = res.data;
+      if (data is Map<String, dynamic>) {
+        _activeOrder = DeliveryOrder.fromApiOrder(data);
+      } else if (_activeOrder != null) {
+        _activeOrder = _activeOrder!.copyWith(
+          status: DeliveryStatus.atCustomer,
+          orderStatus: 'out_for_delivery',
+        );
+      }
+      _activeOrderStage = 3;
+      notifyListeners();
+      return _activeOrder!;
+    } finally {
+      _isStartingDelivery = false;
+    }
   }
 
   Future<bool> completeDeliveryRemote({
@@ -1062,6 +1109,7 @@ class DeliveryService extends ChangeNotifier {
         await prefs.remove('rider_active_order_id');
       } catch (_) {}
       await EarningsService.instance.fetchEarningsRemote();
+      await RiderService.instance.fetchProfileRemote();
       await fetchDeliveryHistoryRemote().catchError((_) => <DeliveryOrder>[]);
       return true;
     }
@@ -1097,6 +1145,9 @@ class DeliveryService extends ChangeNotifier {
         await prefs.remove('rider_active_order_id');
       } catch (_) {}
       await fetchActiveDeliveriesRemote();
+      await EarningsService.instance.fetchEarningsRemote();
+      await RiderService.instance.fetchProfileRemote();
+      await fetchDeliveryHistoryRemote().catchError((_) => <DeliveryOrder>[]);
       return true;
     }
     _activeOrder = null;

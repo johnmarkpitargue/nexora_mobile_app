@@ -60,6 +60,40 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
 
   // Delivery Completion State
   DateTime? _deliveryCompletedTime;
+  bool _isStartingDelivery = false;
+
+  Future<void> _handleStartDeliveryToCustomer(DeliveryOrder order) async {
+    if (_isStartingDelivery) return;
+    setState(() => _isStartingDelivery = true);
+    try {
+      await DeliveryService.instance.startDeliveryRemote(order.id);
+      if (!mounted) return;
+      setState(() {
+        _currentStage = 3;
+        RiderLocationService.instance.updateOrderStatus('out_for_delivery');
+      });
+      HapticFeedback.mediumImpact();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Order is now Out for Delivery.'),
+          backgroundColor: Color(0xFF0066FF),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      final msg = e.toString().replaceFirst('ApiException: ', '');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(msg.isNotEmpty ? msg : 'Unable to start delivery.'),
+          backgroundColor: const Color(0xFFDC2626),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isStartingDelivery = false);
+      }
+    }
+  }
 
   String _formatTime12Hour(DateTime time) {
     final hour = time.hour;
@@ -1401,7 +1435,11 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
         ),
         content: Text(
           'Automatic delay reporting to dispatch is not available yet. Please contact your hub dispatcher directly and quote parcel reference $trackingRef if pickup wait exceeds 15 minutes.',
-          style: const TextStyle(fontSize: 13, height: 1.4, color: Color(0xFF334155)),
+          style: const TextStyle(
+            fontSize: 13,
+            height: 1.4,
+            color: Color(0xFF334155),
+          ),
         ),
         actions: [
           TextButton(
@@ -1449,9 +1487,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                 letterSpacing: -0.3,
               ),
             ),
-            actions: const [
-              SizedBox(width: 8),
-            ],
+            actions: const [SizedBox(width: 8)],
           ),
           body: ScrollConfiguration(
             behavior: const MaterialScrollBehavior().copyWith(
@@ -3662,8 +3698,14 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  Text('${order.distanceKm} km remaining',
-                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF0066FF))),
+                  Text(
+                    '${order.distanceKm} km remaining',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF0066FF),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -4080,9 +4122,23 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('DISTANCE', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w900, color: Color(0xFF0066FF))),
+                        const Text(
+                          'DISTANCE',
+                          style: TextStyle(
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFF0066FF),
+                          ),
+                        ),
                         const SizedBox(height: 2),
-                        Text('${order.distanceKm} km total', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: Color(0xFF0F172A))),
+                        Text(
+                          '${order.distanceKm} km total',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFF0F172A),
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -4444,10 +4500,11 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
         onCtaPressed = _nextStage;
       }
     } else if (_currentStage == 2) {
-      btnText = 'START DELIVERY TO CUSTOMER';
+      btnText = _isStartingDelivery ? 'STARTING DELIVERY...' : 'START DELIVERY TO CUSTOMER';
       prefixIcon = Icons.local_shipping_rounded;
       suffixIcon = Icons.arrow_forward_rounded;
       subLinkText = '⚠️ Report Dispatch Discrepancy';
+      onCtaPressed = () => _handleStartDeliveryToCustomer(order);
     } else if (!_handoverCodeVerified) {
       btnText = 'I HAVE ARRIVED AT DROPOFF';
       prefixIcon = Icons.location_on_rounded;

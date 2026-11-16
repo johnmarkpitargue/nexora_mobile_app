@@ -96,6 +96,12 @@ class DeliveryOrder {
   final String? offerId;
   final int? serverOrderId;
   final String? trackingNumber;
+  final String? taskType; // 'pickup' | 'delivery'
+  final String? taskStatus; // 'completed' | 'failed' | 'active'
+  final String? taskOutcome; // 'picked_up' | 'delivered' | 'failed_delivery'
+  final String? orderStatus;
+  final DateTime? completedAt;
+  final String? counterpartyName;
 
   const DeliveryOrder({
     required this.id,
@@ -129,6 +135,12 @@ class DeliveryOrder {
     this.offerId,
     this.serverOrderId,
     this.trackingNumber,
+    this.taskType,
+    this.taskStatus,
+    this.taskOutcome,
+    this.orderStatus,
+    this.completedAt,
+    this.counterpartyName,
   });
 
   double get riderEarnings => deliveryFee + tip;
@@ -174,6 +186,12 @@ class DeliveryOrder {
     String? offerId,
     int? serverOrderId,
     String? trackingNumber,
+    String? taskType,
+    String? taskStatus,
+    String? taskOutcome,
+    String? orderStatus,
+    DateTime? completedAt,
+    String? counterpartyName,
   }) {
     return DeliveryOrder(
       id: id ?? this.id,
@@ -207,6 +225,12 @@ class DeliveryOrder {
       offerId: offerId ?? this.offerId,
       serverOrderId: serverOrderId ?? this.serverOrderId,
       trackingNumber: trackingNumber ?? this.trackingNumber,
+      taskType: taskType ?? this.taskType,
+      taskStatus: taskStatus ?? this.taskStatus,
+      taskOutcome: taskOutcome ?? this.taskOutcome,
+      orderStatus: orderStatus ?? this.orderStatus,
+      completedAt: completedAt ?? this.completedAt,
+      counterpartyName: counterpartyName ?? this.counterpartyName,
     );
   }
 
@@ -214,7 +238,7 @@ class DeliveryOrder {
     final orderObj = json['order'] as Map<String, dynamic>?;
     final orderId = (json['order_number'] ?? json['order_id'] ?? json['id']).toString();
     final codAmount = (json['cod_amount'] as num?)?.toDouble() ?? 0.0;
-    final expectedPay = (json['expected_pay'] as num?)?.toDouble() ?? 50.0;
+    final expectedPay = (json['expected_pay'] as num?)?.toDouble() ?? 0.0;
     final expiresIn = (json['expires_in_seconds'] as num?)?.toInt() ?? 60;
     final rawOfferId = json['id']?.toString();
     final serverOrderId = (json['order_id'] ?? orderObj?['id']) is num
@@ -248,6 +272,7 @@ class DeliveryOrder {
       offerId: rawOfferId,
       serverOrderId: serverOrderId,
       trackingNumber: orderObj?['tracking_number']?.toString(),
+      taskType: json['type']?.toString(),
     );
   }
 
@@ -265,14 +290,23 @@ class DeliveryOrder {
       );
     }).toList();
 
+    final taskType = (json['task_type'] ?? json['role'])?.toString();
+    final taskOutcome = json['task_outcome']?.toString();
+    final taskStatus = json['task_status']?.toString();
+    final orderStatus = (json['order_status'] ?? json['status'])?.toString();
+
     DeliveryStatus status = DeliveryStatus.available;
-    final statusStr = (json['status'] ?? '').toString().toLowerCase();
+    final statusStr = (taskOutcome ?? json['status'] ?? '').toString().toLowerCase();
     switch (statusStr) {
       case 'ready_for_pickup':
       case 'assigned':
         status = DeliveryStatus.accepted;
         break;
       case 'picked_up':
+        status = taskStatus == 'completed'
+            ? DeliveryStatus.delivered
+            : DeliveryStatus.pickedUp;
+        break;
       case 'assigned_to_rider':
         status = DeliveryStatus.pickedUp;
         break;
@@ -291,12 +325,16 @@ class DeliveryOrder {
         break;
     }
 
+    final compensation = (json['compensation_amount'] as num?)?.toDouble() ??
+        (json['expected_pay'] as num?)?.toDouble() ??
+        0.0;
+
     return DeliveryOrder(
       id: orderId,
       customerName: (json['recipient_name'] ?? 'Buyer').toString(),
       customerPhone: (json['recipient_phone'] ?? '+63 917 000 0000').toString(),
       customerAddress: (json['dropoff_address'] ?? 'Customer Address').toString(),
-      merchantName: 'Merchant Seller',
+      merchantName: (json['seller_name'] ?? 'Merchant Seller').toString(),
       merchantAddress: (json['pickup_address'] ?? 'Merchant Store, Laguna').toString(),
       merchantPhone: '+63 2 8888 1234',
       items: items.isNotEmpty
@@ -309,7 +347,7 @@ class DeliveryOrder {
                 imageUrl: 'https://images.unsplash.com/photo-1587829741301-dc798b83add3?w=200',
               ),
             ],
-      deliveryFee: 50.0,
+      deliveryFee: compensation,
       orderTotal: (json['total'] as num?)?.toDouble() ?? 0.0,
       paymentType: (json['payment_method'] ?? 'COD').toString().toUpperCase(),
       distanceKm: 2.8,
@@ -318,6 +356,14 @@ class DeliveryOrder {
       status: status,
       serverOrderId: serverOrderId,
       trackingNumber: json['tracking_number']?.toString(),
+      taskType: taskType,
+      taskStatus: taskStatus,
+      taskOutcome: taskOutcome,
+      orderStatus: orderStatus,
+      completedAt: json['completed_at'] != null
+          ? DateTime.tryParse(json['completed_at'].toString())
+          : null,
+      counterpartyName: json['counterparty_name']?.toString(),
     );
   }
 }
