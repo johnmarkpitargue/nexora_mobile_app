@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../../app/routes/app_routes.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/services/cart_service.dart';
@@ -34,9 +35,18 @@ class _WishlistPageState extends State<WishlistPage> {
         final allItems = WishlistService.instance.items;
         final filteredItems = _selectedCategory == 'All'
             ? allItems
-            : allItems.where((p) => p.category.toLowerCase() == _selectedCategory.toLowerCase()).toList();
+            : allItems
+                  .where(
+                    (p) =>
+                        p.category.toLowerCase() ==
+                        _selectedCategory.toLowerCase(),
+                  )
+                  .toList();
 
-        final categories = ['All', ...{...allItems.map((p) => p.category)}];
+        final categories = [
+          'All',
+          ...{...allItems.map((p) => p.category)},
+        ];
 
         final theme = Theme.of(context);
         final cs = theme.colorScheme;
@@ -47,7 +57,11 @@ class _WishlistPageState extends State<WishlistPage> {
             backgroundColor: cs.surfaceContainerLowest,
             elevation: 0,
             leading: IconButton(
-              icon: Icon(Icons.arrow_back_ios_new, color: cs.onSurface, size: 18),
+              icon: Icon(
+                Icons.arrow_back_ios_new,
+                color: cs.onSurface,
+                size: 18,
+              ),
               onPressed: () => Navigator.pop(context),
             ),
             title: Column(
@@ -73,7 +87,11 @@ class _WishlistPageState extends State<WishlistPage> {
             ),
             actions: [
               IconButton(
-                icon: Icon(Icons.shopping_cart_outlined, color: cs.onSurface, size: 22),
+                icon: Icon(
+                  Icons.shopping_cart_outlined,
+                  color: cs.onSurface,
+                  size: 22,
+                ),
                 onPressed: () => Navigator.pushNamed(context, AppRoutes.cart),
               ),
               const SizedBox(width: 4),
@@ -104,18 +122,27 @@ class _WishlistPageState extends State<WishlistPage> {
                                 });
                               },
                               child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 4,
+                                ),
                                 decoration: BoxDecoration(
-                                  color: isSelected ? const Color(0xFF0066FF) : const Color(0xFFF1F5F9),
+                                  color: isSelected
+                                      ? const Color(0xFF0066FF)
+                                      : const Color(0xFFF1F5F9),
                                   borderRadius: BorderRadius.circular(20),
                                 ),
                                 alignment: Alignment.center,
                                 child: Text(
                                   cat,
                                   style: TextStyle(
-                                    color: isSelected ? Colors.white : const Color(0xFF475569),
+                                    color: isSelected
+                                        ? Colors.white
+                                        : const Color(0xFF475569),
                                     fontSize: 12,
-                                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                                    fontWeight: isSelected
+                                        ? FontWeight.bold
+                                        : FontWeight.w500,
                                   ),
                                 ),
                               ),
@@ -132,19 +159,29 @@ class _WishlistPageState extends State<WishlistPage> {
                           ? Center(
                               child: Text(
                                 'No items found in "$_selectedCategory"',
-                                style: const TextStyle(color: Color(0xFF64748B), fontSize: 13),
+                                style: const TextStyle(
+                                  color: Color(0xFF64748B),
+                                  fontSize: 13,
+                                ),
                               ),
                             )
                           : RefreshIndicator(
-                              onRefresh: () => WishlistService.instance.refreshWishlistRemote(),
+                              onRefresh: () => WishlistService.instance
+                                  .refreshWishlistRemote(),
                               child: ListView.separated(
-                                physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+                                physics: const AlwaysScrollableScrollPhysics(
+                                  parent: BouncingScrollPhysics(),
+                                ),
                                 padding: const EdgeInsets.all(16),
                                 itemCount: filteredItems.length,
-                                separatorBuilder: (_, _) => const SizedBox(height: 14),
+                                separatorBuilder: (_, _) =>
+                                    const SizedBox(height: 14),
                                 itemBuilder: (context, index) {
                                   final product = filteredItems[index];
-                                  return _buildWishlistItemCard(context, product);
+                                  return _buildWishlistItemCard(
+                                    context,
+                                    product,
+                                  );
                                 },
                               ),
                             ),
@@ -204,10 +241,18 @@ class _WishlistPageState extends State<WishlistPage> {
                 backgroundColor: const Color(0xFF0066FF),
                 foregroundColor: Colors.white,
                 elevation: 0,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-                padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 28,
+                  vertical: 12,
+                ),
               ),
-              child: const Text('Discover Products', style: TextStyle(fontWeight: FontWeight.bold)),
+              child: const Text(
+                'Discover Products',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
             ),
           ],
         ),
@@ -229,7 +274,11 @@ class _WishlistPageState extends State<WishlistPage> {
         child: InkWell(
           borderRadius: BorderRadius.circular(14),
           onTap: () {
-            Navigator.pushNamed(context, AppRoutes.productDetails, arguments: product);
+            Navigator.pushNamed(
+              context,
+              AppRoutes.productDetails,
+              arguments: product,
+            );
           },
           child: Padding(
             padding: const EdgeInsets.all(12),
@@ -246,7 +295,10 @@ class _WishlistPageState extends State<WishlistPage> {
                               width: 90,
                               height: 90,
                               color: cs.surfaceContainerHigh,
-                              child: Icon(Icons.image_not_supported, color: cs.onSurfaceVariant),
+                              child: Icon(
+                                Icons.image_not_supported,
+                                color: cs.onSurfaceVariant,
+                              ),
                             )
                           : Image.network(
                               resolvedImg,
@@ -257,7 +309,10 @@ class _WishlistPageState extends State<WishlistPage> {
                                 width: 90,
                                 height: 90,
                                 color: cs.surfaceContainerHigh,
-                                child: Icon(Icons.image_not_supported, color: cs.onSurfaceVariant),
+                                child: Icon(
+                                  Icons.image_not_supported,
+                                  color: cs.onSurfaceVariant,
+                                ),
                               ),
                             ),
                       if (product.isMall)
@@ -265,7 +320,10 @@ class _WishlistPageState extends State<WishlistPage> {
                           top: 4,
                           left: 4,
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 4,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
                               color: const Color(0xFF0066FF),
                               borderRadius: BorderRadius.circular(3),
@@ -310,7 +368,9 @@ class _WishlistPageState extends State<WishlistPage> {
                           GestureDetector(
                             onTap: () async {
                               try {
-                                await WishlistService.instance.toggleWishlist(product);
+                                await WishlistService.instance.toggleWishlist(
+                                  product,
+                                );
                                 if (!context.mounted) return;
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
@@ -348,7 +408,10 @@ class _WishlistPageState extends State<WishlistPage> {
                       Row(
                         children: [
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
                               color: const Color(0xFFF1F5F9),
                               borderRadius: BorderRadius.circular(4),
@@ -363,7 +426,11 @@ class _WishlistPageState extends State<WishlistPage> {
                             ),
                           ),
                           const SizedBox(width: 8),
-                          const Icon(Icons.star_rounded, size: 14, color: Color(0xFFF59E0B)),
+                          const Icon(
+                            Icons.star_rounded,
+                            size: 14,
+                            color: Color(0xFFF59E0B),
+                          ),
                           const SizedBox(width: 2),
                           Text(
                             product.rating.toString(),
@@ -412,86 +479,81 @@ class _WishlistPageState extends State<WishlistPage> {
                             ],
                           ),
                           ElevatedButton.icon(
-                                  onPressed: _addingProductIds.contains(product.id)
-                                      ? null
-                                      : () async {
-                                          if (!await GuestAuthGuard.requireLogin(
-                                            context,
-                                          )) {
-                                            return;
-                                          }
-                                          if (!context.mounted) return;
+                            onPressed: _addingProductIds.contains(product.id)
+                                ? null
+                                : () async {
+                                    if (!await GuestAuthGuard.requireLogin(
+                                      context,
+                                    )) {
+                                      return;
+                                    }
+                                    if (!context.mounted) return;
 
-                                          if (product.variantGroups != null &&
-                                              product
-                                                  .variantGroups!
-                                                  .isNotEmpty) {
-                                            await AddToCartBottomSheet.show(
-                                              context,
-                                              product: product,
+                                    if (product.variantGroups != null &&
+                                        product.variantGroups!.isNotEmpty) {
+                                      await AddToCartBottomSheet.show(
+                                        context,
+                                        product: product,
+                                      );
+                                      return;
+                                    }
+
+                                    final pId = int.tryParse(product.id);
+                                    if (pId == null || pId <= 0) {
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        const SnackBar(
+                                          content: Text(
+                                            'Please open the product page to add this item.',
+                                          ),
+                                          backgroundColor: Color(0xFFDC2626),
+                                        ),
+                                      );
+                                      return;
+                                    }
+
+                                    setState(
+                                      () => _addingProductIds.add(product.id),
+                                    );
+                                    try {
+                                      await CartService.instance.addToCart(
+                                        productId: pId,
+                                        quantity: 1,
+                                      );
+                                      if (!context.mounted) return;
+                                      AddedToCartHUD.show(context);
+                                    } catch (e) {
+                                      if (!context.mounted) return;
+                                      final msg = e is ApiException
+                                          ? e.message
+                                          : e.toString().replaceFirst(
+                                              'Exception: ',
+                                              '',
                                             );
-                                            return;
-                                          }
-
-                                          final pId = int.tryParse(product.id);
-                                          if (pId == null || pId <= 0) {
-                                            ScaffoldMessenger.of(
-                                              context,
-                                            ).showSnackBar(
-                                              const SnackBar(
-                                                content: Text(
-                                                  'Please open the product page to add this item.',
-                                                ),
-                                                backgroundColor: Color(
-                                                  0xFFDC2626,
-                                                ),
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                            SnackBar(
+                                              content: Text(msg),
+                                              backgroundColor: const Color(
+                                                0xFFDC2626,
                                               ),
-                                            );
-                                            return;
-                                          }
-
-                                          setState(
-                                            () => _addingProductIds.add(
-                                              product.id,
                                             ),
                                           );
-                                          try {
-                                            await CartService.instance
-                                                .addToCart(
-                                                  productId: pId,
-                                                  quantity: 1,
-                                                );
-                                            if (!context.mounted) return;
-                                            AddedToCartHUD.show(context);
-                                          } catch (e) {
-                                            if (!context.mounted) return;
-                                            final msg = e is ApiException
-                                                ? e.message
-                                                : e.toString().replaceFirst(
-                                                    'Exception: ',
-                                                    '',
-                                                  );
-                                            ScaffoldMessenger.of(
-                                              context,
-                                            ).showSnackBar(
-                                              SnackBar(
-                                                content: Text(msg),
-                                                backgroundColor: const Color(
-                                                  0xFFDC2626,
-                                                ),
-                                              ),
-                                            );
-                                          } finally {
-                                            if (mounted) {
-                                              setState(
-                                                () => _addingProductIds.remove(
-                                                  product.id,
-                                                ),
-                                              );
-                                            }
-                                          }
-                                        },
-                            icon: const Icon(Icons.shopping_bag_outlined, size: 14),
+                                    } finally {
+                                      if (mounted) {
+                                        setState(
+                                          () => _addingProductIds.remove(
+                                            product.id,
+                                          ),
+                                        );
+                                      }
+                                    }
+                                  },
+                            icon: const Icon(
+                              Icons.shopping_bag_outlined,
+                              size: 14,
+                            ),
                             label: Text(
                               _addingProductIds.contains(product.id)
                                   ? 'Adding...'
@@ -505,8 +567,13 @@ class _WishlistPageState extends State<WishlistPage> {
                               backgroundColor: const Color(0xFF0F172A),
                               foregroundColor: Colors.white,
                               elevation: 0,
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
                             ),
                           ),
                         ],

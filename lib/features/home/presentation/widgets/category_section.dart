@@ -151,7 +151,8 @@ class CategorySection extends StatelessWidget {
                   separatorBuilder: (_, _) => const SizedBox(width: 10),
                   itemBuilder: (context, index) {
                     final cat = dbCategories[index];
-                    final isSelected = selectedCategory?.toLowerCase() ==
+                    final isSelected =
+                        selectedCategory?.toLowerCase() ==
                             cat.slug.toLowerCase() ||
                         selectedCategory?.toLowerCase() ==
                             cat.name.toLowerCase() ||

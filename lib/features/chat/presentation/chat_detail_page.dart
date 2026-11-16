@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
+
 import '../../../core/services/chat_service.dart';
 import '../../../core/services/buyer_account_service.dart';
 import '../../../core/services/profile_service.dart';
@@ -40,7 +42,8 @@ class ChatDetailPage extends StatefulWidget {
   State<ChatDetailPage> createState() => _ChatDetailPageState();
 }
 
-class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObserver {
+class _ChatDetailPageState extends State<ChatDetailPage>
+    with WidgetsBindingObserver {
   late List<Map<String, dynamic>> _messages;
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
@@ -75,20 +78,24 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
 
     _effectiveOrderId = (widget.orderId != null && widget.orderId!.isNotEmpty)
         ? widget.orderId!.replaceAll('#', '').trim()
-        : (widget.orderRef.isNotEmpty ? widget.orderRef.replaceAll('#', '').trim() : '');
+        : (widget.orderRef.isNotEmpty
+              ? widget.orderRef.replaceAll('#', '').trim()
+              : '');
 
     _effectiveTitle = widget.title
         .replaceAll(RegExp(r'\s*\((Courier|Rider)\)', caseSensitive: false), '')
         .trim();
 
-    final isCourierKeyword = widget.avatarIcon == Icons.two_wheeler_rounded ||
+    final isCourierKeyword =
+        widget.avatarIcon == Icons.two_wheeler_rounded ||
         widget.subtitle.toLowerCase().contains('courier') ||
         widget.subtitle.toLowerCase().contains('route') ||
         widget.subtitle.toLowerCase().contains('rider') ||
         widget.subtitle.toLowerCase().contains('delivery') ||
         widget.title.toLowerCase().contains('courier') ||
         widget.title.toLowerCase().contains('rider') ||
-        (widget.conversationId != null && widget.conversationId!.startsWith('courier_'));
+        (widget.conversationId != null &&
+            widget.conversationId!.startsWith('courier_'));
 
     _isCourierChat = _effectiveOrderId.isNotEmpty || isCourierKeyword;
 
@@ -98,7 +105,9 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
       _messageController.addListener(_onBuyerTextChanged);
     } else {
       if (widget.conversationId != null) {
-        ChatService.instance.fetchMessagesRemote(widget.conversationId!).then((msgs) {
+        ChatService.instance.fetchMessagesRemote(widget.conversationId!).then((
+          msgs,
+        ) {
           if (mounted && msgs.isNotEmpty) {
             setState(() {
               _messages = msgs.map((m) => m.toMap()).toList();
@@ -106,7 +115,9 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
             _scrollToBottom();
           }
         });
-        final conv = ChatService.instance.getConversationById(widget.conversationId!);
+        final conv = ChatService.instance.getConversationById(
+          widget.conversationId!,
+        );
         if (conv != null && conv.messages.isNotEmpty) {
           _messages = conv.messages.map((m) => m.toMap()).toList();
           return;
@@ -121,7 +132,9 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
   }
 
   void _setupOrderChatListener() {
-    final cleanId = OrderChatService.instance.normalizeOrderId(_effectiveOrderId);
+    final cleanId = OrderChatService.instance.normalizeOrderId(
+      _effectiveOrderId,
+    );
     OrderChatService.instance.subscribeToOrder(_effectiveOrderId);
     OrderChatService.instance.activeScreenOrderId = cleanId;
     OrderChatService.instance.markAsRead(_effectiveOrderId);
@@ -133,14 +146,20 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
     } else {
       _messages = List.from(widget.initialMessages);
       for (final m in widget.initialMessages) {
-        OrderChatService.instance.getMessages(_effectiveOrderId).add(Map<String, dynamic>.from(m));
+        OrderChatService.instance
+            .getMessages(_effectiveOrderId)
+            .add(Map<String, dynamic>.from(m));
       }
     }
 
     OrderChatService.instance.onNewMessageReceived = (msg) {
       if (!mounted) return;
-      final cleanId = OrderChatService.instance.normalizeOrderId((msg['orderId'] ?? '').toString());
-      final currentClean = OrderChatService.instance.normalizeOrderId(_effectiveOrderId);
+      final cleanId = OrderChatService.instance.normalizeOrderId(
+        (msg['orderId'] ?? '').toString(),
+      );
+      final currentClean = OrderChatService.instance.normalizeOrderId(
+        _effectiveOrderId,
+      );
       if (cleanId != currentClean) {
         final sender = (msg['senderName'] ?? 'Assigned Courier').toString();
         InAppNotificationService.instance.showNotification(
@@ -150,10 +169,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
           icon: Icons.two_wheeler_rounded,
           accentColor: const Color(0xFF00B4D8),
           onReply: () {
-            _switchToOrder(
-              (msg['orderId'] ?? '').toString(),
-              sender,
-            );
+            _switchToOrder((msg['orderId'] ?? '').toString(), sender);
           },
         );
       }
@@ -162,7 +178,8 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
 
   void _switchToOrder(String newOrderId, [String? newSenderName]) {
     final clean = OrderChatService.instance.normalizeOrderId(newOrderId);
-    if (clean == OrderChatService.instance.normalizeOrderId(_effectiveOrderId)) return;
+    if (clean == OrderChatService.instance.normalizeOrderId(_effectiveOrderId))
+      return;
 
     if (_isLocallyTyping) {
       OrderChatService.instance.sendTyping(_effectiveOrderId, false);
@@ -174,7 +191,10 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
       _effectiveOrderId = newOrderId.replaceAll('#', '').trim();
       if (newSenderName != null && newSenderName.isNotEmpty) {
         _effectiveTitle = newSenderName
-            .replaceAll(RegExp(r'\s*\((Courier|Rider)\)', caseSensitive: false), '')
+            .replaceAll(
+              RegExp(r'\s*\((Courier|Rider)\)', caseSensitive: false),
+              '',
+            )
             .trim();
       }
     });
@@ -185,7 +205,9 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
     setState(() {
       _messages = List.from(updated);
     });
-    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom(animate: false));
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _scrollToBottom(animate: false),
+    );
   }
 
   void _showOrderSwitchModal() {
@@ -238,25 +260,40 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
                 )
               else
                 ...activeOrders.map((o) {
-                  final isCurrent = OrderChatService.instance.normalizeOrderId(o.orderId) ==
-                      OrderChatService.instance.normalizeOrderId(_effectiveOrderId);
-                  final unread = OrderChatService.instance.getUnreadCount(o.orderId);
-                  final name = o.courierName.isNotEmpty ? o.courierName : 'Assigned Courier';
+                  final isCurrent =
+                      OrderChatService.instance.normalizeOrderId(o.orderId) ==
+                      OrderChatService.instance.normalizeOrderId(
+                        _effectiveOrderId,
+                      );
+                  final unread = OrderChatService.instance.getUnreadCount(
+                    o.orderId,
+                  );
+                  final name = o.courierName.isNotEmpty
+                      ? o.courierName
+                      : 'Assigned Courier';
                   return ListTile(
                     contentPadding: EdgeInsets.zero,
                     leading: CircleAvatar(
-                      backgroundColor: isCurrent ? const Color(0xFF0066FF) : const Color(0xFFF1F5F9),
+                      backgroundColor: isCurrent
+                          ? const Color(0xFF0066FF)
+                          : const Color(0xFFF1F5F9),
                       child: Icon(
                         isCurrent ? Icons.check : Icons.two_wheeler_rounded,
-                        color: isCurrent ? Colors.white : const Color(0xFF0F172A),
+                        color: isCurrent
+                            ? Colors.white
+                            : const Color(0xFF0F172A),
                         size: 20,
                       ),
                     ),
                     title: Text(
                       '$name (${o.orderId})',
                       style: TextStyle(
-                        fontWeight: isCurrent ? FontWeight.bold : FontWeight.w600,
-                        color: isCurrent ? const Color(0xFF0066FF) : const Color(0xFF0F172A),
+                        fontWeight: isCurrent
+                            ? FontWeight.bold
+                            : FontWeight.w600,
+                        color: isCurrent
+                            ? const Color(0xFF0066FF)
+                            : const Color(0xFF0F172A),
                       ),
                     ),
                     subtitle: Text(
@@ -267,7 +304,10 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
                     ),
                     trailing: unread > 0
                         ? Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
                               color: const Color(0xFFEF4444),
                               borderRadius: BorderRadius.circular(10),
@@ -300,12 +340,17 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
     final updated = OrderChatService.instance.getMessages(_effectiveOrderId);
     if (updated.isNotEmpty) {
       final lastRiderMsg = updated.lastWhere(
-        (m) => m['sender'] == 'other' && (m['senderName'] as String?)?.isNotEmpty == true,
+        (m) =>
+            m['sender'] == 'other' &&
+            (m['senderName'] as String?)?.isNotEmpty == true,
         orElse: () => {},
       );
       if (lastRiderMsg.isNotEmpty) {
         final name = (lastRiderMsg['senderName'] as String)
-            .replaceAll(RegExp(r'\s*\((Courier|Rider)\)', caseSensitive: false), '')
+            .replaceAll(
+              RegExp(r'\s*\((Courier|Rider)\)', caseSensitive: false),
+              '',
+            )
             .trim();
         _effectiveTitle = name;
       }
@@ -388,7 +433,11 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
               const SizedBox(height: 14),
               const Text(
                 'Upload Photo or File (Max 5MB)',
-                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: Color(0xFF0F172A)),
+                style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 16,
+                  color: Color(0xFF0F172A),
+                ),
               ),
               const SizedBox(height: 12),
               ListTile(
@@ -398,10 +447,19 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
                     color: const Color(0xFFE0F2FE),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.camera_alt_rounded, color: Color(0xFF0075FF)),
+                  child: const Icon(
+                    Icons.camera_alt_rounded,
+                    color: Color(0xFF0075FF),
+                  ),
                 ),
-                title: const Text('Take Photo (Camera)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                subtitle: const Text('Take a photo to send to rider', style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                title: const Text(
+                  'Take Photo (Camera)',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                ),
+                subtitle: const Text(
+                  'Take a photo to send to rider',
+                  style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                ),
                 onTap: () {
                   Navigator.pop(ctx);
                   _handleImagePick(ImageSource.camera);
@@ -414,10 +472,19 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
                     color: const Color(0xFFF3E8FF),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.photo_library_rounded, color: Color(0xFF9333EA)),
+                  child: const Icon(
+                    Icons.photo_library_rounded,
+                    color: Color(0xFF9333EA),
+                  ),
                 ),
-                title: const Text('Choose from Gallery', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                subtitle: const Text('Select photo or screenshot (up to 5MB)', style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                title: const Text(
+                  'Choose from Gallery',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                ),
+                subtitle: const Text(
+                  'Select photo or screenshot (up to 5MB)',
+                  style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                ),
                 onTap: () {
                   Navigator.pop(ctx);
                   _handleImagePick(ImageSource.gallery);
@@ -449,7 +516,9 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
       }
 
       final base64Str = base64Encode(bytes);
-      final fileName = file.name.isNotEmpty ? file.name : 'photo_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final fileName = file.name.isNotEmpty
+          ? file.name
+          : 'photo_${DateTime.now().millisecondsSinceEpoch}.jpg';
       final textToSend = _messageController.text.trim();
 
       if (_isCourierChat) {
@@ -493,19 +562,28 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
           children: [
             Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 24),
             SizedBox(width: 8),
-            Text('File Exceeds 5MB Limit', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            Text(
+              'File Exceeds 5MB Limit',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
           ],
         ),
         content: Text(
           'The selected file is $mb MB. In active order chat, uploads are restricted to a maximum of 5MB only.\n\nPlease select an image or file within 5.0 MB.',
-          style: const TextStyle(fontSize: 13.5, color: Color(0xFF334155), height: 1.4),
+          style: const TextStyle(
+            fontSize: 13.5,
+            color: Color(0xFF334155),
+            height: 1.4,
+          ),
         ),
         actions: [
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF0075FF),
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
             onPressed: () => Navigator.pop(ctx),
             child: const Text('Got It'),
@@ -543,12 +621,20 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
                   Flexible(
                     child: Text(
                       title,
-                      style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close_rounded, color: Colors.white, size: 26),
+                    icon: const Icon(
+                      Icons.close_rounded,
+                      color: Colors.white,
+                      size: 26,
+                    ),
                     onPressed: () => Navigator.pop(ctx),
                   ),
                 ],
@@ -565,7 +651,9 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
 
     final trimmed = text.trim();
     if (ProfanityFilterService.instance.hasProfanity(trimmed)) {
-      _showProfanityAlert('Inappropriate language detected. Please maintain respectful and courteous communication.');
+      _showProfanityAlert(
+        'Inappropriate language detected. Please maintain respectful and courteous communication.',
+      );
       return;
     }
 
@@ -575,7 +663,9 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
       final buyer = BuyerAccountService.instance.currentBuyer;
       final customerName = (buyer != null && buyer.fullName.isNotEmpty)
           ? buyer.fullName
-          : (ProfileService.instance.name.isNotEmpty ? ProfileService.instance.name : 'Customer');
+          : (ProfileService.instance.name.isNotEmpty
+                ? ProfileService.instance.name
+                : 'Customer');
       // Real-time Supabase Broadcast communication with the rider
       OrderChatService.instance.sendMessage(
         _effectiveOrderId,
@@ -635,7 +725,9 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
 
   @override
   Widget build(BuildContext context) {
-    final isRiderTyping = _isCourierChat && OrderChatService.instance.isRiderTyping(_effectiveOrderId);
+    final isRiderTyping =
+        _isCourierChat &&
+        OrderChatService.instance.isRiderTyping(_effectiveOrderId);
     final showTyping = _isCourierChat ? isRiderTyping : _isSimulatedTyping;
 
     return Scaffold(
@@ -645,7 +737,11 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
         elevation: 1,
         shadowColor: Colors.black.withValues(alpha: 0.05),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Color(0xFF0F172A), size: 18),
+          icon: const Icon(
+            Icons.arrow_back_ios_new_rounded,
+            color: Color(0xFF0F172A),
+            size: 18,
+          ),
           onPressed: () => Navigator.pop(context),
         ),
         titleSpacing: 0,
@@ -739,7 +835,10 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
         actions: [
           if (_isCourierChat) ...[
             IconButton(
-              icon: const Icon(Icons.swap_horiz_rounded, color: Color(0xFF0075FF)),
+              icon: const Icon(
+                Icons.swap_horiz_rounded,
+                color: Color(0xFF0075FF),
+              ),
               tooltip: 'Switch Order',
               onPressed: _showOrderSwitchModal,
             ),
@@ -776,7 +875,10 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
                   return Center(
                     child: Container(
                       margin: const EdgeInsets.symmetric(vertical: 8),
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFFE2E8F0),
                         borderRadius: BorderRadius.circular(16),
@@ -784,7 +886,11 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.lock_outline_rounded, size: 12, color: Color(0xFF475569)),
+                          const Icon(
+                            Icons.lock_outline_rounded,
+                            size: 12,
+                            color: Color(0xFF475569),
+                          ),
                           const SizedBox(width: 6),
                           Flexible(
                             child: Text(
@@ -803,21 +909,35 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
                   );
                 }
 
-                final isUser = (msg['sender'] == 'user') || (msg['isMe'] == true);
+                final isUser =
+                    (msg['sender'] == 'user') || (msg['isMe'] == true);
                 final isUnsent = msg['isUnsent'] == true;
                 final isEdited = msg['isEdited'] == true;
 
                 final rawSenderName = (msg['senderName'] as String?) ?? '';
                 final senderName = rawSenderName.isNotEmpty
-                    ? rawSenderName.replaceAll(RegExp(r'\s*\((Courier|Rider)\)', caseSensitive: false), '').trim()
+                    ? rawSenderName
+                          .replaceAll(
+                            RegExp(
+                              r'\s*\((Courier|Rider)\)',
+                              caseSensitive: false,
+                            ),
+                            '',
+                          )
+                          .trim()
                     : _cleanTitle;
 
                 if (isUnsent) {
                   return Align(
-                    alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+                    alignment: isUser
+                        ? Alignment.centerRight
+                        : Alignment.centerLeft,
                     child: Container(
                       margin: const EdgeInsets.only(bottom: 10),
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 8,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFFF1F5F9),
                         borderRadius: BorderRadius.circular(16),
@@ -826,10 +946,16 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.remove_circle_outline_rounded, size: 14, color: Color(0xFF94A3B8)),
+                          const Icon(
+                            Icons.remove_circle_outline_rounded,
+                            size: 14,
+                            color: Color(0xFF94A3B8),
+                          ),
                           const SizedBox(width: 6),
                           Text(
-                            isUser ? 'You unsent a message' : 'This message was unsent',
+                            isUser
+                                ? 'You unsent a message'
+                                : 'This message was unsent',
                             style: const TextStyle(
                               color: Color(0xFF64748B),
                               fontSize: 12.5,
@@ -842,11 +968,20 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
                   );
                 }
 
-                final attachData = (msg['attachmentData'] ?? msg['attachment_data'])?.toString();
-                final attachName = (msg['attachmentName'] ?? msg['attachment_name'])?.toString();
-                final attachSize = (msg['attachmentSize'] ?? msg['attachment_size']) as int?;
-                final attachType = (msg['attachmentType'] ?? msg['attachment_type'])?.toString() ?? 'image';
-                final isImage = attachType == 'image' ||
+                final attachData =
+                    (msg['attachmentData'] ?? msg['attachment_data'])
+                        ?.toString();
+                final attachName =
+                    (msg['attachmentName'] ?? msg['attachment_name'])
+                        ?.toString();
+                final attachSize =
+                    (msg['attachmentSize'] ?? msg['attachment_size']) as int?;
+                final attachType =
+                    (msg['attachmentType'] ?? msg['attachment_type'])
+                        ?.toString() ??
+                    'image';
+                final isImage =
+                    attachType == 'image' ||
                     attachName?.endsWith('.jpg') == true ||
                     attachName?.endsWith('.jpeg') == true ||
                     attachName?.endsWith('.png') == true ||
@@ -862,7 +997,9 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
                 }
 
                 return Align(
-                  alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+                  alignment: isUser
+                      ? Alignment.centerRight
+                      : Alignment.centerLeft,
                   child: GestureDetector(
                     onLongPress: isUser ? () => _showMessageOptions(msg) : null,
                     child: Container(
@@ -870,7 +1007,10 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
                       constraints: BoxConstraints(
                         maxWidth: MediaQuery.of(context).size.width * 0.78,
                       ),
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 10,
+                      ),
                       decoration: BoxDecoration(
                         color: isUser ? const Color(0xFF0075FF) : Colors.white,
                         borderRadius: BorderRadius.only(
@@ -888,7 +1028,9 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
                         ],
                       ),
                       child: Column(
-                        crossAxisAlignment: isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                        crossAxisAlignment: isUser
+                            ? CrossAxisAlignment.end
+                            : CrossAxisAlignment.start,
                         children: [
                           if (!isUser && senderName.isNotEmpty) ...[
                             Text(
@@ -904,10 +1046,15 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
                           if (attachData != null && attachData.isNotEmpty) ...[
                             if (isImage)
                               GestureDetector(
-                                onTap: () => _openImageViewer(attachData, attachName ?? 'Photo'),
+                                onTap: () => _openImageViewer(
+                                  attachData,
+                                  attachName ?? 'Photo',
+                                ),
                                 child: Container(
                                   margin: const EdgeInsets.only(bottom: 6),
-                                  constraints: const BoxConstraints(maxHeight: 200),
+                                  constraints: const BoxConstraints(
+                                    maxHeight: 200,
+                                  ),
                                   child: ClipRRect(
                                     borderRadius: BorderRadius.circular(12),
                                     child: Stack(
@@ -917,21 +1064,41 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
                                           base64Decode(attachData),
                                           fit: BoxFit.cover,
                                           width: double.infinity,
-                                          errorBuilder: (context, error, stackTrace) => const Center(
-                                            child: Icon(Icons.broken_image_rounded, size: 40, color: Colors.grey),
-                                          ),
+                                          errorBuilder:
+                                              (
+                                                context,
+                                                error,
+                                                stackTrace,
+                                              ) => const Center(
+                                                child: Icon(
+                                                  Icons.broken_image_rounded,
+                                                  size: 40,
+                                                  color: Colors.grey,
+                                                ),
+                                              ),
                                         ),
-                                        if (attachSize != null && attachSize > 0)
+                                        if (attachSize != null &&
+                                            attachSize > 0)
                                           Container(
                                             margin: const EdgeInsets.all(6),
-                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 6,
+                                              vertical: 2,
+                                            ),
                                             decoration: BoxDecoration(
-                                              color: Colors.black.withValues(alpha: 0.65),
-                                              borderRadius: BorderRadius.circular(6),
+                                              color: Colors.black.withValues(
+                                                alpha: 0.65,
+                                              ),
+                                              borderRadius:
+                                                  BorderRadius.circular(6),
                                             ),
                                             child: Text(
                                               formatSize(attachSize),
-                                              style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.bold,
+                                              ),
                                             ),
                                           ),
                                       ],
@@ -944,24 +1111,35 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
                                 margin: const EdgeInsets.only(bottom: 6),
                                 padding: const EdgeInsets.all(8),
                                 decoration: BoxDecoration(
-                                  color: isUser ? Colors.white.withValues(alpha: 0.15) : const Color(0xFFF1F5F9),
+                                  color: isUser
+                                      ? Colors.white.withValues(alpha: 0.15)
+                                      : const Color(0xFFF1F5F9),
                                   borderRadius: BorderRadius.circular(10),
                                 ),
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Icon(Icons.insert_drive_file_rounded, size: 24, color: isUser ? Colors.white : const Color(0xFF0075FF)),
+                                    Icon(
+                                      Icons.insert_drive_file_rounded,
+                                      size: 24,
+                                      color: isUser
+                                          ? Colors.white
+                                          : const Color(0xFF0075FF),
+                                    ),
                                     const SizedBox(width: 8),
                                     Flexible(
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
                                           Text(
                                             attachName ?? 'File Attachment',
                                             style: TextStyle(
                                               fontSize: 12,
                                               fontWeight: FontWeight.bold,
-                                              color: isUser ? Colors.white : const Color(0xFF0F172A),
+                                              color: isUser
+                                                  ? Colors.white
+                                                  : const Color(0xFF0F172A),
                                             ),
                                             overflow: TextOverflow.ellipsis,
                                           ),
@@ -970,7 +1148,9 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
                                               formatSize(attachSize),
                                               style: TextStyle(
                                                 fontSize: 10,
-                                                color: isUser ? Colors.white70 : const Color(0xFF64748B),
+                                                color: isUser
+                                                    ? Colors.white70
+                                                    : const Color(0xFF64748B),
                                               ),
                                             ),
                                         ],
@@ -985,7 +1165,9 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
                               msg['text'] ?? '',
                               style: TextStyle(
                                 fontSize: 13.5,
-                                color: isUser ? Colors.white : const Color(0xFF0F172A),
+                                color: isUser
+                                    ? Colors.white
+                                    : const Color(0xFF0F172A),
                                 height: 1.35,
                               ),
                             ),
@@ -1035,7 +1217,6 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
             ),
           ),
 
-
           // Quick Replies Carousel
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
@@ -1084,7 +1265,11 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
                       color: const Color(0xFF0284C7).withValues(alpha: 0.12),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.edit_rounded, size: 14, color: Color(0xFF0284C7)),
+                    child: const Icon(
+                      Icons.edit_rounded,
+                      size: 14,
+                      color: Color(0xFF0284C7),
+                    ),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
@@ -1114,9 +1299,16 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close_rounded, size: 18, color: Color(0xFF64748B)),
+                    icon: const Icon(
+                      Icons.close_rounded,
+                      size: 18,
+                      color: Color(0xFF64748B),
+                    ),
                     padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                    constraints: const BoxConstraints(
+                      minWidth: 28,
+                      minHeight: 28,
+                    ),
                     tooltip: 'Cancel Edit',
                     onPressed: _cancelEditingMessage,
                   ),
@@ -1142,8 +1334,11 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
               child: Row(
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.add_photo_alternate_rounded,
-                        color: Color(0xFF0075FF), size: 24),
+                    icon: const Icon(
+                      Icons.add_photo_alternate_rounded,
+                      color: Color(0xFF0075FF),
+                      size: 24,
+                    ),
                     tooltip: 'Send Photo / File (Max 5MB)',
                     onPressed: _pickAttachment,
                   ),
@@ -1161,9 +1356,12 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
                           hintText: _editingMessage != null
                               ? 'Edit your message...'
                               : (_isCourierChat
-                                  ? 'Message $_cleanTitle...'
-                                  : 'Type a message...'),
-                          hintStyle: TextStyle(fontSize: 13, color: Colors.grey.shade500),
+                                    ? 'Message $_cleanTitle...'
+                                    : 'Type a message...'),
+                          hintStyle: TextStyle(
+                            fontSize: 13,
+                            color: Colors.grey.shade500,
+                          ),
                           border: InputBorder.none,
                         ),
                         textInputAction: TextInputAction.send,
@@ -1188,15 +1386,22 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
                       ),
                       child: IconButton(
                         padding: EdgeInsets.zero,
-                        icon: const Icon(Icons.check_rounded, color: Colors.white, size: 20),
+                        icon: const Icon(
+                          Icons.check_rounded,
+                          color: Colors.white,
+                          size: 20,
+                        ),
                         tooltip: 'Save Edit',
                         onPressed: _submitEditMessage,
                       ),
                     )
                   else
                     IconButton(
-                      icon: const Icon(Icons.send_rounded,
-                          color: Color(0xFF0075FF), size: 22),
+                      icon: const Icon(
+                        Icons.send_rounded,
+                        color: Color(0xFF0075FF),
+                        size: 22,
+                      ),
                       onPressed: () => _sendMessage(_messageController.text),
                     ),
                 ],
@@ -1235,7 +1440,9 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
     if (newText.isEmpty) return;
 
     if (ProfanityFilterService.instance.hasProfanity(newText)) {
-      _showProfanityAlert('Inappropriate language detected. Please maintain respectful and courteous communication.');
+      _showProfanityAlert(
+        'Inappropriate language detected. Please maintain respectful and courteous communication.',
+      );
       return;
     }
 
@@ -1268,7 +1475,9 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
     if (isUnsent) return;
 
     final canEdit = isMe && OrderChatService.instance.canEditMessage(msg);
-    final remainingMinutes = OrderChatService.instance.getRemainingEditMinutes(msg);
+    final remainingMinutes = OrderChatService.instance.getRemainingEditMinutes(
+      msg,
+    );
 
     showModalBottomSheet(
       context: context,
@@ -1300,13 +1509,17 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
                 ListTile(
                   leading: Icon(
                     Icons.edit_rounded,
-                    color: canEdit ? const Color(0xFF0075FF) : Colors.grey.shade400,
+                    color: canEdit
+                        ? const Color(0xFF0075FF)
+                        : Colors.grey.shade400,
                   ),
                   title: Text(
                     'Edit Message',
                     style: TextStyle(
                       fontWeight: FontWeight.w700,
-                      color: canEdit ? const Color(0xFF0F172A) : Colors.grey.shade400,
+                      color: canEdit
+                          ? const Color(0xFF0F172A)
+                          : Colors.grey.shade400,
                     ),
                   ),
                   subtitle: Text(
@@ -1315,7 +1528,9 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
                         : 'Edit window expired (can only edit within 10 mins)',
                     style: TextStyle(
                       fontSize: 11.5,
-                      color: canEdit ? const Color(0xFF0284C7) : Colors.grey.shade400,
+                      color: canEdit
+                          ? const Color(0xFF0284C7)
+                          : Colors.grey.shade400,
                     ),
                   ),
                   onTap: () {
@@ -1323,15 +1538,23 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
                     if (canEdit) {
                       _startEditingMessage(msg);
                     } else {
-                      _showProfanityAlert('Messages can only be edited within 10 minutes of sending.');
+                      _showProfanityAlert(
+                        'Messages can only be edited within 10 minutes of sending.',
+                      );
                     }
                   },
                 ),
                 ListTile(
-                  leading: const Icon(Icons.undo_rounded, color: Color(0xFFEF4444)),
+                  leading: const Icon(
+                    Icons.undo_rounded,
+                    color: Color(0xFFEF4444),
+                  ),
                   title: const Text(
                     'Unsend Message',
-                    style: TextStyle(fontWeight: FontWeight.w700, color: Color(0xFFEF4444)),
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFFEF4444),
+                    ),
                   ),
                   subtitle: const Text(
                     'Removes message for everyone in this chat',
@@ -1344,8 +1567,14 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
                 ),
               ],
               ListTile(
-                leading: const Icon(Icons.copy_rounded, color: Color(0xFF64748B)),
-                title: const Text('Copy Text', style: TextStyle(fontWeight: FontWeight.w600)),
+                leading: const Icon(
+                  Icons.copy_rounded,
+                  color: Color(0xFF64748B),
+                ),
+                title: const Text(
+                  'Copy Text',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
                 onTap: () {
                   Navigator.pop(ctx);
                   Clipboard.setData(ClipboardData(text: msg['text'] ?? ''));
@@ -1374,7 +1603,10 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
           children: [
             Icon(Icons.undo_rounded, color: Color(0xFFEF4444)),
             SizedBox(width: 8),
-            Text('Unsend Message?', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
+            Text(
+              'Unsend Message?',
+              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
+            ),
           ],
         ),
         content: const Text(
@@ -1384,19 +1616,27 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel', style: TextStyle(color: Color(0xFF64748B))),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: Color(0xFF64748B)),
+            ),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFEF4444),
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
             onPressed: () {
               Navigator.pop(ctx);
               final msgId = (msg['id'] ?? '').toString();
               if (_isCourierChat) {
-                OrderChatService.instance.unsendMessage(_effectiveOrderId, msgId);
+                OrderChatService.instance.unsendMessage(
+                  _effectiveOrderId,
+                  msgId,
+                );
               } else {
                 setState(() {
                   msg['text'] = 'You unsent a message';
@@ -1418,21 +1658,34 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Row(
           children: [
-            Icon(Icons.warning_amber_rounded, color: Color(0xFFF59E0B), size: 26),
+            Icon(
+              Icons.warning_amber_rounded,
+              color: Color(0xFFF59E0B),
+              size: 26,
+            ),
             SizedBox(width: 8),
-            Text('Warning', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+            Text(
+              'Warning',
+              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+            ),
           ],
         ),
         content: Text(
           message,
-          style: const TextStyle(fontSize: 13, color: Color(0xFF334155), height: 1.4),
+          style: const TextStyle(
+            fontSize: 13,
+            color: Color(0xFF334155),
+            height: 1.4,
+          ),
         ),
         actions: [
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF0F172A),
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
             onPressed: () => Navigator.pop(ctx),
             child: const Text('Understood'),

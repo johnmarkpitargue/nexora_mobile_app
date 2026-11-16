@@ -526,7 +526,9 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
     final s = o.statusText.toLowerCase();
     final eta = o.etaText.toLowerCase();
     if (s.contains('pay') || s.contains('unpaid')) return 'pending';
-    if (s.contains('complete') || s.contains('delivered') || o.progress >= 1.0) {
+    if (s.contains('complete') ||
+        s.contains('delivered') ||
+        o.progress >= 1.0) {
       return 'delivered';
     }
     if (s.contains('cancel')) return 'cancelled';
@@ -1253,7 +1255,11 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
                 color: cs.primary.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: Icon(Icons.two_wheeler_rounded, color: cs.primary, size: 20),
+              child: Icon(
+                Icons.two_wheeler_rounded,
+                color: cs.primary,
+                size: 20,
+              ),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -1271,10 +1277,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
                   const SizedBox(height: 2),
                   Text(
                     'Awaiting delivery rider assignment from Nexora Logistics.',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: cs.onSurfaceVariant,
-                    ),
+                    style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
                   ),
                 ],
               ),
@@ -1340,7 +1343,10 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
               ),
               if (riderRating > 0)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
                     color: NexoraTheme.success.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(8),
@@ -1373,8 +1379,9 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
               CircleAvatar(
                 radius: 26,
                 backgroundColor: cs.surfaceContainerHigh,
-                backgroundImage:
-                    riderAvatar.isNotEmpty ? NetworkImage(riderAvatar) : null,
+                backgroundImage: riderAvatar.isNotEmpty
+                    ? NetworkImage(riderAvatar)
+                    : null,
                 child: riderAvatar.isEmpty
                     ? Icon(Icons.person, color: cs.onSurfaceVariant)
                     : null,
@@ -1408,8 +1415,8 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
                       isOutForDelivery
                           ? 'Out for delivery'
                           : (hubInfo != null && hubInfo.isNotEmpty
-                              ? 'At $hubInfo'
-                              : 'Assigned for dispatch'),
+                                ? 'At $hubInfo'
+                                : 'Assigned for dispatch'),
                       style: TextStyle(
                         fontSize: 11.5,
                         fontWeight: FontWeight.w600,
@@ -1431,7 +1438,10 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
                     icon: const Icon(Icons.phone_rounded, size: 16),
                     label: const Text(
                       'Call Rider',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
                     ),
                   ),
                 ),

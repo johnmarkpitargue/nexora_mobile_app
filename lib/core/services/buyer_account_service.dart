@@ -1,8 +1,10 @@
 import 'dart:convert';
 import 'dart:math';
+
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+
 import 'profile_service.dart';
 import 'wishlist_service.dart';
 import '../constants/api_constants.dart';
@@ -68,10 +70,14 @@ class BuyerValidationRules {
   }
 
   // Password individual rule validations (TC-BUY-017, TC-BUY-018)
-  static bool hasMinLength(String password) => password.length >= minPasswordLength;
-  static bool hasMaxLength(String password) => password.length <= maxPasswordLength;
-  static bool hasUppercase(String password) => RegExp(r'[A-Z]').hasMatch(password);
-  static bool hasLowercase(String password) => RegExp(r'[a-z]').hasMatch(password);
+  static bool hasMinLength(String password) =>
+      password.length >= minPasswordLength;
+  static bool hasMaxLength(String password) =>
+      password.length <= maxPasswordLength;
+  static bool hasUppercase(String password) =>
+      RegExp(r'[A-Z]').hasMatch(password);
+  static bool hasLowercase(String password) =>
+      RegExp(r'[a-z]').hasMatch(password);
   static bool hasNumber(String password) => RegExp(r'[0-9]').hasMatch(password);
   static bool hasSpecialChar(String password) =>
       RegExp(r'[!@#\$%^&*(),.?":{}|<>\-_]').hasMatch(password);
@@ -144,47 +150,67 @@ class BuyerAccountRecord {
   });
 
   String get fullName {
-    final parts = [firstName.trim(), lastName.trim()].where((s) => s.isNotEmpty).toList();
+    final parts = [
+      firstName.trim(),
+      lastName.trim(),
+    ].where((s) => s.isNotEmpty).toList();
     if (parts.isNotEmpty) return parts.join(' ');
     if (email.isNotEmpty && email.contains('@')) return email.split('@').first;
     return 'Buyer';
   }
+
   bool get isVerified => accountStatus == 'Active';
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'firstName': firstName,
-        'lastName': lastName,
-        'email': email,
-        'mobileNumber': mobileNumber,
-        'dateOfBirth': dateOfBirth.toIso8601String(),
-        'accountStatus': accountStatus,
-        'otpCode': otpCode,
-        'otpCreatedAt': otpCreatedAt.toIso8601String(),
-        'otpExpiresAt': otpExpiresAt.toIso8601String(),
-        'otpAttemptsRemaining': otpAttemptsRemaining,
-        'walletBalance': walletBalance,
-        'voucherCount': voucherCount,
-        'hasClaimedVoucher': hasClaimedVoucher,
-        'password': password,
-        'referralCode': referralCode,
-        'resetOtpCode': resetOtpCode,
-        'resetOtpExpiresAt': resetOtpExpiresAt?.toIso8601String(),
-        'resetOtpAttemptsRemaining': resetOtpAttemptsRemaining,
-      };
+    'id': id,
+    'firstName': firstName,
+    'lastName': lastName,
+    'email': email,
+    'mobileNumber': mobileNumber,
+    'dateOfBirth': dateOfBirth.toIso8601String(),
+    'accountStatus': accountStatus,
+    'otpCode': otpCode,
+    'otpCreatedAt': otpCreatedAt.toIso8601String(),
+    'otpExpiresAt': otpExpiresAt.toIso8601String(),
+    'otpAttemptsRemaining': otpAttemptsRemaining,
+    'walletBalance': walletBalance,
+    'voucherCount': voucherCount,
+    'hasClaimedVoucher': hasClaimedVoucher,
+    'password': password,
+    'referralCode': referralCode,
+    'resetOtpCode': resetOtpCode,
+    'resetOtpExpiresAt': resetOtpExpiresAt?.toIso8601String(),
+    'resetOtpAttemptsRemaining': resetOtpAttemptsRemaining,
+  };
 
   factory BuyerAccountRecord.fromJson(Map<String, dynamic> json) {
     return BuyerAccountRecord(
-      id: json['id'] as String? ?? 'BUY-${DateTime.now().millisecondsSinceEpoch}',
-      firstName: (json['firstName'] ?? json['first_name'] ?? '').toString().trim(),
+      id:
+          json['id'] as String? ??
+          'BUY-${DateTime.now().millisecondsSinceEpoch}',
+      firstName: (json['firstName'] ?? json['first_name'] ?? '')
+          .toString()
+          .trim(),
       lastName: (json['lastName'] ?? json['last_name'] ?? '').toString().trim(),
       email: (json['email'] as String? ?? '').toLowerCase(),
-      mobileNumber: (json['mobileNumber'] ?? json['contact_number'] ?? json['phone'] ?? '').toString().trim(),
-      dateOfBirth: DateTime.tryParse(json['dateOfBirth'] as String? ?? '') ?? DateTime(1995, 1, 1),
+      mobileNumber:
+          (json['mobileNumber'] ??
+                  json['contact_number'] ??
+                  json['phone'] ??
+                  '')
+              .toString()
+              .trim(),
+      dateOfBirth:
+          DateTime.tryParse(json['dateOfBirth'] as String? ?? '') ??
+          DateTime(1995, 1, 1),
       accountStatus: json['accountStatus'] as String? ?? 'Active',
       otpCode: json['otpCode'] as String? ?? '123456',
-      otpCreatedAt: DateTime.tryParse(json['otpCreatedAt'] as String? ?? '') ?? DateTime.now(),
-      otpExpiresAt: DateTime.tryParse(json['otpExpiresAt'] as String? ?? '') ?? DateTime.now().add(const Duration(minutes: 5)),
+      otpCreatedAt:
+          DateTime.tryParse(json['otpCreatedAt'] as String? ?? '') ??
+          DateTime.now(),
+      otpExpiresAt:
+          DateTime.tryParse(json['otpExpiresAt'] as String? ?? '') ??
+          DateTime.now().add(const Duration(minutes: 5)),
       otpAttemptsRemaining: json['otpAttemptsRemaining'] as int? ?? 3,
       walletBalance: (json['walletBalance'] as num?)?.toDouble() ?? 0.0,
       voucherCount: json['voucherCount'] as int? ?? 1,
@@ -220,25 +246,18 @@ class BuyerOpResult {
     String message = 'Success',
     BuyerAccountRecord? buyer,
     String? otp,
-  }) =>
-      BuyerOpResult(
-        success: true,
-        message: message,
-        buyer: buyer,
-        otp: otp,
-      );
+  }) => BuyerOpResult(success: true, message: message, buyer: buyer, otp: otp);
 
   factory BuyerOpResult.fail(
     String message, {
     Map<String, String>? fieldErrors,
     BuyerAccountRecord? buyer,
-  }) =>
-      BuyerOpResult(
-        success: false,
-        message: message,
-        fieldErrors: fieldErrors,
-        buyer: buyer,
-      );
+  }) => BuyerOpResult(
+    success: false,
+    message: message,
+    fieldErrors: fieldErrors,
+    buyer: buyer,
+  );
 }
 
 /// Central Service managing Buyer Account Creation, Unique Registries,
@@ -277,31 +296,39 @@ class BuyerAccountService extends ChangeNotifier {
         final user = data['user'] as Map<String, dynamic>? ?? data;
         final firstName = user['first_name'] as String? ?? '';
         final lastName = user['last_name'] as String? ?? '';
-        final fullName = user['full_name'] as String? ?? user['name'] as String? ?? '';
+        final fullName =
+            user['full_name'] as String? ?? user['name'] as String? ?? '';
         final finalFirst = firstName.isNotEmpty
             ? firstName
             : (fullName.isNotEmpty ? fullName.split(' ').first : 'User');
         final finalLast = lastName.isNotEmpty
             ? lastName
-            : (fullName.split(' ').length > 1 ? fullName.split(' ').sublist(1).join(' ') : '');
+            : (fullName.split(' ').length > 1
+                  ? fullName.split(' ').sublist(1).join(' ')
+                  : '');
         final email = (user['email'] as String? ?? '').toLowerCase();
-        final phone = user['contact_number'] as String? ?? user['phone'] as String? ?? '';
-        final id = user['id']?.toString() ?? 'BUY-${DateTime.now().millisecondsSinceEpoch}';
+        final phone =
+            user['contact_number'] as String? ?? user['phone'] as String? ?? '';
+        final id =
+            user['id']?.toString() ??
+            'BUY-${DateTime.now().millisecondsSinceEpoch}';
 
         final existing = _buyers[email];
-        final buyer = existing ?? BuyerAccountRecord(
-          id: id,
-          firstName: finalFirst,
-          lastName: finalLast,
-          email: email,
-          mobileNumber: phone,
-          dateOfBirth: DateTime(1995, 1, 1),
-          accountStatus: 'Active',
-          otpCode: '123456',
-          otpCreatedAt: DateTime.now(),
-          otpExpiresAt: DateTime.now().add(const Duration(days: 365)),
-          password: '',
-        );
+        final buyer =
+            existing ??
+            BuyerAccountRecord(
+              id: id,
+              firstName: finalFirst,
+              lastName: finalLast,
+              email: email,
+              mobileNumber: phone,
+              dateOfBirth: DateTime(1995, 1, 1),
+              accountStatus: 'Active',
+              otpCode: '123456',
+              otpCreatedAt: DateTime.now(),
+              otpExpiresAt: DateTime.now().add(const Duration(days: 365)),
+              password: '',
+            );
         buyer.firstName = finalFirst;
         buyer.lastName = finalLast;
         if (phone.isNotEmpty) buyer.mobileNumber = phone;
@@ -350,19 +377,24 @@ class BuyerAccountService extends ChangeNotifier {
       }
 
       final activeEmail = prefs.getString(_kActiveBuyerStorageKey);
-      if (activeEmail != null && _buyers.containsKey(activeEmail.toLowerCase())) {
+      if (activeEmail != null &&
+          _buyers.containsKey(activeEmail.toLowerCase())) {
         _currentBuyerSession = _buyers[activeEmail.toLowerCase()];
         ProfileService.instance.updateProfile(
           name: _currentBuyerSession!.fullName,
           email: _currentBuyerSession!.email,
           phone: _currentBuyerSession!.mobileNumber,
         );
-        ProfileService.instance.updateWalletBalance(_currentBuyerSession!.walletBalance);
+        ProfileService.instance.updateWalletBalance(
+          _currentBuyerSession!.walletBalance,
+        );
       }
       notifyListeners();
     } catch (e) {
       if (!e.toString().contains('Binding has not yet been initialized')) {
-        debugPrint('BuyerAccountService: Notice loading from local persistence: $e');
+        debugPrint(
+          'BuyerAccountService: Notice loading from local persistence: $e',
+        );
       }
     }
   }
@@ -377,13 +409,18 @@ class BuyerAccountService extends ChangeNotifier {
       }
       await prefs.setString(_kBuyersStorageKey, jsonEncode(buyersMap));
       if (_currentBuyerSession != null) {
-        await prefs.setString(_kActiveBuyerStorageKey, _currentBuyerSession!.email);
+        await prefs.setString(
+          _kActiveBuyerStorageKey,
+          _currentBuyerSession!.email,
+        );
       } else {
         await prefs.remove(_kActiveBuyerStorageKey);
       }
     } catch (e) {
       if (!e.toString().contains('Binding has not yet been initialized')) {
-        debugPrint('BuyerAccountService: Notice saving to local persistence: $e');
+        debugPrint(
+          'BuyerAccountService: Notice saving to local persistence: $e',
+        );
       }
     }
   }
@@ -547,7 +584,8 @@ class BuyerAccountService extends ChangeNotifier {
     } else if (cleanFirstName.length > BuyerValidationRules.maxNameLength) {
       fieldErrors['firstName'] = 'First Name cannot exceed 50 characters';
     } else if (!BuyerValidationRules.isValidName(cleanFirstName)) {
-      fieldErrors['firstName'] = 'Only letters, spaces, hyphens, and periods are allowed';
+      fieldErrors['firstName'] =
+          'Only letters, spaces, hyphens, and periods are allowed';
     }
 
     // Last Name Validations (TC-BUY-002, 003, 004, 005, 006)
@@ -558,7 +596,8 @@ class BuyerAccountService extends ChangeNotifier {
     } else if (cleanLastName.length > BuyerValidationRules.maxNameLength) {
       fieldErrors['lastName'] = 'Last Name cannot exceed 50 characters';
     } else if (!BuyerValidationRules.isValidName(cleanLastName)) {
-      fieldErrors['lastName'] = 'Only letters, spaces, hyphens, and periods are allowed';
+      fieldErrors['lastName'] =
+          'Only letters, spaces, hyphens, and periods are allowed';
     }
 
     // Email Validations (TC-BUY-002, 003, 009, 010, 011, 012)
@@ -571,8 +610,7 @@ class BuyerAccountService extends ChangeNotifier {
         cleanEmail.endsWith('@')) {
       fieldErrors['email'] = 'Please enter a valid email address';
     } else if (_registeredEmails.contains(cleanEmail.toLowerCase())) {
-      fieldErrors['email'] =
-          'An account with this email already exists. Sign in or reset password.';
+      fieldErrors['email'] = 'An account with this email already exists. Sign in or reset password.';
     }
 
     // Mobile Number Validations (TC-BUY-002, 003, 013, 014, 015, 016)
@@ -593,7 +631,11 @@ class BuyerAccountService extends ChangeNotifier {
       fieldErrors['dob'] = 'Date of birth is required';
     } else {
       final today = DateTime.now();
-      final dateOnly = DateTime(dateOfBirth.year, dateOfBirth.month, dateOfBirth.day);
+      final dateOnly = DateTime(
+        dateOfBirth.year,
+        dateOfBirth.month,
+        dateOfBirth.day,
+      );
       final todayOnly = DateTime(today.year, today.month, today.day);
 
       if (dateOnly.isAfter(todayOnly)) {
@@ -611,9 +653,11 @@ class BuyerAccountService extends ChangeNotifier {
     } else if (cleanPassword.length > BuyerValidationRules.maxPasswordLength) {
       fieldErrors['password'] = 'Password cannot exceed 50 characters';
     } else if (!BuyerValidationRules.hasUppercase(cleanPassword)) {
-      fieldErrors['password'] = 'Must contain at least one uppercase letter (A-Z)';
+      fieldErrors['password'] =
+          'Must contain at least one uppercase letter (A-Z)';
     } else if (!BuyerValidationRules.hasLowercase(cleanPassword)) {
-      fieldErrors['password'] = 'Must contain at least one lowercase letter (a-z)';
+      fieldErrors['password'] =
+          'Must contain at least one lowercase letter (a-z)';
     } else if (!BuyerValidationRules.hasNumber(cleanPassword)) {
       fieldErrors['password'] = 'Must contain at least one number (0-9)';
     } else if (!BuyerValidationRules.hasSpecialChar(cleanPassword)) {
@@ -630,7 +674,8 @@ class BuyerAccountService extends ChangeNotifier {
 
     // Terms & Privacy Policy (TC-BUY-002, 021)
     if (!agreeTerms) {
-      fieldErrors['terms'] = 'Please agree to Terms & Privacy Policy to proceed';
+      fieldErrors['terms'] =
+          'Please agree to Terms & Privacy Policy to proceed';
     }
 
     // Referral Code (TC-BUY-022)
@@ -659,7 +704,9 @@ class BuyerAccountService extends ChangeNotifier {
       accountStatus: 'Unverified',
       otpCode: otp,
       otpCreatedAt: now,
-      otpExpiresAt: now.add(const Duration(minutes: 5)), // 5 minutes expiration (Section 4)
+      otpExpiresAt: now.add(
+        const Duration(minutes: 5),
+      ), // 5 minutes expiration (Section 4)
       otpAttemptsRemaining: 3,
       password: cleanPassword,
       referralCode: cleanReferral.isNotEmpty ? cleanReferral : null,
@@ -684,10 +731,7 @@ class BuyerAccountService extends ChangeNotifier {
   }
 
   /// Verify 6-digit OTP code (TC-BUY-023 to TC-BUY-026)
-  BuyerOpResult verifyOtp({
-    required String email,
-    required String inputOtp,
-  }) {
+  BuyerOpResult verifyOtp({required String email, required String inputOtp}) {
     if (!_isOnline) {
       return BuyerOpResult.fail(
         'No internet connection. Please check your network and try again.',
@@ -702,7 +746,8 @@ class BuyerAccountService extends ChangeNotifier {
       );
     }
 
-    final buyer = _buyers[email.trim().toLowerCase()] ?? _currentUnverifiedBuyer;
+    final buyer =
+        _buyers[email.trim().toLowerCase()] ?? _currentUnverifiedBuyer;
     if (buyer == null) {
       return BuyerOpResult.fail('No registration record found for this email.');
     }
@@ -753,7 +798,8 @@ class BuyerAccountService extends ChangeNotifier {
       );
     }
 
-    final buyer = _buyers[email.trim().toLowerCase()] ?? _currentUnverifiedBuyer;
+    final buyer =
+        _buyers[email.trim().toLowerCase()] ?? _currentUnverifiedBuyer;
     if (buyer == null) {
       return BuyerOpResult.fail('No registration record found for this email.');
     }
@@ -889,10 +935,7 @@ class BuyerAccountService extends ChangeNotifier {
     try {
       final response = await ApiClient.instance.post(
         ApiConstants.buyerLogin,
-        body: {
-          'email': emailOrPhone.trim(),
-          'password': password,
-        },
+        body: {'email': emailOrPhone.trim(), 'password': password},
       );
 
       final data = response['data'] as Map<String, dynamic>? ?? {};
@@ -904,16 +947,26 @@ class BuyerAccountService extends ChangeNotifier {
       final userData = data['user'] as Map<String, dynamic>? ?? {};
       final firstName = userData['first_name'] as String? ?? '';
       final lastName = userData['last_name'] as String? ?? '';
-      final fullName = userData['full_name'] as String? ?? userData['name'] as String? ?? '';
+      final fullName =
+          userData['full_name'] as String? ?? userData['name'] as String? ?? '';
       final finalFirst = firstName.isNotEmpty
           ? firstName
           : (fullName.isNotEmpty ? fullName.split(' ').first : 'User');
       final finalLast = lastName.isNotEmpty
           ? lastName
-          : (fullName.split(' ').length > 1 ? fullName.split(' ').sublist(1).join(' ') : '');
-      final email = (userData['email'] as String? ?? emailOrPhone).toLowerCase().trim();
-      final phone = userData['contact_number'] as String? ?? userData['phone'] as String? ?? '';
-      final id = userData['id']?.toString() ?? 'BUY-${DateTime.now().millisecondsSinceEpoch}';
+          : (fullName.split(' ').length > 1
+                ? fullName.split(' ').sublist(1).join(' ')
+                : '');
+      final email = (userData['email'] as String? ?? emailOrPhone)
+          .toLowerCase()
+          .trim();
+      final phone =
+          userData['contact_number'] as String? ??
+          userData['phone'] as String? ??
+          '';
+      final id =
+          userData['id']?.toString() ??
+          'BUY-${DateTime.now().millisecondsSinceEpoch}';
 
       final buyer = BuyerAccountRecord(
         id: id,
@@ -944,7 +997,9 @@ class BuyerAccountService extends ChangeNotifier {
         buyer: buyer,
       );
     } on ApiException catch (e) {
-      if (e.statusCode == 403 && e.errors != null && e.errors!['email_unverified'] == true) {
+      if (e.statusCode == 403 &&
+          e.errors != null &&
+          e.errors!['email_unverified'] == true) {
         final unverifiedBuyer = BuyerAccountRecord(
           id: 'BUY-TEMP',
           firstName: 'User',
@@ -959,10 +1014,7 @@ class BuyerAccountService extends ChangeNotifier {
           password: password,
         );
         _currentUnverifiedBuyer = unverifiedBuyer;
-        return BuyerOpResult.fail(
-          e.message,
-          buyer: unverifiedBuyer,
-        );
+        return BuyerOpResult.fail(e.message, buyer: unverifiedBuyer);
       }
       return BuyerOpResult.fail(e.message);
     } catch (e) {
@@ -992,7 +1044,8 @@ class BuyerAccountService extends ChangeNotifier {
           'phone': BuyerValidationRules.normalizePhone(mobileNumber),
           'password': password,
           'password_confirmation': confirmPassword,
-          if (dateOfBirth != null) 'date_of_birth': dateOfBirth.toIso8601String().split('T').first,
+          if (dateOfBirth != null)
+            'date_of_birth': dateOfBirth.toIso8601String().split('T').first,
         },
       );
 
@@ -1017,7 +1070,9 @@ class BuyerAccountService extends ChangeNotifier {
       notifyListeners();
 
       return BuyerOpResult.ok(
-        message: response['message'] as String? ?? 'Registration successful. Please verify your email.',
+        message:
+            response['message'] as String? ??
+            'Registration successful. Please verify your email.',
         buyer: unverifiedBuyer,
       );
     } on ApiException catch (e) {
@@ -1048,10 +1103,7 @@ class BuyerAccountService extends ChangeNotifier {
     try {
       final response = await ApiClient.instance.post(
         ApiConstants.verifyEmailOtp,
-        body: {
-          'email': email.trim().toLowerCase(),
-          'otp': inputOtp.trim(),
-        },
+        body: {'email': email.trim().toLowerCase(), 'otp': inputOtp.trim()},
       );
 
       final data = response['data'] as Map<String, dynamic>? ?? {};
@@ -1062,23 +1114,31 @@ class BuyerAccountService extends ChangeNotifier {
 
       final userData = data['user'] as Map<String, dynamic>? ?? {};
       final name = userData['name'] as String? ?? '';
-      final userEmail = (userData['email'] as String? ?? email).toLowerCase().trim();
+      final userEmail = (userData['email'] as String? ?? email)
+          .toLowerCase()
+          .trim();
       final phone = userData['phone'] as String? ?? '';
-      final id = userData['id']?.toString() ?? 'BUY-${DateTime.now().millisecondsSinceEpoch}';
+      final id =
+          userData['id']?.toString() ??
+          'BUY-${DateTime.now().millisecondsSinceEpoch}';
 
-      final buyer = _buyers[userEmail] ?? BuyerAccountRecord(
-        id: id,
-        firstName: name.split(' ').first,
-        lastName: name.split(' ').length > 1 ? name.split(' ').sublist(1).join(' ') : '',
-        email: userEmail,
-        mobileNumber: phone,
-        dateOfBirth: DateTime(1995, 1, 1),
-        accountStatus: 'Active',
-        otpCode: inputOtp,
-        otpCreatedAt: DateTime.now(),
-        otpExpiresAt: DateTime.now().add(const Duration(days: 365)),
-        password: '',
-      );
+      final buyer =
+          _buyers[userEmail] ??
+          BuyerAccountRecord(
+            id: id,
+            firstName: name.split(' ').first,
+            lastName: name.split(' ').length > 1
+                ? name.split(' ').sublist(1).join(' ')
+                : '',
+            email: userEmail,
+            mobileNumber: phone,
+            dateOfBirth: DateTime(1995, 1, 1),
+            accountStatus: 'Active',
+            otpCode: inputOtp,
+            otpCreatedAt: DateTime.now(),
+            otpExpiresAt: DateTime.now().add(const Duration(days: 365)),
+            password: '',
+          );
 
       buyer.accountStatus = 'Active';
       _buyers[userEmail] = buyer;
@@ -1095,7 +1155,8 @@ class BuyerAccountService extends ChangeNotifier {
       notifyListeners();
 
       return BuyerOpResult.ok(
-        message: response['message'] as String? ?? 'Email verified successfully',
+        message:
+            response['message'] as String? ?? 'Email verified successfully',
         buyer: buyer,
       );
     } on ApiException catch (e) {
@@ -1110,9 +1171,7 @@ class BuyerAccountService extends ChangeNotifier {
     try {
       final response = await ApiClient.instance.post(
         ApiConstants.resendEmailOtp,
-        body: {
-          'email': email.trim().toLowerCase(),
-        },
+        body: {'email': email.trim().toLowerCase()},
       );
       return BuyerOpResult.ok(
         message: response['message'] as String? ?? 'Verification code sent',
@@ -1207,7 +1266,9 @@ class BuyerAccountService extends ChangeNotifier {
 
     final cleanOtp = inputOtp.trim();
     if (cleanOtp.length != 6 || !RegExp(r'^\d{6}$').hasMatch(cleanOtp)) {
-      return BuyerOpResult.fail('Please enter a valid 6-digit verification code.');
+      return BuyerOpResult.fail(
+        'Please enter a valid 6-digit verification code.',
+      );
     }
 
     if (buyer.otpAttemptsRemaining <= 0) {
@@ -1268,7 +1329,9 @@ class BuyerAccountService extends ChangeNotifier {
 
     final identifier = emailOrPhone.trim();
     if (identifier.isEmpty) {
-      return BuyerOpResult.fail('Please enter your registered email or mobile.');
+      return BuyerOpResult.fail(
+        'Please enter your registered email or mobile.',
+      );
     }
 
     final buyer = findBuyerByIdentifier(identifier);
@@ -1310,7 +1373,9 @@ class BuyerAccountService extends ChangeNotifier {
     }
 
     if (buyer.resetOtpCode == null || buyer.resetOtpExpiresAt == null) {
-      return BuyerOpResult.fail('No password reset requested for this account.');
+      return BuyerOpResult.fail(
+        'No password reset requested for this account.',
+      );
     }
 
     final cleanOtp = inputOtp.trim();
@@ -1392,10 +1457,14 @@ class BuyerAccountService extends ChangeNotifier {
       return BuyerOpResult.fail('Password cannot exceed 50 characters');
     }
     if (!BuyerValidationRules.hasUppercase(cleanPassword)) {
-      return BuyerOpResult.fail('Must contain at least one uppercase letter (A-Z)');
+      return BuyerOpResult.fail(
+        'Must contain at least one uppercase letter (A-Z)',
+      );
     }
     if (!BuyerValidationRules.hasLowercase(cleanPassword)) {
-      return BuyerOpResult.fail('Must contain at least one lowercase letter (a-z)');
+      return BuyerOpResult.fail(
+        'Must contain at least one lowercase letter (a-z)',
+      );
     }
     if (!BuyerValidationRules.hasNumber(cleanPassword)) {
       return BuyerOpResult.fail('Must contain at least one number (0-9)');
@@ -1467,7 +1536,8 @@ class BuyerAccountService extends ChangeNotifier {
             '_method': 'PUT',
             'first_name': firstName.trim(),
             'last_name': lastName.trim(),
-            if (phone != null && phone.isNotEmpty) 'contact_number': phone.trim(),
+            if (phone != null && phone.isNotEmpty)
+              'contact_number': phone.trim(),
             if (sex != null && sex.isNotEmpty) 'sex': sex,
             if (birthday != null && birthday.isNotEmpty) 'birthday': birthday,
           },
@@ -1485,7 +1555,8 @@ class BuyerAccountService extends ChangeNotifier {
           body: {
             'first_name': firstName.trim(),
             'last_name': lastName.trim(),
-            if (phone != null && phone.isNotEmpty) 'contact_number': phone.trim(),
+            if (phone != null && phone.isNotEmpty)
+              'contact_number': phone.trim(),
             if (sex != null && sex.isNotEmpty) 'sex': sex,
             if (birthday != null && birthday.isNotEmpty) 'birthday': birthday,
           },
@@ -1494,10 +1565,10 @@ class BuyerAccountService extends ChangeNotifier {
       await syncRemoteUser();
       final msg = res is ApiResponse
           ? (res.message.isNotEmpty
-              ? res.message
-              : 'Profile updated successfully')
+                ? res.message
+                : 'Profile updated successfully')
           : ((res is Map ? res['message'] as String? : null) ??
-              'Profile updated successfully');
+                'Profile updated successfully');
       return BuyerOpResult.ok(message: msg);
     } on ApiException catch (e) {
       return BuyerOpResult.fail(
@@ -1510,7 +1581,9 @@ class BuyerAccountService extends ChangeNotifier {
   }
 
   /// Request Email Change OTP from Laravel backend
-  Future<BuyerOpResult> requestChangeEmailRemote({required String newEmail}) async {
+  Future<BuyerOpResult> requestChangeEmailRemote({
+    required String newEmail,
+  }) async {
     final clean = newEmail.trim().toLowerCase();
     if (!BuyerValidationRules.emailRegex.hasMatch(clean)) {
       return BuyerOpResult.fail('Please enter a valid email address.');
@@ -1524,7 +1597,8 @@ class BuyerAccountService extends ChangeNotifier {
         body: {'new_email': clean},
       );
       return BuyerOpResult.ok(
-        message: res['message'] as String? ?? 'Verification OTP sent to $clean.',
+        message:
+            res['message'] as String? ?? 'Verification OTP sent to $clean.',
       );
     } on ApiException catch (e) {
       return BuyerOpResult.fail(e.message);
@@ -1534,7 +1608,9 @@ class BuyerAccountService extends ChangeNotifier {
   }
 
   /// Verify Email Change OTP with Laravel backend
-  Future<BuyerOpResult> verifyChangeEmailOtpRemote({required String otp}) async {
+  Future<BuyerOpResult> verifyChangeEmailOtpRemote({
+    required String otp,
+  }) async {
     final cleanOtp = otp.trim();
     if (cleanOtp.length != 6) {
       return BuyerOpResult.fail('Please enter the 6-digit verification code.');
@@ -1559,7 +1635,9 @@ class BuyerAccountService extends ChangeNotifier {
   }
 
   /// Request Phone Change OTP from Laravel backend
-  Future<BuyerOpResult> requestChangePhoneRemote({required String newPhone}) async {
+  Future<BuyerOpResult> requestChangePhoneRemote({
+    required String newPhone,
+  }) async {
     final normalized = BuyerValidationRules.normalizePhone(newPhone.trim());
     if (!BuyerValidationRules.phoneRegex.hasMatch(normalized)) {
       return BuyerOpResult.fail(
@@ -1575,7 +1653,9 @@ class BuyerAccountService extends ChangeNotifier {
         body: {'new_phone': normalized},
       );
       return BuyerOpResult.ok(
-        message: res['message'] as String? ?? 'Verification OTP sent to $normalized.',
+        message:
+            res['message'] as String? ??
+            'Verification OTP sent to $normalized.',
       );
     } on ApiException catch (e) {
       return BuyerOpResult.fail(e.message);
@@ -1585,7 +1665,9 @@ class BuyerAccountService extends ChangeNotifier {
   }
 
   /// Verify Phone Change OTP with Laravel backend
-  Future<BuyerOpResult> verifyChangePhoneOtpRemote({required String otp}) async {
+  Future<BuyerOpResult> verifyChangePhoneOtpRemote({
+    required String otp,
+  }) async {
     final cleanOtp = otp.trim();
     if (cleanOtp.length != 6) {
       return BuyerOpResult.fail('Please enter the 6-digit verification code.');
@@ -1600,7 +1682,8 @@ class BuyerAccountService extends ChangeNotifier {
       );
       await syncRemoteUser();
       return BuyerOpResult.ok(
-        message: res['message'] as String? ?? 'Mobile number updated successfully.',
+        message:
+            res['message'] as String? ?? 'Mobile number updated successfully.',
       );
     } on ApiException catch (e) {
       return BuyerOpResult.fail(e.message);
@@ -1631,17 +1714,24 @@ class BuyerAccountService extends ChangeNotifier {
       return BuyerOpResult.fail('First Name cannot exceed 50 characters');
     }
     if (!BuyerValidationRules.isValidName(cleanFirst)) {
-      return BuyerOpResult.fail('Only letters, spaces, hyphens, and periods are allowed');
+      return BuyerOpResult.fail(
+        'Only letters, spaces, hyphens, and periods are allowed',
+      );
     }
 
     // 2. Photo validation (BUY-ACCT-002, BUY-ACCT-010)
     if (photoSizeMb != null && photoSizeMb > 5.0) {
-      return BuyerOpResult.fail('Photo size exceeds 5MB limit. Please upload a smaller image.');
+      return BuyerOpResult.fail(
+        'Photo size exceeds 5MB limit. Please upload a smaller image.',
+      );
     }
     if (photoName != null) {
       final ext = photoName.split('.').last.toLowerCase();
-      if (!['jpg', 'jpeg', 'png', 'webp'].contains(ext) || photoName.contains('exe')) {
-        return BuyerOpResult.fail('Unsupported file format. Please upload a valid JPG or PNG image.');
+      if (!['jpg', 'jpeg', 'png', 'webp'].contains(ext) ||
+          photoName.contains('exe')) {
+        return BuyerOpResult.fail(
+          'Unsupported file format. Please upload a valid JPG or PNG image.',
+        );
       }
     }
 
@@ -1674,7 +1764,9 @@ class BuyerAccountService extends ChangeNotifier {
             'password_confirmation': confirmPassword,
           },
         );
-        return BuyerOpResult.ok(message: res['message'] as String? ?? 'Password updated successfully');
+        return BuyerOpResult.ok(
+          message: res['message'] as String? ?? 'Password updated successfully',
+        );
       } on ApiException catch (e) {
         return BuyerOpResult.fail(e.message);
       } catch (e) {
@@ -1701,7 +1793,8 @@ class BuyerAccountService extends ChangeNotifier {
     }
 
     // 1. Verify current old password (BUY-ACCT-004)
-    if (_currentBuyerSession!.password != effectiveOldPassword && effectiveOldPassword != 'Mamimili@2026') {
+    if (_currentBuyerSession!.password != effectiveOldPassword &&
+        effectiveOldPassword != 'Mamimili@2026') {
       return BuyerOpResult.fail('Current password does not match our records.');
     }
 
@@ -1713,16 +1806,22 @@ class BuyerAccountService extends ChangeNotifier {
       return BuyerOpResult.fail('Password cannot exceed 50 characters');
     }
     if (!BuyerValidationRules.hasUppercase(newPassword)) {
-      return BuyerOpResult.fail('Must contain at least one uppercase letter (A-Z)');
+      return BuyerOpResult.fail(
+        'Must contain at least one uppercase letter (A-Z)',
+      );
     }
     if (!BuyerValidationRules.hasLowercase(newPassword)) {
-      return BuyerOpResult.fail('Must contain at least one lowercase letter (a-z)');
+      return BuyerOpResult.fail(
+        'Must contain at least one lowercase letter (a-z)',
+      );
     }
     if (!BuyerValidationRules.hasNumber(newPassword)) {
       return BuyerOpResult.fail('Must contain at least one number (0-9)');
     }
     if (!BuyerValidationRules.hasSpecialChar(newPassword)) {
-      return BuyerOpResult.fail('Must contain at least one special character (!@#\$%^&*)');
+      return BuyerOpResult.fail(
+        'Must contain at least one special character (!@#\$%^&*)',
+      );
     }
 
     // 3. Confirm password match
@@ -1732,7 +1831,9 @@ class BuyerAccountService extends ChangeNotifier {
 
     // 4. New password cannot be same as old password
     if (newPassword == oldPassword) {
-      return BuyerOpResult.fail('New password must be different from your current password');
+      return BuyerOpResult.fail(
+        'New password must be different from your current password',
+      );
     }
 
     // Apply change & end other phone sessions (BUY-ACCT-011)
@@ -1780,7 +1881,9 @@ class BuyerAccountService extends ChangeNotifier {
     // Expired check (BUY-ACCT-007)
     if (_pendingEmailOtpExpiresAt != null &&
         DateTime.now().isAfter(_pendingEmailOtpExpiresAt!)) {
-      return BuyerOpResult.fail('Verification code has expired. Please request a new code.');
+      return BuyerOpResult.fail(
+        'Verification code has expired. Please request a new code.',
+      );
     }
 
     // Wrong code check (BUY-ACCT-007)
@@ -1807,7 +1910,9 @@ class BuyerAccountService extends ChangeNotifier {
     _saveToPersistence();
     notifyListeners();
 
-    return BuyerOpResult.ok(message: 'Email updated successfully to $changedEmail');
+    return BuyerOpResult.ok(
+      message: 'Email updated successfully to $changedEmail',
+    );
   }
 
   /// Request Change Phone Number with OTP (BUY-ACCT-009)
@@ -1815,8 +1920,11 @@ class BuyerAccountService extends ChangeNotifier {
     final clean = BuyerValidationRules.normalizePhone(newPhone);
 
     // Format check (11 digits starting with 09)
-    if (clean.length != 11 || !BuyerValidationRules.phoneRegex.hasMatch(clean)) {
-      return BuyerOpResult.fail('Invalid mobile number format. Must be 11 digits starting with 09');
+    if (clean.length != 11 ||
+        !BuyerValidationRules.phoneRegex.hasMatch(clean)) {
+      return BuyerOpResult.fail(
+        'Invalid mobile number format. Must be 11 digits starting with 09',
+      );
     }
 
     // Duplicate check (BUY-ACCT-009: 09173456789)
@@ -1843,7 +1951,9 @@ class BuyerAccountService extends ChangeNotifier {
 
     if (_pendingPhoneOtpExpiresAt != null &&
         DateTime.now().isAfter(_pendingPhoneOtpExpiresAt!)) {
-      return BuyerOpResult.fail('Verification code has expired. Please request a new code.');
+      return BuyerOpResult.fail(
+        'Verification code has expired. Please request a new code.',
+      );
     }
 
     if (otp.trim() != _pendingPhoneOtp) {
@@ -1862,7 +1972,9 @@ class BuyerAccountService extends ChangeNotifier {
     _saveToPersistence();
     notifyListeners();
 
-    return BuyerOpResult.ok(message: 'Mobile number updated successfully to $changedPhone');
+    return BuyerOpResult.ok(
+      message: 'Mobile number updated successfully to $changedPhone',
+    );
   }
 
   /// Terminate session on Logout (Section 7, TC-BUY-043, BUY-ACCT-012)
@@ -1962,4 +2074,3 @@ class BuyerAccountService extends ChangeNotifier {
     return verifyChangePhoneOtp(otp: enteredOtp);
   }
 }
-

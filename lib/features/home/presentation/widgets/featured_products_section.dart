@@ -123,7 +123,9 @@ class _DailyDiscoverSectionState extends State<DailyDiscoverSection> {
                       fontFamily: NexoraTheme.fontFamily,
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
-                      color: isDark ? const Color(0xFF38BDF8) : NexoraTheme.primary,
+                      color: isDark
+                          ? const Color(0xFF38BDF8)
+                          : NexoraTheme.primary,
                     ),
                   ),
                 ),
@@ -139,7 +141,9 @@ class _DailyDiscoverSectionState extends State<DailyDiscoverSection> {
                   height: 32,
                   child: CircularProgressIndicator(
                     strokeWidth: 2.5,
-                    color: isDark ? const Color(0xFF38BDF8) : NexoraTheme.primary,
+                    color: isDark
+                        ? const Color(0xFF38BDF8)
+                        : NexoraTheme.primary,
                   ),
                 ),
               ),
@@ -245,8 +249,9 @@ class _EmptyCategory extends StatelessWidget {
                 icon: const Icon(Icons.refresh_rounded, size: 16),
                 label: const Text('Try again'),
                 style: OutlinedButton.styleFrom(
-                  foregroundColor:
-                      isDark ? const Color(0xFF38BDF8) : NexoraTheme.primary,
+                  foregroundColor: isDark
+                      ? const Color(0xFF38BDF8)
+                      : NexoraTheme.primary,
                 ),
               ),
             ],

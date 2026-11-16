@@ -14,6 +14,7 @@ import 'package:nexora_flutter_app/core/utils/guest_auth_guard.dart';
 import 'package:nexora_flutter_app/core/utils/image_url_helper.dart';
 import 'package:nexora_flutter_app/core/widgets/nexora_widgets.dart';
 import 'package:nexora_flutter_app/features/profile/presentation/new_address_page.dart';
+
 import 'widgets/shipping_option_modal.dart';
 
 class CheckoutPage extends StatefulWidget {
@@ -43,7 +44,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
   final CartService _cartService = CartService.instance;
   final OrderService _orderService = OrderService.instance;
-  final PlatformVoucherService _voucherService = PlatformVoucherService.instance;
+  final PlatformVoucherService _voucherService =
+      PlatformVoucherService.instance;
 
   List<CartItemModel> _checkoutItems = [];
 
@@ -60,8 +62,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
         final authenticated = await GuestAuthGuard.requireLogin(
           context,
           title: 'Sign In Required for Checkout',
-          message:
-              'Please sign in or create an account to finalize your order, compute shipping fees, and track your delivery.',
+          message: 'Please sign in or create an account to finalize your order, compute shipping fees, and track your delivery.',
         );
         if (!mounted) return;
         if (!authenticated) {
@@ -134,7 +135,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
       if (!mounted) return;
       setState(() {
         _isLoadingSummary = false;
-        _summaryError = e is ApiException ? e.message : 'Unable to refresh checkout summary.';
+        _summaryError = e is ApiException
+            ? e.message
+            : 'Unable to refresh checkout summary.';
       });
     }
   }
@@ -166,13 +169,18 @@ class _CheckoutPageState extends State<CheckoutPage> {
   double _previewVoucherDiscount(PlatformVoucherModel? v, double baseAmount) {
     if (v == null || baseAmount <= 0) return 0.0;
     if (baseAmount < v.minSpend) return 0.0;
-    final raw = v.isPercentage ? baseAmount * v.discountAmount : v.discountAmount;
+    final raw = v.isPercentage
+        ? baseAmount * v.discountAmount
+        : v.discountAmount;
     return raw > baseAmount ? baseAmount : raw;
   }
 
   double get _platformDiscount {
     if (_serverSummary != null) return _serverSummary!.platformDiscount;
-    return _previewVoucherDiscount(_selectedPlatformVoucher, _effectiveSubtotal);
+    return _previewVoucherDiscount(
+      _selectedPlatformVoucher,
+      _effectiveSubtotal,
+    );
   }
 
   double get _storeDiscount {
@@ -185,17 +193,20 @@ class _CheckoutPageState extends State<CheckoutPage> {
     return _previewVoucherDiscount(_selectedShippingVoucher, _shippingSubtotal);
   }
 
-  double get _totalVoucherDiscount => _platformDiscount + _storeDiscount + _shippingDiscount;
+  double get _totalVoucherDiscount =>
+      _platformDiscount + _storeDiscount + _shippingDiscount;
 
   double get _finalTotal {
     if (_serverSummary != null) return _serverSummary!.estimatedTotal;
-    final total = _effectiveSubtotal + _shippingSubtotal - _totalVoucherDiscount;
+    final total =
+        _effectiveSubtotal + _shippingSubtotal - _totalVoucherDiscount;
     return total < 0 ? 0.0 : total;
   }
 
   double get _totalSaved => _itemDiscount + _totalVoucherDiscount;
 
-  int get _totalItemCount => _checkoutItems.fold<int>(0, (sum, e) => sum + e.quantity);
+  int get _totalItemCount =>
+      _checkoutItems.fold<int>(0, (sum, e) => sum + e.quantity);
 
   String _formatPeso(double amount) {
     return amount % 1 == 0
@@ -239,12 +250,16 @@ class _CheckoutPageState extends State<CheckoutPage> {
         !voucher.isClaimed &&
         int.tryParse(voucher.id) != null) {
       try {
-        await ApiClient.instance.post(ApiConstants.buyerVoucherClaim(voucher.id));
+        await ApiClient.instance.post(
+          ApiConstants.buyerVoucherClaim(voucher.id),
+        );
       } catch (e) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(e is ApiException ? e.message : 'Unable to claim voucher.'),
+            content: Text(
+              e is ApiException ? e.message : 'Unable to claim voucher.',
+            ),
           ),
         );
         return;
@@ -267,7 +282,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Applied voucher ${voucher.code}: ${_formatVoucherBenefit(voucher)}'),
+        content: Text(
+          'Applied voucher ${voucher.code}: ${_formatVoucherBenefit(voucher)}',
+        ),
         backgroundColor: NexoraTheme.primary,
       ),
     );
@@ -351,7 +368,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
             ),
             decoration: BoxDecoration(
               color: cs.surfaceContainerLowest,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(22),
+              ),
             ),
             child: SingleChildScrollView(
               child: Column(
@@ -436,7 +455,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
                           onPressed: isSubmitting
                               ? null
                               : () async {
-                                  final code = codeController.text.trim().toUpperCase();
+                                  final code = codeController.text
+                                      .trim()
+                                      .toUpperCase();
                                   if (code.isEmpty) return;
 
                                   setModalState(() {
@@ -450,8 +471,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                                   if (match.isEmpty) {
                                     setModalState(() {
                                       isSubmitting = false;
-                                      codeError =
-                                          'Voucher code not found or not eligible for this order.';
+                                      codeError = 'Voucher code not found or not eligible for this order.';
                                     });
                                     return;
                                   }
@@ -563,7 +583,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
                             ),
                           ),
                           trailing: isSelected
-                              ? Icon(Icons.check_circle_rounded, color: cs.primary)
+                              ? Icon(
+                                  Icons.check_circle_rounded,
+                                  color: cs.primary,
+                                )
                               : Text(
                                   'Use',
                                   style: TextStyle(
@@ -611,7 +634,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
             ),
             decoration: BoxDecoration(
               color: cs.surfaceContainerLowest,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(22),
+              ),
             ),
             child: SingleChildScrollView(
               child: Column(
@@ -735,11 +760,15 @@ class _CheckoutPageState extends State<CheckoutPage> {
     }
 
     final defaultAddr = AddressService.instance.defaultAddress;
-    final int? addrId = defaultAddr != null ? int.tryParse(defaultAddr.id) : null;
+    final int? addrId = defaultAddr != null
+        ? int.tryParse(defaultAddr.id)
+        : null;
     if (defaultAddr == null || addrId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please add or select a delivery address before placing your order.'),
+          content: Text(
+            'Please add or select a delivery address before placing your order.',
+          ),
           backgroundColor: NexoraTheme.error,
         ),
       );
@@ -820,12 +849,17 @@ class _CheckoutPageState extends State<CheckoutPage> {
       showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           title: const Row(
             children: [
               Icon(Icons.error_outline, color: NexoraTheme.error),
               SizedBox(width: 8),
-              Text('Checkout Failed', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              Text(
+                'Checkout Failed',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
             ],
           ),
           content: Text(userMsg),
@@ -853,7 +887,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
     try {
       ExternalNotificationService.show(
         title: 'Nexora Order Placed (Cash on Delivery)',
-        body: 'Order $orderId has been placed. Track live delivery status in My Orders.',
+        body:
+            'Order $orderId has been placed. Track live delivery status in My Orders.',
       );
     } catch (_) {}
 
@@ -972,9 +1007,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
           ? NexoraEmptyState(
               icon: Icons.shopping_bag_outlined,
               title: 'No items selected for checkout',
-              message: 'Select items in your cart or pick a product to proceed.',
+              message:
+                  'Select items in your cart or pick a product to proceed.',
               actionLabel: 'Browse Products',
-              onAction: () => Navigator.pushReplacementNamed(context, AppRoutes.home),
+              onAction: () =>
+                  Navigator.pushReplacementNamed(context, AppRoutes.home),
             )
           : Stack(
               children: [
@@ -992,13 +1029,22 @@ class _CheckoutPageState extends State<CheckoutPage> {
                             const SizedBox(height: 10),
                             if (_summaryError != null)
                               Container(
-                                margin: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+                                margin: const EdgeInsets.fromLTRB(
+                                  12,
+                                  0,
+                                  12,
+                                  10,
+                                ),
                                 padding: const EdgeInsets.all(12),
                                 decoration: BoxDecoration(
-                                  color: NexoraTheme.warning.withValues(alpha: 0.12),
+                                  color: NexoraTheme.warning.withValues(
+                                    alpha: 0.12,
+                                  ),
                                   borderRadius: BorderRadius.circular(10),
                                   border: Border.all(
-                                    color: NexoraTheme.warning.withValues(alpha: 0.4),
+                                    color: NexoraTheme.warning.withValues(
+                                      alpha: 0.4,
+                                    ),
                                   ),
                                 ),
                                 child: Row(
@@ -1012,7 +1058,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
                                     Expanded(
                                       child: Text(
                                         _summaryError!,
-                                        style: TextStyle(fontSize: 12, color: cs.onSurface),
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: cs.onSurface,
+                                        ),
                                       ),
                                     ),
                                     TextButton(
@@ -1086,20 +1135,30 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   children: [
                     Padding(
                       padding: const EdgeInsets.only(top: 2),
-                      child: Icon(Icons.location_on, color: cs.primary, size: 18),
+                      child: Icon(
+                        Icons.location_on,
+                        color: cs.primary,
+                        size: 18,
+                      ),
                     ),
                     const SizedBox(width: 10),
                     Expanded(
                       child: AnimatedBuilder(
-                        animation: Listenable.merge(
-                          [ProfileService.instance, AddressService.instance],
-                        ),
+                        animation: Listenable.merge([
+                          ProfileService.instance,
+                          AddressService.instance,
+                        ]),
                         builder: (context, _) {
-                          final defaultAddr = AddressService.instance.defaultAddress;
+                          final defaultAddr =
+                              AddressService.instance.defaultAddress;
                           final profile = ProfileService.instance;
-                          final addressStr = defaultAddr?.fullAddress ?? profile.address;
-                          final name = defaultAddr?.fullName ??
-                              (profile.name.isNotEmpty ? profile.name : 'Recipient');
+                          final addressStr =
+                              defaultAddr?.fullAddress ?? profile.address;
+                          final name =
+                              defaultAddr?.fullName ??
+                              (profile.name.isNotEmpty
+                                  ? profile.name
+                                  : 'Recipient');
                           final phone = defaultAddr?.phone ?? profile.phone;
 
                           if (addressStr.trim().isEmpty) {
@@ -1108,8 +1167,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
                               children: [
                                 Row(
                                   children: [
-                                    Icon(Icons.add_circle_outline,
-                                        color: cs.primary, size: 16),
+                                    Icon(
+                                      Icons.add_circle_outline,
+                                      color: cs.primary,
+                                      size: 16,
+                                    ),
                                     const SizedBox(width: 6),
                                     Text(
                                       'Add Delivery Address',
@@ -1173,7 +1235,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
                       ),
                     ),
                     const SizedBox(width: 6),
-                    Icon(Icons.chevron_right, size: 18, color: cs.onSurfaceVariant),
+                    Icon(
+                      Icons.chevron_right,
+                      size: 18,
+                      color: cs.onSurfaceVariant,
+                    ),
                   ],
                 ),
               ),
@@ -1184,7 +1250,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
                     return Expanded(
                       child: Container(
                         margin: const EdgeInsets.symmetric(horizontal: 2),
-                        color: index % 2 == 0 ? NexoraTheme.primary : NexoraTheme.accent,
+                        color: index % 2 == 0
+                            ? NexoraTheme.primary
+                            : NexoraTheme.accent,
                       ),
                     );
                   }),
@@ -1227,7 +1295,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
               children: [
                 if (badge.isNotEmpty) ...[
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
                       color: cs.primary,
                       borderRadius: BorderRadius.circular(4),
@@ -1258,10 +1329,12 @@ class _CheckoutPageState extends State<CheckoutPage> {
               ],
             ),
             const SizedBox(height: 12),
-            ...items.map((item) => Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: _buildItemRow(context, item),
-                )),
+            ...items.map(
+              (item) => Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: _buildItemRow(context, item),
+              ),
+            ),
             const Divider(height: 16),
             _buildActionRow(
               context,
@@ -1269,16 +1342,21 @@ class _CheckoutPageState extends State<CheckoutPage> {
               value: _selectedStoreVoucher != null
                   ? '${_formatVoucherBenefit(_selectedStoreVoucher!)} (${_selectedStoreVoucher!.code}) >'
                   : 'Select or enter code >',
-              valueColor:
-                  _selectedStoreVoucher != null ? cs.primary : cs.onSurfaceVariant,
+              valueColor: _selectedStoreVoucher != null
+                  ? cs.primary
+                  : cs.onSurfaceVariant,
               onTap: () => _openStoreVoucherModal(storeName, sellerId),
             ),
             const Divider(height: 16),
             _buildActionRow(
               context,
               label: 'Message for Seller',
-              value: sellerMsg.isNotEmpty ? '$sellerMsg >' : 'Please leave a message >',
-              valueColor: sellerMsg.isNotEmpty ? cs.onSurface : cs.onSurfaceVariant,
+              value: sellerMsg.isNotEmpty
+                  ? '$sellerMsg >'
+                  : 'Please leave a message >',
+              valueColor: sellerMsg.isNotEmpty
+                  ? cs.onSurface
+                  : cs.onSurfaceVariant,
               onTap: () => _openSellerMessageModal(storeName),
             ),
           ],
@@ -1311,7 +1389,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
                     width: 72,
                     height: 72,
                     color: cs.surfaceContainerHigh,
-                    child: Icon(Icons.image_outlined, color: cs.onSurfaceVariant),
+                    child: Icon(
+                      Icons.image_outlined,
+                      color: cs.onSurfaceVariant,
+                    ),
                   ),
                 ),
         ),
@@ -1334,7 +1415,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
               if (item.variant.trim().isNotEmpty) ...[
                 const SizedBox(height: 4),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: cs.surfaceContainerHigh,
                     borderRadius: BorderRadius.circular(4),
@@ -1363,7 +1447,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
                       color: NexoraTheme.priceColor(context),
                     ),
                   ),
-                  if (item.originalPrice != null && item.originalPrice! > item.price)
+                  if (item.originalPrice != null &&
+                      item.originalPrice! > item.price)
                     Text(
                       _formatPeso(item.originalPrice!),
                       style: TextStyle(
@@ -1393,7 +1478,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
   Widget _buildShippingOptionCard(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final hasServerFee = _serverSummary != null;
-    final feeText = hasServerFee ? _formatPeso(_shippingSubtotal) : 'Weight-based';
+    final feeText = hasServerFee
+        ? _formatPeso(_shippingSubtotal)
+        : 'Weight-based';
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 10),
@@ -1443,7 +1530,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
               ),
               child: Row(
                 children: [
-                  Icon(Icons.local_shipping_outlined, color: cs.primary, size: 18),
+                  Icon(
+                    Icons.local_shipping_outlined,
+                    color: cs.primary,
+                    size: 18,
+                  ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Column(
@@ -1528,7 +1619,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
           padding: const EdgeInsets.all(14),
           child: Row(
             children: [
-              Icon(Icons.confirmation_num_outlined, size: 18, color: cs.primary),
+              Icon(
+                Icons.confirmation_num_outlined,
+                size: 18,
+                color: cs.primary,
+              ),
               const SizedBox(width: 8),
               Text(
                 'Platform Vouchers',
@@ -1546,8 +1641,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
                     appliedLabels.isNotEmpty
                         ? appliedLabels.join(' • ')
                         : (_availableVouchers.isNotEmpty
-                            ? 'Select voucher (${_availableVouchers.length})'
-                            : 'Select voucher'),
+                              ? 'Select voucher (${_availableVouchers.length})'
+                              : 'Select voucher'),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
@@ -1607,7 +1702,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
                     color: cs.primary.withValues(alpha: 0.14),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(Icons.payments_outlined, color: cs.primary, size: 20),
+                  child: Icon(
+                    Icons.payments_outlined,
+                    color: cs.primary,
+                    size: 20,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -1675,7 +1774,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
           _buildDetailRow(
             context,
             'Shipping Fee',
-            _serverSummary != null ? _formatPeso(_shippingSubtotal) : 'Weight-based',
+            _serverSummary != null
+                ? _formatPeso(_shippingSubtotal)
+                : 'Weight-based',
           ),
           if (_itemDiscount > 0) ...[
             const SizedBox(height: 6),
@@ -1849,7 +1950,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
                     children: [
                       Text(
                         'Total: ',
-                        style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: cs.onSurfaceVariant,
+                        ),
                       ),
                       Flexible(
                         child: Text(
@@ -1897,7 +2001,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
                         height: 18,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Colors.white,
+                          ),
                         ),
                       )
                     : const Text(

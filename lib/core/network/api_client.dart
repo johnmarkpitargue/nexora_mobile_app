@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+
 import '../constants/api_constants.dart';
 
 class ApiException implements Exception {
@@ -38,7 +40,8 @@ class ApiResponse<T> {
     if (key == 'message') return message;
     if (key == 'pagination') return pagination;
     if (raw != null && raw!.containsKey(key)) return raw![key];
-    if (data is Map && (data as Map).containsKey(key)) return (data as Map)[key];
+    if (data is Map && (data as Map).containsKey(key))
+      return (data as Map)[key];
     return null;
   }
 }
@@ -100,18 +103,21 @@ class ApiClient {
           sanitizedParams[key] = value.toString();
         }
       });
-      return uri.replace(queryParameters: {
-        ...uri.queryParameters,
-        ...sanitizedParams,
-      });
+      return uri.replace(
+        queryParameters: {...uri.queryParameters, ...sanitizedParams},
+      );
     }
     return uri;
   }
 
   void _logRequest(String method, Uri uri, int statusCode, int elapsedMs) {
     if (kDebugMode) {
-      final pathWithQuery = uri.hasQuery ? '${uri.path}?${uri.query}' : uri.path;
-      debugPrint('[API] $method $pathWithQuery -> $statusCode (${elapsedMs}ms)');
+      final pathWithQuery = uri.hasQuery
+          ? '${uri.path}?${uri.query}'
+          : uri.path;
+      debugPrint(
+        '[API] $method $pathWithQuery -> $statusCode (${elapsedMs}ms)',
+      );
     }
   }
 
@@ -146,7 +152,8 @@ class ApiClient {
       rethrow;
     } on TimeoutException {
       throw const ApiException(
-        message: 'Request timed out. Please check your connection and try again.',
+        message:
+            'Request timed out. Please check your connection and try again.',
         statusCode: 0,
       );
     } catch (e) {
@@ -302,11 +309,19 @@ class ApiClient {
       return http.Response.fromStream(streamedResponse);
     });
     sw.stop();
-    _logRequest(method.toUpperCase(), uri, response.statusCode, sw.elapsedMilliseconds);
+    _logRequest(
+      method.toUpperCase(),
+      uri,
+      response.statusCode,
+      sw.elapsedMilliseconds,
+    );
     return _handleResponse(response, uri.path);
   }
 
-  ApiResponse<dynamic> _handleResponse(http.Response response, [String requestPath = '']) {
+  ApiResponse<dynamic> _handleResponse(
+    http.Response response, [
+    String requestPath = '',
+  ]) {
     if (response.statusCode == 401 && !requestPath.contains('/auth/')) {
       clearToken();
       onUnauthorized?.call();
@@ -329,13 +344,11 @@ class ApiClient {
           raw: decoded,
         );
       }
-      return ApiResponse(
-        data: decoded,
-        message: 'Success',
-      );
+      return ApiResponse(data: decoded, message: 'Success');
     }
 
-    String errorMessage = 'An unexpected error occurred (${response.statusCode})';
+    String errorMessage =
+        'An unexpected error occurred (${response.statusCode})';
     Map<String, dynamic>? errors;
 
     if (decoded is Map<String, dynamic>) {
@@ -352,7 +365,9 @@ class ApiClient {
           (val) => val is List && val.isNotEmpty,
           orElse: () => null,
         );
-        if (firstErrorList != null && firstErrorList is List && firstErrorList.isNotEmpty) {
+        if (firstErrorList != null &&
+            firstErrorList is List &&
+            firstErrorList.isNotEmpty) {
           errorMessage = firstErrorList.first.toString();
         }
       }

@@ -1,7 +1,9 @@
 import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
+
 import '../../../core/network/api_client.dart';
 import '../../../core/services/cart_service.dart';
 import '../../../core/services/order_service.dart';
@@ -11,22 +13,14 @@ class ReviewMediaItem {
   final String? url;
   final String name;
 
-  const ReviewMediaItem({
-    this.bytes,
-    this.url,
-    required this.name,
-  });
+  const ReviewMediaItem({this.bytes, this.url, required this.name});
 }
 
 class RateProductPage extends StatefulWidget {
   final OrderItemModel? orderItem;
   final CartItemModel? cartItem;
 
-  const RateProductPage({
-    super.key,
-    this.orderItem,
-    this.cartItem,
-  });
+  const RateProductPage({super.key, this.orderItem, this.cartItem});
 
   @override
   State<RateProductPage> createState() => _RateProductPageState();
@@ -40,7 +34,8 @@ class _RateProductPageState extends State<RateProductPage> {
   bool _reviewAnonymously = false;
 
   final TextEditingController _reviewController = TextEditingController();
-  final TextEditingController _courierCommentController = TextEditingController();
+  final TextEditingController _courierCommentController =
+      TextEditingController();
 
   // Attached user photos/media
   final List<ReviewMediaItem> _uploadedPhotos = [];
@@ -106,17 +101,17 @@ class _RateProductPageState extends State<RateProductPage> {
           _courierName = orderArg.courierName;
         }
         if (orderArg.review != null) {
-          _productRating = orderArg.review!.rating > 0 ? orderArg.review!.rating : 5;
-          if (orderArg.review!.comment != null && orderArg.review!.comment!.isNotEmpty) {
+          _productRating = orderArg.review!.rating > 0
+              ? orderArg.review!.rating
+              : 5;
+          if (orderArg.review!.comment != null &&
+              orderArg.review!.comment!.isNotEmpty) {
             _reviewController.text = orderArg.review!.comment!;
           }
           if (orderArg.review!.photos.isNotEmpty) {
             for (final pUrl in orderArg.review!.photos) {
               _uploadedPhotos.add(
-                ReviewMediaItem(
-                  url: pUrl,
-                  name: pUrl.split('/').last,
-                ),
+                ReviewMediaItem(url: pUrl, name: pUrl.split('/').last),
               );
             }
           }
@@ -155,10 +150,13 @@ class _RateProductPageState extends State<RateProductPage> {
         _productImage = args.imageUrl;
       } else if (args is Map<String, dynamic>) {
         if (args['title'] != null) _productTitle = args['title'] as String;
-        if (args['variant'] != null) _productVariant = args['variant'] as String;
-        if (args['imageUrl'] != null) _productImage = args['imageUrl'] as String;
+        if (args['variant'] != null)
+          _productVariant = args['variant'] as String;
+        if (args['imageUrl'] != null)
+          _productImage = args['imageUrl'] as String;
         if (args['orderId'] != null) _orderId = args['orderId'] as String;
-        if (args['courierName'] != null) _courierName = args['courierName'] as String;
+        if (args['courierName'] != null)
+          _courierName = args['courierName'] as String;
       }
     }
   }
@@ -197,67 +195,89 @@ class _RateProductPageState extends State<RateProductPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(2),
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Add Photos & Video',
-              style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
-            ),
-            const SizedBox(height: 4),
-            const Text(
-              'Upload up to 5 clear photos or a short clip of the item.',
-              style: TextStyle(fontSize: 12.5, color: Color(0xFF64748B)),
-            ),
-            const SizedBox(height: 18),
-            ListTile(
-              leading: Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF0066FF).withValues(alpha: 0.12),
-                  shape: BoxShape.circle,
+              const SizedBox(height: 16),
+              const Text(
+                'Add Photos & Video',
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF0F172A),
                 ),
-                child: const Icon(Icons.camera_alt_rounded, color: Color(0xFF0066FF)),
               ),
-              title: const Text('Take Photo / Video', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-              subtitle: const Text('Capture item condition now', style: TextStyle(fontSize: 12, color: Colors.black54)),
-              onTap: () {
-                Navigator.pop(ctx);
-                _pickFromCamera();
-              },
-            ),
-            ListTile(
-              leading: Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF3B82F6).withValues(alpha: 0.12),
-                  shape: BoxShape.circle,
+              const SizedBox(height: 4),
+              const Text(
+                'Upload up to 5 clear photos or a short clip of the item.',
+                style: TextStyle(fontSize: 12.5, color: Color(0xFF64748B)),
+              ),
+              const SizedBox(height: 18),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0066FF).withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.camera_alt_rounded,
+                    color: Color(0xFF0066FF),
+                  ),
                 ),
-                child: const Icon(Icons.photo_library_rounded, color: Color(0xFF3B82F6)),
+                title: const Text(
+                  'Take Photo / Video',
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                ),
+                subtitle: const Text(
+                  'Capture item condition now',
+                  style: TextStyle(fontSize: 12, color: Colors.black54),
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _pickFromCamera();
+                },
               ),
-              title: const Text('Choose from Gallery', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-              subtitle: const Text('Select from device photos', style: TextStyle(fontSize: 12, color: Colors.black54)),
-              onTap: () {
-                Navigator.pop(ctx);
-                _pickFromGallery();
-              },
-            ),
-            const SizedBox(height: 10),
-          ],
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF3B82F6).withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.photo_library_rounded,
+                    color: Color(0xFF3B82F6),
+                  ),
+                ),
+                title: const Text(
+                  'Choose from Gallery',
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                ),
+                subtitle: const Text(
+                  'Select from device photos',
+                  style: TextStyle(fontSize: 12, color: Colors.black54),
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _pickFromGallery();
+                },
+              ),
+              const SizedBox(height: 10),
+            ],
+          ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 
   Future<void> _pickFromCamera() async {
     if (_uploadedPhotos.length >= 5) {
@@ -288,12 +308,7 @@ class _RateProductPageState extends State<RateProductPage> {
       if (!mounted) return;
 
       setState(() {
-        _uploadedPhotos.add(
-          ReviewMediaItem(
-            bytes: bytes,
-            name: picked.name,
-          ),
-        );
+        _uploadedPhotos.add(ReviewMediaItem(bytes: bytes, name: picked.name));
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -362,12 +377,7 @@ class _RateProductPageState extends State<RateProductPage> {
       final toAdd = <ReviewMediaItem>[];
       for (final picked in pickedList.take(availableSlots)) {
         final bytes = await picked.readAsBytes();
-        toAdd.add(
-          ReviewMediaItem(
-            bytes: bytes,
-            name: picked.name,
-          ),
-        );
+        toAdd.add(ReviewMediaItem(bytes: bytes, name: picked.name));
       }
 
       if (!mounted) return;
@@ -401,7 +411,9 @@ class _RateProductPageState extends State<RateProductPage> {
   Future<void> _handleSubmit() async {
     if (_productRating == 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a star rating for the product.')),
+        const SnackBar(
+          content: Text('Please select a star rating for the product.'),
+        ),
       );
       return;
     }
@@ -409,7 +421,11 @@ class _RateProductPageState extends State<RateProductPage> {
     final serverId = _resolvedOrder?.serverId ?? 0;
     if (serverId <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Cannot submit review: numeric order ID is unavailable.')),
+        const SnackBar(
+          content: Text(
+            'Cannot submit review: numeric order ID is unavailable.',
+          ),
+        ),
       );
       return;
     }
@@ -441,9 +457,11 @@ class _RateProductPageState extends State<RateProductPage> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(_isEdit
-              ? 'Review updated successfully!'
-              : 'Thank you for your rating and feedback!'),
+          content: Text(
+            _isEdit
+                ? 'Review updated successfully!'
+                : 'Thank you for your rating and feedback!',
+          ),
           backgroundColor: const Color(0xFF10B981),
         ),
       );
@@ -499,7 +517,11 @@ class _RateProductPageState extends State<RateProductPage> {
             icon: Icon(Icons.help_outline, color: theme.colorScheme.onSurface),
             onPressed: () {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Reviews follow Nexora Community & Authenticity Guidelines.')),
+                const SnackBar(
+                  content: Text(
+                    'Reviews follow Nexora Community & Authenticity Guidelines.',
+                  ),
+                ),
               );
             },
           ),
@@ -548,7 +570,10 @@ class _RateProductPageState extends State<RateProductPage> {
                           color: isDark
                               ? theme.colorScheme.surfaceContainer
                               : const Color(0xFFF1F5F9),
-                          child: Icon(Icons.image, color: theme.colorScheme.onSurfaceVariant),
+                          child: Icon(
+                            Icons.image,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
                         ),
                       )
                     : Container(
@@ -557,7 +582,10 @@ class _RateProductPageState extends State<RateProductPage> {
                         color: isDark
                             ? theme.colorScheme.surfaceContainer
                             : const Color(0xFFF1F5F9),
-                        child: Icon(Icons.inventory_2_outlined, color: theme.colorScheme.onSurfaceVariant),
+                        child: Icon(
+                          Icons.inventory_2_outlined,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
                       ),
               ),
               const SizedBox(width: 12),
@@ -604,22 +632,32 @@ class _RateProductPageState extends State<RateProductPage> {
           const SizedBox(height: 10),
           Row(
             mainAxisAlignment: MainAxisAlignment.start,
-            children: List.generate(5, (index) {
-              return IconButton(
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-                icon: Icon(
-                  index < _productRating ? Icons.star_rounded : Icons.star_outline_rounded,
-                  color: const Color(0xFFFFB300),
-                  size: 36,
-                ),
-                onPressed: () {
-                  setState(() {
-                    _productRating = index + 1;
-                  });
-                },
-              );
-            }).map((widget) => Padding(padding: const EdgeInsets.only(right: 8), child: widget)).toList(),
+            children:
+                List.generate(5, (index) {
+                      return IconButton(
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        icon: Icon(
+                          index < _productRating
+                              ? Icons.star_rounded
+                              : Icons.star_outline_rounded,
+                          color: const Color(0xFFFFB300),
+                          size: 36,
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            _productRating = index + 1;
+                          });
+                        },
+                      );
+                    })
+                    .map(
+                      (widget) => Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: widget,
+                      ),
+                    )
+                    .toList(),
           ),
           const SizedBox(height: 20),
 
@@ -637,7 +675,10 @@ class _RateProductPageState extends State<RateProductPage> {
               ),
               Text(
                 '${_uploadedPhotos.length}/5 uploaded',
-                style: TextStyle(color: theme.colorScheme.onSurfaceVariant, fontSize: 12),
+                style: TextStyle(
+                  color: theme.colorScheme.onSurfaceVariant,
+                  fontSize: 12,
+                ),
               ),
             ],
           ),
@@ -678,7 +719,9 @@ class _RateProductPageState extends State<RateProductPage> {
                       ),
                     const SizedBox(height: 8),
                     Text(
-                      _isPickingMedia ? 'Opening media picker...' : 'Tap to upload photos or video',
+                      _isPickingMedia
+                          ? 'Opening media picker...'
+                          : 'Tap to upload photos or video',
                       style: TextStyle(
                         color: theme.colorScheme.onSurfaceVariant,
                         fontSize: 12.5,
@@ -706,21 +749,25 @@ class _RateProductPageState extends State<RateProductPage> {
                                 height: 80,
                                 fit: BoxFit.cover,
                               )
-                            : (photo.url != null && photo.url!.startsWith('http'))
-                                ? Image.network(
-                                    photo.url!,
-                                    width: 80,
-                                    height: 80,
-                                    fit: BoxFit.cover,
-                                  )
-                                : Container(
-                                    width: 80,
-                                    height: 80,
-                                    color: isDark
-                                        ? theme.colorScheme.surfaceContainer
-                                        : const Color(0xFFF1F5F9),
-                                    child: Icon(Icons.image, color: theme.colorScheme.onSurfaceVariant),
-                                  ),
+                            : (photo.url != null &&
+                                  photo.url!.startsWith('http'))
+                            ? Image.network(
+                                photo.url!,
+                                width: 80,
+                                height: 80,
+                                fit: BoxFit.cover,
+                              )
+                            : Container(
+                                width: 80,
+                                height: 80,
+                                color: isDark
+                                    ? theme.colorScheme.surfaceContainer
+                                    : const Color(0xFFF1F5F9),
+                                child: Icon(
+                                  Icons.image,
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
                       ),
                       Positioned(
                         top: 4,
@@ -737,7 +784,11 @@ class _RateProductPageState extends State<RateProductPage> {
                               color: Colors.black54,
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(Icons.close, size: 14, color: Colors.white),
+                            child: const Icon(
+                              Icons.close,
+                              size: 14,
+                              color: Colors.white,
+                            ),
                           ),
                         ),
                       ),
@@ -756,7 +807,9 @@ class _RateProductPageState extends State<RateProductPage> {
                             ? theme.colorScheme.surfaceContainer
                             : const Color(0xFFF1F5F9),
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: theme.colorScheme.outlineVariant),
+                        border: Border.all(
+                          color: theme.colorScheme.outlineVariant,
+                        ),
                       ),
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -771,7 +824,11 @@ class _RateProductPageState extends State<RateProductPage> {
                               ),
                             )
                           else
-                            Icon(Icons.add, color: theme.colorScheme.primary, size: 24),
+                            Icon(
+                              Icons.add,
+                              color: theme.colorScheme.primary,
+                              size: 24,
+                            ),
                           const SizedBox(height: 4),
                           Text(
                             'Add',
@@ -809,9 +866,13 @@ class _RateProductPageState extends State<RateProductPage> {
                   return Text(
                     '$len characters',
                     style: TextStyle(
-                      color: len >= 20 ? const Color(0xFF059669) : theme.colorScheme.onSurfaceVariant,
+                      color: len >= 20
+                          ? const Color(0xFF059669)
+                          : theme.colorScheme.onSurfaceVariant,
                       fontSize: 12,
-                      fontWeight: len >= 20 ? FontWeight.bold : FontWeight.normal,
+                      fontWeight: len >= 20
+                          ? FontWeight.bold
+                          : FontWeight.normal,
                     ),
                   );
                 },
@@ -841,8 +902,7 @@ class _RateProductPageState extends State<RateProductPage> {
               ),
               decoration: InputDecoration(
                 filled: false,
-                hintText:
-                    'Share your honest feedback on the product! Mention the quality, packaging, material, and how it matched your expectations.',
+                hintText: 'Share your honest feedback on the product! Mention the quality, packaging, material, and how it matched your expectations.',
                 hintStyle: TextStyle(
                   color: theme.colorScheme.onSurfaceVariant,
                   fontSize: 12.5,
@@ -897,7 +957,9 @@ class _RateProductPageState extends State<RateProductPage> {
                   });
                 },
                 activeColor: theme.colorScheme.primary,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(4),
+                ),
                 materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 visualDensity: VisualDensity.compact,
               ),
@@ -930,11 +992,23 @@ class _RateProductPageState extends State<RateProductPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildRatingRow('Seller Service', _sellerRating, (val) => setState(() => _sellerRating = val)),
+          _buildRatingRow(
+            'Seller Service',
+            _sellerRating,
+            (val) => setState(() => _sellerRating = val),
+          ),
           const SizedBox(height: 16),
-          _buildRatingRow('Delivery Speed', _deliveryRating, (val) => setState(() => _deliveryRating = val)),
+          _buildRatingRow(
+            'Delivery Speed',
+            _deliveryRating,
+            (val) => setState(() => _deliveryRating = val),
+          ),
           const SizedBox(height: 16),
-          _buildRatingRow('Driver Service', _driverRating, (val) => setState(() => _driverRating = val)),
+          _buildRatingRow(
+            'Driver Service',
+            _driverRating,
+            (val) => setState(() => _driverRating = val),
+          ),
           const SizedBox(height: 22),
           Row(
             children: [
@@ -958,13 +1032,29 @@ class _RateProductPageState extends State<RateProductPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Nexora Express • SPX', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.black87)),
-                    Text('Assigned Rider: $_courierName', style: const TextStyle(color: Colors.black54, fontSize: 12)),
+                    const Text(
+                      'Nexora Express • SPX',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    Text(
+                      'Assigned Rider: $_courierName',
+                      style: const TextStyle(
+                        color: Colors.black54,
+                        fontSize: 12,
+                      ),
+                    ),
                   ],
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 5,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFFFFFBEB),
                   borderRadius: BorderRadius.circular(12),
@@ -973,7 +1063,11 @@ class _RateProductPageState extends State<RateProductPage> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.star_rounded, color: Color(0xFFF59E0B), size: 15),
+                    const Icon(
+                      Icons.star_rounded,
+                      color: Color(0xFFF59E0B),
+                      size: 15,
+                    ),
                     const SizedBox(width: 4),
                     Text(
                       OrderService.instance
@@ -1010,21 +1104,32 @@ class _RateProductPageState extends State<RateProductPage> {
                   });
                 },
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 7,
+                  ),
                   decoration: BoxDecoration(
-                    color: isSelected ? const Color(0xFFF0F4FF) : const Color(0xFFF4F7FB),
+                    color: isSelected
+                        ? const Color(0xFFF0F4FF)
+                        : const Color(0xFFF4F7FB),
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
-                      color: isSelected ? const Color(0xFF0066FF) : Colors.transparent,
+                      color: isSelected
+                          ? const Color(0xFF0066FF)
+                          : Colors.transparent,
                       width: 1,
                     ),
                   ),
                   child: Text(
                     tag,
                     style: TextStyle(
-                      color: isSelected ? const Color(0xFF0066FF) : Colors.black87,
+                      color: isSelected
+                          ? const Color(0xFF0066FF)
+                          : Colors.black87,
                       fontSize: 12,
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                      fontWeight: isSelected
+                          ? FontWeight.bold
+                          : FontWeight.w500,
                     ),
                   ),
                 ),
@@ -1042,8 +1147,13 @@ class _RateProductPageState extends State<RateProductPage> {
             child: TextField(
               controller: _courierCommentController,
               decoration: const InputDecoration(
-                hintText: 'Tell us more about the courier delivery experience...',
-                hintStyle: TextStyle(color: Colors.black45, fontSize: 12.5, height: 1.4),
+                hintText:
+                    'Tell us more about the courier delivery experience...',
+                hintStyle: TextStyle(
+                  color: Colors.black45,
+                  fontSize: 12.5,
+                  height: 1.4,
+                ),
                 border: InputBorder.none,
                 isDense: true,
                 contentPadding: EdgeInsets.zero,
@@ -1060,7 +1170,14 @@ class _RateProductPageState extends State<RateProductPage> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Colors.black87)),
+        Text(
+          label,
+          style: const TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 13,
+            color: Colors.black87,
+          ),
+        ),
         Row(
           children: List.generate(5, (index) {
             return GestureDetector(
@@ -1068,7 +1185,9 @@ class _RateProductPageState extends State<RateProductPage> {
               child: Padding(
                 padding: const EdgeInsets.only(left: 6),
                 child: Icon(
-                  index < rating ? Icons.star_rounded : Icons.star_outline_rounded,
+                  index < rating
+                      ? Icons.star_rounded
+                      : Icons.star_outline_rounded,
                   color: const Color(0xFFFFB300),
                   size: 26,
                 ),
@@ -1085,7 +1204,9 @@ class _RateProductPageState extends State<RateProductPage> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerLowest,
-        border: Border(top: BorderSide(color: theme.colorScheme.outlineVariant)),
+        border: Border(
+          top: BorderSide(color: theme.colorScheme.outlineVariant),
+        ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.05),
@@ -1104,7 +1225,9 @@ class _RateProductPageState extends State<RateProductPage> {
               backgroundColor: theme.colorScheme.primary,
               foregroundColor: Colors.white,
               elevation: 0,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
             child: _isSubmitting
                 ? const SizedBox(
@@ -1120,7 +1243,10 @@ class _RateProductPageState extends State<RateProductPage> {
                     children: [
                       Text(
                         _isEdit ? 'Update Review' : 'Submit Review',
-                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       const SizedBox(width: 8),
                       const Icon(Icons.arrow_forward, size: 16),

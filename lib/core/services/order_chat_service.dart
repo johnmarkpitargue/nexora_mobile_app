@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
 import 'buyer_account_service.dart';
 import 'chat_service.dart';
 import 'profile_service.dart';
@@ -27,98 +29,139 @@ class OrderChatService extends ChangeNotifier {
     if (!isSupabaseReady) return;
     if (_dispatchChannel == null) {
       try {
-        _dispatchChannel = Supabase.instance.client.channel('rider_dispatch_chat');
-      _dispatchChannel!.onBroadcast(
-        event: 'new_rider_message',
-        callback: (payload) {
-          try {
-            final orderId = (payload['order_id'] ?? payload['orderId'] ?? '').toString();
-            final clean = normalizeOrderId(orderId);
-            if (clean.isEmpty) return;
+        _dispatchChannel = Supabase.instance.client.channel(
+          'rider_dispatch_chat',
+        );
+        _dispatchChannel!
+            .onBroadcast(
+              event: 'new_rider_message',
+              callback: (payload) {
+                try {
+                  final orderId =
+                      (payload['order_id'] ?? payload['orderId'] ?? '')
+                          .toString();
+                  final clean = normalizeOrderId(orderId);
+                  if (clean.isEmpty) return;
 
-            final sender = (payload['sender'] ?? '').toString().toLowerCase();
-            if (sender == 'customer' || sender == 'user') return;
+                  final sender = (payload['sender'] ?? '')
+                      .toString()
+                      .toLowerCase();
+                  if (sender == 'customer' || sender == 'user') return;
 
-            final text = (payload['text'] ?? '').toString();
-            final senderName = (payload['sender_name'] ?? payload['senderName'] ?? 'Courier').toString();
-            final timeStr = _getCurrentTime();
-            final nowIso = (payload['timestamp'] ?? DateTime.now().toIso8601String()).toString();
+                  final text = (payload['text'] ?? '').toString();
+                  final senderName =
+                      (payload['sender_name'] ??
+                              payload['senderName'] ??
+                              'Courier')
+                          .toString();
+                  final timeStr = _getCurrentTime();
+                  final nowIso =
+                      (payload['timestamp'] ?? DateTime.now().toIso8601String())
+                          .toString();
 
-            final msg = {
-              'id': (payload['id'] ?? 'msg_${DateTime.now().millisecondsSinceEpoch}').toString(),
-              'orderId': clean,
-              'sender': 'other',
-              'senderName': senderName,
-              'text': text,
-              'time': timeStr,
-              'timestamp': nowIso,
-              'isMe': false,
-              'isEdited': payload['is_edited'] == true || payload['isEdited'] == true,
-              'isUnsent': payload['is_unsent'] == true || payload['isUnsent'] == true,
-              'editedAt': payload['edited_at'] ?? payload['editedAt'],
-              'attachmentData': (payload['attachment_data'] ?? payload['attachmentData'])?.toString(),
-              'attachmentName': (payload['attachment_name'] ?? payload['attachmentName'])?.toString(),
-              'attachmentSize': (payload['attachment_size'] ?? payload['attachmentSize']) as int?,
-              'attachmentType': (payload['attachment_type'] ?? payload['attachmentType'])?.toString(),
-            };
+                  final msg = {
+                    'id':
+                        (payload['id'] ??
+                                'msg_${DateTime.now().millisecondsSinceEpoch}')
+                            .toString(),
+                    'orderId': clean,
+                    'sender': 'other',
+                    'senderName': senderName,
+                    'text': text,
+                    'time': timeStr,
+                    'timestamp': nowIso,
+                    'isMe': false,
+                    'isEdited':
+                        payload['is_edited'] == true ||
+                        payload['isEdited'] == true,
+                    'isUnsent':
+                        payload['is_unsent'] == true ||
+                        payload['isUnsent'] == true,
+                    'editedAt': payload['edited_at'] ?? payload['editedAt'],
+                    'attachmentData':
+                        (payload['attachment_data'] ??
+                                payload['attachmentData'])
+                            ?.toString(),
+                    'attachmentName':
+                        (payload['attachment_name'] ??
+                                payload['attachmentName'])
+                            ?.toString(),
+                    'attachmentSize':
+                        (payload['attachment_size'] ??
+                                payload['attachmentSize'])
+                            as int?,
+                    'attachmentType':
+                        (payload['attachment_type'] ??
+                                payload['attachmentType'])
+                            ?.toString(),
+                  };
 
-            if (!_orderChats.containsKey(clean)) {
-              _orderChats[clean] = [];
-            }
+                  if (!_orderChats.containsKey(clean)) {
+                    _orderChats[clean] = [];
+                  }
 
-            final list = _orderChats[clean]!;
-            final exists = list.any((m) => m['id'] == msg['id']);
-            if (!exists) {
-              list.add(msg);
+                  final list = _orderChats[clean]!;
+                  final exists = list.any((m) => m['id'] == msg['id']);
+                  if (!exists) {
+                    list.add(msg);
 
-              if (activeScreenOrderId != clean) {
-                _unreadCounts[clean] = (_unreadCounts[clean] ?? 0) + 1;
-                onNewMessageReceived?.call(msg);
-                _showTopNotification(msg);
-              }
+                    if (activeScreenOrderId != clean) {
+                      _unreadCounts[clean] = (_unreadCounts[clean] ?? 0) + 1;
+                      onNewMessageReceived?.call(msg);
+                      _showTopNotification(msg);
+                    }
 
-              _riderTyping[clean] = false;
-              _typingTimers[clean]?.cancel();
+                    _riderTyping[clean] = false;
+                    _typingTimers[clean]?.cancel();
 
-              try {
-                ChatService.instance.receiveIncomingMessage(
-                  conversationId: 'courier_$clean',
-                  text: text,
-                  senderName: senderName,
+                    try {
+                      ChatService.instance.receiveIncomingMessage(
+                        conversationId: 'courier_$clean',
+                        text: text,
+                        senderName: senderName,
+                      );
+                    } catch (_) {}
+
+                    notifyListeners();
+                  }
+                } catch (e) {
+                  debugPrint(
+                    '⚠️ OrderChatService global dispatch parse error: $e',
+                  );
+                }
+              },
+            )
+            .onBroadcast(
+              event: 'edit_message',
+              callback: (payload) {
+                _handleRemoteEdit(payload);
+              },
+            )
+            .onBroadcast(
+              event: 'unsend_message',
+              callback: (payload) {
+                _handleRemoteUnsend(payload);
+              },
+            )
+            .onBroadcast(
+              event: 'request_chat_history',
+              callback: (payload) {
+                _handleHistoryRequest(payload);
+              },
+            )
+            .onBroadcast(
+              event: 'sync_chat_history',
+              callback: (payload) {
+                _handleHistorySync(payload);
+              },
+            )
+            .subscribe((status, [error]) {
+              if (status != RealtimeSubscribeStatus.subscribed) {
+                debugPrint(
+                  '📡 OrderChatService global dispatch status: $status',
                 );
-              } catch (_) {}
-
-              notifyListeners();
-            }
-          } catch (e) {
-            debugPrint('⚠️ OrderChatService global dispatch parse error: $e');
-          }
-        },
-      ).onBroadcast(
-        event: 'edit_message',
-        callback: (payload) {
-          _handleRemoteEdit(payload);
-        },
-      ).onBroadcast(
-        event: 'unsend_message',
-        callback: (payload) {
-          _handleRemoteUnsend(payload);
-        },
-      ).onBroadcast(
-        event: 'request_chat_history',
-        callback: (payload) {
-          _handleHistoryRequest(payload);
-        },
-      ).onBroadcast(
-        event: 'sync_chat_history',
-        callback: (payload) {
-          _handleHistorySync(payload);
-        },
-      ).subscribe((status, [error]) {
-        if (status != RealtimeSubscribeStatus.subscribed) {
-          debugPrint('📡 OrderChatService global dispatch status: $status');
-        }
-      });
+              }
+            });
       } catch (_) {}
     }
 
@@ -133,7 +176,8 @@ class OrderChatService extends ChangeNotifier {
               callback: (payload) {
                 try {
                   final row = payload.newRecord;
-                  final orderCode = (row['order_id'] ?? row['id'] ?? '').toString();
+                  final orderCode = (row['order_id'] ?? row['id'] ?? '')
+                      .toString();
                   if (orderCode.isNotEmpty) {
                     syncRemoteMessages(orderCode);
                   }
@@ -183,7 +227,8 @@ class OrderChatService extends ChangeNotifier {
           'orderId': clean,
           'sender': 'system',
           'senderName': 'Nexora Dispatch',
-          'text': 'Dispatch channel opened for order #$clean. Real-time encryption active.',
+          'text':
+              'Dispatch channel opened for order #$clean. Real-time encryption active.',
           'time': _getCurrentTime(),
           'isMe': false,
         },
@@ -203,7 +248,8 @@ class OrderChatService extends ChangeNotifier {
           'orderId': clean,
           'sender': 'system',
           'senderName': 'Nexora Dispatch',
-          'text': 'Dispatch channel opened for order #$clean. Real-time encryption active.',
+          'text':
+              'Dispatch channel opened for order #$clean. Real-time encryption active.',
           'time': _getCurrentTime(),
           'isMe': false,
         });
@@ -252,127 +298,163 @@ class OrderChatService extends ChangeNotifier {
         opts: const RealtimeChannelConfig(self: false),
       );
 
-      channel.onBroadcast(
-        event: 'chat_message',
-        callback: (payload) {
-          try {
-            final sender = (payload['sender'] ?? '').toString().toLowerCase();
-            // Ignore messages sent by ourselves
-            if (sender == 'customer' || sender == 'user') return;
-
-            final senderName = (payload['sender_name'] ?? payload['senderName'] ?? 'Courier').toString();
-            final text = (payload['text'] ?? '').toString();
-            final nowIso = (payload['timestamp'] ?? DateTime.now().toIso8601String()).toString();
-            final timeStr = payload['timestamp'] != null
-                ? _formatIsoToTime(payload['timestamp'].toString())
-                : _getCurrentTime();
-
-            final msg = {
-              'id': (payload['id'] ?? 'msg_${DateTime.now().millisecondsSinceEpoch}').toString(),
-              'orderId': clean,
-              'sender': 'other', // from other party (the rider)
-              'senderName': senderName,
-              'text': text,
-              'time': timeStr,
-              'timestamp': nowIso,
-              'isMe': false,
-              'isEdited': payload['is_edited'] == true || payload['isEdited'] == true,
-              'isUnsent': payload['is_unsent'] == true || payload['isUnsent'] == true,
-              'editedAt': payload['edited_at'] ?? payload['editedAt'],
-              'attachmentData': (payload['attachment_data'] ?? payload['attachmentData'])?.toString(),
-              'attachmentName': (payload['attachment_name'] ?? payload['attachmentName'])?.toString(),
-              'attachmentSize': (payload['attachment_size'] ?? payload['attachmentSize']) as int?,
-              'attachmentType': (payload['attachment_type'] ?? payload['attachmentType'])?.toString(),
-            };
-
-            if (!_orderChats.containsKey(clean)) {
-              _orderChats[clean] = [];
-            }
-
-            final list = _orderChats[clean]!;
-            final exists = list.any((m) => m['id'] == msg['id']);
-            if (!exists) {
-              list.add(msg);
-
-              // Increment unread count if user is not actively viewing this chat
-              if (activeScreenOrderId != clean) {
-                _unreadCounts[clean] = (_unreadCounts[clean] ?? 0) + 1;
-                onNewMessageReceived?.call(msg);
-                _showTopNotification(msg);
-              }
-
-              // Rider finished sending, stop typing indicator
-              _riderTyping[clean] = false;
-              _typingTimers[clean]?.cancel();
-
-              // Sync to general ChatService for Messages tab
+      channel
+          .onBroadcast(
+            event: 'chat_message',
+            callback: (payload) {
               try {
-                ChatService.instance.receiveIncomingMessage(
-                  conversationId: 'courier_$clean',
-                  text: text,
-                  senderName: senderName,
-                );
-              } catch (_) {}
+                final sender = (payload['sender'] ?? '')
+                    .toString()
+                    .toLowerCase();
+                // Ignore messages sent by ourselves
+                if (sender == 'customer' || sender == 'user') return;
 
-              notifyListeners();
-            }
-          } catch (e) {
-            debugPrint('⚠️ OrderChatService message parse error: $e');
-          }
-        },
-      ).onBroadcast(
-        event: 'edit_message',
-        callback: (payload) {
-          _handleRemoteEdit(payload);
-        },
-      ).onBroadcast(
-        event: 'unsend_message',
-        callback: (payload) {
-          _handleRemoteUnsend(payload);
-        },
-      ).onBroadcast(
-        event: 'typing',
-        callback: (payload) {
-          try {
-            final sender = (payload['sender'] ?? '').toString().toLowerCase();
-            if (sender == 'customer' || sender == 'user') return;
+                final senderName =
+                    (payload['sender_name'] ??
+                            payload['senderName'] ??
+                            'Courier')
+                        .toString();
+                final text = (payload['text'] ?? '').toString();
+                final nowIso =
+                    (payload['timestamp'] ?? DateTime.now().toIso8601String())
+                        .toString();
+                final timeStr = payload['timestamp'] != null
+                    ? _formatIsoToTime(payload['timestamp'].toString())
+                    : _getCurrentTime();
 
-            final isTyping = payload['is_typing'] == true || payload['isTyping'] == true;
-            _riderTyping[clean] = isTyping;
-            notifyListeners();
+                final msg = {
+                  'id':
+                      (payload['id'] ??
+                              'msg_${DateTime.now().millisecondsSinceEpoch}')
+                          .toString(),
+                  'orderId': clean,
+                  'sender': 'other', // from other party (the rider)
+                  'senderName': senderName,
+                  'text': text,
+                  'time': timeStr,
+                  'timestamp': nowIso,
+                  'isMe': false,
+                  'isEdited':
+                      payload['is_edited'] == true ||
+                      payload['isEdited'] == true,
+                  'isUnsent':
+                      payload['is_unsent'] == true ||
+                      payload['isUnsent'] == true,
+                  'editedAt': payload['edited_at'] ?? payload['editedAt'],
+                  'attachmentData':
+                      (payload['attachment_data'] ?? payload['attachmentData'])
+                          ?.toString(),
+                  'attachmentName':
+                      (payload['attachment_name'] ?? payload['attachmentName'])
+                          ?.toString(),
+                  'attachmentSize':
+                      (payload['attachment_size'] ?? payload['attachmentSize'])
+                          as int?,
+                  'attachmentType':
+                      (payload['attachment_type'] ?? payload['attachmentType'])
+                          ?.toString(),
+                };
 
-            _typingTimers[clean]?.cancel();
-            if (isTyping) {
-              _typingTimers[clean] = Timer(const Duration(seconds: 3), () {
-                _riderTyping[clean] = false;
+                if (!_orderChats.containsKey(clean)) {
+                  _orderChats[clean] = [];
+                }
+
+                final list = _orderChats[clean]!;
+                final exists = list.any((m) => m['id'] == msg['id']);
+                if (!exists) {
+                  list.add(msg);
+
+                  // Increment unread count if user is not actively viewing this chat
+                  if (activeScreenOrderId != clean) {
+                    _unreadCounts[clean] = (_unreadCounts[clean] ?? 0) + 1;
+                    onNewMessageReceived?.call(msg);
+                    _showTopNotification(msg);
+                  }
+
+                  // Rider finished sending, stop typing indicator
+                  _riderTyping[clean] = false;
+                  _typingTimers[clean]?.cancel();
+
+                  // Sync to general ChatService for Messages tab
+                  try {
+                    ChatService.instance.receiveIncomingMessage(
+                      conversationId: 'courier_$clean',
+                      text: text,
+                      senderName: senderName,
+                    );
+                  } catch (_) {}
+
+                  notifyListeners();
+                }
+              } catch (e) {
+                debugPrint('⚠️ OrderChatService message parse error: $e');
+              }
+            },
+          )
+          .onBroadcast(
+            event: 'edit_message',
+            callback: (payload) {
+              _handleRemoteEdit(payload);
+            },
+          )
+          .onBroadcast(
+            event: 'unsend_message',
+            callback: (payload) {
+              _handleRemoteUnsend(payload);
+            },
+          )
+          .onBroadcast(
+            event: 'typing',
+            callback: (payload) {
+              try {
+                final sender = (payload['sender'] ?? '')
+                    .toString()
+                    .toLowerCase();
+                if (sender == 'customer' || sender == 'user') return;
+
+                final isTyping =
+                    payload['is_typing'] == true || payload['isTyping'] == true;
+                _riderTyping[clean] = isTyping;
                 notifyListeners();
-              });
+
+                _typingTimers[clean]?.cancel();
+                if (isTyping) {
+                  _typingTimers[clean] = Timer(const Duration(seconds: 3), () {
+                    _riderTyping[clean] = false;
+                    notifyListeners();
+                  });
+                }
+              } catch (e) {
+                debugPrint('⚠️ OrderChatService typing error: $e');
+              }
+            },
+          )
+          .onBroadcast(
+            event: 'request_chat_history',
+            callback: (payload) {
+              _handleHistoryRequest(payload);
+            },
+          )
+          .onBroadcast(
+            event: 'sync_chat_history',
+            callback: (payload) {
+              _handleHistorySync(payload);
+            },
+          )
+          .subscribe((status, [error]) {
+            debugPrint(
+              '📡 OrderChatService channel $channelName status: $status',
+            );
+            if (status == RealtimeSubscribeStatus.subscribed) {
+              if (!completer.isCompleted) completer.complete(true);
+              requestHistory(clean);
+            } else if (status == RealtimeSubscribeStatus.channelError ||
+                status == RealtimeSubscribeStatus.timedOut) {
+              if (!completer.isCompleted) completer.complete(false);
+              _channels.remove(clean);
+              _channelReadyCompleters.remove(clean);
             }
-          } catch (e) {
-            debugPrint('⚠️ OrderChatService typing error: $e');
-          }
-        },
-      ).onBroadcast(
-        event: 'request_chat_history',
-        callback: (payload) {
-          _handleHistoryRequest(payload);
-        },
-      ).onBroadcast(
-        event: 'sync_chat_history',
-        callback: (payload) {
-          _handleHistorySync(payload);
-        },
-      ).subscribe((status, [error]) {
-        debugPrint('📡 OrderChatService channel $channelName status: $status');
-        if (status == RealtimeSubscribeStatus.subscribed) {
-          if (!completer.isCompleted) completer.complete(true);
-          requestHistory(clean);
-        } else if (status == RealtimeSubscribeStatus.channelError || status == RealtimeSubscribeStatus.timedOut) {
-          if (!completer.isCompleted) completer.complete(false);
-          _channels.remove(clean);
-          _channelReadyCompleters.remove(clean);
-        }
-      });
+          });
 
       _channels[clean] = channel;
     } catch (e) {
@@ -402,13 +484,16 @@ class OrderChatService extends ChangeNotifier {
     String? attachmentType,
   }) async {
     final trimmed = text.trim();
-    if (trimmed.isEmpty && (attachmentData == null || attachmentData.isEmpty)) return;
+    if (trimmed.isEmpty && (attachmentData == null || attachmentData.isEmpty))
+      return;
 
-    final effectiveCustomerName = (customerName != null && customerName.isNotEmpty)
+    final effectiveCustomerName =
+        (customerName != null && customerName.isNotEmpty)
         ? customerName
         : _currentBuyerName;
     final clean = normalizeOrderId(orderId);
-    final id = 'msg_c_${DateTime.now().millisecondsSinceEpoch}_${(1000 + (DateTime.now().microsecond % 9000))}';
+    final id =
+        'msg_c_${DateTime.now().millisecondsSinceEpoch}_${(1000 + (DateTime.now().microsecond % 9000))}';
     final timeStr = _getCurrentTime();
     final nowIso = DateTime.now().toIso8601String();
 
@@ -474,7 +559,9 @@ class OrderChatService extends ChangeNotifier {
 
     // Also broadcast to global dispatch channel for real-time cross-order sync
     try {
-      final global = _dispatchChannel ?? Supabase.instance.client.channel('rider_dispatch_chat');
+      final global =
+          _dispatchChannel ??
+          Supabase.instance.client.channel('rider_dispatch_chat');
       await global.sendBroadcastMessage(
         event: 'new_customer_message',
         payload: {
@@ -589,7 +676,11 @@ class OrderChatService extends ChangeNotifier {
   }
 
   /// Edits an existing message sent by the buyer
-  Future<bool> editMessage(String orderId, String messageId, String newText) async {
+  Future<bool> editMessage(
+    String orderId,
+    String messageId,
+    String newText,
+  ) async {
     final clean = normalizeOrderId(orderId);
     final list = _orderChats[clean];
     if (list == null) return false;
@@ -627,7 +718,9 @@ class OrderChatService extends ChangeNotifier {
     }
 
     try {
-      final global = _dispatchChannel ?? Supabase.instance.client.channel('rider_dispatch_chat');
+      final global =
+          _dispatchChannel ??
+          Supabase.instance.client.channel('rider_dispatch_chat');
       await global.sendBroadcastMessage(
         event: 'edit_message',
         payload: payload,
@@ -672,7 +765,9 @@ class OrderChatService extends ChangeNotifier {
     }
 
     try {
-      final global = _dispatchChannel ?? Supabase.instance.client.channel('rider_dispatch_chat');
+      final global =
+          _dispatchChannel ??
+          Supabase.instance.client.channel('rider_dispatch_chat');
       await global.sendBroadcastMessage(
         event: 'unsend_message',
         payload: payload,
@@ -685,7 +780,10 @@ class OrderChatService extends ChangeNotifier {
   }
 
   /// Persists a chat message to Supabase database (orders table chat storage + optional chat_messages table)
-  Future<void> _persistMessageToSupabase(String orderId, Map<String, dynamic> msgMap) async {
+  Future<void> _persistMessageToSupabase(
+    String orderId,
+    Map<String, dynamic> msgMap,
+  ) async {
     final clean = normalizeOrderId(orderId);
     if (clean.isEmpty || !isSupabaseReady) return;
 
@@ -693,7 +791,9 @@ class OrderChatService extends ChangeNotifier {
       final row = await Supabase.instance.client
           .from('orders')
           .select('id, item_details')
-          .or('order_id.eq.$clean,order_id.eq.${clean.toUpperCase()},order_id.eq.#${clean.toUpperCase()}')
+          .or(
+            'order_id.eq.$clean,order_id.eq.${clean.toUpperCase()},order_id.eq.#${clean.toUpperCase()}',
+          )
           .limit(1)
           .maybeSingle();
 
@@ -717,7 +817,7 @@ class OrderChatService extends ChangeNotifier {
         }
 
         chatList.removeWhere((m) => m['id'] == msgMap['id']);
-        
+
         // Sanitize messages: never allow multi-megabyte base64 blobs inside orders.item_details (prevents egress blowup)
         final sanitizedMsg = Map<String, dynamic>.from(msgMap);
         if (sanitizedMsg['attachment_data'] != null &&
@@ -728,8 +828,10 @@ class OrderChatService extends ChangeNotifier {
 
         for (int i = 0; i < chatList.length; i++) {
           final m = chatList[i];
-          if (m['attachment_data'] != null && m['attachment_data'].toString().length > 500) {
-            chatList[i] = Map<String, dynamic>.from(m)..['attachment_data'] = '[image_attachment]';
+          if (m['attachment_data'] != null &&
+              m['attachment_data'].toString().length > 500) {
+            chatList[i] = Map<String, dynamic>.from(m)
+              ..['attachment_data'] = '[image_attachment]';
           }
         }
 
@@ -737,10 +839,7 @@ class OrderChatService extends ChangeNotifier {
           chatList = chatList.sublist(chatList.length - 50);
         }
 
-        final updatedJson = jsonEncode({
-          'title': baseTitle,
-          'chat': chatList,
-        });
+        final updatedJson = jsonEncode({'title': baseTitle, 'chat': chatList});
 
         final targetId = row['id'];
         if (targetId != null) {
@@ -787,7 +886,9 @@ class OrderChatService extends ChangeNotifier {
       final row = await Supabase.instance.client
           .from('orders')
           .select('item_details')
-          .or('order_id.eq.$clean,order_id.eq.${clean.toUpperCase()},order_id.eq.#${clean.toUpperCase()}')
+          .or(
+            'order_id.eq.$clean,order_id.eq.${clean.toUpperCase()},order_id.eq.#${clean.toUpperCase()}',
+          )
           .limit(1)
           .maybeSingle();
 
@@ -811,11 +912,18 @@ class OrderChatService extends ChangeNotifier {
                 final id = (rMsg['id'] ?? '').toString();
                 if (id.isEmpty) continue;
                 final sender = (rMsg['sender'] ?? '').toString().toLowerCase();
-                final isCustomerSender = sender == 'customer' || sender == 'user';
+                final isCustomerSender =
+                    sender == 'customer' || sender == 'user';
                 final isMe = isCustomerSender;
 
-                final senderName = (rMsg['sender_name'] ?? rMsg['senderName'] ?? (isMe ? _currentBuyerName : 'Courier')).toString();
-                final nowIso = (rMsg['timestamp'] ?? DateTime.now().toIso8601String()).toString();
+                final senderName =
+                    (rMsg['sender_name'] ??
+                            rMsg['senderName'] ??
+                            (isMe ? _currentBuyerName : 'Courier'))
+                        .toString();
+                final nowIso =
+                    (rMsg['timestamp'] ?? DateTime.now().toIso8601String())
+                        .toString();
                 final timeStr = rMsg['timestamp'] != null
                     ? _formatIsoToTime(rMsg['timestamp'].toString())
                     : _getCurrentTime();
@@ -829,13 +937,23 @@ class OrderChatService extends ChangeNotifier {
                   'time': timeStr,
                   'timestamp': nowIso,
                   'isMe': isMe,
-                  'isEdited': rMsg['is_edited'] == true || rMsg['isEdited'] == true,
-                  'isUnsent': rMsg['is_unsent'] == true || rMsg['isUnsent'] == true,
+                  'isEdited':
+                      rMsg['is_edited'] == true || rMsg['isEdited'] == true,
+                  'isUnsent':
+                      rMsg['is_unsent'] == true || rMsg['isUnsent'] == true,
                   'editedAt': rMsg['edited_at'] ?? rMsg['editedAt'],
-                  'attachmentData': (rMsg['attachment_data'] ?? rMsg['attachmentData'])?.toString(),
-                  'attachmentName': (rMsg['attachment_name'] ?? rMsg['attachmentName'])?.toString(),
-                  'attachmentSize': (rMsg['attachment_size'] ?? rMsg['attachmentSize']) as int?,
-                  'attachmentType': (rMsg['attachment_type'] ?? rMsg['attachmentType'])?.toString(),
+                  'attachmentData':
+                      (rMsg['attachment_data'] ?? rMsg['attachmentData'])
+                          ?.toString(),
+                  'attachmentName':
+                      (rMsg['attachment_name'] ?? rMsg['attachmentName'])
+                          ?.toString(),
+                  'attachmentSize':
+                      (rMsg['attachment_size'] ?? rMsg['attachmentSize'])
+                          as int?,
+                  'attachmentType':
+                      (rMsg['attachment_type'] ?? rMsg['attachmentType'])
+                          ?.toString(),
                 };
 
                 final idx = list.indexWhere((m) => m['id'] == id);
@@ -889,7 +1007,9 @@ class OrderChatService extends ChangeNotifier {
                 'id': id,
                 'orderId': clean,
                 'sender': isMe ? 'user' : 'other',
-                'senderName': (r['sender_name'] ?? (isMe ? _currentBuyerName : 'Courier')).toString(),
+                'senderName':
+                    (r['sender_name'] ?? (isMe ? _currentBuyerName : 'Courier'))
+                        .toString(),
                 'text': (r['text'] ?? '').toString(),
                 'time': _formatIsoToTime(r['timestamp'].toString()),
                 'timestamp': r['timestamp'].toString(),
@@ -914,7 +1034,12 @@ class OrderChatService extends ChangeNotifier {
   }
 
   /// Persists remote edit to Supabase
-  Future<void> _persistRemoteEditToSupabase(String orderId, String messageId, String newText, String editedAt) async {
+  Future<void> _persistRemoteEditToSupabase(
+    String orderId,
+    String messageId,
+    String newText,
+    String editedAt,
+  ) async {
     final clean = normalizeOrderId(orderId);
     if (clean.isEmpty || !isSupabaseReady) return;
 
@@ -922,7 +1047,9 @@ class OrderChatService extends ChangeNotifier {
       final row = await Supabase.instance.client
           .from('orders')
           .select('id, item_details')
-          .or('order_id.eq.$clean,order_id.eq.${clean.toUpperCase()},order_id.eq.#${clean.toUpperCase()}')
+          .or(
+            'order_id.eq.$clean,order_id.eq.${clean.toUpperCase()},order_id.eq.#${clean.toUpperCase()}',
+          )
           .limit(1)
           .maybeSingle();
 
@@ -957,7 +1084,10 @@ class OrderChatService extends ChangeNotifier {
   }
 
   /// Persists remote unsend to Supabase
-  Future<void> _persistRemoteUnsendToSupabase(String orderId, String messageId) async {
+  Future<void> _persistRemoteUnsendToSupabase(
+    String orderId,
+    String messageId,
+  ) async {
     final clean = normalizeOrderId(orderId);
     if (clean.isEmpty || !isSupabaseReady) return;
 
@@ -965,7 +1095,9 @@ class OrderChatService extends ChangeNotifier {
       final row = await Supabase.instance.client
           .from('orders')
           .select('id, item_details')
-          .or('order_id.eq.$clean,order_id.eq.${clean.toUpperCase()},order_id.eq.#${clean.toUpperCase()}')
+          .or(
+            'order_id.eq.$clean,order_id.eq.${clean.toUpperCase()},order_id.eq.#${clean.toUpperCase()}',
+          )
           .limit(1)
           .maybeSingle();
 
@@ -1000,7 +1132,8 @@ class OrderChatService extends ChangeNotifier {
 
   void _handleRemoteEdit(Map<String, dynamic> payload) {
     try {
-      final orderId = (payload['order_id'] ?? payload['orderId'] ?? '').toString();
+      final orderId = (payload['order_id'] ?? payload['orderId'] ?? '')
+          .toString();
       final clean = normalizeOrderId(orderId);
       final msgId = (payload['id'] ?? '').toString();
       final newText = (payload['text'] ?? '').toString();
@@ -1023,7 +1156,8 @@ class OrderChatService extends ChangeNotifier {
 
   void _handleRemoteUnsend(Map<String, dynamic> payload) {
     try {
-      final orderId = (payload['order_id'] ?? payload['orderId'] ?? '').toString();
+      final orderId = (payload['order_id'] ?? payload['orderId'] ?? '')
+          .toString();
       final clean = normalizeOrderId(orderId);
       final msgId = (payload['id'] ?? '').toString();
 
@@ -1032,7 +1166,9 @@ class OrderChatService extends ChangeNotifier {
         final idx = list.indexWhere((m) => m['id'] == msgId);
         if (idx != -1) {
           final isMe = list[idx]['isMe'] == true;
-          list[idx]['text'] = isMe ? 'You unsent a message' : 'This message was unsent';
+          list[idx]['text'] = isMe
+              ? 'You unsent a message'
+              : 'This message was unsent';
           list[idx]['isUnsent'] = true;
           notifyListeners();
         }
@@ -1065,7 +1201,9 @@ class OrderChatService extends ChangeNotifier {
     }
 
     try {
-      final global = _dispatchChannel ?? Supabase.instance.client.channel('rider_dispatch_chat');
+      final global =
+          _dispatchChannel ??
+          Supabase.instance.client.channel('rider_dispatch_chat');
       await global.sendBroadcastMessage(
         event: 'request_chat_history',
         payload: payload,
@@ -1075,7 +1213,8 @@ class OrderChatService extends ChangeNotifier {
 
   void _handleHistoryRequest(Map<String, dynamic> payload) {
     try {
-      final orderId = (payload['order_id'] ?? payload['orderId'] ?? '').toString();
+      final orderId = (payload['order_id'] ?? payload['orderId'] ?? '')
+          .toString();
       final clean = normalizeOrderId(orderId);
       final sender = (payload['sender'] ?? '').toString().toLowerCase();
       if (sender == 'customer' || sender == 'user') return;
@@ -1085,19 +1224,21 @@ class OrderChatService extends ChangeNotifier {
 
       final serialized = currentMsgs
           .where((m) => m['sender'] != 'system')
-          .map((m) => {
-                'id': m['id'],
-                'order_id': clean,
-                'orderId': clean,
-                'sender': m['isMe'] == true ? 'customer' : 'rider',
-                'sender_name': m['senderName'],
-                'senderName': m['senderName'],
-                'text': m['text'],
-                'timestamp': m['timestamp'] ?? DateTime.now().toIso8601String(),
-                'is_edited': m['isEdited'] == true,
-                'is_unsent': m['isUnsent'] == true,
-                'edited_at': m['editedAt'],
-              })
+          .map(
+            (m) => {
+              'id': m['id'],
+              'order_id': clean,
+              'orderId': clean,
+              'sender': m['isMe'] == true ? 'customer' : 'rider',
+              'sender_name': m['senderName'],
+              'senderName': m['senderName'],
+              'text': m['text'],
+              'timestamp': m['timestamp'] ?? DateTime.now().toIso8601String(),
+              'is_edited': m['isEdited'] == true,
+              'is_unsent': m['isUnsent'] == true,
+              'edited_at': m['editedAt'],
+            },
+          )
           .toList();
 
       if (serialized.isEmpty) return;
@@ -1117,7 +1258,9 @@ class OrderChatService extends ChangeNotifier {
         );
       }
 
-      final global = _dispatchChannel ?? Supabase.instance.client.channel('rider_dispatch_chat');
+      final global =
+          _dispatchChannel ??
+          Supabase.instance.client.channel('rider_dispatch_chat');
       global.sendBroadcastMessage(
         event: 'sync_chat_history',
         payload: responsePayload,
@@ -1129,7 +1272,8 @@ class OrderChatService extends ChangeNotifier {
 
   void _handleHistorySync(Map<String, dynamic> payload) {
     try {
-      final orderId = (payload['order_id'] ?? payload['orderId'] ?? '').toString();
+      final orderId = (payload['order_id'] ?? payload['orderId'] ?? '')
+          .toString();
       final clean = normalizeOrderId(orderId);
       final rawList = payload['messages'];
       if (rawList is! List || rawList.isEmpty) return;
@@ -1151,7 +1295,11 @@ class OrderChatService extends ChangeNotifier {
         if (!exists) {
           final sender = (map['sender'] ?? '').toString().toLowerCase();
           final isMe = sender == 'customer' || sender == 'user';
-          final senderName = (map['sender_name'] ?? map['senderName'] ?? (isMe ? _currentBuyerName : 'Courier')).toString();
+          final senderName =
+              (map['sender_name'] ??
+                      map['senderName'] ??
+                      (isMe ? _currentBuyerName : 'Courier'))
+                  .toString();
           final timeStr = map['timestamp'] != null
               ? _formatIsoToTime(map['timestamp'].toString())
               : _getCurrentTime();
@@ -1163,7 +1311,8 @@ class OrderChatService extends ChangeNotifier {
             'senderName': senderName,
             'text': (map['text'] ?? '').toString(),
             'time': timeStr,
-            'timestamp': (map['timestamp'] ?? DateTime.now().toIso8601String()).toString(),
+            'timestamp': (map['timestamp'] ?? DateTime.now().toIso8601String())
+                .toString(),
             'isMe': isMe,
             'isEdited': map['is_edited'] == true || map['isEdited'] == true,
             'isUnsent': map['is_unsent'] == true || map['isUnsent'] == true,

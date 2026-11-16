@@ -1,4 +1,4 @@
-﻿import 'dart:typed_data';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:nexora_flutter_app/app/theme/nexora_theme.dart';
 import 'package:nexora_flutter_app/core/models/shop_models.dart';

@@ -602,13 +602,13 @@ class _ChatPageState extends State<ChatPage> {
         title: viewingHidden
             ? 'No hidden conversations'
             : (_searchQuery.isNotEmpty
-                ? 'No conversations found'
-                : 'No conversations yet'),
+                  ? 'No conversations found'
+                  : 'No conversations yet'),
         message: viewingHidden
             ? 'Conversations you hide will stay here until you restore them.'
             : (_searchQuery.isNotEmpty
-                ? 'Try another search or check the spelling.'
-                : 'Messages from stores, couriers, and support will appear here once you start chatting.'),
+                  ? 'Try another search or check the spelling.'
+                  : 'Messages from stores, couriers, and support will appear here once you start chatting.'),
         actionLabel: _searchQuery.isNotEmpty ? 'Clear search' : null,
         onAction: _searchQuery.isNotEmpty
             ? () {
@@ -948,10 +948,8 @@ class _ChatPageState extends State<ChatPage> {
   Widget _buildLiveDispatchCard(BuildContext context) {
     final activeOrders = OrderService.instance.activeOrders;
     final activeOrder = activeOrders.isNotEmpty ? activeOrders.first : null;
-    final orderId =
-        activeOrder?.orderId.replaceAll('#', '').trim() ?? '';
-    final courierName =
-        activeOrder?.courierName.isNotEmpty == true
+    final orderId = activeOrder?.orderId.replaceAll('#', '').trim() ?? '';
+    final courierName = activeOrder?.courierName.isNotEmpty == true
         ? activeOrder!.courierName
         : 'Assigned Courier';
     final messages = OrderChatService.instance.getMessages(orderId);
@@ -1942,8 +1940,12 @@ class _SlidableConversationCardState extends State<SlidableConversationCard>
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final sheetBg = isDark ? const Color(0xFF0D1323) : Colors.white;
     final textColor = isDark ? Colors.white : const Color(0xFF0F172A);
-    final subtitleColor = isDark ? const Color(0xFF94A3B8) : Colors.grey.shade600;
-    final dividerColor = isDark ? const Color(0xFF1E293B) : Colors.grey.shade200;
+    final subtitleColor = isDark
+        ? const Color(0xFF94A3B8)
+        : Colors.grey.shade600;
+    final dividerColor = isDark
+        ? const Color(0xFF1E293B)
+        : Colors.grey.shade200;
     final handleColor = isDark ? const Color(0xFF334155) : Colors.grey.shade300;
 
     showModalBottomSheet(
@@ -1955,7 +1957,9 @@ class _SlidableConversationCardState extends State<SlidableConversationCard>
           color: sheetBg,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           border: isDark
-              ? const Border(top: BorderSide(color: Color(0xFF1E293B), width: 1))
+              ? const Border(
+                  top: BorderSide(color: Color(0xFF1E293B), width: 1),
+                )
               : null,
         ),
         child: SafeArea(
@@ -2006,8 +2010,12 @@ class _SlidableConversationCardState extends State<SlidableConversationCard>
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
                     color: widget.isHiddenMode
-                        ? (isDark ? const Color(0xFF064E3B) : const Color(0xFFDCFCE7))
-                        : (isDark ? const Color(0xFF1E1B4B) : const Color(0xFFEEF2FF)),
+                        ? (isDark
+                              ? const Color(0xFF064E3B)
+                              : const Color(0xFFDCFCE7))
+                        : (isDark
+                              ? const Color(0xFF1E1B4B)
+                              : const Color(0xFFEEF2FF)),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Icon(
@@ -2016,7 +2024,9 @@ class _SlidableConversationCardState extends State<SlidableConversationCard>
                         : Icons.visibility_off_rounded,
                     color: widget.isHiddenMode
                         ? const Color(0xFF10B981)
-                        : (isDark ? const Color(0xFF818CF8) : const Color(0xFF6366F1)),
+                        : (isDark
+                              ? const Color(0xFF818CF8)
+                              : const Color(0xFF6366F1)),
                     size: 20,
                   ),
                 ),
@@ -2046,7 +2056,9 @@ class _SlidableConversationCardState extends State<SlidableConversationCard>
                 leading: Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF450A0A) : const Color(0xFFFEE2E2),
+                    color: isDark
+                        ? const Color(0xFF450A0A)
+                        : const Color(0xFFFEE2E2),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Icon(

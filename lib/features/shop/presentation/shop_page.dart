@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../../core/models/shop_models.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/services/buyer_account_service.dart';
@@ -12,11 +13,7 @@ class ShopPage extends StatefulWidget {
   final ShopModel? initialShop;
   final String? shopId;
 
-  const ShopPage({
-    super.key,
-    this.initialShop,
-    this.shopId,
-  });
+  const ShopPage({super.key, this.initialShop, this.shopId});
 
   @override
   State<ShopPage> createState() => _ShopPageState();
@@ -47,14 +44,17 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
-    _shop = widget.initialShop ??
-        _shopService.getShopById(widget.shopId ?? '1');
+    _shop =
+        widget.initialShop ?? _shopService.getShopById(widget.shopId ?? '1');
     if (widget.initialShop == null && int.tryParse(_shop.id) != null) {
-      _shopService.fetchStoreRemote(_shop.id).then((fetched) {
-        if (fetched != null && mounted) {
-          setState(() => _shop = fetched);
-        }
-      }).catchError((_) {});
+      _shopService
+          .fetchStoreRemote(_shop.id)
+          .then((fetched) {
+            if (fetched != null && mounted) {
+              setState(() => _shop = fetched);
+            }
+          })
+          .catchError((_) {});
     }
 
     _tabController = TabController(length: 3, vsync: this);
@@ -156,7 +156,8 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
   }
 
   void _handleChatTap() async {
-    if (!ApiClient.instance.hasToken || !BuyerAccountService.instance.isLoggedIn) {
+    if (!ApiClient.instance.hasToken ||
+        !BuyerAccountService.instance.isLoggedIn) {
       final loggedIn = await GuestAuthGuard.requireLogin(
         context,
         title: 'Sign In to Chat',
@@ -172,18 +173,24 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
     final sellerId = int.tryParse(_shop.id);
     if (sellerId != null && sellerId > 0 && ApiClient.instance.hasToken) {
       try {
-        final remoteConv = await ChatService.instance.startConversationRemote(sellerId);
+        final remoteConv = await ChatService.instance.startConversationRemote(
+          sellerId,
+        );
         if (remoteConv != null && mounted) {
           Navigator.push(
             context,
             MaterialPageRoute(
               builder: (context) => ChatDetailPage(
                 conversationId: remoteConv.id,
-                title: remoteConv.title.isNotEmpty ? remoteConv.title : _shop.name,
+                title: remoteConv.title.isNotEmpty
+                    ? remoteConv.title
+                    : _shop.name,
                 subtitle: _shop.badge,
                 avatarIcon: remoteConv.avatarIcon,
                 avatarBgColor: remoteConv.avatarBg,
-                initialMessages: remoteConv.messages.map((m) => m.toMap()).toList(),
+                initialMessages: remoteConv.messages
+                    .map((m) => m.toMap())
+                    .toList(),
               ),
             ),
           );
@@ -259,9 +266,12 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
     final products = _searchQuery.trim().isEmpty
         ? allProducts
         : allProducts
-            .where((p) =>
-                p.title.toLowerCase().contains(_searchQuery.trim().toLowerCase()))
-            .toList();
+              .where(
+                (p) => p.title.toLowerCase().contains(
+                  _searchQuery.trim().toLowerCase(),
+                ),
+              )
+              .toList();
     final isFollowing = _shopService.isFollowing(_shop.id);
 
     return Scaffold(
@@ -270,9 +280,7 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
         headerSliverBuilder: (context, innerBoxIsScrolled) {
           return [
             // Dark Navy Gradient Store Header
-            SliverToBoxAdapter(
-              child: _buildShopHeader(isFollowing),
-            ),
+            SliverToBoxAdapter(child: _buildShopHeader(isFollowing)),
             // Sticky Tab Bar
             SliverPersistentHeader(
               pinned: true,
@@ -327,11 +335,7 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
       ),
       decoration: const BoxDecoration(
         gradient: LinearGradient(
-          colors: [
-            Color(0xFF020617),
-            Color(0xFF070E28),
-            Color(0xFF0B173D),
-          ],
+          colors: [Color(0xFF020617), Color(0xFF070E28), Color(0xFF0B173D)],
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
         ),
@@ -343,7 +347,11 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
           Row(
             children: [
               IconButton(
-                icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 20),
+                icon: const Icon(
+                  Icons.arrow_back_ios_new,
+                  color: Colors.white,
+                  size: 20,
+                ),
                 onPressed: () => Navigator.pop(context),
               ),
               Expanded(
@@ -360,13 +368,20 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.search, color: Colors.white.withValues(alpha: 0.8), size: 18),
+                      Icon(
+                        Icons.search,
+                        color: Colors.white.withValues(alpha: 0.8),
+                        size: 18,
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: TextField(
                           controller: _searchController,
                           onChanged: (v) => setState(() => _searchQuery = v),
-                          style: const TextStyle(color: Colors.white, fontSize: 13),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                          ),
                           decoration: InputDecoration(
                             hintText: 'Search in ${_shop.name}...',
                             hintStyle: TextStyle(
@@ -387,7 +402,11 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
                             _searchController.clear();
                             setState(() => _searchQuery = '');
                           },
-                          child: const Icon(Icons.close, color: Colors.white70, size: 16),
+                          child: const Icon(
+                            Icons.close,
+                            color: Colors.white70,
+                            size: 16,
+                          ),
                         ),
                     ],
                   ),
@@ -395,7 +414,11 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
               ),
               const SizedBox(width: 8),
               IconButton(
-                icon: const Icon(Icons.share_outlined, color: Colors.white, size: 21),
+                icon: const Icon(
+                  Icons.share_outlined,
+                  color: Colors.white,
+                  size: 21,
+                ),
                 onPressed: () {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
@@ -483,12 +506,19 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
                           ),
                         ),
                         const SizedBox(width: 4),
-                        const Icon(Icons.chevron_right, color: Colors.white, size: 18),
+                        const Icon(
+                          Icons.chevron_right,
+                          color: Colors.white,
+                          size: 18,
+                        ),
                       ],
                     ),
                     const SizedBox(height: 3),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 7,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFF0284C7).withValues(alpha: 0.3),
                         borderRadius: BorderRadius.circular(6),
@@ -510,7 +540,11 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
                     const SizedBox(height: 4),
                     Row(
                       children: [
-                        const Icon(Icons.star, color: Color(0xFFFBBF24), size: 14),
+                        const Icon(
+                          Icons.star,
+                          color: Color(0xFFFBBF24),
+                          size: 14,
+                        ),
                         const SizedBox(width: 3),
                         Text(
                           '${_shop.rating}',
@@ -555,7 +589,8 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
                           width: 96,
                           height: 32,
                           decoration: BoxDecoration(
-                            color: const Color(0xFF07153B).withValues(alpha: 0.85),
+                            color: const Color(0xFF07153B)
+                                .withValues(alpha: 0.85),
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
                               color: isFollowing
@@ -566,7 +601,8 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
                             boxShadow: [
                               if (!isFollowing)
                                 BoxShadow(
-                                  color: const Color(0xFF0075FF).withValues(alpha: 0.25),
+                                  color: const Color(0xFF0075FF)
+                                      .withValues(alpha: 0.25),
                                   blurRadius: 6,
                                   offset: const Offset(0, 2),
                                 ),
@@ -579,7 +615,9 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
                             children: [
                               Icon(
                                 isFollowing ? Icons.check : Icons.add,
-                                color: isFollowing ? const Color(0xFF0066FF) : const Color(0xFF00B4D8),
+                                color: isFollowing
+                                    ? const Color(0xFF0066FF)
+                                    : const Color(0xFF00B4D8),
                                 size: 14,
                               ),
                               const SizedBox(width: 4),
@@ -613,10 +651,12 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
                           width: 96,
                           height: 32,
                           decoration: BoxDecoration(
-                            color: const Color(0xFF07153B).withValues(alpha: 0.85),
+                            color: const Color(0xFF07153B)
+                                .withValues(alpha: 0.85),
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
-                              color: const Color(0xFF1E3A8A).withValues(alpha: 0.8),
+                              color: const Color(0xFF1E3A8A)
+                                  .withValues(alpha: 0.8),
                               width: 1.0,
                             ),
                           ),
@@ -720,8 +760,10 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
       sorted.sort((a, b) => b.soldCount.compareTo(a.soldCount));
     } else if (_selectedProductFilter == 'Price ⇅') {
       sorted.sort((a, b) {
-        final pa = double.tryParse(a.price.replaceAll(RegExp(r'[^0-9.]'), '')) ?? 0;
-        final pb = double.tryParse(b.price.replaceAll(RegExp(r'[^0-9.]'), '')) ?? 0;
+        final pa =
+            double.tryParse(a.price.replaceAll(RegExp(r'[^0-9.]'), '')) ?? 0;
+        final pb =
+            double.tryParse(b.price.replaceAll(RegExp(r'[^0-9.]'), '')) ?? 0;
         return pa.compareTo(pb);
       });
     }
@@ -752,7 +794,10 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
                         borderRadius: BorderRadius.circular(16),
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 200),
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6.5),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 6.5,
+                          ),
                           decoration: BoxDecoration(
                             color: isSel
                                 ? const Color(0xFFF0FDF4).withValues(alpha: 0.1)
@@ -771,7 +816,9 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
                               color: isSel
                                   ? const Color(0xFF0284C7)
                                   : const Color(0xFF64748B),
-                              fontWeight: isSel ? FontWeight.w800 : FontWeight.w600,
+                              fontWeight: isSel
+                                  ? FontWeight.w800
+                                  : FontWeight.w600,
                               fontSize: 12.5,
                             ),
                           ),
@@ -910,7 +957,11 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.verified_user_outlined, color: Color(0xFF0066FF), size: 18),
+              const Icon(
+                Icons.verified_user_outlined,
+                color: Color(0xFF0066FF),
+                size: 18,
+              ),
               const SizedBox(width: 8),
               Flexible(
                 child: Text(
@@ -1022,10 +1073,7 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
             voucher.expiry,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 9.5,
-              color: Color(0xFF94A3B8),
-            ),
+            style: const TextStyle(fontSize: 9.5, color: Color(0xFF94A3B8)),
           ),
           const SizedBox(height: 10),
 
@@ -1034,7 +1082,9 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
             width: double.infinity,
             height: 32,
             child: ElevatedButton(
-              onPressed: (isClaimed || isClaiming) ? null : () => _handleClaimVoucher(voucher),
+              onPressed: (isClaimed || isClaiming)
+                  ? null
+                  : () => _handleClaimVoucher(voucher),
               style: ElevatedButton.styleFrom(
                 backgroundColor: isClaimed
                     ? const Color(0xFFF1F5F9)
@@ -1044,7 +1094,9 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
                   side: BorderSide(
-                    color: isClaimed ? const Color(0xFFCBD5E1) : Colors.transparent,
+                    color: isClaimed
+                        ? const Color(0xFFCBD5E1)
+                        : Colors.transparent,
                     width: 1,
                   ),
                 ),
@@ -1063,13 +1115,19 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         if (isClaimed) ...[
-                          const Icon(Icons.check_circle, size: 14, color: Color(0xFF10B981)),
+                          const Icon(
+                            Icons.check_circle,
+                            size: 14,
+                            color: Color(0xFF10B981),
+                          ),
                           const SizedBox(width: 4),
                         ],
                         Text(
                           isClaimed ? 'CLAIMED' : 'CLAIM',
                           style: TextStyle(
-                            color: isClaimed ? const Color(0xFF64748B) : Colors.white,
+                            color: isClaimed
+                                ? const Color(0xFF64748B)
+                                : Colors.white,
                             fontWeight: FontWeight.w900,
                             fontSize: 12,
                             letterSpacing: 0.5,
@@ -1117,7 +1175,8 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
           duration: const Duration(milliseconds: 200),
           curve: Curves.easeOutCubic,
           transform: isHovered
-              ? (Matrix4.translationValues(0.0, -4.0, 0.0)..scaleByDouble(1.03, 1.03, 1.0, 1.0))
+              ? (Matrix4.translationValues(0.0, -4.0, 0.0)
+                  ..scaleByDouble(1.03, 1.03, 1.0, 1.0))
               : Matrix4.identity(),
           decoration: BoxDecoration(
             color: Colors.white,
@@ -1161,7 +1220,10 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
 
               // Title, items count & chevron
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 10,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -1245,11 +1307,12 @@ class _ShopTabBarDelegate extends SliverPersistentHeaderDelegate {
   double get maxExtent => tabBar.preferredSize.height;
 
   @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
-    return Container(
-      color: Colors.white,
-      child: tabBar,
-    );
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    return Container(color: Colors.white, child: tabBar);
   }
 
   @override

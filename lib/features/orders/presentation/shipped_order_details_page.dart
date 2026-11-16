@@ -12,10 +12,7 @@ import 'widgets/order_action_dialogs.dart';
 class ShippedOrderDetailsPage extends StatefulWidget {
   final OrderItemModel? order;
 
-  const ShippedOrderDetailsPage({
-    super.key,
-    this.order,
-  });
+  const ShippedOrderDetailsPage({super.key, this.order});
 
   @override
   State<ShippedOrderDetailsPage> createState() =>
@@ -73,7 +70,8 @@ class _ShippedOrderDetailsPageState extends State<ShippedOrderDetailsPage> {
       }
     }
     if (found != null && mounted) {
-      final preserved = (_currentOrder != null &&
+      final preserved =
+          (_currentOrder != null &&
               _currentOrder!.statusHistory.isNotEmpty &&
               found.statusHistory.isEmpty)
           ? found.copyWith(
@@ -113,7 +111,9 @@ class _ShippedOrderDetailsPageState extends State<ShippedOrderDetailsPage> {
     });
 
     try {
-      final updated = await OrderService.instance.fetchOrderDetailRemote(serverId);
+      final updated = await OrderService.instance.fetchOrderDetailRemote(
+        serverId,
+      );
       if (mounted) {
         setState(() {
           _currentOrder = updated;
@@ -151,7 +151,8 @@ class _ShippedOrderDetailsPageState extends State<ShippedOrderDetailsPage> {
         s == 'sorting_hub') {
       return 2;
     }
-    if (s == 'preparing' || s == 'processing' || s == 'ready_for_pickup') return 1;
+    if (s == 'preparing' || s == 'processing' || s == 'ready_for_pickup')
+      return 1;
     return 0;
   }
 
@@ -191,31 +192,31 @@ class _ShippedOrderDetailsPageState extends State<ShippedOrderDetailsPage> {
       body: order == null && _isLoading
           ? const Center(child: CircularProgressIndicator())
           : order == null
-              ? _buildNotFoundState()
-              : RefreshIndicator(
-                  onRefresh: _loadOrderDetail,
-                  child: SingleChildScrollView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    child: Column(
-                      children: [
-                        if (_errorMessage != null) _buildInlineErrorBanner(),
-                        _buildStatusHeroBanner(order),
-                        _buildStepperCard(order),
-                        if (order.rawStatus == 'out_for_delivery' &&
-                            order.deliveryOtp.isNotEmpty)
-                          _buildOtpCard(order),
-                        _buildLogisticsHubCard(order),
-                        _buildDeliveryInfoCard(order),
-                        _buildProductsCard(order),
-                        if (order.dispute != null)
-                          _buildDisputeCard(order, order.dispute!),
-                        if (order.review != null) _buildReviewCard(order.review!),
-                        _buildPaymentAndOrderDetailsCard(order),
-                        const SizedBox(height: 24),
-                      ],
-                    ),
-                  ),
+          ? _buildNotFoundState()
+          : RefreshIndicator(
+              onRefresh: _loadOrderDetail,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                child: Column(
+                  children: [
+                    if (_errorMessage != null) _buildInlineErrorBanner(),
+                    _buildStatusHeroBanner(order),
+                    _buildStepperCard(order),
+                    if (order.rawStatus == 'out_for_delivery' &&
+                        order.deliveryOtp.isNotEmpty)
+                      _buildOtpCard(order),
+                    _buildLogisticsHubCard(order),
+                    _buildDeliveryInfoCard(order),
+                    _buildProductsCard(order),
+                    if (order.dispute != null)
+                      _buildDisputeCard(order, order.dispute!),
+                    if (order.review != null) _buildReviewCard(order.review!),
+                    _buildPaymentAndOrderDetailsCard(order),
+                    const SizedBox(height: 24),
+                  ],
                 ),
+              ),
+            ),
       bottomNavigationBar: order != null ? _buildBottomActionBar(order) : null,
     );
   }
@@ -227,7 +228,11 @@ class _ShippedOrderDetailsPageState extends State<ShippedOrderDetailsPage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.search_off_rounded, size: 40, color: Color(0xFFDC2626)),
+            const Icon(
+              Icons.search_off_rounded,
+              size: 40,
+              color: Color(0xFFDC2626),
+            ),
             const SizedBox(height: 14),
             const Text(
               'Order Not Found',
@@ -286,7 +291,10 @@ class _ShippedOrderDetailsPageState extends State<ShippedOrderDetailsPage> {
               minimumSize: Size.zero,
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
-            child: const Text('Retry', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+            child: const Text(
+              'Retry',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+            ),
           ),
         ],
       ),
@@ -296,7 +304,8 @@ class _ShippedOrderDetailsPageState extends State<ShippedOrderDetailsPage> {
   Widget _buildStatusHeroBanner(OrderItemModel order) {
     final isCancelled = order.rawStatus == 'cancelled';
     final hasDispute = order.hasDispute;
-    final isDelivered = order.rawStatus == 'delivered' || order.rawStatus == 'completed';
+    final isDelivered =
+        order.rawStatus == 'delivered' || order.rawStatus == 'completed';
     final isOutForDelivery = order.rawStatus == 'out_for_delivery';
 
     Color bgColor = const Color(0xFF0F172A);
@@ -352,7 +361,11 @@ class _ShippedOrderDetailsPageState extends State<ShippedOrderDetailsPage> {
             const SizedBox(height: 6),
             Text(
               'Reason: ${order.cancellationReason}',
-              style: const TextStyle(color: Color(0xFFFECACA), fontSize: 11.5, fontWeight: FontWeight.w600),
+              style: const TextStyle(
+                color: Color(0xFFFECACA),
+                fontSize: 11.5,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ],
         ],
@@ -403,7 +416,9 @@ class _ShippedOrderDetailsPageState extends State<ShippedOrderDetailsPage> {
                 return Expanded(
                   child: Container(
                     height: 2.5,
-                    color: isPassed ? const Color(0xFF0066FF) : const Color(0xFFE2E8F0),
+                    color: isPassed
+                        ? const Color(0xFF0066FF)
+                        : const Color(0xFFE2E8F0),
                   ),
                 );
               }
@@ -416,10 +431,14 @@ class _ShippedOrderDetailsPageState extends State<ShippedOrderDetailsPage> {
                 width: 26,
                 height: 26,
                 decoration: BoxDecoration(
-                  color: (isPassed || isCurrent) ? const Color(0xFF0066FF) : Colors.white,
+                  color: (isPassed || isCurrent)
+                      ? const Color(0xFF0066FF)
+                      : Colors.white,
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: (isPassed || isCurrent) ? const Color(0xFF0066FF) : const Color(0xFFCBD5E1),
+                    color: (isPassed || isCurrent)
+                        ? const Color(0xFF0066FF)
+                        : const Color(0xFFCBD5E1),
                     width: 2,
                   ),
                 ),
@@ -427,15 +446,19 @@ class _ShippedOrderDetailsPageState extends State<ShippedOrderDetailsPage> {
                   child: isPassed
                       ? const Icon(Icons.check, size: 14, color: Colors.white)
                       : (isCurrent
-                          ? Icon(steps[stepIdx]['icon'] as IconData, size: 13, color: Colors.white)
-                          : Text(
-                              '${stepIdx + 1}',
-                              style: const TextStyle(
-                                fontSize: 10,
-                                color: Color(0xFF94A3B8),
-                                fontWeight: FontWeight.bold,
-                              ),
-                            )),
+                            ? Icon(
+                                steps[stepIdx]['icon'] as IconData,
+                                size: 13,
+                                color: Colors.white,
+                              )
+                            : Text(
+                                '${stepIdx + 1}',
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  color: Color(0xFF94A3B8),
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              )),
                 ),
               );
             }),
@@ -455,8 +478,12 @@ class _ShippedOrderDetailsPageState extends State<ShippedOrderDetailsPage> {
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 9.5,
-                    fontWeight: (isCurrent || isPassed) ? FontWeight.w800 : FontWeight.w600,
-                    color: (isCurrent || isPassed) ? const Color(0xFF0066FF) : const Color(0xFF64748B),
+                    fontWeight: (isCurrent || isPassed)
+                        ? FontWeight.w800
+                        : FontWeight.w600,
+                    color: (isCurrent || isPassed)
+                        ? const Color(0xFF0066FF)
+                        : const Color(0xFF64748B),
                   ),
                 ),
               );
@@ -486,7 +513,11 @@ class _ShippedOrderDetailsPageState extends State<ShippedOrderDetailsPage> {
               shape: BoxShape.circle,
               border: Border.all(color: const Color(0xFF93C5FD)),
             ),
-            child: const Icon(Icons.pin_outlined, color: Color(0xFF0066FF), size: 20),
+            child: const Icon(
+              Icons.pin_outlined,
+              color: Color(0xFF0066FF),
+              size: 20,
+            ),
           ),
           const SizedBox(width: 12),
           const Expanded(
@@ -533,8 +564,11 @@ class _ShippedOrderDetailsPageState extends State<ShippedOrderDetailsPage> {
   }
 
   Widget _buildLogisticsHubCard(OrderItemModel order) {
-    final trackingCode = order.trackingNumber.isNotEmpty ? order.trackingNumber : order.orderId;
-    final hasHubRoute = order.originHubName != null ||
+    final trackingCode = order.trackingNumber.isNotEmpty
+        ? order.trackingNumber
+        : order.orderId;
+    final hasHubRoute =
+        order.originHubName != null ||
         order.currentHubName != null ||
         order.destinationHubName != null;
 
@@ -563,7 +597,9 @@ class _ShippedOrderDetailsPageState extends State<ShippedOrderDetailsPage> {
               ),
               InkWell(
                 onTap: () {
-                  Clipboard.setData(ClipboardData(text: trackingCode.replaceAll('#', '')));
+                  Clipboard.setData(
+                    ClipboardData(text: trackingCode.replaceAll('#', '')),
+                  );
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
                       content: Text('Tracking number copied to clipboard'),
@@ -610,7 +646,11 @@ class _ShippedOrderDetailsPageState extends State<ShippedOrderDetailsPage> {
                 children: [
                   const Text(
                     'Hub Routing',
-                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF64748B)),
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF64748B),
+                    ),
                   ),
                   const SizedBox(height: 6),
                   Wrap(
@@ -619,16 +659,33 @@ class _ShippedOrderDetailsPageState extends State<ShippedOrderDetailsPage> {
                     runSpacing: 4,
                     children: [
                       if (order.originHubName != null) ...[
-                        _buildHubBadge('Origin: ${order.originHubName}', const Color(0xFF2563EB)),
-                        const Icon(Icons.arrow_forward, size: 13, color: Color(0xFF94A3B8)),
+                        _buildHubBadge(
+                          'Origin: ${order.originHubName}',
+                          const Color(0xFF2563EB),
+                        ),
+                        const Icon(
+                          Icons.arrow_forward,
+                          size: 13,
+                          color: Color(0xFF94A3B8),
+                        ),
                       ],
                       if (order.currentHubName != null) ...[
-                        _buildHubBadge('Current: ${order.currentHubName}', const Color(0xFF7C3AED)),
+                        _buildHubBadge(
+                          'Current: ${order.currentHubName}',
+                          const Color(0xFF7C3AED),
+                        ),
                         if (order.destinationHubName != null)
-                          const Icon(Icons.arrow_forward, size: 13, color: Color(0xFF94A3B8)),
+                          const Icon(
+                            Icons.arrow_forward,
+                            size: 13,
+                            color: Color(0xFF94A3B8),
+                          ),
                       ],
                       if (order.destinationHubName != null)
-                        _buildHubBadge('Destination: ${order.destinationHubName}', const Color(0xFF059669)),
+                        _buildHubBadge(
+                          'Destination: ${order.destinationHubName}',
+                          const Color(0xFF059669),
+                        ),
                     ],
                   ),
                 ],
@@ -646,7 +703,11 @@ class _ShippedOrderDetailsPageState extends State<ShippedOrderDetailsPage> {
                     color: Color(0xFFF1F5F9),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.two_wheeler_rounded, color: Color(0xFF0284C7), size: 18),
+                  child: const Icon(
+                    Icons.two_wheeler_rounded,
+                    color: Color(0xFF0284C7),
+                    size: 18,
+                  ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -655,7 +716,11 @@ class _ShippedOrderDetailsPageState extends State<ShippedOrderDetailsPage> {
                     children: [
                       Text(
                         'Assigned Rider: ${order.courierName}',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0F172A)),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                          color: Color(0xFF0F172A),
+                        ),
                       ),
                       if (order.courierPhone != null ||
                           order.courierVehicle != null ||
@@ -663,11 +728,17 @@ class _ShippedOrderDetailsPageState extends State<ShippedOrderDetailsPage> {
                         const SizedBox(height: 2),
                         Text(
                           [
-                            order.courierVehicle,
-                            order.courierPlateNumber,
-                            order.courierPhone,
-                          ].whereType<String>().where((s) => s.isNotEmpty).join(' • '),
-                          style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                                order.courierVehicle,
+                                order.courierPlateNumber,
+                                order.courierPhone,
+                              ]
+                              .whereType<String>()
+                              .where((s) => s.isNotEmpty)
+                              .join(' • '),
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF64748B),
+                          ),
                         ),
                       ],
                     ],
@@ -770,8 +841,9 @@ class _ShippedOrderDetailsPageState extends State<ShippedOrderDetailsPage> {
                         item.note.isNotEmpty ? item.note : item.status,
                         style: TextStyle(
                           fontSize: 12.5,
-                          fontWeight:
-                              isLatest ? FontWeight.w600 : FontWeight.w500,
+                          fontWeight: isLatest
+                              ? FontWeight.w600
+                              : FontWeight.w500,
                           color: isLatest
                               ? const Color(0xFF0F172A)
                               : const Color(0xFF64748B),
@@ -820,7 +892,11 @@ class _ShippedOrderDetailsPageState extends State<ShippedOrderDetailsPage> {
       ),
       child: Text(
         text,
-        style: TextStyle(color: color, fontSize: 10.5, fontWeight: FontWeight.w700),
+        style: TextStyle(
+          color: color,
+          fontSize: 10.5,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }
@@ -837,7 +913,11 @@ class _ShippedOrderDetailsPageState extends State<ShippedOrderDetailsPage> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.location_on_outlined, color: Color(0xFF0066FF), size: 20),
+          const Icon(
+            Icons.location_on_outlined,
+            color: Color(0xFF0066FF),
+            size: 20,
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -853,20 +933,30 @@ class _ShippedOrderDetailsPageState extends State<ShippedOrderDetailsPage> {
                   ),
                 ),
                 const SizedBox(height: 6),
-                if (order.recipientName.isNotEmpty || order.recipientPhone.isNotEmpty)
+                if (order.recipientName.isNotEmpty ||
+                    order.recipientPhone.isNotEmpty)
                   Text(
                     [
                       order.recipientName,
-                      if (order.recipientPhone.isNotEmpty) '(${order.recipientPhone})',
+                      if (order.recipientPhone.isNotEmpty)
+                        '(${order.recipientPhone})',
                     ].where((s) => s.isNotEmpty).join(' '),
-                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: Color(0xFF0F172A)),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                      color: Color(0xFF0F172A),
+                    ),
                   ),
                 const SizedBox(height: 2),
                 Text(
                   order.shippingAddress.isNotEmpty
                       ? order.shippingAddress
                       : 'Address snapshot unavailable',
-                  style: const TextStyle(color: Color(0xFF475569), fontSize: 12, height: 1.3),
+                  style: const TextStyle(
+                    color: Color(0xFF475569),
+                    fontSize: 12,
+                    height: 1.3,
+                  ),
                 ),
               ],
             ),
@@ -877,7 +967,9 @@ class _ShippedOrderDetailsPageState extends State<ShippedOrderDetailsPage> {
   }
 
   Widget _buildProductsCard(OrderItemModel order) {
-    final storeName = order.storeName.isNotEmpty ? order.storeName : 'Seller Store';
+    final storeName = order.storeName.isNotEmpty
+        ? order.storeName
+        : 'Seller Store';
 
     return Container(
       width: double.infinity,
@@ -892,12 +984,20 @@ class _ShippedOrderDetailsPageState extends State<ShippedOrderDetailsPage> {
         children: [
           Row(
             children: [
-              const Icon(Icons.storefront_outlined, size: 17, color: Color(0xFF0066FF)),
+              const Icon(
+                Icons.storefront_outlined,
+                size: 17,
+                color: Color(0xFF0066FF),
+              ),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
                   storeName,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0F172A)),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                    color: Color(0xFF0F172A),
+                  ),
                 ),
               ),
             ],
@@ -937,22 +1037,42 @@ class _ShippedOrderDetailsPageState extends State<ShippedOrderDetailsPage> {
                       children: [
                         Text(
                           item.title,
-                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5, color: Color(0xFF0F172A)),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 12.5,
+                            color: Color(0xFF0F172A),
+                          ),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
                         if (item.variant.isNotEmpty) ...[
                           const SizedBox(height: 2),
-                          Text(item.variant, style: const TextStyle(color: Color(0xFF64748B), fontSize: 11)),
+                          Text(
+                            item.variant,
+                            style: const TextStyle(
+                              color: Color(0xFF64748B),
+                              fontSize: 11,
+                            ),
+                          ),
                         ],
                         const SizedBox(height: 4),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text('x${item.quantity}', style: const TextStyle(color: Color(0xFF64748B), fontSize: 11.5)),
+                            Text(
+                              'x${item.quantity}',
+                              style: const TextStyle(
+                                color: Color(0xFF64748B),
+                                fontSize: 11.5,
+                              ),
+                            ),
                             Text(
                               '₱${item.price.toStringAsFixed(2)}',
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0F172A)),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                                color: Color(0xFF0F172A),
+                              ),
                             ),
                           ],
                         ),
@@ -995,31 +1115,51 @@ class _ShippedOrderDetailsPageState extends State<ShippedOrderDetailsPage> {
                 color: dispute.returnStage == 'rejected'
                     ? NexoraTheme.error
                     : dispute.returnStage == 'refund_recorded'
-                        ? NexoraTheme.success
-                        : NexoraTheme.accent,
+                    ? NexoraTheme.success
+                    : NexoraTheme.accent,
               ),
             ],
           ),
           const SizedBox(height: 6),
           Text(
             'Reason: ${dispute.reason}',
-            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: cs.onSurface),
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 12,
+              color: cs.onSurface,
+            ),
           ),
           if (dispute.details.isNotEmpty) ...[
             const SizedBox(height: 3),
-            Text(dispute.details, style: TextStyle(fontSize: 11.5, color: cs.onSurfaceVariant)),
+            Text(
+              dispute.details,
+              style: TextStyle(fontSize: 11.5, color: cs.onSurfaceVariant),
+            ),
           ],
           if (dispute.sellerResponse?.isNotEmpty == true) ...[
             const SizedBox(height: 6),
-            Text('Seller Response: ${dispute.sellerResponse}', style: TextStyle(fontSize: 11.5, color: cs.onSurface)),
+            Text(
+              'Seller Response: ${dispute.sellerResponse}',
+              style: TextStyle(fontSize: 11.5, color: cs.onSurface),
+            ),
           ],
           if (dispute.returnInstructions?.isNotEmpty == true) ...[
             const SizedBox(height: 4),
-            Text('Return Instructions: ${dispute.returnInstructions}', style: TextStyle(fontSize: 11.5, color: cs.onSurfaceVariant)),
+            Text(
+              'Return Instructions: ${dispute.returnInstructions}',
+              style: TextStyle(fontSize: 11.5, color: cs.onSurfaceVariant),
+            ),
           ],
           if (dispute.returnTrackingNumber?.isNotEmpty == true) ...[
             const SizedBox(height: 4),
-            Text('Return Tracking #: ${dispute.returnTrackingNumber}', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: cs.primary)),
+            Text(
+              'Return Tracking #: ${dispute.returnTrackingNumber}',
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w700,
+                color: cs.primary,
+              ),
+            ),
           ],
           if (dispute.inspectionCondition?.isNotEmpty == true) ...[
             const SizedBox(height: 4),
@@ -1032,15 +1172,21 @@ class _ShippedOrderDetailsPageState extends State<ShippedOrderDetailsPage> {
             const SizedBox(height: 4),
             Text(
               'Refund: ₱${dispute.refundAmount!.toStringAsFixed(2)}${dispute.refundMethod?.isNotEmpty == true ? ' via ${dispute.refundMethod}' : ''}${dispute.refundReference?.isNotEmpty == true ? ' (Ref: ${dispute.refundReference})' : ''}',
-              style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: NexoraTheme.success),
+              style: const TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w700,
+                color: NexoraTheme.success,
+              ),
             ),
           ],
-          if (dispute.returnStage == 'approved_awaiting_return' && order.serverId > 0) ...[
+          if (dispute.returnStage == 'approved_awaiting_return' &&
+              order.serverId > 0) ...[
             const SizedBox(height: 10),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                onPressed: () => OrderActionDialogs.showReturnShipmentDialog(context, order),
+                onPressed: () =>
+                    OrderActionDialogs.showReturnShipmentDialog(context, order),
                 icon: const Icon(Icons.local_shipping_outlined, size: 15),
                 label: const Text('Submit Return Tracking'),
               ),
@@ -1061,7 +1207,8 @@ class _ShippedOrderDetailsPageState extends State<ShippedOrderDetailsPage> {
                     child: Image.network(
                       ImageUrlHelper.resolve(url),
                       fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) => const Icon(Icons.broken_image, size: 20),
+                      errorBuilder: (_, _, _) =>
+                          const Icon(Icons.broken_image, size: 20),
                     ),
                   ),
                 );
@@ -1091,11 +1238,19 @@ class _ShippedOrderDetailsPageState extends State<ShippedOrderDetailsPage> {
             children: [
               Row(
                 children: [
-                  const Icon(Icons.star_rounded, color: Color(0xFFF59E0B), size: 18),
+                  const Icon(
+                    Icons.star_rounded,
+                    color: Color(0xFFF59E0B),
+                    size: 18,
+                  ),
                   const SizedBox(width: 4),
                   Text(
                     '${review.rating} / 5 Stars',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Color(0xFF92400E)),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12.5,
+                      color: Color(0xFF92400E),
+                    ),
                   ),
                 ],
               ),
@@ -1104,22 +1259,35 @@ class _ShippedOrderDetailsPageState extends State<ShippedOrderDetailsPage> {
                   onPressed: () {
                     final order = _currentOrder;
                     if (order != null) {
-                      Navigator.pushNamed(context, AppRoutes.rateProduct, arguments: order);
+                      Navigator.pushNamed(
+                        context,
+                        AppRoutes.rateProduct,
+                        arguments: order,
+                      );
                     }
                   },
                   style: TextButton.styleFrom(
                     foregroundColor: const Color(0xFFB45309),
                     minimumSize: Size.zero,
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
-                  child: const Text('Edit Review', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+                  child: const Text(
+                    'Edit Review',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+                  ),
                 ),
             ],
           ),
           if (review.comment != null && review.comment!.isNotEmpty) ...[
             const SizedBox(height: 6),
-            Text(review.comment!, style: const TextStyle(fontSize: 12, color: Color(0xFF78350F))),
+            Text(
+              review.comment!,
+              style: const TextStyle(fontSize: 12, color: Color(0xFF78350F)),
+            ),
           ],
         ],
       ),
@@ -1154,21 +1322,35 @@ class _ShippedOrderDetailsPageState extends State<ShippedOrderDetailsPage> {
           const SizedBox(height: 6),
           _buildRow('Placed At', order.orderDateTimeText),
           const Divider(height: 18, color: Color(0xFFF1F5F9)),
-          _buildRow('Merchandise Subtotal', '₱${order.subtotal.toStringAsFixed(2)}'),
+          _buildRow(
+            'Merchandise Subtotal',
+            '₱${order.subtotal.toStringAsFixed(2)}',
+          ),
           const SizedBox(height: 6),
           _buildRow('Shipping Fee', '₱${order.shippingFee.toStringAsFixed(2)}'),
           if (order.discount > 0) ...[
             const SizedBox(height: 6),
-            _buildRow('Voucher Discount', '-₱${order.discount.toStringAsFixed(2)}', valueColor: const Color(0xFF059669)),
+            _buildRow(
+              'Voucher Discount',
+              '-₱${order.discount.toStringAsFixed(2)}',
+              valueColor: const Color(0xFF059669),
+            ),
           ],
           const SizedBox(height: 10),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Total Amount', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
+              const Text(
+                'Total Amount',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+              ),
               Text(
                 '₱${order.totalPrice.toStringAsFixed(2)}',
-                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15, color: Color(0xFF0066FF)),
+                style: const TextStyle(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 15,
+                  color: Color(0xFF0066FF),
+                ),
               ),
             ],
           ),
@@ -1181,7 +1363,10 @@ class _ShippedOrderDetailsPageState extends State<ShippedOrderDetailsPage> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+        ),
         Text(
           value,
           style: TextStyle(
@@ -1197,12 +1382,15 @@ class _ShippedOrderDetailsPageState extends State<ShippedOrderDetailsPage> {
   Widget? _buildBottomActionBar(OrderItemModel order) {
     final canConfirmReceipt =
         order.rawStatus == 'out_for_delivery' || order.rawStatus == 'delivered';
-    final firstProductId =
-        order.items.isNotEmpty ? order.items.first.productId : null;
-    final canReview = order.canBeReviewed &&
+    final firstProductId = order.items.isNotEmpty
+        ? order.items.first.productId
+        : null;
+    final canReview =
+        order.canBeReviewed &&
         (order.review == null || order.review!.canBeEdited);
 
-    final hasAnyAction = order.canBeCancelled ||
+    final hasAnyAction =
+        order.canBeCancelled ||
         order.canBeReturned ||
         canConfirmReceipt ||
         canReview ||
@@ -1231,10 +1419,11 @@ class _ShippedOrderDetailsPageState extends State<ShippedOrderDetailsPage> {
             if (order.canBeCancelled)
               OutlinedButton(
                 onPressed: () async {
-                  final updated = await OrderActionDialogs.showCancelOrderDialog(
-                    context,
-                    order,
-                  );
+                  final updated =
+                      await OrderActionDialogs.showCancelOrderDialog(
+                        context,
+                        order,
+                      );
                   if (updated != null && mounted) {
                     setState(() => _currentOrder = updated);
                   }
@@ -1242,18 +1431,27 @@ class _ShippedOrderDetailsPageState extends State<ShippedOrderDetailsPage> {
                 style: OutlinedButton.styleFrom(
                   foregroundColor: const Color(0xFFE11D48),
                   side: const BorderSide(color: Color(0xFFFECDD3)),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
                 ),
-                child: const Text('Cancel Order', style: TextStyle(fontWeight: FontWeight.bold)),
+                child: const Text(
+                  'Cancel Order',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
               ),
             if (order.canBeReturned)
               OutlinedButton(
                 onPressed: () async {
-                  final updated = await OrderActionDialogs.showReturnRequestDialog(
-                    context,
-                    order,
-                  );
+                  final updated =
+                      await OrderActionDialogs.showReturnRequestDialog(
+                        context,
+                        order,
+                      );
                   if (updated != null && mounted) {
                     setState(() => _currentOrder = updated);
                   }
@@ -1261,29 +1459,46 @@ class _ShippedOrderDetailsPageState extends State<ShippedOrderDetailsPage> {
                 style: OutlinedButton.styleFrom(
                   foregroundColor: const Color(0xFF7C3AED),
                   side: const BorderSide(color: Color(0xFFDDD6FE)),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
                 ),
-                child: const Text('Return / Refund', style: TextStyle(fontWeight: FontWeight.bold)),
+                child: const Text(
+                  'Return / Refund',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
               ),
             if (canConfirmReceipt)
               ElevatedButton.icon(
                 onPressed: () async {
-                  final updated = await OrderActionDialogs.showConfirmReceiptDialog(
-                    context,
-                    order,
-                  );
+                  final updated =
+                      await OrderActionDialogs.showConfirmReceiptDialog(
+                        context,
+                        order,
+                      );
                   if (updated != null && mounted) {
                     setState(() => _currentOrder = updated);
                   }
                 },
                 icon: const Icon(Icons.check_circle_outline, size: 16),
-                label: const Text('Order Received', style: TextStyle(fontWeight: FontWeight.bold)),
+                label: const Text(
+                  'Order Received',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF0066FF),
                   foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
                 ),
               ),
             if (canReview)
@@ -1301,8 +1516,13 @@ class _ShippedOrderDetailsPageState extends State<ShippedOrderDetailsPage> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFF59E0B),
                   foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
                 ),
               ),
             if (firstProductId != null &&
@@ -1318,10 +1538,18 @@ class _ShippedOrderDetailsPageState extends State<ShippedOrderDetailsPage> {
                 style: OutlinedButton.styleFrom(
                   foregroundColor: const Color(0xFF0F172A),
                   side: const BorderSide(color: Color(0xFFCBD5E1)),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
                 ),
-                child: const Text('Buy Again', style: TextStyle(fontWeight: FontWeight.bold)),
+                child: const Text(
+                  'Buy Again',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
               ),
           ],
         ),

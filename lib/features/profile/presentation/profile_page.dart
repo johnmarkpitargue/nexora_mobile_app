@@ -93,18 +93,22 @@ class _ProfilePageState extends State<ProfilePage> {
         }
 
         if (ApiClient.instance.hasToken) {
-          final remoteRes = await BuyerAccountService.instance.updateProfileRemote(
-            firstName:
-                session?.firstName ??
-                ProfileService.instance.name.split(' ').first,
-            lastName:
-                session?.lastName ??
-                (ProfileService.instance.name.split(' ').length > 1
-                    ? ProfileService.instance.name.split(' ').sublist(1).join(' ')
-                    : 'User'),
-            avatarBytes: bytes,
-            avatarFilename: name,
-          );
+          final remoteRes = await BuyerAccountService.instance
+              .updateProfileRemote(
+                firstName:
+                    session?.firstName ??
+                    ProfileService.instance.name.split(' ').first,
+                lastName:
+                    session?.lastName ??
+                    (ProfileService.instance.name.split(' ').length > 1
+                        ? ProfileService.instance.name
+                              .split(' ')
+                              .sublist(1)
+                              .join(' ')
+                        : 'User'),
+                avatarBytes: bytes,
+                avatarFilename: name,
+              );
           if (!remoteRes.success && mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -182,7 +186,9 @@ class _ProfilePageState extends State<ProfilePage> {
                 IconButton(
                   icon: Icon(
                     Icons.close_rounded,
-                    color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                    color: isDark
+                        ? const Color(0xFF94A3B8)
+                        : const Color(0xFF64748B),
                   ),
                   onPressed: () => Navigator.pop(modalCtx),
                 ),
@@ -212,7 +218,9 @@ class _ProfilePageState extends State<ProfilePage> {
                 'Pick photo from your computer or gallery',
                 style: TextStyle(
                   fontSize: 12,
-                  color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                  color: isDark
+                      ? const Color(0xFF94A3B8)
+                      : const Color(0xFF64748B),
                 ),
               ),
               onTap: () {
@@ -243,7 +251,9 @@ class _ProfilePageState extends State<ProfilePage> {
                 'Snap a new profile picture now',
                 style: TextStyle(
                   fontSize: 12,
-                  color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                  color: isDark
+                      ? const Color(0xFF94A3B8)
+                      : const Color(0xFF64748B),
                 ),
               ),
               onTap: () {
@@ -279,7 +289,10 @@ class _ProfilePageState extends State<ProfilePage> {
     final lastNameCtrl = TextEditingController(text: lastName);
     String initialUsername = profile.username;
     if (initialUsername.isEmpty || initialUsername == '@alexrivera') {
-      final emailPrefix = (session?.email ?? profile.email).split('@').first.trim();
+      final emailPrefix = (session?.email ?? profile.email)
+          .split('@')
+          .first
+          .trim();
       initialUsername = emailPrefix.isNotEmpty ? '@$emailPrefix' : '@username';
     }
     final usernameCtrl = TextEditingController(text: initialUsername);
@@ -307,8 +320,12 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
             decoration: BoxDecoration(
               color: isDark ? const Color(0xFF0F172A) : Colors.white,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-              border: isDark ? Border.all(color: const Color(0xFF1E293B)) : null,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(24),
+              ),
+              border: isDark
+                  ? Border.all(color: const Color(0xFF1E293B))
+                  : null,
             ),
             child: SingleChildScrollView(
               child: Column(
@@ -323,13 +340,17 @@ class _ProfilePageState extends State<ProfilePage> {
                         style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.w900,
-                          color: isDark ? Colors.white : const Color(0xFF0F172A),
+                          color: isDark
+                              ? Colors.white
+                              : const Color(0xFF0F172A),
                         ),
                       ),
                       IconButton(
                         icon: Icon(
                           Icons.close_rounded,
-                          color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                          color: isDark
+                              ? const Color(0xFF94A3B8)
+                              : const Color(0xFF64748B),
                         ),
                         onPressed: () => Navigator.pop(sheetContext),
                       ),
@@ -349,7 +370,9 @@ class _ProfilePageState extends State<ProfilePage> {
                               height: 88,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                                color: isDark
+                                    ? const Color(0xFF1E293B)
+                                    : const Color(0xFFF1F5F9),
                                 image: avatarProvider != null
                                     ? DecorationImage(
                                         image: avatarProvider,
@@ -467,14 +490,18 @@ class _ProfilePageState extends State<ProfilePage> {
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 13,
-                                color: isDark ? Colors.white : const Color(0xFF0F172A),
+                                color: isDark
+                                    ? Colors.white
+                                    : const Color(0xFF0F172A),
                               ),
                             ),
                             const SizedBox(height: 4),
                             TextField(
                               controller: firstNameCtrl,
                               style: TextStyle(
-                                color: isDark ? Colors.white : const Color(0xFF0F172A),
+                                color: isDark
+                                    ? Colors.white
+                                    : const Color(0xFF0F172A),
                                 fontSize: 14,
                                 fontWeight: FontWeight.w500,
                               ),
@@ -497,14 +524,18 @@ class _ProfilePageState extends State<ProfilePage> {
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 13,
-                                color: isDark ? Colors.white : const Color(0xFF0F172A),
+                                color: isDark
+                                    ? Colors.white
+                                    : const Color(0xFF0F172A),
                               ),
                             ),
                             const SizedBox(height: 4),
                             TextField(
                               controller: lastNameCtrl,
                               style: TextStyle(
-                                color: isDark ? Colors.white : const Color(0xFF0F172A),
+                                color: isDark
+                                    ? Colors.white
+                                    : const Color(0xFF0F172A),
                                 fontSize: 14,
                                 fontWeight: FontWeight.w500,
                               ),
@@ -554,7 +585,9 @@ class _ProfilePageState extends State<ProfilePage> {
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 13,
-                          color: isDark ? Colors.white : const Color(0xFF0F172A),
+                          color: isDark
+                              ? Colors.white
+                              : const Color(0xFF0F172A),
                         ),
                       ),
                       TextButton(
@@ -585,16 +618,22 @@ class _ProfilePageState extends State<ProfilePage> {
                       vertical: 12,
                     ),
                     decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                      color: isDark
+                          ? const Color(0xFF1E293B)
+                          : const Color(0xFFF1F5F9),
                       borderRadius: BorderRadius.circular(14),
-                      border: isDark ? Border.all(color: const Color(0xFF334155)) : null,
+                      border: isDark
+                          ? Border.all(color: const Color(0xFF334155))
+                          : null,
                     ),
                     child: Row(
                       children: [
                         Icon(
                           Icons.email_outlined,
                           size: 18,
-                          color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                          color: isDark
+                              ? const Color(0xFF94A3B8)
+                              : const Color(0xFF64748B),
                         ),
                         const SizedBox(width: 10),
                         Expanded(
@@ -606,7 +645,9 @@ class _ProfilePageState extends State<ProfilePage> {
                                 profile.email,
                             style: TextStyle(
                               fontSize: 13.5,
-                              color: isDark ? const Color(0xFFE2E8F0) : const Color(0xFF334155),
+                              color: isDark
+                                  ? const Color(0xFFE2E8F0)
+                                  : const Color(0xFF334155),
                               fontWeight: FontWeight.w500,
                             ),
                           ),
@@ -690,9 +731,12 @@ class _ProfilePageState extends State<ProfilePage> {
 
                         final cleanPhone = phoneCtrl.text.trim();
                         if (cleanPhone.isNotEmpty &&
-                            !BuyerValidationRules.phoneRegex.hasMatch(BuyerValidationRules.normalizePhone(cleanPhone))) {
-                          setSheetState(() => sheetError =
-                              'Please enter a valid 11-digit Philippine mobile number starting with 09');
+                            !BuyerValidationRules.phoneRegex.hasMatch(
+                              BuyerValidationRules.normalizePhone(cleanPhone),
+                            )) {
+                          setSheetState(
+                            () => sheetError = 'Please enter a valid 11-digit Philippine mobile number starting with 09',
+                          );
                           return;
                         }
 
@@ -707,22 +751,29 @@ class _ProfilePageState extends State<ProfilePage> {
                         }
 
                         if (ApiClient.instance.hasToken) {
-                          final remoteRes = await BuyerAccountService.instance.updateProfileRemote(
-                            firstName: firstNameCtrl.text.trim(),
-                            lastName: lastNameCtrl.text.trim(),
-                            phone: cleanPhone,
-                          );
+                          final remoteRes = await BuyerAccountService.instance
+                              .updateProfileRemote(
+                                firstName: firstNameCtrl.text.trim(),
+                                lastName: lastNameCtrl.text.trim(),
+                                phone: cleanPhone,
+                              );
                           if (!remoteRes.success) {
                             setSheetState(() => sheetError = remoteRes.message);
                             return;
                           }
                         }
 
-                        BuyerAccountService.instance.currentBuyerSession?.mobileNumber = cleanPhone;
+                        BuyerAccountService
+                                .instance
+                                .currentBuyerSession
+                                ?.mobileNumber =
+                            cleanPhone;
 
                         final rawUsername = usernameCtrl.text.trim();
                         final cleanUsername = rawUsername.isNotEmpty
-                            ? (rawUsername.startsWith('@') ? rawUsername : '@$rawUsername')
+                            ? (rawUsername.startsWith('@')
+                                  ? rawUsername
+                                  : '@$rawUsername')
                             : '@${(session?.email ?? profile.email).split('@').first}';
 
                         ProfileService.instance.updateProfile(
@@ -868,221 +919,235 @@ class _ProfilePageState extends State<ProfilePage> {
             constraints: const BoxConstraints(maxWidth: 820),
             child: ListView(
               key: const ValueKey('profile-dashboard-scroll'),
-          physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(
-            NexoraSpacing.md,
-            NexoraSpacing.md,
-            NexoraSpacing.md,
-            112,
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(
+                NexoraSpacing.md,
+                NexoraSpacing.md,
+                NexoraSpacing.md,
+                112,
+              ),
+              children: [
+                ProfileIdentityCard(
+                  key: const ValueKey('profile-identity-card'),
+                  name: loggedIn
+                      ? (buyer?.fullName ?? profile.name)
+                      : 'Welcome to Nexora',
+                  subtitle: loggedIn ? (buyer?.email ?? profile.email) : 'Sign in to sync orders, saved items, and account preferences.',
+                  avatarImage: loggedIn ? _getAvatarImageProvider() : null,
+                  isGuest: !loggedIn,
+                  onAvatarTap: loggedIn ? _showEditProfileSheet : null,
+                  actionLabel: loggedIn ? 'Edit profile' : 'Sign in',
+                  onAction: loggedIn
+                      ? _showEditProfileSheet
+                      : () => Navigator.pushNamed(context, AppRoutes.login),
+                ),
+                const SizedBox(height: NexoraSpacing.md),
+                ProfileMetricsPanel(
+                  items: [
+                    ProfileMetricData(
+                      value: '${OrderService.instance.totalOrderCount}',
+                      label: 'Orders',
+                      onTap: () => Navigator.pushReplacementNamed(
+                        context,
+                        AppRoutes.orders,
+                      ),
+                    ),
+                    ProfileMetricData(
+                      value: '${WishlistService.instance.itemCount}',
+                      label: 'Wishlist',
+                      onTap: () =>
+                          Navigator.pushNamed(context, AppRoutes.wishlist),
+                    ),
+                    ProfileMetricData(
+                      value: '${ShopService.instance.followedShopCount}',
+                      label: 'Following',
+                      onTap: () => Navigator.pushNamed(
+                        context,
+                        AppRoutes.followedStores,
+                      ),
+                    ),
+                    ProfileMetricData(
+                      value: '$addressCount',
+                      label: 'Addresses',
+                      onTap: () =>
+                          Navigator.pushNamed(context, AppRoutes.myAddresses),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: NexoraSpacing.xl),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Purchases',
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w800),
+                      ),
+                    ),
+                    TextButton(
+                      key: const ValueKey('profile-view-all-orders'),
+                      onPressed: () => Navigator.pushReplacementNamed(
+                        context,
+                        AppRoutes.orders,
+                      ),
+                      child: const Text('View all'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: NexoraSpacing.xs),
+                ProfileShortcutGrid(
+                  items: [
+                    ProfileShortcutData(
+                      icon: Icons.inventory_2_outlined,
+                      label: 'To Ship',
+                      onTap: () => _openOrderFilter(context, 1),
+                    ),
+                    ProfileShortcutData(
+                      icon: Icons.local_shipping_outlined,
+                      label: 'To Receive',
+                      onTap: () => _openOrderFilter(context, 2),
+                    ),
+                    ProfileShortcutData(
+                      icon: Icons.rate_review_outlined,
+                      label: 'Completed',
+                      onTap: () => _openOrderFilter(context, 3),
+                    ),
+                    ProfileShortcutData(
+                      icon: Icons.assignment_return_outlined,
+                      label: 'Return/Refund',
+                      onTap: () => _openOrderFilter(context, 4),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: NexoraSpacing.xl),
+                ProfileSettingGroup(
+                  title: 'Account',
+                  children: [
+                    ProfileSettingTile(
+                      icon: NexoraTheme.isDarkMode
+                          ? Icons.dark_mode_rounded
+                          : Icons.light_mode_rounded,
+                      title: 'Appearance',
+                      subtitle: NexoraTheme.isDarkMode
+                          ? 'Dark Mode (Active)'
+                          : 'Light Mode (Active)',
+                      trailingWidget: Switch.adaptive(
+                        value: NexoraTheme.isDarkMode,
+                        activeTrackColor: const Color(0xFF0075FF),
+                        onChanged: (val) {
+                          NexoraTheme.toggleTheme();
+                        },
+                      ),
+                      onTap: () {
+                        NexoraTheme.toggleTheme();
+                      },
+                    ),
+                    ProfileSettingTile(
+                      icon: Icons.shield_outlined,
+                      title: 'Account and security',
+                      subtitle:
+                          'Profile details, password, and sign-in security',
+                      onTap: () => showAccountSecurityModal(context),
+                    ),
+                    ProfileSettingTile(
+                      icon: Icons.location_on_outlined,
+                      title: 'My addresses',
+                      subtitle: 'Delivery recipients and saved locations',
+                      trailing: '$addressCount saved',
+                      onTap: () =>
+                          Navigator.pushNamed(context, AppRoutes.myAddresses),
+                    ),
+                    ProfileSettingTile(
+                      icon: Icons.account_balance_wallet_outlined,
+                      title: 'Payment methods',
+                      subtitle: 'Choose how you pay at checkout',
+                      trailing: payment.name,
+                      onTap: () => Navigator.pushNamed(
+                        context,
+                        AppRoutes.paymentMethods,
+                      ),
+                    ),
+                    ProfileSettingTile(
+                      icon: Icons.notifications_none_rounded,
+                      title: 'Notifications',
+                      subtitle: 'Orders, messages, offers, and phone alerts',
+                      onTap: () => Navigator.pushNamed(
+                        context,
+                        AppRoutes.notificationPreferences,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: NexoraSpacing.xl),
+                ProfileSettingGroup(
+                  title: 'Shopping',
+                  children: [
+                    ProfileSettingTile(
+                      icon: Icons.favorite_border_rounded,
+                      title: 'Saved wishlist',
+                      subtitle: 'Products you want to revisit',
+                      trailing: '${WishlistService.instance.itemCount} items',
+                      onTap: () =>
+                          Navigator.pushNamed(context, AppRoutes.wishlist),
+                    ),
+                    ProfileSettingTile(
+                      icon: Icons.storefront_outlined,
+                      title: 'Followed stores',
+                      subtitle: 'Shops and brands you follow',
+                      trailing: '${ShopService.instance.followedShopCount}',
+                      onTap: () => Navigator.pushNamed(
+                        context,
+                        AppRoutes.followedStores,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: NexoraSpacing.xl),
+                ProfileSettingGroup(
+                  title: 'Support',
+                  children: [
+                    ProfileSettingTile(
+                      icon: Icons.support_agent_rounded,
+                      title: 'Help center and support',
+                      subtitle: 'Ask a question or open a support ticket',
+                      onTap: () => Navigator.pushNamed(context, AppRoutes.chat),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: NexoraSpacing.xl),
+                if (loggedIn)
+                  OutlinedButton.icon(
+                    key: const ValueKey('profile-logout-action'),
+                    onPressed: () => _showLogoutConfirmationDialog(context),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: NexoraTheme.error,
+                      side: const BorderSide(color: NexoraTheme.error),
+                    ),
+                    icon: const Icon(Icons.logout_rounded),
+                    label: const Text('Log out'),
+                  )
+                else
+                  FilledButton.icon(
+                    onPressed: () =>
+                        Navigator.pushNamed(context, AppRoutes.login),
+                    icon: const Icon(Icons.login_rounded),
+                    label: const Text('Sign in or create account'),
+                  ),
+                const SizedBox(height: NexoraSpacing.lg),
+                Text(
+                  'Nexora v2.4.1 (Build 890)',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: theme.colorScheme.onSurfaceVariant,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
           ),
-          children: [
-            ProfileIdentityCard(
-              key: const ValueKey('profile-identity-card'),
-              name: loggedIn
-                  ? (buyer?.fullName ?? profile.name)
-                  : 'Welcome to Nexora',
-              subtitle: loggedIn ? (buyer?.email ?? profile.email) : 'Sign in to sync orders, saved items, and account preferences.',
-              avatarImage: loggedIn ? _getAvatarImageProvider() : null,
-              isGuest: !loggedIn,
-              onAvatarTap: loggedIn ? _showEditProfileSheet : null,
-              actionLabel: loggedIn ? 'Edit profile' : 'Sign in',
-              onAction: loggedIn
-                  ? _showEditProfileSheet
-                  : () => Navigator.pushNamed(context, AppRoutes.login),
-            ),
-            const SizedBox(height: NexoraSpacing.md),
-            ProfileMetricsPanel(
-              items: [
-                ProfileMetricData(
-                  value: '${OrderService.instance.totalOrderCount}',
-                  label: 'Orders',
-                  onTap: () =>
-                      Navigator.pushReplacementNamed(context, AppRoutes.orders),
-                ),
-                ProfileMetricData(
-                  value: '${WishlistService.instance.itemCount}',
-                  label: 'Wishlist',
-                  onTap: () => Navigator.pushNamed(context, AppRoutes.wishlist),
-                ),
-                ProfileMetricData(
-                  value: '${ShopService.instance.followedShopCount}',
-                  label: 'Following',
-                  onTap: () =>
-                      Navigator.pushNamed(context, AppRoutes.followedStores),
-                ),
-                ProfileMetricData(
-                  value: '$addressCount',
-                  label: 'Addresses',
-                  onTap: () =>
-                      Navigator.pushNamed(context, AppRoutes.myAddresses),
-                ),
-              ],
-            ),
-            const SizedBox(height: NexoraSpacing.xl),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'Purchases',
-                    style: Theme.of(context).textTheme.titleMedium
-                        ?.copyWith(fontWeight: FontWeight.w800),
-                  ),
-                ),
-                TextButton(
-                  key: const ValueKey('profile-view-all-orders'),
-                  onPressed: () =>
-                      Navigator.pushReplacementNamed(context, AppRoutes.orders),
-                  child: const Text('View all'),
-                ),
-              ],
-            ),
-            const SizedBox(height: NexoraSpacing.xs),
-            ProfileShortcutGrid(
-              items: [
-                ProfileShortcutData(
-                  icon: Icons.inventory_2_outlined,
-                  label: 'To Ship',
-                  onTap: () => _openOrderFilter(context, 1),
-                ),
-                ProfileShortcutData(
-                  icon: Icons.local_shipping_outlined,
-                  label: 'To Receive',
-                  onTap: () => _openOrderFilter(context, 2),
-                ),
-                ProfileShortcutData(
-                  icon: Icons.rate_review_outlined,
-                  label: 'Completed',
-                  onTap: () => _openOrderFilter(context, 3),
-                ),
-                ProfileShortcutData(
-                  icon: Icons.assignment_return_outlined,
-                  label: 'Return/Refund',
-                  onTap: () => _openOrderFilter(context, 4),
-                ),
-              ],
-            ),
-            const SizedBox(height: NexoraSpacing.xl),
-            ProfileSettingGroup(
-              title: 'Account',
-              children: [
-                ProfileSettingTile(
-                  icon: NexoraTheme.isDarkMode
-                      ? Icons.dark_mode_rounded
-                      : Icons.light_mode_rounded,
-                  title: 'Appearance',
-                  subtitle: NexoraTheme.isDarkMode
-                      ? 'Dark Mode (Active)'
-                      : 'Light Mode (Active)',
-                  trailingWidget: Switch.adaptive(
-                    value: NexoraTheme.isDarkMode,
-                    activeTrackColor: const Color(0xFF0075FF),
-                    onChanged: (val) {
-                      NexoraTheme.toggleTheme();
-                    },
-                  ),
-                  onTap: () {
-                    NexoraTheme.toggleTheme();
-                  },
-                ),
-                ProfileSettingTile(
-                  icon: Icons.shield_outlined,
-                  title: 'Account and security',
-                  subtitle: 'Profile details, password, and sign-in security',
-                  onTap: () => showAccountSecurityModal(context),
-                ),
-                ProfileSettingTile(
-                  icon: Icons.location_on_outlined,
-                  title: 'My addresses',
-                  subtitle: 'Delivery recipients and saved locations',
-                  trailing: '$addressCount saved',
-                  onTap: () =>
-                      Navigator.pushNamed(context, AppRoutes.myAddresses),
-                ),
-                ProfileSettingTile(
-                  icon: Icons.account_balance_wallet_outlined,
-                  title: 'Payment methods',
-                  subtitle: 'Choose how you pay at checkout',
-                  trailing: payment.name,
-                  onTap: () =>
-                      Navigator.pushNamed(context, AppRoutes.paymentMethods),
-                ),
-                ProfileSettingTile(
-                  icon: Icons.notifications_none_rounded,
-                  title: 'Notifications',
-                  subtitle: 'Orders, messages, offers, and phone alerts',
-                  onTap: () => Navigator.pushNamed(
-                    context,
-                    AppRoutes.notificationPreferences,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: NexoraSpacing.xl),
-            ProfileSettingGroup(
-              title: 'Shopping',
-              children: [
-                ProfileSettingTile(
-                  icon: Icons.favorite_border_rounded,
-                  title: 'Saved wishlist',
-                  subtitle: 'Products you want to revisit',
-                  trailing: '${WishlistService.instance.itemCount} items',
-                  onTap: () => Navigator.pushNamed(context, AppRoutes.wishlist),
-                ),
-                ProfileSettingTile(
-                  icon: Icons.storefront_outlined,
-                  title: 'Followed stores',
-                  subtitle: 'Shops and brands you follow',
-                  trailing: '${ShopService.instance.followedShopCount}',
-                  onTap: () =>
-                      Navigator.pushNamed(context, AppRoutes.followedStores),
-                ),
-              ],
-            ),
-            const SizedBox(height: NexoraSpacing.xl),
-            ProfileSettingGroup(
-              title: 'Support',
-              children: [
-                ProfileSettingTile(
-                  icon: Icons.support_agent_rounded,
-                  title: 'Help center and support',
-                  subtitle: 'Ask a question or open a support ticket',
-                  onTap: () => Navigator.pushNamed(context, AppRoutes.chat),
-                ),
-              ],
-            ),
-            const SizedBox(height: NexoraSpacing.xl),
-            if (loggedIn)
-              OutlinedButton.icon(
-                key: const ValueKey('profile-logout-action'),
-                onPressed: () => _showLogoutConfirmationDialog(context),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: NexoraTheme.error,
-                  side: const BorderSide(color: NexoraTheme.error),
-                ),
-                icon: const Icon(Icons.logout_rounded),
-                label: const Text('Log out'),
-              )
-            else
-              FilledButton.icon(
-                onPressed: () => Navigator.pushNamed(context, AppRoutes.login),
-                icon: const Icon(Icons.login_rounded),
-                label: const Text('Sign in or create account'),
-              ),
-            const SizedBox(height: NexoraSpacing.lg),
-            Text(
-              'Nexora v2.4.1 (Build 890)',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: theme.colorScheme.onSurfaceVariant,
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
         ),
       ),
-    ),
-  ),
     );
   }
 
@@ -2534,10 +2599,7 @@ class _ProfilePageState extends State<ProfilePage> {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(
-          color: Color(0xFF0066FF),
-          width: 1.5,
-        ),
+        borderSide: const BorderSide(color: Color(0xFF0066FF), width: 1.5),
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
     );
