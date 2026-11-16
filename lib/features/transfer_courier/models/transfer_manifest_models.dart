@@ -24,6 +24,89 @@ class HubSummary {
   }
 }
 
+class ParcelIncidentEventModel {
+  final int id;
+  final String eventType;
+  final String? toStatus;
+  final String? disposition;
+  final String? location;
+  final String? notes;
+  final String? occurredAt;
+
+  const ParcelIncidentEventModel({
+    required this.id,
+    required this.eventType,
+    this.toStatus,
+    this.disposition,
+    this.location,
+    this.notes,
+    this.occurredAt,
+  });
+
+  factory ParcelIncidentEventModel.fromJson(Map<String, dynamic> json) {
+    return ParcelIncidentEventModel(
+      id: (json['id'] as num?)?.toInt() ?? 0,
+      eventType: json['event_type']?.toString() ?? '',
+      toStatus: json['to_status']?.toString(),
+      disposition: json['disposition']?.toString(),
+      location: json['location']?.toString(),
+      notes: json['notes']?.toString(),
+      occurredAt: json['occurred_at']?.toString(),
+    );
+  }
+}
+
+class ParcelIncidentSummaryModel {
+  final int id;
+  final String incidentNumber;
+  final String incidentType;
+  final String investigationStatus;
+  final String statusLabel;
+  final String? disposition;
+  final String? dispositionLabel;
+  final String? lastKnownLocation;
+  final String? evidenceUrl;
+  final String? reportedAt;
+  final String? resolvedAt;
+  final List<ParcelIncidentEventModel> events;
+
+  const ParcelIncidentSummaryModel({
+    required this.id,
+    required this.incidentNumber,
+    required this.incidentType,
+    required this.investigationStatus,
+    required this.statusLabel,
+    this.disposition,
+    this.dispositionLabel,
+    this.lastKnownLocation,
+    this.evidenceUrl,
+    this.reportedAt,
+    this.resolvedAt,
+    this.events = const [],
+  });
+
+  factory ParcelIncidentSummaryModel.fromJson(Map<String, dynamic> json) {
+    final rawEvents = json['events'] as List<dynamic>? ?? [];
+    return ParcelIncidentSummaryModel(
+      id: (json['id'] as num?)?.toInt() ?? 0,
+      incidentNumber: json['incident_number']?.toString() ?? 'INC',
+      incidentType: json['incident_type']?.toString() ?? '',
+      investigationStatus: json['investigation_status']?.toString() ?? 'open',
+      statusLabel: json['status_label']?.toString() ?? 'Open',
+      disposition: json['disposition']?.toString(),
+      dispositionLabel: json['disposition_label']?.toString(),
+      lastKnownLocation: json['last_known_location']?.toString(),
+      evidenceUrl: json['evidence_url']?.toString(),
+      reportedAt: json['reported_at']?.toString(),
+      resolvedAt: json['resolved_at']?.toString(),
+      events: rawEvents
+          .whereType<Map<String, dynamic>>()
+          .map(ParcelIncidentEventModel.fromJson)
+          .toList(),
+    );
+  }
+}
+
 class TransferManifestItemModel {
   final int id;
   final int manifestId;
@@ -37,6 +120,8 @@ class TransferManifestItemModel {
   final String receivingStatus;
   final String? receivedAt;
   final String? issueNotes;
+  final String? disposition;
+  final ParcelIncidentSummaryModel? incident;
 
   const TransferManifestItemModel({
     required this.id,
@@ -51,6 +136,8 @@ class TransferManifestItemModel {
     required this.receivingStatus,
     this.receivedAt,
     this.issueNotes,
+    this.disposition,
+    this.incident,
   });
 
   bool get isLoaded => loadingStatus == 'loaded';
@@ -58,7 +145,8 @@ class TransferManifestItemModel {
       loadingStatus == 'issue' ||
       receivingStatus == 'missing' ||
       receivingStatus == 'damaged' ||
-      receivingStatus == 'discrepancy';
+      receivingStatus == 'discrepancy' ||
+      incident != null;
 
   factory TransferManifestItemModel.fromJson(Map<String, dynamic> json) {
     return TransferManifestItemModel(
@@ -74,6 +162,12 @@ class TransferManifestItemModel {
       receivingStatus: json['receiving_status']?.toString() ?? 'pending',
       receivedAt: json['received_at']?.toString(),
       issueNotes: json['issue_notes']?.toString(),
+      disposition: json['disposition']?.toString(),
+      incident: json['incident'] is Map<String, dynamic>
+          ? ParcelIncidentSummaryModel.fromJson(
+              json['incident'] as Map<String, dynamic>,
+            )
+          : null,
     );
   }
 }
@@ -115,6 +209,10 @@ class TransferManifestModel {
     this.items = const [],
   });
 
+  bool get isTerminal =>
+      status == 'completed' ||
+      status == 'closed_with_exceptions' ||
+      status == 'cancelled';
   bool get canScanLoading =>
       status == 'draft' || status == 'loading' || status == 'ready_to_dispatch';
   bool get canConfirmDeparture =>
@@ -122,10 +220,11 @@ class TransferManifestModel {
   bool get canMarkArrived =>
       (status == 'in_transit' || status == 'exception') && arrivedAt == null;
   bool get canReportIssue =>
-      status == 'loading' ||
-      status == 'ready_to_dispatch' ||
-      status == 'in_transit' ||
-      (status == 'exception' && arrivedAt == null);
+      !isTerminal &&
+      (status == 'loading' ||
+          status == 'ready_to_dispatch' ||
+          status == 'in_transit' ||
+          (status == 'exception' && arrivedAt == null));
 
   factory TransferManifestModel.fromJson(Map<String, dynamic> json) {
     final rawItems = json['items'] as List<dynamic>? ?? [];

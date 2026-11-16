@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/services/rider_account_service.dart';
 import '../../../core/theme/rider_theme.dart';
@@ -270,35 +271,75 @@ class _ManifestDetailScreenState extends State<ManifestDetailScreen> {
   Future<void> _openReportIssueDialog(String trackingNumber) async {
     String issueType = 'damaged';
     final notesController = TextEditingController();
+    final locationController = TextEditingController();
+    XFile? selectedPhoto;
+
     final submitted = await showDialog<bool>(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
           title: Text('Report Issue: $trackingNumber'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              DropdownButtonFormField<String>(
-                initialValue: issueType,
-                items: const [
-                  DropdownMenuItem(value: 'damaged', child: Text('Damaged')),
-                  DropdownMenuItem(value: 'missing', child: Text('Missing')),
-                ],
-                onChanged: (v) {
-                  if (v != null) setDialogState(() => issueType = v);
-                },
-                decoration: const InputDecoration(labelText: 'Issue Type'),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: notesController,
-                maxLines: 3,
-                decoration: const InputDecoration(
-                  labelText: 'Details',
-                  hintText: 'Describe the parcel condition or discrepancy...',
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                DropdownButtonFormField<String>(
+                  initialValue: issueType,
+                  items: const [
+                    DropdownMenuItem(value: 'damaged', child: Text('Damaged')),
+                    DropdownMenuItem(value: 'missing', child: Text('Missing')),
+                    DropdownMenuItem(
+                      value: 'discrepancy',
+                      child: Text('Discrepancy'),
+                    ),
+                  ],
+                  onChanged: (v) {
+                    if (v != null) setDialogState(() => issueType = v);
+                  },
+                  decoration: const InputDecoration(labelText: 'Issue Type'),
                 ),
-              ),
-            ],
+                const SizedBox(height: 12),
+                TextField(
+                  controller: locationController,
+                  decoration: const InputDecoration(
+                    labelText: 'Last Known Location (Optional)',
+                    hintText: 'e.g. Calamba Loading Bay / SLEX Transit',
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: notesController,
+                  maxLines: 3,
+                  decoration: const InputDecoration(
+                    labelText: 'Details',
+                    hintText: 'Describe the parcel condition or discrepancy...',
+                  ),
+                ),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: () async {
+                    try {
+                      final picker = ImagePicker();
+                      final picked = await picker.pickImage(
+                        source: ImageSource.camera,
+                        imageQuality: 75,
+                      );
+                      if (picked != null) {
+                        setDialogState(() => selectedPhoto = picked);
+                      }
+                    } catch (_) {}
+                  },
+                  icon: const Icon(Icons.camera_alt_outlined, size: 18),
+                  label: Text(
+                    selectedPhoto == null
+                        ? 'Attach Photo Evidence (Optional)'
+                        : 'Photo attached: ${selectedPhoto!.name}',
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
           ),
           actions: [
             TextButton(
@@ -324,17 +365,24 @@ class _ManifestDetailScreenState extends State<ManifestDetailScreen> {
     if (submitted != true || _isSubmitting) return;
     setState(() => _isSubmitting = true);
     try {
-      await TransferCourierService.instance.reportIssue(
+      final updatedItem = await TransferCourierService.instance.reportIssue(
         widget.manifestId,
         trackingNumber: trackingNumber,
         issueType: issueType,
         notes: notesController.text,
+        lastKnownLocation: locationController.text,
+        evidencePhotoPath: selectedPhoto?.path,
       );
       await _loadManifest();
       if (mounted) {
+        final ref = updatedItem?.incident?.incidentNumber;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Issue reported to logistics operators.'),
+          SnackBar(
+            content: Text(
+              ref != null
+                  ? 'Incident $ref reported to logistics operators.'
+                  : 'Issue reported to logistics operators.',
+            ),
             backgroundColor: RiderTheme.warningOrange,
           ),
         );
@@ -344,6 +392,119 @@ class _ManifestDetailScreenState extends State<ManifestDetailScreen> {
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
+  }
+
+  void _openIncidentTimelineSheet(TransferManifestItemModel item) {
+    final incident = item.incident;
+    if (incident == null) return;
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    incident.incidentNumber,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  Chip(label: Text(incident.statusLabel)),
+                ],
+              ),
+              Text(
+                'Tracking: ${item.trackingNumber} • Type: ${incident.incidentType.toUpperCase()}',
+                style: const TextStyle(fontSize: 12, color: RiderTheme.textMuted),
+              ),
+              if (incident.lastKnownLocation != null &&
+                  incident.lastKnownLocation!.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Text(
+                    'Last Known Location: ${incident.lastKnownLocation}',
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                ),
+              if (incident.dispositionLabel != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(
+                    'Disposition: ${incident.dispositionLabel}',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              const Divider(height: 22),
+              const Text(
+                'Investigation Updates',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 8),
+              if (incident.events.isEmpty)
+                const Text(
+                  'Awaiting logistics operator investigation update.',
+                  style: TextStyle(fontSize: 12, color: RiderTheme.textMuted),
+                )
+              else
+                ...incident.events.map(
+                  (ev) => Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(Icons.circle, size: 8, color: RiderTheme.primary),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                ev.eventType.replaceAll('_', ' ').toUpperCase(),
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              if (ev.notes != null && ev.notes!.isNotEmpty)
+                                Text(ev.notes!, style: const TextStyle(fontSize: 12)),
+                              if (ev.occurredAt != null)
+                                Text(
+                                  ev.occurredAt!,
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    color: RiderTheme.textMuted,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 8),
+              const Text(
+                'Note: Only authorized logistics operators or administrators can resolve incidents, clear quarantine, or declare parcel loss.',
+                style: TextStyle(fontSize: 11, color: RiderTheme.textMuted),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -581,6 +742,45 @@ class _ManifestDetailScreenState extends State<ManifestDetailScreen> {
                             color: RiderTheme.textMuted,
                           ),
                         ),
+                        if (item.incident != null) ...[
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 7,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: RiderTheme.warningOrange
+                                      .withValues(alpha: 0.14),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  '${item.incident!.incidentNumber} • ${item.incident!.statusLabel}',
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w700,
+                                    color: RiderTheme.warningOrange,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              GestureDetector(
+                                onTap: () => _openIncidentTimelineSheet(item),
+                                child: const Text(
+                                  'Timeline',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: RiderTheme.primary,
+                                    decoration: TextDecoration.underline,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                         if (item.issueNotes != null &&
                             item.issueNotes!.isNotEmpty)
                           Text(
@@ -604,7 +804,7 @@ class _ManifestDetailScreenState extends State<ManifestDetailScreen> {
                       icon: const Icon(Icons.qr_code_scanner_rounded, size: 16),
                       label: const Text('Scan'),
                     ),
-                  if (m.status != 'completed' && m.status != 'cancelled')
+                  if (!m.isTerminal)
                     IconButton(
                       tooltip: 'Report Issue',
                       onPressed: _isSubmitting

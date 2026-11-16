@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 import '../../../core/constants/api_constants.dart';
 import '../../../core/network/api_client.dart';
 import '../models/transfer_manifest_models.dart';
@@ -188,24 +189,51 @@ class TransferCourierService extends ChangeNotifier {
     return TransferManifestModel.fromJson(res.data as Map<String, dynamic>);
   }
 
-  Future<void> reportIssue(
+  Future<TransferManifestItemModel?> reportIssue(
     int manifestId, {
     required String trackingNumber,
     required String issueType,
     required String notes,
+    String? lastKnownLocation,
+    String? evidencePhotoPath,
   }) async {
-    await ApiClient.instance.post(
-      ApiConstants.transferCourierManifestReportIssue(manifestId),
-      body: {
-        'tracking_number': trackingNumber.trim(),
-        'issue_type': issueType,
-        'notes': notes.trim(),
-      },
-    );
+    final fields = <String, String>{
+      'tracking_number': trackingNumber.trim(),
+      'issue_type': issueType,
+      'notes': notes.trim(),
+      if (lastKnownLocation != null && lastKnownLocation.trim().isNotEmpty)
+        'last_known_location': lastKnownLocation.trim(),
+    };
+
+    final ApiResponse<dynamic> res;
+    if (evidencePhotoPath != null && evidencePhotoPath.isNotEmpty) {
+      final multipartFile = await http.MultipartFile.fromPath(
+        'evidence_photo',
+        evidencePhotoPath,
+      );
+      res = await ApiClient.instance.multipartPost(
+        ApiConstants.transferCourierManifestReportIssue(manifestId),
+        fields: fields,
+        files: {'evidence_photo': multipartFile},
+      );
+    } else {
+      res = await ApiClient.instance.post(
+        ApiConstants.transferCourierManifestReportIssue(manifestId),
+        body: fields,
+      );
+    }
+
     await Future.wait([
       fetchDashboard(),
       fetchManifests(filter: _lastFilter),
     ]);
+
+    if (res.data is Map<String, dynamic>) {
+      return TransferManifestItemModel.fromJson(
+        res.data as Map<String, dynamic>,
+      );
+    }
+    return null;
   }
 
   Future<void> fetchProfile() async {
