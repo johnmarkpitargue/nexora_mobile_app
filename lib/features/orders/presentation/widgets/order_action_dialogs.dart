@@ -97,19 +97,13 @@ class OrderActionDialogs {
               }
             }
 
-            final isDark = Theme.of(dialogCtx).brightness == Brightness.dark;
             return AlertDialog(
-              backgroundColor: isDark ? const Color(0xFF0D1323) : Colors.white,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(18),
               ),
-              title: Text(
+              title: const Text(
                 'Cancel Order',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                  color: isDark ? Colors.white : const Color(0xFF0F172A),
-                ),
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
               ),
               content: SingleChildScrollView(
                 child: Column(
@@ -118,18 +112,18 @@ class OrderActionDialogs {
                   children: [
                     Text(
                       'Order ${order.orderId} will be cancelled and inventory will be restored immediately.',
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 12.5,
-                        color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF475569),
+                        color: Color(0xFF475569),
                       ),
                     ),
                     const SizedBox(height: 12),
-                    Text(
+                    const Text(
                       'Reason for cancellation',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
-                        color: isDark ? Colors.white : const Color(0xFF0F172A),
+                        color: Color(0xFF0F172A),
                       ),
                     ),
                     const SizedBox(height: 6),
@@ -205,10 +199,7 @@ class OrderActionDialogs {
                   onPressed: isSubmitting
                       ? null
                       : () => Navigator.pop(dialogCtx, null),
-                  child: Text(
-                    'Back',
-                    style: TextStyle(color: isDark ? const Color(0xFF94A3B8) : Colors.black54),
-                  ),
+                  child: const Text('Back'),
                 ),
                 ElevatedButton(
                   onPressed: isSubmitting ? null : submit,
@@ -296,30 +287,21 @@ class OrderActionDialogs {
               }
             }
 
-            final isDark = Theme.of(dialogCtx).brightness == Brightness.dark;
             return AlertDialog(
-              backgroundColor: isDark ? const Color(0xFF0D1323) : Colors.white,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(18),
               ),
-              title: Text(
+              title: const Text(
                 'Confirm Order Received?',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                  color: isDark ? Colors.white : const Color(0xFF0F172A),
-                ),
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
               ),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
+                  const Text(
                     'Have you received all items in good condition? Confirming will mark the order Completed.',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF334155),
-                    ),
+                    style: TextStyle(fontSize: 13, color: Color(0xFF334155)),
                   ),
                   if (errorMessage != null) ...[
                     const SizedBox(height: 10),
@@ -347,12 +329,9 @@ class OrderActionDialogs {
                   onPressed: isSubmitting
                       ? null
                       : () => Navigator.pop(dialogCtx, null),
-                  child: Text(
+                  child: const Text(
                     'Not Yet',
-                    style: TextStyle(
-                      color: isDark ? const Color(0xFF94A3B8) : Colors.black54,
-                      fontWeight: FontWeight.w600,
-                    ),
+                    style: TextStyle(color: Colors.black54),
                   ),
                 ),
                 ElevatedButton(
@@ -502,39 +481,29 @@ class OrderActionDialogs {
               }
             }
 
-            final isDark = Theme.of(dialogCtx).brightness == Brightness.dark;
             return AlertDialog(
-              backgroundColor: isDark ? const Color(0xFF0D1323) : Colors.white,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(18),
               ),
-              title: Text(
+              title: const Text(
                 'File Return / Refund Request',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                  color: isDark ? Colors.white : const Color(0xFF0F172A),
-                ),
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
               ),
               content: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
+                    const Text(
                       'Permitted within 7 days of delivery. Requires 1–5 proof photos or videos.',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF475569),
-                      ),
+                      style: TextStyle(fontSize: 12, color: Color(0xFF475569)),
                     ),
                     const SizedBox(height: 12),
-                    Text(
+                    const Text(
                       'Return Reason',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
-                        color: isDark ? Colors.white : const Color(0xFF0F172A),
                       ),
                     ),
                     const SizedBox(height: 6),
@@ -681,10 +650,7 @@ class OrderActionDialogs {
                   onPressed: isSubmitting
                       ? null
                       : () => Navigator.pop(dialogCtx, null),
-                  child: Text(
-                    'Cancel',
-                    style: TextStyle(color: isDark ? const Color(0xFF94A3B8) : Colors.black54),
-                  ),
+                  child: const Text('Cancel'),
                 ),
                 ElevatedButton(
                   onPressed: isSubmitting ? null : submit,

@@ -170,8 +170,6 @@ class _NewAddressPageState extends State<NewAddressPage> {
     final searchController = TextEditingController();
     List<LagunaPlace> searchSuggestions = [];
 
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -194,10 +192,9 @@ class _NewAddressPageState extends State<NewAddressPage> {
 
           return Container(
             height: MediaQuery.of(context).size.height * 0.90,
-            decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF0D1323) : Colors.white,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-              border: isDark ? Border.all(color: const Color(0xFF1E293B), width: 1) : null,
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
             ),
             child: Column(
               children: [
@@ -207,7 +204,7 @@ class _NewAddressPageState extends State<NewAddressPage> {
                     width: 44,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFF334155) : Colors.grey.shade300,
+                      color: Colors.grey.shade300,
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -229,7 +226,7 @@ class _NewAddressPageState extends State<NewAddressPage> {
                             color: primaryBlue, size: 20),
                       ),
                       const SizedBox(width: 10),
-                      Expanded(
+                      const Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -238,19 +235,19 @@ class _NewAddressPageState extends State<NewAddressPage> {
                               style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w800,
-                                  color: isDark ? Colors.white : textDark),
+                                  color: textDark),
                             ),
                             Text(
                               'Move map to place pin at your exact doorstep or gate',
                               style: TextStyle(
-                                  fontSize: 11, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+                                  fontSize: 11, color: Color(0xFF64748B)),
                             ),
                           ],
                         ),
                       ),
                       IconButton(
-                        icon: Icon(Icons.close_rounded,
-                            color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+                        icon: const Icon(Icons.close_rounded,
+                            color: Color(0xFF64748B)),
                         onPressed: () => Navigator.pop(modalCtx),
                       ),
                     ],
@@ -264,34 +261,26 @@ class _NewAddressPageState extends State<NewAddressPage> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10),
                     decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFF131D38) : const Color(0xFFF1F5F9),
+                      color: const Color(0xFFF1F5F9),
                       borderRadius: BorderRadius.circular(12),
-                      border: isDark ? Border.all(color: const Color(0xFF1E293B)) : null,
                     ),
                     child: Row(
                       children: [
-                        Icon(Icons.search_rounded,
-                            size: 18, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+                        const Icon(Icons.search_rounded,
+                            size: 18, color: Color(0xFF64748B)),
                         const SizedBox(width: 8),
                         Expanded(
                           child: TextField(
                             controller: searchController,
-                            style: TextStyle(fontSize: 13, color: isDark ? Colors.white : const Color(0xFF0F172A)),
-                            decoration: InputDecoration(
-                              filled: false,
-                              fillColor: Colors.transparent,
+                            style: const TextStyle(fontSize: 13),
+                            decoration: const InputDecoration(
                               hintText: 'Search place, landmark, or street...',
                               hintStyle: TextStyle(
-                                  fontSize: 12.5, color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8)),
+                                  fontSize: 12.5, color: Color(0xFF94A3B8)),
                               border: InputBorder.none,
-                              enabledBorder: InputBorder.none,
-                              focusedBorder: InputBorder.none,
-                              disabledBorder: InputBorder.none,
-                              errorBorder: InputBorder.none,
-                              focusedErrorBorder: InputBorder.none,
                               isDense: true,
                               contentPadding:
-                                  const EdgeInsets.symmetric(vertical: 10),
+                                  EdgeInsets.symmetric(vertical: 10),
                             ),
                             onChanged: (val) async {
                               if (val.trim().isEmpty) {
@@ -327,22 +316,22 @@ class _NewAddressPageState extends State<NewAddressPage> {
                     constraints: const BoxConstraints(maxHeight: 180),
                     margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                     decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFF11192B) : Colors.white,
+                      color: Colors.white,
                       borderRadius: BorderRadius.circular(12),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.1),
+                          color: Colors.black.withValues(alpha: 0.1),
                           blurRadius: 10,
                           offset: const Offset(0, 4),
                         ),
                       ],
-                      border: Border.all(color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0)),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
                     ),
                     child: ListView.separated(
                       shrinkWrap: true,
                       itemCount: searchSuggestions.length.clamp(0, 5),
                       separatorBuilder: (ctx, index) =>
-                          Divider(height: 1, color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9)),
+                          const Divider(height: 1, color: Color(0xFFF1F5F9)),
                       itemBuilder: (ctx, idx) {
                         final p = searchSuggestions[idx];
                         return ListTile(
@@ -350,13 +339,11 @@ class _NewAddressPageState extends State<NewAddressPage> {
                           leading: const Icon(Icons.location_on_outlined,
                               size: 18, color: primaryBlue),
                           title: Text(p.name,
-                              style: TextStyle(
-                                  fontSize: 12.5,
-                                  fontWeight: FontWeight.bold,
-                                  color: isDark ? Colors.white : const Color(0xFF0F172A))),
+                              style: const TextStyle(
+                                  fontSize: 12.5, fontWeight: FontWeight.bold)),
                           subtitle: Text(
                               '${p.cityOrMunicipality}, ${p.province} • ${p.postalCode}',
-                              style: TextStyle(fontSize: 10.5, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B))),
+                              style: const TextStyle(fontSize: 10.5)),
                           onTap: () {
                             setModalState(() {
                               tempLat = p.latitude;
@@ -558,7 +545,7 @@ class _NewAddressPageState extends State<NewAddressPage> {
                           children: [
                             FloatingActionButton.small(
                               heroTag: 'map_locate',
-                              backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+                              backgroundColor: Colors.white,
                               foregroundColor: primaryBlue,
                               elevation: 3,
                               onPressed: () async {
@@ -589,11 +576,11 @@ class _NewAddressPageState extends State<NewAddressPage> {
                             const SizedBox(height: 8),
                             Container(
                               decoration: BoxDecoration(
-                                color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                                color: Colors.white,
                                 borderRadius: BorderRadius.circular(8),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.15),
+                                    color: Colors.black.withValues(alpha: 0.15),
                                     blurRadius: 6,
                                   ),
                                 ],
@@ -601,7 +588,7 @@ class _NewAddressPageState extends State<NewAddressPage> {
                               child: Column(
                                 children: [
                                   IconButton(
-                                    icon: Icon(Icons.add, size: 18, color: isDark ? Colors.white : Colors.black87),
+                                    icon: const Icon(Icons.add, size: 18),
                                     onPressed: () {
                                       if (tempZoom < 18) {
                                         setModalState(() => tempZoom++);
@@ -611,9 +598,9 @@ class _NewAddressPageState extends State<NewAddressPage> {
                                         minWidth: 36, minHeight: 36),
                                     padding: EdgeInsets.zero,
                                   ),
-                                  Divider(height: 1, color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
+                                  const Divider(height: 1),
                                   IconButton(
-                                    icon: Icon(Icons.remove, size: 18, color: isDark ? Colors.white : Colors.black87),
+                                    icon: const Icon(Icons.remove, size: 18),
                                     onPressed: () {
                                       if (tempZoom > 12) {
                                         setModalState(() => tempZoom--);
@@ -638,7 +625,7 @@ class _NewAddressPageState extends State<NewAddressPage> {
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
-                              color: isDark ? Colors.black.withValues(alpha: 0.6) : Colors.white.withValues(alpha: 0.7),
+                              color: Colors.white.withValues(alpha: 0.7),
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: const Text(
@@ -661,11 +648,10 @@ class _NewAddressPageState extends State<NewAddressPage> {
                 Container(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
                   decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF0D1323) : Colors.white,
-                    border: isDark ? const Border(top: BorderSide(color: Color(0xFF1E293B), width: 1)) : null,
+                    color: Colors.white,
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.08),
+                        color: Colors.black.withValues(alpha: 0.08),
                         blurRadius: 10,
                         offset: const Offset(0, -3),
                       ),
@@ -683,10 +669,10 @@ class _NewAddressPageState extends State<NewAddressPage> {
                           Expanded(
                             child: Text(
                               tempPlaceName,
-                              style: TextStyle(
+                              style: const TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w800,
-                                color: isDark ? Colors.white : textDark,
+                                color: textDark,
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -697,9 +683,9 @@ class _NewAddressPageState extends State<NewAddressPage> {
                       const SizedBox(height: 2),
                       Text(
                         'Coordinates: ${tempLat.toStringAsFixed(4)}° N, ${tempLng.toStringAsFixed(4)}° E',
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 11,
-                          color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                          color: Color(0xFF64748B),
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -1340,7 +1326,7 @@ class _NewAddressPageState extends State<NewAddressPage> {
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
-                            backgroundColor: isDark ? Colors.transparent : Colors.white,
+                            backgroundColor: Colors.white,
                           ),
                           child: const Text(
                             'Delete Address',
@@ -1410,33 +1396,28 @@ class _NewAddressPageState extends State<NewAddressPage> {
 
   /// Builds the embedded map preview inside the Address Card, actively centered on pinned coordinates
   Widget _buildEmbeddedMapPreview() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final headerBg = isDark ? const Color(0xFF10192D) : const Color(0xFFF8FAFC);
-    final titleColor = isDark ? Colors.white : textDark;
-    final coordColor = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
-
     // If no coordinates yet (e.g. adding a new address), display an inviting pinpoint trigger card
     if (_latitude == null || _longitude == null) {
       return Container(
         padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: headerBg,
-          borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
+        decoration: const BoxDecoration(
+          color: Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.vertical(bottom: Radius.circular(16)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
+            const Row(
               children: [
-                const Icon(Icons.pin_drop_rounded, color: primaryBlue, size: 18),
-                const SizedBox(width: 6),
+                Icon(Icons.pin_drop_rounded, color: primaryBlue, size: 18),
+                SizedBox(width: 6),
                 Expanded(
                   child: Text(
                     'Delivery Pinpoint on Map',
                     style: TextStyle(
                       fontSize: 13.5,
                       fontWeight: FontWeight.bold,
-                      color: titleColor,
+                      color: textDark,
                     ),
                   ),
                 ),
@@ -1498,9 +1479,9 @@ class _NewAddressPageState extends State<NewAddressPage> {
     final double fracY = globalTileY - centerTileY;
 
     return Container(
-      decoration: BoxDecoration(
-        color: headerBg,
-        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
+      decoration: const BoxDecoration(
+        color: Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(16)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1511,17 +1492,17 @@ class _NewAddressPageState extends State<NewAddressPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
+                const Row(
                   children: [
-                    const Icon(Icons.pin_drop_rounded, color: primaryBlue, size: 18),
-                    const SizedBox(width: 6),
+                    Icon(Icons.pin_drop_rounded, color: primaryBlue, size: 18),
+                    SizedBox(width: 6),
                     Expanded(
                       child: Text(
                         'Delivery Pinpoint on Map',
                         style: TextStyle(
                           fontSize: 13.5,
                           fontWeight: FontWeight.bold,
-                          color: titleColor,
+                          color: textDark,
                         ),
                       ),
                     ),
@@ -1530,14 +1511,14 @@ class _NewAddressPageState extends State<NewAddressPage> {
                 const SizedBox(height: 6),
                 Row(
                   children: [
-                    Icon(Icons.my_location_rounded, size: 13, color: coordColor),
+                    const Icon(Icons.my_location_rounded, size: 13, color: Color(0xFF64748B)),
                     const SizedBox(width: 5),
                     Expanded(
                       child: Text(
                         'Coordinates: ${lat.toStringAsFixed(4)}° N, ${lng.toStringAsFixed(4)}° E',
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 11,
-                          color: coordColor,
+                          color: Color(0xFF64748B),
                           fontWeight: FontWeight.w600,
                         ),
                       ),

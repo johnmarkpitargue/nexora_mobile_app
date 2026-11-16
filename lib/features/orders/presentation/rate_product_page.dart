@@ -841,7 +841,6 @@ class _RateProductPageState extends State<RateProductPage> {
               ),
               decoration: InputDecoration(
                 filled: false,
-                fillColor: Colors.transparent,
                 hintText:
                     'Share your honest feedback on the product! Mention the quality, packaging, material, and how it matched your expectations.',
                 hintStyle: TextStyle(
@@ -852,9 +851,6 @@ class _RateProductPageState extends State<RateProductPage> {
                 border: InputBorder.none,
                 enabledBorder: InputBorder.none,
                 focusedBorder: InputBorder.none,
-                disabledBorder: InputBorder.none,
-                errorBorder: InputBorder.none,
-                focusedErrorBorder: InputBorder.none,
                 isDense: true,
                 contentPadding: EdgeInsets.zero,
               ),
@@ -1046,16 +1042,9 @@ class _RateProductPageState extends State<RateProductPage> {
             child: TextField(
               controller: _courierCommentController,
               decoration: const InputDecoration(
-                filled: false,
-                fillColor: Colors.transparent,
                 hintText: 'Tell us more about the courier delivery experience...',
                 hintStyle: TextStyle(color: Colors.black45, fontSize: 12.5, height: 1.4),
                 border: InputBorder.none,
-                enabledBorder: InputBorder.none,
-                focusedBorder: InputBorder.none,
-                disabledBorder: InputBorder.none,
-                errorBorder: InputBorder.none,
-                focusedErrorBorder: InputBorder.none,
                 isDense: true,
                 contentPadding: EdgeInsets.zero,
               ),

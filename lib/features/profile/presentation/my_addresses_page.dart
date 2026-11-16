@@ -47,22 +47,20 @@ class _MyAddressesPageState extends State<MyAddressesPage> {
   }
 
   void _showInfoDialog() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: isDark ? const Color(0xFF0D1323) : Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
+        title: const Row(
           children: [
-            const Icon(Icons.info_outline, color: Color(0xFF00B4D8)),
-            const SizedBox(width: 8),
-            Text('Address Guidelines', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: isDark ? Colors.white : const Color(0xFF0F172A))),
+            Icon(Icons.info_outline, color: Color(0xFF00B4D8)),
+            SizedBox(width: 8),
+            Text('Address Guidelines', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           ],
         ),
-        content: Text(
+        content: const Text(
           'Your default delivery address is automatically used during checkout. You can select any address to make it default, or edit and add new delivery addresses anytime.',
-          style: TextStyle(fontSize: 13, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF475569), height: 1.4),
+          style: TextStyle(fontSize: 13, color: Color(0xFF475569), height: 1.4),
         ),
         actions: [
           TextButton(
@@ -76,50 +74,37 @@ class _MyAddressesPageState extends State<MyAddressesPage> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
-    final scaffoldBg = isDark ? const Color(0xFF060914) : Colors.white;
-    final cardBg = isDark ? const Color(0xFF0D1323) : Colors.white;
-    final headerBg = isDark ? const Color(0xFF0A0F1E) : const Color(0xFFF8FAFC);
-    final dividerColor = isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9);
-    final textPrimary = isDark ? Colors.white : const Color(0xFF0F172A);
-    final textSecondary = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
-    final textMuted = isDark ? const Color(0xFF94A3B8) : const Color(0xFF475569);
-    final tagBg = isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9);
-    final tagText = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
-
     return AnimatedBuilder(
       animation: _addressService,
       builder: (context, _) {
         final addresses = _addressService.addresses;
 
         return Scaffold(
-          backgroundColor: scaffoldBg,
+          backgroundColor: Colors.white,
           appBar: AppBar(
-            backgroundColor: cardBg,
+            backgroundColor: Colors.white,
             elevation: 0,
             leading: IconButton(
-              icon: Icon(Icons.arrow_back, color: textPrimary),
+              icon: const Icon(Icons.arrow_back, color: Color(0xFF0F172A)),
               onPressed: () => Navigator.pop(context),
             ),
-            title: Text(
+            title: const Text(
               'My Addresses',
               style: TextStyle(
-                color: textPrimary,
+                color: Color(0xFF0F172A),
                 fontWeight: FontWeight.w800,
                 fontSize: 19,
               ),
             ),
             actions: [
               IconButton(
-                icon: Icon(Icons.info_outline, color: textSecondary, size: 22),
+                icon: const Icon(Icons.info_outline, color: Color(0xFF475569), size: 22),
                 onPressed: _showInfoDialog,
               ),
             ],
-            bottom: PreferredSize(
-              preferredSize: const Size.fromHeight(1),
-              child: Divider(height: 1, color: dividerColor),
+            bottom: const PreferredSize(
+              preferredSize: Size.fromHeight(1),
+              child: Divider(height: 1, color: Color(0xFFF1F5F9)),
             ),
           ),
           body: Column(
@@ -133,14 +118,14 @@ class _MyAddressesPageState extends State<MyAddressesPage> {
                     // Section Header
                     Container(
                       width: double.infinity,
-                      color: headerBg,
+                      color: const Color(0xFFF8FAFC),
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      child: Text(
+                      child: const Text(
                         'ADDRESS',
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
-                          color: textSecondary,
+                          color: Color(0xFF64748B),
                           letterSpacing: 0.5,
                         ),
                       ),
@@ -155,20 +140,20 @@ class _MyAddressesPageState extends State<MyAddressesPage> {
                               width: 64,
                               height: 64,
                               decoration: BoxDecoration(
-                                color: tagBg,
+                                color: const Color(0xFFF1F5F9),
                                 shape: BoxShape.circle,
                               ),
-                              child: Icon(Icons.location_off_outlined, color: textSecondary, size: 32),
+                              child: const Icon(Icons.location_off_outlined, color: Color(0xFF94A3B8), size: 32),
                             ),
                             const SizedBox(height: 12),
-                            Text(
+                            const Text(
                               'No addresses saved yet',
-                              style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: textPrimary),
+                              style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
                             ),
                             const SizedBox(height: 4),
-                            Text(
+                            const Text(
                               'Add your delivery address for faster checkout',
-                              style: TextStyle(fontSize: 12, color: textSecondary),
+                              style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
                             ),
                           ],
                         ),
@@ -203,17 +188,17 @@ class _MyAddressesPageState extends State<MyAddressesPage> {
                                       children: [
                                         Text(
                                           item.fullName,
-                                          style: TextStyle(
+                                          style: const TextStyle(
                                             fontWeight: FontWeight.w800,
                                             fontSize: 15,
-                                            color: textPrimary,
+                                            color: Color(0xFF0F172A),
                                           ),
                                         ),
                                         const SizedBox(width: 8),
-                                        Text(
+                                        const Text(
                                           '|',
                                           style: TextStyle(
-                                            color: dividerColor,
+                                            color: Color(0xFFCBD5E1),
                                             fontSize: 14,
                                             fontWeight: FontWeight.w300,
                                           ),
@@ -222,9 +207,9 @@ class _MyAddressesPageState extends State<MyAddressesPage> {
                                         Expanded(
                                           child: Text(
                                             item.phone,
-                                            style: TextStyle(
+                                            style: const TextStyle(
                                               fontSize: 13.5,
-                                              color: textSecondary,
+                                              color: Color(0xFF64748B),
                                               fontWeight: FontWeight.w500,
                                             ),
                                           ),
@@ -232,11 +217,11 @@ class _MyAddressesPageState extends State<MyAddressesPage> {
                                         InkWell(
                                           onTap: () => _openEditAddress(item),
                                           borderRadius: BorderRadius.circular(4),
-                                          child: const Padding(
-                                            padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                          child: Padding(
+                                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                                             child: Row(
                                               mainAxisSize: MainAxisSize.min,
-                                              children: [
+                                              children: const [
                                                 Text(
                                                   'EDIT',
                                                   style: TextStyle(
@@ -262,9 +247,9 @@ class _MyAddressesPageState extends State<MyAddressesPage> {
                                     // Row 2: Address String
                                     Text(
                                       item.fullAddress,
-                                      style: TextStyle(
+                                      style: const TextStyle(
                                         fontSize: 13,
-                                        color: textMuted,
+                                        color: Color(0xFF475569),
                                         height: 1.4,
                                       ),
                                     ),
@@ -277,7 +262,7 @@ class _MyAddressesPageState extends State<MyAddressesPage> {
                                           Container(
                                             padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
                                             decoration: BoxDecoration(
-                                              color: isDark ? const Color(0xFF0B2538) : const Color(0xFFE0F7FA),
+                                              color: const Color(0xFFE0F7FA),
                                               borderRadius: BorderRadius.circular(4),
                                               border: Border.all(
                                                 color: const Color(0xFF00D2FF).withValues(alpha: 0.5),
@@ -298,13 +283,13 @@ class _MyAddressesPageState extends State<MyAddressesPage> {
                                         Container(
                                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3.5),
                                           decoration: BoxDecoration(
-                                            color: tagBg,
+                                            color: const Color(0xFFF1F5F9),
                                             borderRadius: BorderRadius.circular(4),
                                           ),
                                           child: Text(
                                             item.label,
-                                            style: TextStyle(
-                                              color: tagText,
+                                            style: const TextStyle(
+                                              color: Color(0xFF64748B),
                                               fontSize: 11,
                                               fontWeight: FontWeight.w600,
                                             ),
@@ -315,22 +300,22 @@ class _MyAddressesPageState extends State<MyAddressesPage> {
                                           Container(
                                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
                                             decoration: BoxDecoration(
-                                              color: isDark ? const Color(0xFF0C2140) : const Color(0xFFEFF6FF),
+                                              color: const Color(0xFFEFF6FF),
                                               borderRadius: BorderRadius.circular(4),
                                               border: Border.all(
-                                                color: isDark ? const Color(0xFF1D4ED8) : const Color(0xFFBFDBFE),
+                                                color: const Color(0xFFBFDBFE),
                                                 width: 0.8,
                                               ),
                                             ),
                                             child: const Row(
                                               mainAxisSize: MainAxisSize.min,
                                               children: [
-                                                Icon(Icons.location_on_rounded, size: 11, color: Color(0xFF38BDF8)),
+                                                Icon(Icons.location_on_rounded, size: 11, color: Color(0xFF0066FF)),
                                                 SizedBox(width: 3),
                                                 Text(
                                                   'Pinpoint Set',
                                                   style: TextStyle(
-                                                    color: Color(0xFF38BDF8),
+                                                    color: Color(0xFF0066FF),
                                                     fontSize: 10.5,
                                                     fontWeight: FontWeight.bold,
                                                   ),
@@ -346,7 +331,7 @@ class _MyAddressesPageState extends State<MyAddressesPage> {
                               ),
                             ),
                             if (!isLast)
-                              Divider(height: 1, color: dividerColor),
+                              const Divider(height: 1, color: Color(0xFFF1F5F9)),
                           ],
                         );
                       }),
@@ -358,22 +343,22 @@ class _MyAddressesPageState extends State<MyAddressesPage> {
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      color: headerBg,
+                      color: const Color(0xFFF8FAFC),
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Icon(
+                        children: const [
+                          Icon(
                             Icons.info,
                             color: Color(0xFF00BCD4),
                             size: 16,
                           ),
-                          const SizedBox(width: 8),
+                          SizedBox(width: 8),
                           Expanded(
                             child: Text(
                               'Default address is automatically selected for quick checkout.',
                               style: TextStyle(
                                 fontSize: 12,
-                                color: textSecondary,
+                                color: Color(0xFF64748B),
                                 height: 1.35,
                               ),
                             ),
@@ -392,9 +377,9 @@ class _MyAddressesPageState extends State<MyAddressesPage> {
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 decoration: BoxDecoration(
-                  color: cardBg,
+                  color: Colors.white,
                   border: Border(
-                    top: BorderSide(color: dividerColor, width: 0.8),
+                    top: BorderSide(color: Colors.grey.shade200, width: 0.8),
                   ),
                 ),
                 child: SafeArea(
@@ -408,9 +393,9 @@ class _MyAddressesPageState extends State<MyAddressesPage> {
                       ),
                       padding: const EdgeInsets.symmetric(vertical: 13),
                     ),
-                    child: const Row(
+                    child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
+                      children: const [
                         Icon(
                           Icons.add,
                           color: Color(0xFF00B4D8),

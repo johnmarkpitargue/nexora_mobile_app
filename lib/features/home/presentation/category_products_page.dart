@@ -281,16 +281,9 @@ class _CategoryProductsPageState extends State<CategoryProductsPage> {
                   color: theme.colorScheme.onSurface,
                 ),
                 decoration: InputDecoration(
-                  filled: false,
-                  fillColor: Colors.transparent,
                   hintText: 'Search in $_displayTitle...',
                   isDense: true,
                   border: InputBorder.none,
-                  enabledBorder: InputBorder.none,
-                  focusedBorder: InputBorder.none,
-                  disabledBorder: InputBorder.none,
-                  errorBorder: InputBorder.none,
-                  focusedErrorBorder: InputBorder.none,
                   hintStyle: TextStyle(
                     fontSize: 14,
                     color: theme.colorScheme.onSurfaceVariant,

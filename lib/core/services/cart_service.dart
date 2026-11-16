@@ -635,42 +635,15 @@ class CartService extends ChangeNotifier {
   }
 
   Future<int?> addToCart({
-    int? productId,
+    required int productId,
     Map<String, dynamic>? variantPayload,
     int quantity = 1,
-    String? title,
-    String? variant,
-    double? price,
-    double? originalPrice,
-    String? imageUrl,
-    String? storeName,
-    String? storeBadge,
-    String? discountTag,
   }) async {
-    if (productId != null) {
-      return addItemRemote(
-        productId: productId,
-        quantity: quantity,
-        variant: variantPayload,
-      );
-    }
-    final key = _currentUserKeyOrNull ?? 'guest';
-    final list = _userItems.putIfAbsent(key, () => []);
-    list.add(CartItemModel(
-      id: 'cart-${DateTime.now().millisecondsSinceEpoch}',
-      title: title ?? 'Product',
-      variant: variant ?? 'Standard',
-      price: price ?? 0,
-      originalPrice: originalPrice,
-      imageUrl: imageUrl ?? '',
-      storeName: storeName ?? 'Store',
-      storeBadge: storeBadge ?? '',
-      discountTag: discountTag,
+    return addItemRemote(
+      productId: productId,
       quantity: quantity,
-      isChecked: true,
-    ));
-    notifyListeners();
-    return list.length;
+      variant: variantPayload,
+    );
   }
 
   void clearDirectBuy() {

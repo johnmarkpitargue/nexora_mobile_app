@@ -119,7 +119,6 @@ class _SearchBrowsePageState extends State<SearchBrowsePage> {
     String? tempLocation = _selectedLocation;
     double? tempRating = _minRating;
     String? filterError;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     showModalBottomSheet(
       context: context,
@@ -127,13 +126,6 @@ class _SearchBrowsePageState extends State<SearchBrowsePage> {
       backgroundColor: Colors.transparent,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setSheetState) {
-          final sheetBg = isDark ? const Color(0xFF0D1323) : Colors.white;
-          final titleColor = isDark ? Colors.white : const Color(0xFF0F172A);
-          final labelColor = isDark ? const Color(0xFFCBD5E1) : const Color(0xFF1E293B);
-          final inputBg = isDark ? const Color(0xFF131D38) : const Color(0xFFF8FAFC);
-          final chipBg = isDark ? const Color(0xFF131D38) : const Color(0xFFF1F5F9);
-          final borderColor = isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0);
-
           return Container(
             padding: EdgeInsets.only(
               bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
@@ -141,10 +133,9 @@ class _SearchBrowsePageState extends State<SearchBrowsePage> {
               left: 20,
               right: 20,
             ),
-            decoration: BoxDecoration(
-              color: sheetBg,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-              border: isDark ? Border.all(color: borderColor, width: 1) : null,
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
             ),
             child: SingleChildScrollView(
               child: Column(
@@ -154,12 +145,12 @@ class _SearchBrowsePageState extends State<SearchBrowsePage> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
+                      const Text(
                         'Filter Products',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: titleColor),
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
                       ),
                       IconButton(
-                        icon: Icon(Icons.close, color: isDark ? const Color(0xFF94A3B8) : Colors.black54),
+                        icon: const Icon(Icons.close),
                         onPressed: () => Navigator.pop(ctx),
                       ),
                     ],
@@ -170,7 +161,7 @@ class _SearchBrowsePageState extends State<SearchBrowsePage> {
                     Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: isDark ? const Color(0xFF2A1215) : const Color(0xFFFFEBEB),
+                        color: const Color(0xFFFFEBEB),
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(color: Colors.redAccent.shade100),
                       ),
@@ -191,7 +182,7 @@ class _SearchBrowsePageState extends State<SearchBrowsePage> {
                   ],
 
                   // Price Range (BUY-SRCH-007)
-                  Text('Price Range (₱)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: labelColor)),
+                  const Text('Price Range (₱)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                   const SizedBox(height: 8),
                   Row(
                     children: [
@@ -199,41 +190,27 @@ class _SearchBrowsePageState extends State<SearchBrowsePage> {
                         child: TextField(
                           controller: minCtrl,
                           keyboardType: TextInputType.number,
-                          style: TextStyle(fontSize: 13, color: titleColor, fontWeight: FontWeight.w600),
                           decoration: InputDecoration(
                             hintText: 'Min Price',
-                            hintStyle: TextStyle(fontSize: 12.5, color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8)),
                             prefixText: '₱ ',
-                            prefixStyle: TextStyle(color: titleColor, fontWeight: FontWeight.bold),
-                            filled: true,
-                            fillColor: inputBg,
                             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: borderColor)),
-                            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: borderColor)),
-                            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFF0066FF), width: 1.5)),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                           ),
                         ),
                       ),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 10),
-                        child: Text('—', style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white54 : Colors.black54)),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 10),
+                        child: Text('—', style: TextStyle(fontWeight: FontWeight.bold)),
                       ),
                       Expanded(
                         child: TextField(
                           controller: maxCtrl,
                           keyboardType: TextInputType.number,
-                          style: TextStyle(fontSize: 13, color: titleColor, fontWeight: FontWeight.w600),
                           decoration: InputDecoration(
                             hintText: 'Max Price',
-                            hintStyle: TextStyle(fontSize: 12.5, color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8)),
                             prefixText: '₱ ',
-                            prefixStyle: TextStyle(color: titleColor, fontWeight: FontWeight.bold),
-                            filled: true,
-                            fillColor: inputBg,
                             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: borderColor)),
-                            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: borderColor)),
-                            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFF0066FF), width: 1.5)),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                           ),
                         ),
                       ),
@@ -242,26 +219,16 @@ class _SearchBrowsePageState extends State<SearchBrowsePage> {
                   const SizedBox(height: 16),
 
                   // Location (BUY-SRCH-008)
-                  Text('Shipped From / Location', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: labelColor)),
+                  const Text('Shipped From / Location', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                   const SizedBox(height: 8),
                   Wrap(
                     spacing: 8,
-                    runSpacing: 8,
                     children: ['Metro Manila', 'Luzon', 'Visayas', 'Mindanao'].map((loc) {
                       final isSel = tempLocation == loc;
                       return ChoiceChip(
-                        label: Text(
-                          loc,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: isSel ? Colors.white : (isDark ? Colors.white70 : const Color(0xFF334155)),
-                          ),
-                        ),
+                        label: Text(loc),
                         selected: isSel,
-                        backgroundColor: chipBg,
-                        selectedColor: const Color(0xFF0066FF),
-                        side: BorderSide(color: isSel ? const Color(0xFF0066FF) : borderColor),
+                        selectedColor: const Color(0xFF00D2FF),
                         onSelected: (val) => setSheetState(() => tempLocation = val ? loc : null),
                       );
                     }).toList(),
@@ -269,53 +236,35 @@ class _SearchBrowsePageState extends State<SearchBrowsePage> {
                   const SizedBox(height: 16),
 
                   // Rating Filter
-                  Text('Customer Rating', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: labelColor)),
+                  const Text('Customer Rating', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                   const SizedBox(height: 8),
                   Row(
                     children: [
                       ChoiceChip(
-                        label: Row(
+                        label: const Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.star, size: 14, color: Color(0xFFF59E0B)),
-                            const SizedBox(width: 4),
-                            Text(
-                              '4.0+ Stars',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                color: tempRating == 4.0 ? Colors.white : (isDark ? Colors.white70 : const Color(0xFF334155)),
-                              ),
-                            ),
+                            Icon(Icons.star, size: 14, color: Color(0xFFF59E0B)),
+                            SizedBox(width: 4),
+                            Text('4.0+ Stars'),
                           ],
                         ),
                         selected: tempRating == 4.0,
-                        backgroundColor: chipBg,
-                        selectedColor: const Color(0xFF0066FF),
-                        side: BorderSide(color: tempRating == 4.0 ? const Color(0xFF0066FF) : borderColor),
+                        selectedColor: const Color(0xFF00D2FF),
                         onSelected: (val) => setSheetState(() => tempRating = val ? 4.0 : null),
                       ),
                       const SizedBox(width: 8),
                       ChoiceChip(
-                        label: Row(
+                        label: const Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.star, size: 14, color: Color(0xFFF59E0B)),
-                            const SizedBox(width: 4),
-                            Text(
-                              '4.8+ Stars',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                color: tempRating == 4.8 ? Colors.white : (isDark ? Colors.white70 : const Color(0xFF334155)),
-                              ),
-                            ),
+                            Icon(Icons.star, size: 14, color: Color(0xFFF59E0B)),
+                            SizedBox(width: 4),
+                            Text('4.8+ Stars'),
                           ],
                         ),
                         selected: tempRating == 4.8,
-                        backgroundColor: chipBg,
-                        selectedColor: const Color(0xFF0066FF),
-                        side: BorderSide(color: tempRating == 4.8 ? const Color(0xFF0066FF) : borderColor),
+                        selectedColor: const Color(0xFF00D2FF),
                         onSelected: (val) => setSheetState(() => tempRating = val ? 4.8 : null),
                       ),
                     ],
@@ -328,8 +277,6 @@ class _SearchBrowsePageState extends State<SearchBrowsePage> {
                       Expanded(
                         child: OutlinedButton(
                           onPressed: () {
-                            minCtrl.clear();
-                            maxCtrl.clear();
                             setState(() {
                               _minPrice = null;
                               _maxPrice = null;
@@ -339,13 +286,7 @@ class _SearchBrowsePageState extends State<SearchBrowsePage> {
                             Navigator.pop(ctx);
                             _executeSearch();
                           },
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: isDark ? Colors.white : const Color(0xFF0F172A),
-                            side: BorderSide(color: borderColor),
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                          ),
-                          child: const Text('Reset', style: TextStyle(fontWeight: FontWeight.bold)),
+                          child: const Text('Reset'),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -381,10 +322,8 @@ class _SearchBrowsePageState extends State<SearchBrowsePage> {
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF0066FF),
                             foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                           ),
-                          child: const Text('Apply Filters', style: TextStyle(fontWeight: FontWeight.bold)),
+                          child: const Text('Apply Filters'),
                         ),
                       ),
                     ],
@@ -400,97 +339,71 @@ class _SearchBrowsePageState extends State<SearchBrowsePage> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final scaffoldBg = isDark ? const Color(0xFF060914) : const Color(0xFFF6F8FC);
-    final headerBg = isDark ? const Color(0xFF060914) : Colors.white;
-
     return Scaffold(
-      backgroundColor: scaffoldBg,
+      backgroundColor: const Color(0xFFF6F8FC),
       appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(64),
+        preferredSize: const Size.fromHeight(60),
         child: Container(
-          decoration: BoxDecoration(
-            color: headerBg,
-            border: Border(
-              bottom: BorderSide(
-                color: isDark ? Colors.white.withValues(alpha: 0.08) : const Color(0xFFE2E8F0),
-              ),
-            ),
-          ),
+          color: const Color(0xFF050B28),
           padding: EdgeInsets.only(
-            top: MediaQuery.of(context).padding.top + 8,
-            left: 8,
-            right: 14,
+            top: MediaQuery.of(context).padding.top + 4,
+            left: 6,
+            right: 12,
             bottom: 8,
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               IconButton(
-                icon: Icon(
-                  Icons.arrow_back_rounded,
-                  color: theme.colorScheme.onSurface,
-                  size: 22,
-                ),
+                icon: const Icon(Icons.arrow_back, color: Colors.white, size: 24),
                 onPressed: () => Navigator.pop(context),
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(6),
                 constraints: const BoxConstraints(),
-                tooltip: 'Back',
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 6),
               Expanded(
                 child: Container(
-                  height: 44,
+                  height: 42,
                   decoration: BoxDecoration(
-                    color: theme.colorScheme.surfaceContainerLowest,
-                    borderRadius: BorderRadius.circular(14),
+                    color: Colors.white.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(22),
                     border: Border.all(
-                      color: theme.colorScheme.outlineVariant,
+                      color: Colors.white.withValues(alpha: 0.22),
                       width: 1,
                     ),
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       Icon(
-                        Icons.search_rounded,
-                        color: theme.colorScheme.primary,
+                        Icons.search,
+                        color: Colors.white.withValues(alpha: 0.85),
                         size: 20,
                       ),
-                      const SizedBox(width: 10),
+                      const SizedBox(width: 8),
                       Expanded(
                         child: TextField(
-                          key: const ValueKey('shopping-search-field'),
                           controller: _searchController,
                           focusNode: _searchFocusNode,
-                          cursorColor: theme.colorScheme.primary,
+                          cursorColor: Colors.white,
                           textInputAction: TextInputAction.search,
                           onSubmitted: (_) {
                             FocusScope.of(context).unfocus(); // BUY-SRCH-012: close keyboard
                             _executeSearch();
                           },
-                          style: TextStyle(
-                            fontSize: 13.5,
-                            color: theme.colorScheme.onSurface,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: Colors.white,
                             fontWeight: FontWeight.w500,
                           ),
                           decoration: InputDecoration(
                             hintText: 'Search products, brands, categories...',
                             hintStyle: TextStyle(
-                              fontSize: 13,
-                              color: theme.colorScheme.onSurfaceVariant,
-                              fontWeight: FontWeight.w400,
+                              fontSize: 12.5,
+                              color: Colors.white.withValues(alpha: 0.7),
                             ),
-                            filled: false,
-                            fillColor: Colors.transparent,
                             border: InputBorder.none,
-                            enabledBorder: InputBorder.none,
-                            focusedBorder: InputBorder.none,
-                            disabledBorder: InputBorder.none,
-                            errorBorder: InputBorder.none,
-                            focusedErrorBorder: InputBorder.none,
                             isDense: true,
                             contentPadding: EdgeInsets.zero,
                           ),
@@ -508,12 +421,8 @@ class _SearchBrowsePageState extends State<SearchBrowsePage> {
                               _executeSearch();
                             },
                             child: Padding(
-                              padding: const EdgeInsets.only(left: 6),
-                              child: Icon(
-                                Icons.close_rounded,
-                                size: 18,
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
+                              padding: const EdgeInsets.only(right: 6),
+                              child: Icon(Icons.close, size: 16, color: Colors.white.withValues(alpha: 0.85)),
                             ),
                           );
                         },
@@ -527,40 +436,25 @@ class _SearchBrowsePageState extends State<SearchBrowsePage> {
                 clipBehavior: Clip.none,
                 children: [
                   IconButton(
-                    key: const ValueKey('shopping-filter-action'),
+                    icon: const Icon(Icons.tune_rounded, color: Colors.white, size: 22),
                     onPressed: _openFilterDialog,
+                    padding: const EdgeInsets.all(6),
+                    constraints: const BoxConstraints(),
                     tooltip: 'Filter',
-                    style: IconButton.styleFrom(
-                      foregroundColor: theme.colorScheme.onSurface,
-                      backgroundColor: theme.colorScheme.surfaceContainerLowest,
-                      minimumSize: const Size(44, 44),
-                      maximumSize: const Size(44, 44),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                        side: BorderSide(
-                          color: theme.colorScheme.outlineVariant,
-                        ),
-                      ),
-                    ),
-                    icon: const Icon(Icons.tune_rounded, size: 20),
                   ),
                   if (_minPrice != null ||
                       _maxPrice != null ||
                       _minRating != null ||
                       _selectedLocation != null)
                     Positioned(
-                      top: -2,
-                      right: -2,
+                      top: 4,
+                      right: 4,
                       child: Container(
-                        width: 10,
-                        height: 10,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFF4D4F),
+                        width: 8,
+                        height: 8,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFFF4D4F),
                           shape: BoxShape.circle,
-                          border: Border.all(
-                            color: headerBg,
-                            width: 1.5,
-                          ),
                         ),
                       ),
                     ),
@@ -782,28 +676,20 @@ class _SearchBrowsePageState extends State<SearchBrowsePage> {
     }
 
     if (_searchResult.products.isEmpty) {
-      final isDark = Theme.of(context).brightness == Brightness.dark;
       return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             const Icon(Icons.search_off_rounded, size: 64, color: Color(0xFF94A3B8)),
             const SizedBox(height: 12),
-            Text(
+            const Text(
               'No matching products found',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: isDark ? Colors.white : const Color(0xFF0F172A),
-              ),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
             ),
             const SizedBox(height: 6),
-            Text(
+            const Text(
               'Try checking for spelling errors or clearing filters.',
-              style: TextStyle(
-                fontSize: 12,
-                color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
-              ),
+              style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
             ),
           ],
         ),
