@@ -88,6 +88,12 @@ class ApiConstants {
   static String buyerOrder(dynamic id) => orderDetail(id);
   static String cancelOrder(dynamic id) => '/api/mobile/v1/buyer/orders/$id/cancel';
   static String buyerOrderCancel(dynamic id) => cancelOrder(id);
+
+  // Safety & Reports Center
+  static const String safetyReports = '/api/mobile/v1/safety-reports';
+  static String safetyReportDetail(dynamic id) => '/api/mobile/v1/safety-reports/$id';
+  static const String restrictions = '/api/mobile/v1/restrictions';
+  static String appealRestriction(dynamic id) => '/api/mobile/v1/restrictions/$id/appeal';
   static String confirmReceipt(dynamic id) => '/api/mobile/v1/buyer/orders/$id/confirm-receipt';
   static String buyerOrderConfirmReceipt(dynamic id) => confirmReceipt(id);
   static String returnOrder(dynamic id) => '/api/mobile/v1/buyer/orders/$id/return';
