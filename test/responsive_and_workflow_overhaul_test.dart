@@ -14,6 +14,7 @@ import 'package:nexora_flutter_app/core/services/notification_feed_service.dart'
 import 'package:nexora_flutter_app/core/services/order_service.dart';
 import 'package:nexora_flutter_app/features/checkout/presentation/checkout_page.dart';
 import 'package:nexora_flutter_app/features/home/presentation/homepage.dart';
+import 'package:nexora_flutter_app/features/home/presentation/widgets/floating_nav_dock.dart';
 import 'package:nexora_flutter_app/features/notifications/presentation/notifications_page.dart';
 import 'package:nexora_flutter_app/features/orders/presentation/orders_page.dart';
 import 'package:nexora_flutter_app/features/profile/presentation/profile_page.dart';
@@ -105,6 +106,12 @@ void main() {
             200,
           );
         }
+        if (path.endsWith('/buyer/catalog')) {
+          return http.Response(
+            jsonEncode({'status': 'success', 'data': <dynamic>[]}),
+            200,
+          );
+        }
         if (path.endsWith('/notifications')) {
           return http.Response(
             jsonEncode({
@@ -138,13 +145,29 @@ void main() {
   Future<void> pumpAtSize(
     WidgetTester tester,
     Size size,
-    Widget child,
-  ) async {
+    Widget child, {
+    EdgeInsets viewInsets = EdgeInsets.zero,
+    EdgeInsets viewPadding = const EdgeInsets.only(bottom: 16),
+  }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1.0;
+    tester.view.viewInsets = FakeViewPadding(
+      bottom: viewInsets.bottom,
+      top: viewInsets.top,
+      left: viewInsets.left,
+      right: viewInsets.right,
+    );
+    tester.view.padding = FakeViewPadding(
+      bottom: viewPadding.bottom,
+      top: viewPadding.top,
+      left: viewPadding.left,
+      right: viewPadding.right,
+    );
     addTearDown(() {
       tester.view.resetPhysicalSize();
       tester.view.resetDevicePixelRatio();
+      tester.view.resetViewInsets();
+      tester.view.resetPadding();
     });
 
     await tester.pumpWidget(
@@ -158,26 +181,193 @@ void main() {
     expect(tester.takeException(), isNull);
   }
 
-  group('Buyer App Responsive & DB Workflow Tests', () {
+  void assertDockPinnedToBottom(
+    WidgetTester tester,
+    Size viewport, {
+    double safeBottom = 16,
+  }) {
+    final dockFinder = find.byType(FloatingNavDock);
+    expect(dockFinder, findsOneWidget);
+
+    final dockRect = tester.getRect(dockFinder);
+    // Must stay pinned at the bottom, never around the vertical center
+    expect(
+      dockRect.bottom,
+      closeTo(viewport.height, 2.0),
+      reason: 'FloatingNavDock should sit at screen bottom ($viewport)',
+    );
+    expect(
+      dockRect.top,
+      greaterThan(viewport.height * 0.72),
+      reason: 'FloatingNavDock must not float near vertical center ($viewport)',
+    );
+    expect(dockRect.height, lessThan(120));
+
+    // All 5 nav tabs visible without overlap/overflow
+    for (int i = 0; i < 5; i++) {
+      final tabFinder = find.byKey(ValueKey('nav-item-$i'));
+      expect(tabFinder, findsOneWidget);
+      final tabRect = tester.getRect(tabFinder);
+      expect(tabRect.top, greaterThanOrEqualTo(dockRect.top));
+      expect(tabRect.bottom, lessThanOrEqualTo(dockRect.bottom - safeBottom));
+    }
+  }
+
+  group('Buyer App Responsive, Dock Position & DB Workflow Tests', () {
     const viewports = <Size>[
       Size(320, 640),
       Size(360, 740),
+      Size(390, 844),
       Size(412, 915),
+      Size(497, 750),
       Size(840, 1180),
     ];
 
-    testWidgets('Home, Checkout, Orders, Notifications & Profile fit cleanly across phone and tablet widths', (tester) async {
-      for (final viewport in viewports) {
+    testWidgets(
+      'FloatingNavDock stays anchored at bottom and Home renders cleanly across all 6 viewport sizes',
+      (tester) async {
+        for (final viewport in viewports) {
+          await pumpAtSize(tester, viewport, const NexoraHomePage());
+          assertDockPinnedToBottom(tester, viewport);
+          expect(find.text('Recommended for you'), findsOneWidget);
+          expect(find.text('No products available right now'), findsOneWidget);
+
+          await pumpAtSize(tester, viewport, const CheckoutPage());
+          await pumpAtSize(tester, viewport, const OrdersPage());
+          await pumpAtSize(tester, viewport, const NotificationsPage());
+          await pumpAtSize(tester, viewport, const ProfilePage());
+        }
+      },
+    );
+
+    testWidgets(
+      'Switching all 5 bottom navigation tabs keeps FloatingNavDock fixed at the exact bottom position',
+      (tester) async {
+        const viewport = Size(390, 844);
         await pumpAtSize(tester, viewport, const NexoraHomePage());
-        final dockBox = tester.getRect(find.byKey(const ValueKey('nav-item-0')));
-        expect(dockBox.bottom, greaterThan(viewport.height - 100));
-        expect(find.text('Recommended for you'), findsOneWidget);
-        await pumpAtSize(tester, viewport, const CheckoutPage());
-        await pumpAtSize(tester, viewport, const OrdersPage());
-        await pumpAtSize(tester, viewport, const NotificationsPage());
-        await pumpAtSize(tester, viewport, const ProfilePage());
-      }
-    });
+        final initialRect = tester.getRect(find.byType(FloatingNavDock));
+        assertDockPinnedToBottom(tester, viewport);
+
+        for (int tab = 1; tab < 5; tab++) {
+          await tester.tap(find.byKey(ValueKey('nav-item-$tab')));
+          await tester.pumpAndSettle(const Duration(milliseconds: 200));
+          expect(tester.takeException(), isNull);
+
+          final currentRect = tester.getRect(find.byType(FloatingNavDock));
+          expect(currentRect.top, closeTo(initialRect.top, 0.5));
+          expect(currentRect.bottom, closeTo(initialRect.bottom, 0.5));
+          assertDockPinnedToBottom(tester, viewport);
+        }
+
+        // Switch back to Home
+        await tester.tap(find.byKey(ValueKey('nav-item-0')));
+        await tester.pumpAndSettle(const Duration(milliseconds: 200));
+        expect(tester.getRect(find.byType(FloatingNavDock)).top,
+            closeTo(initialRect.top, 0.5));
+      },
+    );
+
+    testWidgets(
+      'Keyboard appearance and dismissal does not permanently displace FloatingNavDock',
+      (tester) async {
+        const viewport = Size(390, 844);
+        await pumpAtSize(
+          tester,
+          viewport,
+          const NexoraHomePage(),
+          viewInsets: const EdgeInsets.only(bottom: 300),
+        );
+        expect(tester.takeException(), isNull);
+
+        await pumpAtSize(
+          tester,
+          viewport,
+          const NexoraHomePage(),
+          viewInsets: EdgeInsets.zero,
+        );
+        assertDockPinnedToBottom(tester, viewport);
+      },
+    );
+
+    testWidgets(
+      'HomePage displays loading, error+retry, and populated product states cleanly',
+      (tester) async {
+        final completer = Completer<http.Response>();
+        ApiClient.instance.setMockClient(
+          MockClient((request) async {
+            if (request.url.path.endsWith('/buyer/catalog')) {
+              return completer.future;
+            }
+            return http.Response(
+              jsonEncode({
+                'status': 'success',
+                'data': {
+                  'flash_sales': <dynamic>[],
+                  'categories': [
+                    {'id': 1, 'name': 'Audio', 'slug': 'audio'},
+                  ],
+                  'recommended': <dynamic>[],
+                  'new_arrivals': <dynamic>[],
+                  'featured_stores': <dynamic>[],
+                },
+              }),
+              200,
+            );
+          }),
+        );
+
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(() {
+          tester.view.resetPhysicalSize();
+          tester.view.resetDevicePixelRatio();
+        });
+
+        await tester.pumpWidget(
+          MaterialApp(theme: NexoraTheme.lightTheme, home: const NexoraHomePage()),
+        );
+        await tester.pump(const Duration(milliseconds: 100));
+        expect(find.byType(CircularProgressIndicator), findsOneWidget);
+        assertDockPinnedToBottom(tester, const Size(390, 844), safeBottom: 0);
+
+        // Complete with server error first
+        completer.complete(
+          http.Response(jsonEncode({'message': 'Backend unavailable'}), 500),
+        );
+        await tester.pumpAndSettle(const Duration(milliseconds: 200));
+        expect(find.text('Try again'), findsOneWidget);
+
+        // Now return real products on retry
+        ApiClient.instance.setMockClient(
+          MockClient((request) async {
+            if (request.url.path.endsWith('/buyer/catalog')) {
+              return http.Response(
+                jsonEncode({
+                  'status': 'success',
+                  'data': [
+                    {
+                      'id': 501,
+                      'name': 'Nexora USB-C Hub',
+                      'price': 899,
+                      'stock': 12,
+                      'seller': {'id': 2, 'store_name': 'GearLab'},
+                    },
+                  ],
+                }),
+                200,
+              );
+            }
+            return http.Response(jsonEncode({'status': 'success', 'data': {}}), 200);
+          }),
+        );
+
+        await tester.tap(find.text('Try again'));
+        await tester.pumpAndSettle(const Duration(milliseconds: 200));
+        expect(find.text('Nexora USB-C Hub'), findsWidgets);
+        expect(find.text('1 product'), findsOneWidget);
+        assertDockPinnedToBottom(tester, const Size(390, 844), safeBottom: 0);
+      },
+    );
 
     testWidgets('NotificationsPage displays clean empty state when DB returns no notifications', (tester) async {
       await pumpAtSize(tester, const Size(390, 844), const NotificationsPage());

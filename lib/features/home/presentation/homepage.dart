@@ -66,16 +66,15 @@ class _NexoraHomePageState extends State<NexoraHomePage>
       onRefresh: () async {
         await Future.wait([
           ShopService.instance.fetchHomeRemote().catchError((_) {}),
-          ShopService.instance.loadCatalogRemote(
-            category: _selectedCategory,
-          ),
+          ShopService.instance.loadCatalogRemote(category: _selectedCategory),
         ]);
       },
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(
           parent: BouncingScrollPhysics(),
         ),
-        child: Center(
+        child: Align(
+          alignment: Alignment.topCenter,
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 1200),
             child: Column(
@@ -157,8 +156,8 @@ class _NexoraHomePageState extends State<NexoraHomePage>
                                               scheme.primaryContainer,
                                           backgroundImage:
                                               (store.avatarUrl ?? '').isNotEmpty
-                                                  ? NetworkImage(store.avatarUrl!)
-                                                  : null,
+                                              ? NetworkImage(store.avatarUrl!)
+                                              : null,
                                           child: (store.avatarUrl ?? '').isEmpty
                                               ? Text(
                                                   store.initials,
