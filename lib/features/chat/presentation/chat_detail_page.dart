@@ -82,9 +82,12 @@ class _ChatDetailPageState extends State<ChatDetailPage>
               ? widget.orderRef.replaceAll('#', '').trim()
               : '');
 
-    _effectiveTitle = widget.title
+    final rawTitle = widget.title
         .replaceAll(RegExp(r'\s*\((Courier|Rider)\)', caseSensitive: false), '')
         .trim();
+    _effectiveTitle = rawTitle.contains('Mark Ronald')
+        ? rawTitle.replaceAll('Mark Ronald', 'Pedro Jose Garcia')
+        : rawTitle;
 
     final isCourierKeyword =
         widget.avatarIcon == Icons.two_wheeler_rounded ||
@@ -96,6 +99,10 @@ class _ChatDetailPageState extends State<ChatDetailPage>
         widget.title.toLowerCase().contains('rider') ||
         (widget.conversationId != null &&
             widget.conversationId!.startsWith('courier_'));
+
+    if (_effectiveOrderId.isEmpty && isCourierKeyword) {
+      _effectiveOrderId = 'NX-8942-ORD';
+    }
 
     _isCourierChat = _effectiveOrderId.isNotEmpty || isCourierKeyword;
 
@@ -161,7 +168,8 @@ class _ChatDetailPageState extends State<ChatDetailPage>
         _effectiveOrderId,
       );
       if (cleanId != currentClean) {
-        final sender = (msg['senderName'] ?? 'Assigned Courier').toString();
+        final rawSender = (msg['senderName'] ?? 'Pedro Jose Garcia').toString();
+        final sender = rawSender.contains('Mark') ? 'Pedro Jose Garcia' : rawSender;
         InAppNotificationService.instance.showNotification(
           senderName: sender,
           message: (msg['text'] ?? '').toString(),
@@ -525,7 +533,7 @@ class _ChatDetailPageState extends State<ChatDetailPage>
         await OrderChatService.instance.sendMessage(
           _effectiveOrderId,
           textToSend,
-          customerName: null,
+          customerName: 'Alex Rivera',
           attachmentData: base64Str,
           attachmentName: fileName,
           attachmentSize: fileSize,
@@ -689,7 +697,7 @@ class _ChatDetailPageState extends State<ChatDetailPage>
     setState(() {
       _messages.add(userMessage);
       _messageController.clear();
-      _isSimulatedTyping = false;
+      _isSimulatedTyping = true;
     });
 
     if (widget.conversationId != null) {
@@ -697,6 +705,42 @@ class _ChatDetailPageState extends State<ChatDetailPage>
     }
 
     _scrollToBottom();
+
+    // Simulate auto reply from support / store
+    Future.delayed(const Duration(milliseconds: 1200), () {
+      if (!mounted) return;
+
+      String autoReplyText =
+          'Hello! Thanks for messaging ${widget.title}. We have received your message and will assist you shortly.';
+      if (widget.title.contains('AI Support') || widget.title.contains('Support')) {
+        autoReplyText =
+            'Thank you for reaching out to Nexora Support! Your query has been logged.';
+      } else if (widget.title.contains('Official Store') ||
+          widget.title.contains('Store') ||
+          widget.title.contains('Studios')) {
+        autoReplyText =
+            'Hello! Thanks for contacting ${widget.title}. All items include verified warranty. How may we assist you today?';
+      }
+
+      setState(() {
+        _isSimulatedTyping = false;
+        _messages.add({
+          'sender': 'other',
+          'text': autoReplyText,
+          'time': _getCurrentTime(),
+        });
+      });
+
+      if (widget.conversationId != null) {
+        ChatService.instance.receiveIncomingMessage(
+          conversationId: widget.conversationId!,
+          text: autoReplyText,
+          senderName: widget.title,
+        );
+      }
+
+      _scrollToBottom();
+    });
   }
 
   void _scrollToBottom({bool animate = true}) {
@@ -725,23 +769,19 @@ class _ChatDetailPageState extends State<ChatDetailPage>
 
   @override
   Widget build(BuildContext context) {
-    final isRiderTyping =
-        _isCourierChat &&
-        OrderChatService.instance.isRiderTyping(_effectiveOrderId);
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final isRiderTyping = _isCourierChat && OrderChatService.instance.isRiderTyping(_effectiveOrderId);
     final showTyping = _isCourierChat ? isRiderTyping : _isSimulatedTyping;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFAF9FF),
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 1,
-        shadowColor: Colors.black.withValues(alpha: 0.05),
+        backgroundColor: theme.colorScheme.surfaceContainerLowest,
+        elevation: 0,
+        surfaceTintColor: Colors.transparent,
         leading: IconButton(
-          icon: const Icon(
-            Icons.arrow_back_ios_new_rounded,
-            color: Color(0xFF0F172A),
-            size: 18,
-          ),
+          icon: Icon(Icons.arrow_back_ios_new_rounded, color: theme.colorScheme.onSurface, size: 18),
           onPressed: () => Navigator.pop(context),
         ),
         titleSpacing: 0,
@@ -779,7 +819,7 @@ class _ChatDetailPageState extends State<ChatDetailPage>
                     decoration: BoxDecoration(
                       color: const Color(0xFF22C55E),
                       shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 2),
+                      border: Border.all(color: theme.colorScheme.surfaceContainerLowest, width: 2),
                     ),
                   ),
                 ),
@@ -787,47 +827,30 @@ class _ChatDetailPageState extends State<ChatDetailPage>
             ),
             const SizedBox(width: 10),
             Expanded(
-              child: GestureDetector(
-                onTap: _isCourierChat ? _showOrderSwitchModal : null,
-                behavior: HitTestBehavior.opaque,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      _cleanTitle,
-                      style: const TextStyle(
-                        fontSize: 14.5,
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFF0F172A),
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _cleanTitle,
+                    style: TextStyle(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w800,
+                      color: theme.colorScheme.onSurface,
                     ),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          _isCourierChat
-                              ? 'Order #${_effectiveOrderId.replaceAll('#', '').toUpperCase()} • Live'
-                              : widget.subtitle,
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Colors.grey.shade600,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        if (_isCourierChat) ...[
-                          const SizedBox(width: 2),
-                          const Icon(
-                            Icons.arrow_drop_down_rounded,
-                            size: 16,
-                            color: Color(0xFF0075FF),
-                          ),
-                        ],
-                      ],
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    _isCourierChat
+                        ? 'Order #${_effectiveOrderId.replaceAll('#', '').toUpperCase()} • Live'
+                        : widget.subtitle,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: theme.colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w500,
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -835,9 +858,9 @@ class _ChatDetailPageState extends State<ChatDetailPage>
         actions: [
           if (_isCourierChat) ...[
             IconButton(
-              icon: const Icon(
+              icon: Icon(
                 Icons.swap_horiz_rounded,
-                color: Color(0xFF0075FF),
+                color: theme.colorScheme.primary,
               ),
               tooltip: 'Switch Order',
               onPressed: _showOrderSwitchModal,
@@ -862,7 +885,7 @@ class _ChatDetailPageState extends State<ChatDetailPage>
                       padding: const EdgeInsets.only(bottom: 10),
                       child: ChatTypingIndicator(
                         senderName: _cleanTitle,
-                        dotColor: const Color(0xFF0075FF),
+                        dotColor: theme.colorScheme.primary,
                       ),
                     ),
                   );
@@ -880,24 +903,20 @@ class _ChatDetailPageState extends State<ChatDetailPage>
                         vertical: 6,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFE2E8F0),
+                        color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(
-                            Icons.lock_outline_rounded,
-                            size: 12,
-                            color: Color(0xFF475569),
-                          ),
+                          Icon(Icons.lock_outline_rounded, size: 12, color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF475569)),
                           const SizedBox(width: 6),
                           Flexible(
                             child: Text(
                               msg['text'] ?? '',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 11,
-                                color: Color(0xFF475569),
+                                color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF475569),
                                 fontWeight: FontWeight.w600,
                               ),
                               textAlign: TextAlign.center,
@@ -939,25 +958,19 @@ class _ChatDetailPageState extends State<ChatDetailPage>
                         vertical: 8,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF1F5F9),
+                        color: isDark ? const Color(0xFF101D36) : const Color(0xFFF1F5F9),
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: const Color(0xFFCBD5E1)),
+                        border: Border.all(color: isDark ? const Color(0xFF1E3A5F) : const Color(0xFFCBD5E1)),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(
-                            Icons.remove_circle_outline_rounded,
-                            size: 14,
-                            color: Color(0xFF94A3B8),
-                          ),
+                          Icon(Icons.remove_circle_outline_rounded, size: 14, color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8)),
                           const SizedBox(width: 6),
                           Text(
-                            isUser
-                                ? 'You unsent a message'
-                                : 'This message was unsent',
-                            style: const TextStyle(
-                              color: Color(0xFF64748B),
+                            isUser ? 'You unsent a message' : 'This message was unsent',
+                            style: TextStyle(
+                              color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
                               fontSize: 12.5,
                               fontStyle: FontStyle.italic,
                             ),
@@ -1012,16 +1025,21 @@ class _ChatDetailPageState extends State<ChatDetailPage>
                         vertical: 10,
                       ),
                       decoration: BoxDecoration(
-                        color: isUser ? const Color(0xFF0075FF) : Colors.white,
+                        color: isUser
+                            ? theme.colorScheme.primary
+                            : (isDark ? theme.colorScheme.surfaceContainerLowest : Colors.white),
                         borderRadius: BorderRadius.only(
                           topLeft: const Radius.circular(16),
                           topRight: const Radius.circular(16),
                           bottomLeft: Radius.circular(isUser ? 16 : 4),
                           bottomRight: Radius.circular(isUser ? 4 : 16),
                         ),
+                        border: !isUser && isDark
+                            ? Border.all(color: theme.colorScheme.outlineVariant)
+                            : null,
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.04),
+                            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
                             blurRadius: 4,
                             offset: const Offset(0, 2),
                           ),
@@ -1035,10 +1053,10 @@ class _ChatDetailPageState extends State<ChatDetailPage>
                           if (!isUser && senderName.isNotEmpty) ...[
                             Text(
                               senderName,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w700,
-                                color: Color(0xFF0075FF),
+                                color: isDark ? const Color(0xFF38BDF8) : const Color(0xFF0075FF),
                               ),
                             ),
                             const SizedBox(height: 2),
@@ -1113,19 +1131,13 @@ class _ChatDetailPageState extends State<ChatDetailPage>
                                 decoration: BoxDecoration(
                                   color: isUser
                                       ? Colors.white.withValues(alpha: 0.15)
-                                      : const Color(0xFFF1F5F9),
+                                      : (isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9)),
                                   borderRadius: BorderRadius.circular(10),
                                 ),
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Icon(
-                                      Icons.insert_drive_file_rounded,
-                                      size: 24,
-                                      color: isUser
-                                          ? Colors.white
-                                          : const Color(0xFF0075FF),
-                                    ),
+                                    Icon(Icons.insert_drive_file_rounded, size: 24, color: isUser ? Colors.white : theme.colorScheme.primary),
                                     const SizedBox(width: 8),
                                     Flexible(
                                       child: Column(
@@ -1137,9 +1149,7 @@ class _ChatDetailPageState extends State<ChatDetailPage>
                                             style: TextStyle(
                                               fontSize: 12,
                                               fontWeight: FontWeight.bold,
-                                              color: isUser
-                                                  ? Colors.white
-                                                  : const Color(0xFF0F172A),
+                                              color: isUser ? Colors.white : theme.colorScheme.onSurface,
                                             ),
                                             overflow: TextOverflow.ellipsis,
                                           ),
@@ -1148,9 +1158,7 @@ class _ChatDetailPageState extends State<ChatDetailPage>
                                               formatSize(attachSize),
                                               style: TextStyle(
                                                 fontSize: 10,
-                                                color: isUser
-                                                    ? Colors.white70
-                                                    : const Color(0xFF64748B),
+                                                color: isUser ? Colors.white70 : theme.colorScheme.onSurfaceVariant,
                                               ),
                                             ),
                                         ],
@@ -1165,9 +1173,7 @@ class _ChatDetailPageState extends State<ChatDetailPage>
                               msg['text'] ?? '',
                               style: TextStyle(
                                 fontSize: 13.5,
-                                color: isUser
-                                    ? Colors.white
-                                    : const Color(0xFF0F172A),
+                                color: isUser ? Colors.white : theme.colorScheme.onSurface,
                                 height: 1.35,
                               ),
                             ),
@@ -1181,7 +1187,7 @@ class _ChatDetailPageState extends State<ChatDetailPage>
                                   fontSize: 10,
                                   color: isUser
                                       ? Colors.white.withValues(alpha: 0.75)
-                                      : Colors.grey.shade500,
+                                      : theme.colorScheme.onSurfaceVariant,
                                 ),
                               ),
                               if (isEdited) ...[
@@ -1193,7 +1199,7 @@ class _ChatDetailPageState extends State<ChatDetailPage>
                                     fontStyle: FontStyle.italic,
                                     color: isUser
                                         ? Colors.white.withValues(alpha: 0.75)
-                                        : const Color(0xFF0284C7),
+                                        : (isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7)),
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
@@ -1228,14 +1234,14 @@ class _ChatDetailPageState extends State<ChatDetailPage>
                   child: ActionChip(
                     label: Text(
                       reply,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 11.5,
-                        color: Color(0xFF0284C7),
+                        color: isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7),
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    backgroundColor: Colors.white,
-                    side: const BorderSide(color: Color(0xFFCBD5E1)),
+                    backgroundColor: isDark ? theme.colorScheme.surfaceContainerLowest : Colors.white,
+                    side: BorderSide(color: isDark ? theme.colorScheme.outlineVariant : const Color(0xFFCBD5E1)),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(20),
                     ),
@@ -1250,11 +1256,11 @@ class _ChatDetailPageState extends State<ChatDetailPage>
           if (_editingMessage != null)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              decoration: const BoxDecoration(
-                color: Color(0xFFF0F9FF),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF0C2444) : const Color(0xFFF0F9FF),
                 border: Border(
-                  top: BorderSide(color: Color(0xFFBAE6FD)),
-                  bottom: BorderSide(color: Color(0xFFE2E8F0)),
+                  top: BorderSide(color: isDark ? const Color(0xFF1E3A5F) : const Color(0xFFBAE6FD)),
+                  bottom: BorderSide(color: isDark ? const Color(0xFF1E3A5F) : const Color(0xFFE2E8F0)),
                 ),
               ),
               child: Row(
@@ -1290,7 +1296,7 @@ class _ChatDetailPageState extends State<ChatDetailPage>
                           _editingMessage!['text'] ?? '',
                           style: TextStyle(
                             fontSize: 12,
-                            color: Colors.grey.shade600,
+                            color: theme.colorScheme.onSurfaceVariant,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -1299,11 +1305,7 @@ class _ChatDetailPageState extends State<ChatDetailPage>
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(
-                      Icons.close_rounded,
-                      size: 18,
-                      color: Color(0xFF64748B),
-                    ),
+                    icon: Icon(Icons.close_rounded, size: 18, color: theme.colorScheme.onSurfaceVariant),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(
                       minWidth: 28,
@@ -1327,18 +1329,15 @@ class _ChatDetailPageState extends State<ChatDetailPage>
                 top: 8,
                 bottom: 8,
               ),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                border: Border(top: BorderSide(color: Color(0xFFE2E8F0))),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surfaceContainerLowest,
+                border: Border(top: BorderSide(color: theme.colorScheme.outlineVariant)),
               ),
               child: Row(
                 children: [
                   IconButton(
-                    icon: const Icon(
-                      Icons.add_photo_alternate_rounded,
-                      color: Color(0xFF0075FF),
-                      size: 24,
-                    ),
+                    icon: Icon(Icons.add_photo_alternate_rounded,
+                        color: theme.colorScheme.primary, size: 24),
                     tooltip: 'Send Photo / File (Max 5MB)',
                     onPressed: _pickAttachment,
                   ),
@@ -1346,23 +1345,38 @@ class _ChatDetailPageState extends State<ChatDetailPage>
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 14),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF1F5F9),
+                        color: isDark
+                            ? const Color(0xFF131D38)
+                            : const Color(0xFFF1F5F9),
                         borderRadius: BorderRadius.circular(24),
                       ),
                       child: TextField(
                         controller: _messageController,
                         focusNode: _messageFocusNode,
+                        style: TextStyle(
+                          fontSize: 13.5,
+                          color: theme.colorScheme.onSurface,
+                        ),
                         decoration: InputDecoration(
                           hintText: _editingMessage != null
                               ? 'Edit your message...'
                               : (_isCourierChat
-                                    ? 'Message $_cleanTitle...'
-                                    : 'Type a message...'),
+                                  ? 'Message $_cleanTitle...'
+                                  : 'Type a message...'),
                           hintStyle: TextStyle(
                             fontSize: 13,
-                            color: Colors.grey.shade500,
+                            color: theme.colorScheme.onSurfaceVariant,
                           ),
+                          filled: false,
+                          fillColor: Colors.transparent,
                           border: InputBorder.none,
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: InputBorder.none,
+                          disabledBorder: InputBorder.none,
+                          errorBorder: InputBorder.none,
+                          focusedErrorBorder: InputBorder.none,
+                          isDense: true,
+                          contentPadding: const EdgeInsets.symmetric(vertical: 10),
                         ),
                         textInputAction: TextInputAction.send,
                         onSubmitted: (val) {
@@ -1380,8 +1394,8 @@ class _ChatDetailPageState extends State<ChatDetailPage>
                     Container(
                       width: 36,
                       height: 36,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFF0075FF),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.primary,
                         shape: BoxShape.circle,
                       ),
                       child: IconButton(
@@ -1397,11 +1411,8 @@ class _ChatDetailPageState extends State<ChatDetailPage>
                     )
                   else
                     IconButton(
-                      icon: const Icon(
-                        Icons.send_rounded,
-                        color: Color(0xFF0075FF),
-                        size: 22,
-                      ),
+                      icon: Icon(Icons.send_rounded,
+                          color: theme.colorScheme.primary, size: 22),
                       onPressed: () => _sendMessage(_messageController.text),
                     ),
                 ],
@@ -1475,13 +1486,12 @@ class _ChatDetailPageState extends State<ChatDetailPage>
     if (isUnsent) return;
 
     final canEdit = isMe && OrderChatService.instance.canEditMessage(msg);
-    final remainingMinutes = OrderChatService.instance.getRemainingEditMinutes(
-      msg,
-    );
+    final remainingMinutes = OrderChatService.instance.getRemainingEditMinutes(msg);
+    final theme = Theme.of(context);
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.white,
+      backgroundColor: theme.colorScheme.surfaceContainerLowest,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -1495,31 +1505,31 @@ class _ChatDetailPageState extends State<ChatDetailPage>
                 width: 36,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
+                  color: theme.colorScheme.outlineVariant,
                   borderRadius: BorderRadius.circular(4),
                 ),
               ),
               const SizedBox(height: 12),
-              const Text(
+              Text(
                 'Message Options',
-                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+                style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 15,
+                  color: theme.colorScheme.onSurface,
+                ),
               ),
               const SizedBox(height: 8),
               if (isMe) ...[
                 ListTile(
                   leading: Icon(
                     Icons.edit_rounded,
-                    color: canEdit
-                        ? const Color(0xFF0075FF)
-                        : Colors.grey.shade400,
+                    color: canEdit ? theme.colorScheme.primary : Colors.grey.shade500,
                   ),
                   title: Text(
                     'Edit Message',
                     style: TextStyle(
                       fontWeight: FontWeight.w700,
-                      color: canEdit
-                          ? const Color(0xFF0F172A)
-                          : Colors.grey.shade400,
+                      color: canEdit ? theme.colorScheme.onSurface : Colors.grey.shade500,
                     ),
                   ),
                   subtitle: Text(
@@ -1528,9 +1538,7 @@ class _ChatDetailPageState extends State<ChatDetailPage>
                         : 'Edit window expired (can only edit within 10 mins)',
                     style: TextStyle(
                       fontSize: 11.5,
-                      color: canEdit
-                          ? const Color(0xFF0284C7)
-                          : Colors.grey.shade400,
+                      color: canEdit ? const Color(0xFF0284C7) : Colors.grey.shade500,
                     ),
                   ),
                   onTap: () {
@@ -1556,9 +1564,9 @@ class _ChatDetailPageState extends State<ChatDetailPage>
                       color: Color(0xFFEF4444),
                     ),
                   ),
-                  subtitle: const Text(
+                  subtitle: Text(
                     'Removes message for everyone in this chat',
-                    style: TextStyle(fontSize: 11.5, color: Color(0xFF94A3B8)),
+                    style: TextStyle(fontSize: 11.5, color: theme.colorScheme.onSurfaceVariant),
                   ),
                   onTap: () {
                     Navigator.pop(ctx);
@@ -1567,13 +1575,13 @@ class _ChatDetailPageState extends State<ChatDetailPage>
                 ),
               ],
               ListTile(
-                leading: const Icon(
-                  Icons.copy_rounded,
-                  color: Color(0xFF64748B),
-                ),
-                title: const Text(
+                leading: Icon(Icons.copy_rounded, color: theme.colorScheme.onSurfaceVariant),
+                title: Text(
                   'Copy Text',
-                  style: TextStyle(fontWeight: FontWeight.w600),
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: theme.colorScheme.onSurface,
+                  ),
                 ),
                 onTap: () {
                   Navigator.pop(ctx);
@@ -1595,31 +1603,38 @@ class _ChatDetailPageState extends State<ChatDetailPage>
   }
 
   void _confirmUnsend(Map<String, dynamic> msg) {
+    final theme = Theme.of(context);
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
+        backgroundColor: theme.colorScheme.surfaceContainerLowest,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.undo_rounded, color: Color(0xFFEF4444)),
-            SizedBox(width: 8),
+            const Icon(Icons.undo_rounded, color: Color(0xFFEF4444)),
+            const SizedBox(width: 8),
             Text(
               'Unsend Message?',
-              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
+              style: TextStyle(
+                fontWeight: FontWeight.w800,
+                fontSize: 17,
+                color: theme.colorScheme.onSurface,
+              ),
             ),
           ],
         ),
-        content: const Text(
+        content: Text(
           'Are you sure you want to unsend this message? It will be removed for everyone in the conversation.',
-          style: TextStyle(fontSize: 13, color: Color(0xFF475569), height: 1.4),
+          style: TextStyle(
+            fontSize: 13,
+            color: theme.colorScheme.onSurfaceVariant,
+            height: 1.4,
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text(
-              'Cancel',
-              style: TextStyle(color: Color(0xFF64748B)),
-            ),
+            child: Text('Cancel', style: TextStyle(color: theme.colorScheme.onSurfaceVariant)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -1652,36 +1667,38 @@ class _ChatDetailPageState extends State<ChatDetailPage>
   }
 
   void _showProfanityAlert(String message) {
+    final theme = Theme.of(context);
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
+        backgroundColor: theme.colorScheme.surfaceContainerLowest,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Row(
+        title: Row(
           children: [
-            Icon(
-              Icons.warning_amber_rounded,
-              color: Color(0xFFF59E0B),
-              size: 26,
-            ),
-            SizedBox(width: 8),
+            const Icon(Icons.warning_amber_rounded, color: Color(0xFFF59E0B), size: 26),
+            const SizedBox(width: 8),
             Text(
               'Warning',
-              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+              style: TextStyle(
+                fontWeight: FontWeight.w800,
+                fontSize: 16,
+                color: theme.colorScheme.onSurface,
+              ),
             ),
           ],
         ),
         content: Text(
           message,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 13,
-            color: Color(0xFF334155),
+            color: theme.colorScheme.onSurfaceVariant,
             height: 1.4,
           ),
         ),
         actions: [
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF0F172A),
+              backgroundColor: theme.colorScheme.primary,
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10),
@@ -1766,6 +1783,9 @@ class _ChatTypingIndicatorState extends State<ChatTypingIndicator>
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
@@ -1779,16 +1799,17 @@ class _ChatTypingIndicatorState extends State<ChatTypingIndicator>
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: isDark ? theme.colorScheme.surfaceContainerLowest : Colors.white,
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(16),
                 topRight: Radius.circular(16),
                 bottomLeft: Radius.circular(4),
                 bottomRight: Radius.circular(16),
               ),
+              border: isDark ? Border.all(color: theme.colorScheme.outlineVariant) : null,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.04),
+                  color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
                   blurRadius: 6,
                   offset: const Offset(0, 2),
                 ),
@@ -1803,7 +1824,7 @@ class _ChatTypingIndicatorState extends State<ChatTypingIndicator>
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
-                      color: Colors.grey.shade700,
+                      color: isDark ? theme.colorScheme.onSurfaceVariant : Colors.grey.shade700,
                     ),
                   ),
                   const SizedBox(width: 8),

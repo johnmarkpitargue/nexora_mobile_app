@@ -1844,6 +1844,58 @@ class OrderService extends ChangeNotifier {
     notifyListeners();
   }
 
+  void seedOrderForTesting(OrderItemModel order) {
+    _upsertOrder(order);
+    notifyListeners();
+  }
+
+  void markAsToReceive(String orderId) {
+    final order = findOrderById(orderId);
+    if (order == null) return;
+    final updated = order.copyWith(
+      rawStatus: 'out_for_delivery',
+      tabBucket: 'to_receive',
+      statusText: 'Out for Delivery',
+      statusColor: const Color(0xFF0284C7),
+      progress: 0.8,
+    );
+    _upsertOrder(updated);
+    notifyListeners();
+  }
+
+  void placeOrder({
+    required List<CartItemModel> items,
+    required double totalPrice,
+    required String paymentMethod,
+    String? recipientName,
+    String? recipientPhone,
+    String? shippingAddress,
+    String? estimatedArrival,
+    double? deliveryLat,
+    double? deliveryLng,
+  }) {
+    final order = OrderItemModel(
+      orderId: 'ORD-${DateTime.now().millisecondsSinceEpoch}',
+      dateText: 'Today',
+      statusText: 'Processing',
+      statusColor: const Color(0xFF0284C7),
+      etaText: estimatedArrival ?? '3 - 5 days',
+      etaTime: '6:00 PM',
+      progress: 0.2,
+      items: items,
+      totalPrice: totalPrice,
+      paymentMethod: paymentMethod,
+      recipientName: recipientName,
+      recipientPhone: recipientPhone,
+      shippingAddress: shippingAddress,
+      deliveryLat: deliveryLat,
+      deliveryLng: deliveryLng,
+      tabBucket: 'to_ship',
+    );
+    _upsertOrder(order);
+    notifyListeners();
+  }
+
   // =========================================================================
   // Phase-2 disabled compatibility no-ops (retained per Rule 4 so unreachable
   // Phase-2 screens still compile without deleting files).

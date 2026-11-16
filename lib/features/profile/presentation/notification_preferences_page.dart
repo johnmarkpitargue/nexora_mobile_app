@@ -72,26 +72,42 @@ class _NotificationPreferencesPageState extends State<NotificationPreferencesPag
   }
 
   @override
+  @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    final scaffoldBg = isDark ? const Color(0xFF060914) : const Color(0xFFF8FAFC);
+    final cardBg = isDark ? const Color(0xFF0D1323) : Colors.white;
+    final cardBorder = isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0);
+    final textPrimary = isDark ? Colors.white : const Color(0xFF0F172A);
+    final textSecondary = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
+    final dividerColor = isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9);
+    final iconBoxBg = isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9);
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: scaffoldBg,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: cardBg,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Color(0xFF0F172A), size: 20),
+          icon: Icon(Icons.arrow_back_ios_new_rounded, color: textPrimary, size: 20),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
+        title: Text(
           'Notification Preferences',
           style: TextStyle(
-            color: Color(0xFF0F172A),
+            color: textPrimary,
             fontWeight: FontWeight.w700,
             fontSize: 18,
           ),
         ),
         centerTitle: true,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Divider(height: 1, color: dividerColor),
+        ),
       ),
       body: AnimatedBuilder(
         animation: _service,
@@ -104,42 +120,42 @@ class _NotificationPreferencesPageState extends State<NotificationPreferencesPag
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // SECTION 1: System / OS Notification Permission Status Card
-                _buildSystemStatusCard(permStatus),
+                _buildSystemStatusCard(permStatus, isDark),
 
                 const SizedBox(height: 22),
 
                 // SECTION 2: Notification Channels
-                const Text(
+                Text(
                   'Notification Channels',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFF0F172A),
+                    color: textPrimary,
                     letterSpacing: 0.3,
                   ),
                 ),
                 const SizedBox(height: 10),
-                _buildChannelCard(),
+                _buildChannelCard(isDark, cardBg, cardBorder, dividerColor, iconBoxBg, textPrimary, textSecondary),
 
                 const SizedBox(height: 22),
 
                 // SECTION 3: Live Interactive Test Controls
-                const Text(
+                Text(
                   'Test Notification Triggers',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFF0F172A),
+                    color: textPrimary,
                     letterSpacing: 0.3,
                   ),
                 ),
                 const SizedBox(height: 8),
-                _buildTestingCard(),
+                _buildTestingCard(isDark, cardBg, cardBorder, textPrimary, textSecondary),
 
                 const SizedBox(height: 22),
 
                 // SECTION 4: Background & Exit Explanation
-                _buildEducationalInfoCard(),
+                _buildEducationalInfoCard(isDark, cardBorder, textPrimary, textSecondary),
 
                 const SizedBox(height: 30),
               ],
@@ -150,25 +166,27 @@ class _NotificationPreferencesPageState extends State<NotificationPreferencesPag
     );
   }
 
-  Widget _buildSystemStatusCard(String permStatus) {
+  Widget _buildSystemStatusCard(String permStatus, bool isDark) {
     bool isGranted = permStatus == 'granted';
     bool isDenied = permStatus == 'denied';
 
     Color cardBg = isGranted
-        ? const Color(0xFFF0FDF4)
+        ? (isDark ? const Color(0xFF062817) : const Color(0xFFF0FDF4))
         : isDenied
-            ? const Color(0xFFFEF2F2)
-            : const Color(0xFFFFFBEB);
+            ? (isDark ? const Color(0xFF2D1214) : const Color(0xFFFEF2F2))
+            : (isDark ? const Color(0xFF2A1D07) : const Color(0xFFFFFBEB));
     Color borderColor = isGranted
-        ? const Color(0xFFBBF7D0)
+        ? (isDark ? const Color(0xFF166534) : const Color(0xFFBBF7D0))
         : isDenied
-            ? const Color(0xFFFECACA)
-            : const Color(0xFFFDE68A);
+            ? (isDark ? const Color(0xFF991B1B) : const Color(0xFFFECACA))
+            : (isDark ? const Color(0xFF92400E) : const Color(0xFFFDE68A));
     Color badgeColor = isGranted
-        ? const Color(0xFF16A34A)
+        ? (isDark ? const Color(0xFF4ADE80) : const Color(0xFF16A34A))
         : isDenied
-            ? const Color(0xFFDC2626)
-            : const Color(0xFFD97706);
+            ? (isDark ? const Color(0xFFF87171) : const Color(0xFFDC2626))
+            : (isDark ? const Color(0xFFFBBF24) : const Color(0xFFD97706));
+    Color descColor = isDark ? const Color(0xFFCBD5E1) : const Color(0xFF334155);
+
     String statusTitle = isGranted
         ? 'Phone Push Notifications Active'
         : isDenied
@@ -239,9 +257,9 @@ class _NotificationPreferencesPageState extends State<NotificationPreferencesPag
           const SizedBox(height: 10),
           Text(
             statusDesc,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12.5,
-              color: Color(0xFF334155),
+              color: descColor,
               height: 1.4,
             ),
           ),
@@ -267,12 +285,20 @@ class _NotificationPreferencesPageState extends State<NotificationPreferencesPag
     );
   }
 
-  Widget _buildChannelCard() {
+  Widget _buildChannelCard(
+    bool isDark,
+    Color cardBg,
+    Color cardBorder,
+    Color dividerColor,
+    Color iconBoxBg,
+    Color textPrimary,
+    Color textSecondary,
+  ) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cardBg,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(color: cardBorder),
       ),
       child: Column(
         children: [
@@ -282,38 +308,53 @@ class _NotificationPreferencesPageState extends State<NotificationPreferencesPag
             icon: Icons.local_shipping_outlined,
             value: _service.orderStatusAlerts,
             onChanged: (v) => _service.updateSettings(orderStatusAlerts: v),
+            iconBoxBg: iconBoxBg,
+            textPrimary: textPrimary,
+            textSecondary: textSecondary,
           ),
-          const Divider(height: 1, indent: 56, color: Color(0xFFF1F5F9)),
+          Divider(height: 1, indent: 56, color: dividerColor),
           _buildSwitchTile(
             title: 'Courier Dispatch & Live Location',
             subtitle: 'Driver pickup, proximity arrival notices, and doorstep delivery',
             icon: Icons.moped_rounded,
             value: _service.courierDispatchAlerts,
             onChanged: (v) => _service.updateSettings(courierDispatchAlerts: v),
+            iconBoxBg: iconBoxBg,
+            textPrimary: textPrimary,
+            textSecondary: textSecondary,
           ),
-          const Divider(height: 1, indent: 56, color: Color(0xFFF1F5F9)),
+          Divider(height: 1, indent: 56, color: dividerColor),
           _buildSwitchTile(
             title: 'Chat & Seller Messages',
             subtitle: 'Direct messages from shops, store reps, and courier inquiries',
             icon: Icons.chat_bubble_outline_rounded,
             value: _service.chatMessagesAlerts,
             onChanged: (v) => _service.updateSettings(chatMessagesAlerts: v),
+            iconBoxBg: iconBoxBg,
+            textPrimary: textPrimary,
+            textSecondary: textSecondary,
           ),
-          const Divider(height: 1, indent: 56, color: Color(0xFFF1F5F9)),
+          Divider(height: 1, indent: 56, color: dividerColor),
           _buildSwitchTile(
             title: 'Promotions, Vouchers & Flash Sales',
             subtitle: 'Discount vouchers, daily deals, and product restock alerts',
             icon: Icons.local_offer_outlined,
             value: _service.promoAlerts,
             onChanged: (v) => _service.updateSettings(promoAlerts: v),
+            iconBoxBg: iconBoxBg,
+            textPrimary: textPrimary,
+            textSecondary: textSecondary,
           ),
-          const Divider(height: 1, indent: 56, color: Color(0xFFF1F5F9)),
+          Divider(height: 1, indent: 56, color: dividerColor),
           _buildSwitchTile(
             title: 'Sound & Audio Alert',
             subtitle: 'Chime on new in-app banner updates',
             icon: Icons.volume_up_outlined,
             value: _service.soundEnabled,
             onChanged: (v) => _service.updateSettings(soundEnabled: v),
+            iconBoxBg: iconBoxBg,
+            textPrimary: textPrimary,
+            textSecondary: textSecondary,
             isLast: true,
           ),
         ],
@@ -327,6 +368,9 @@ class _NotificationPreferencesPageState extends State<NotificationPreferencesPag
     required IconData icon,
     required bool value,
     required ValueChanged<bool> onChanged,
+    required Color iconBoxBg,
+    required Color textPrimary,
+    required Color textSecondary,
     bool isLast = false,
   }) {
     return Padding(
@@ -337,7 +381,7 @@ class _NotificationPreferencesPageState extends State<NotificationPreferencesPag
             width: 36,
             height: 36,
             decoration: BoxDecoration(
-              color: const Color(0xFFF1F5F9),
+              color: iconBoxBg,
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(icon, color: const Color(0xFF0066FF), size: 18),
@@ -349,16 +393,16 @@ class _NotificationPreferencesPageState extends State<NotificationPreferencesPag
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13.5,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFF0F172A),
+                    color: textPrimary,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   subtitle,
-                  style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                  style: TextStyle(fontSize: 11.5, color: textSecondary),
                 ),
               ],
             ),
@@ -373,30 +417,36 @@ class _NotificationPreferencesPageState extends State<NotificationPreferencesPag
     );
   }
 
-  Widget _buildTestingCard() {
+  Widget _buildTestingCard(
+    bool isDark,
+    Color cardBg,
+    Color cardBorder,
+    Color textPrimary,
+    Color textSecondary,
+  ) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cardBg,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(color: cardBorder),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Live Notification Simulator',
             style: TextStyle(
               fontSize: 13.5,
               fontWeight: FontWeight.w700,
-              color: Color(0xFF0F172A),
+              color: textPrimary,
             ),
           ),
           const SizedBox(height: 4),
-          const Text(
+          Text(
             'Test the notifications directly on your mobile device to see how in-app and phone push notifications behave.',
-            style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+            style: TextStyle(fontSize: 12, color: textSecondary),
           ),
           const SizedBox(height: 14),
 
@@ -419,7 +469,7 @@ class _NotificationPreferencesPageState extends State<NotificationPreferencesPag
                 style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF0066FF)),
               ),
               style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: Color(0xFFBFDBFE)),
+                side: BorderSide(color: isDark ? const Color(0xFF1D4ED8) : const Color(0xFFBFDBFE)),
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
@@ -444,7 +494,9 @@ class _NotificationPreferencesPageState extends State<NotificationPreferencesPag
                 style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
               ),
               style: ElevatedButton.styleFrom(
-                backgroundColor: _countdownSeconds > 0 ? const Color(0xFFEA580C) : const Color(0xFF0F172A),
+                backgroundColor: _countdownSeconds > 0
+                    ? const Color(0xFFEA580C)
+                    : (isDark ? const Color(0xFF1E293B) : const Color(0xFF0F172A)),
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 13),
                 elevation: 0,
@@ -457,9 +509,9 @@ class _NotificationPreferencesPageState extends State<NotificationPreferencesPag
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
-                color: const Color(0xFFFFF7ED),
+                color: isDark ? const Color(0xFF2A1508) : const Color(0xFFFFF7ED),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFFFFEDD5)),
+                border: Border.all(color: isDark ? const Color(0xFF9A3412) : const Color(0xFFFFEDD5)),
               ),
               child: const Row(
                 children: [
@@ -480,39 +532,44 @@ class _NotificationPreferencesPageState extends State<NotificationPreferencesPag
     );
   }
 
-  Widget _buildEducationalInfoCard() {
+  Widget _buildEducationalInfoCard(
+    bool isDark,
+    Color cardBorder,
+    Color textPrimary,
+    Color textSecondary,
+  ) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFFF1F5F9),
+        color: isDark ? const Color(0xFF0D1323) : const Color(0xFFF1F5F9),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(color: cardBorder),
       ),
-      child: const Column(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(Icons.phone_android_rounded, size: 18, color: Color(0xFF475569)),
-              SizedBox(width: 8),
+              Icon(Icons.phone_android_rounded, size: 18, color: textSecondary),
+              const SizedBox(width: 8),
               Text(
                 'How Phone Push Notifications Work',
                 style: TextStyle(
                   fontSize: 13.5,
                   fontWeight: FontWeight.w700,
-                  color: Color(0xFF0F172A),
+                  color: textPrimary,
                 ),
               ),
             ],
           ),
-          SizedBox(height: 8),
+          const SizedBox(height: 8),
           Text(
             '• Lock Screen & Status Bar: When the Nexora app is minimized or your phone is locked, real-time order updates and courier chat alerts are delivered directly to your Android / iOS notification drawer.\n\n'
             '• Sound & Vibration: Phone alerts use your mobile device\'s high-priority notification channel with vibration and sound chimes.',
             style: TextStyle(
               fontSize: 12,
-              color: Color(0xFF475569),
+              color: textSecondary,
               height: 1.45,
             ),
           ),

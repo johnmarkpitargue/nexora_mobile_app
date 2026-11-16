@@ -551,30 +551,38 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
   @override
   Widget build(BuildContext context) {
     const brandBlue = Color(0xFF0066FF);
-    const bgLight = Color(0xFFF8FAFC);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final scaffoldBg = isDark ? const Color(0xFF060914) : const Color(0xFFF8FAFC);
+    final cardBg = isDark ? const Color(0xFF0D1323) : Colors.white;
+    final textPrimary = isDark ? Colors.white : const Color(0xFF0F172A);
+    final dividerColor = isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9);
 
     return Scaffold(
-      backgroundColor: bgLight,
+      backgroundColor: scaffoldBg,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: cardBg,
         surfaceTintColor: Colors.transparent,
         elevation: 0.5,
-        title: const Text(
+        title: Text(
           'Track Your Order',
           style: TextStyle(
-            color: Color(0xFF0F172A),
+            color: textPrimary,
             fontWeight: FontWeight.w700,
             fontSize: 18,
           ),
         ),
         centerTitle: true,
         leading: IconButton(
-          icon: const Icon(
+          icon: Icon(
             Icons.arrow_back_ios_new_rounded,
-            color: Color(0xFF0F172A),
+            color: textPrimary,
             size: 20,
           ),
           onPressed: () => Navigator.of(context).pop(),
+        ),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Divider(height: 1, color: dividerColor),
         ),
         actions: [
           Container(
@@ -1856,6 +1864,8 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
                             controller: searchController,
                             style: const TextStyle(fontSize: 13),
                             decoration: const InputDecoration(
+                              filled: false,
+                              fillColor: Colors.transparent,
                               hintText:
                                   'Search place, landmark, or street in PH...',
                               hintStyle: TextStyle(
@@ -1863,6 +1873,11 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
                                 color: Color(0xFF94A3B8),
                               ),
                               border: InputBorder.none,
+                              enabledBorder: InputBorder.none,
+                              focusedBorder: InputBorder.none,
+                              disabledBorder: InputBorder.none,
+                              errorBorder: InputBorder.none,
+                              focusedErrorBorder: InputBorder.none,
                               isDense: true,
                               contentPadding: EdgeInsets.symmetric(
                                 vertical: 10,
