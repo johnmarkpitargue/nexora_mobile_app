@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/rider_theme.dart';
 import '../../../core/services/delivery_service.dart';

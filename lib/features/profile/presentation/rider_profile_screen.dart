@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+
 import '../../../core/services/rider_account_service.dart';
 import '../../../core/services/rider_service.dart';
 import '../../../core/services/in_app_notification_service.dart';
@@ -42,7 +43,8 @@ DocumentValidationResult validateUploadedDocument({
 
   final isAllowedExtension = ['jpg', 'jpeg', 'png', 'pdf'].contains(ext);
   final isDisguisedExeOrDocx =
-      fileName.toLowerCase().contains('docx') || fileName.toLowerCase().contains('exe');
+      fileName.toLowerCase().contains('docx') ||
+      fileName.toLowerCase().contains('exe');
 
   if (!isAllowedExtension || isDisguisedExeOrDocx) {
     return DocumentValidationResult(
@@ -102,8 +104,11 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
         title: const Row(
           children: [
-            Icon(Icons.warning_amber_rounded,
-                color: Color(0xFFEF4444), size: 28),
+            Icon(
+              Icons.warning_amber_rounded,
+              color: Color(0xFFEF4444),
+              size: 28,
+            ),
             SizedBox(width: 8),
             Text(
               'Rider Emergency SOS',
@@ -125,8 +130,9 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
               Navigator.pop(ctx);
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content:
-                      Text('🚨 SOS Alert Dispatched! Roadside team alerted.'),
+                  content: Text(
+                    '🚨 SOS Alert Dispatched! Roadside team alerted.',
+                  ),
                   backgroundColor: Color(0xFFEF4444),
                 ),
               );
@@ -163,8 +169,11 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
               ),
             ),
             const SizedBox(height: 18),
-            const Icon(Icons.power_settings_new_rounded,
-                color: Color(0xFFEF4444), size: 42),
+            const Icon(
+              Icons.power_settings_new_rounded,
+              color: Color(0xFFEF4444),
+              size: 42,
+            ),
             const SizedBox(height: 12),
             const Text(
               'End Shift & Log Out?',
@@ -179,7 +188,10 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
               'Your active shift will be clocked out. You will not receive new incoming dispatch requests until you go on duty again.',
               textAlign: TextAlign.center,
               style: TextStyle(
-                  fontSize: 12.5, color: Color(0xFF64748B), height: 1.3),
+                fontSize: 12.5,
+                color: Color(0xFF64748B),
+                height: 1.3,
+              ),
             ),
             const SizedBox(height: 20),
             Row(
@@ -275,8 +287,11 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                       color: const Color(0xFFE0F2FE),
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: const Icon(Icons.cloud_upload_rounded,
-                        color: Color(0xFF0066FF), size: 22),
+                    child: const Icon(
+                      Icons.cloud_upload_rounded,
+                      color: Color(0xFF0066FF),
+                      size: 22,
+                    ),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
@@ -294,8 +309,10 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                         const SizedBox(height: 2),
                         const Text(
                           'Max file size: 5.0 MB • JPG, PNG, or PDF',
-                          style:
-                              TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF64748B),
+                          ),
                         ),
                       ],
                     ),
@@ -310,14 +327,19 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                     color: const Color(0xFFE0F2FE),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.camera_alt_outlined,
-                      color: Color(0xFF0066FF)),
+                  child: const Icon(
+                    Icons.camera_alt_outlined,
+                    color: Color(0xFF0066FF),
+                  ),
                 ),
-                title: const Text('Take Photo (Camera)',
-                    style:
-                        TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5)),
-                subtitle: const Text('Capture document using device camera',
-                    style: TextStyle(fontSize: 11)),
+                title: const Text(
+                  'Take Photo (Camera)',
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5),
+                ),
+                subtitle: const Text(
+                  'Capture document using device camera',
+                  style: TextStyle(fontSize: 11),
+                ),
                 onTap: () async {
                   Navigator.pop(sheetCtx);
                   await _pickImageFromSource(
@@ -334,14 +356,19 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                     color: const Color(0xFFE0F2FE),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.photo_library_outlined,
-                      color: Color(0xFF0066FF)),
+                  child: const Icon(
+                    Icons.photo_library_outlined,
+                    color: Color(0xFF0066FF),
+                  ),
                 ),
-                title: const Text('Choose from Gallery',
-                    style:
-                        TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5)),
-                subtitle: const Text('Select image from photo gallery',
-                    style: TextStyle(fontSize: 11)),
+                title: const Text(
+                  'Choose from Gallery',
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5),
+                ),
+                subtitle: const Text(
+                  'Select image from photo gallery',
+                  style: TextStyle(fontSize: 11),
+                ),
                 onTap: () async {
                   Navigator.pop(sheetCtx);
                   await _pickImageFromSource(
@@ -358,15 +385,19 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                     color: const Color(0xFFFEF3C7),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.folder_open_outlined,
-                      color: Color(0xFFD97706)),
+                  child: const Icon(
+                    Icons.folder_open_outlined,
+                    color: Color(0xFFD97706),
+                  ),
                 ),
-                title: const Text('Browse Files (PDF or Images)',
-                    style:
-                        TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5)),
+                title: const Text(
+                  'Browse Files (PDF or Images)',
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5),
+                ),
                 subtitle: const Text(
-                    'Select official digital PDF scan or document file',
-                    style: TextStyle(fontSize: 11)),
+                  'Select official digital PDF scan or document file',
+                  style: TextStyle(fontSize: 11),
+                ),
                 onTap: () async {
                   Navigator.pop(sheetCtx);
                   await _pickDocumentFile(
@@ -504,230 +535,249 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                Center(
-                  child: Container(
-                    width: 44,
-                    height: 5,
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade300,
-                      borderRadius: BorderRadius.circular(10),
+                  Center(
+                    child: Container(
+                      width: 44,
+                      height: 5,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 16),
-                const Row(
-                  children: [
-                    Icon(Icons.edit_note_rounded,
-                        color: Color(0xFF0066FF), size: 24),
-                    SizedBox(width: 8),
-                    Text(
-                      'Update Vehicle Details',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w900,
-                        color: Color(0xFF0F172A),
+                  const SizedBox(height: 16),
+                  const Row(
+                    children: [
+                      Icon(
+                        Icons.edit_note_rounded,
+                        color: Color(0xFF0066FF),
+                        size: 24,
+                      ),
+                      SizedBox(width: 8),
+                      Text(
+                        'Update Vehicle Details',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
+                          color: Color(0xFF0F172A),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'Changes to plate number or vehicle registration (OR/CR) require re-verification by Logistics Hub.',
+                    style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Error Banner if validation fails
+                  if (localError != null) ...[
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      margin: const EdgeInsets.only(bottom: 14),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFEF2F2),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFFCA5A5)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.error_outline_rounded,
+                            color: Color(0xFFEF4444),
+                            size: 18,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              localError!,
+                              style: const TextStyle(
+                                color: Color(0xFF991B1B),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
-                ),
-                const SizedBox(height: 6),
-                const Text(
-                  'Changes to plate number or vehicle registration (OR/CR) require re-verification by Logistics Hub.',
-                  style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
-                ),
-                const SizedBox(height: 16),
 
-                // Error Banner if validation fails
-                if (localError != null) ...[
+                  // Plate Input
+                  const Text(
+                    'Vehicle Plate Number *',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF0F172A),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: plateController,
+                    textCapitalization: TextCapitalization.characters,
+                    decoration: InputDecoration(
+                      hintText: 'e.g. 789GHI or 123ABC',
+                      filled: true,
+                      fillColor: const Color(0xFFF8FAFC),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+                      ),
+                      prefixIcon: const Icon(Icons.pin_outlined),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Attached OR/CR document preview
+                  const Text(
+                    'Upload New OR/CR (LTO Registration) *',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF0F172A),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
                   Container(
-                    padding: const EdgeInsets.all(12),
-                    margin: const EdgeInsets.only(bottom: 14),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFFEF2F2),
+                      color: const Color(0xFFF8FAFC),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFFFCA5A5)),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.error_outline_rounded,
-                            color: Color(0xFFEF4444), size: 18),
-                        const SizedBox(width: 8),
+                        Icon(
+                          orCrFile.toLowerCase().endsWith('.pdf')
+                              ? Icons.picture_as_pdf_rounded
+                              : Icons.image_rounded,
+                          color: orCrFile.toLowerCase().endsWith('.pdf')
+                              ? const Color(0xFFEF4444)
+                              : const Color(0xFF0066FF),
+                          size: 26,
+                        ),
+                        const SizedBox(width: 10),
                         Expanded(
-                          child: Text(
-                            localError!,
-                            style: const TextStyle(
-                              color: Color(0xFF991B1B),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                orCrFile,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w800,
+                                  color: Color(0xFF0F172A),
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              Text(
+                                'File Size: ${orCrSize < 1.0 ? '${(orCrSize * 1024).toStringAsFixed(0)} KB' : '${orCrSize.toStringAsFixed(2)} MB'} (Under 5.0 MB limit)',
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: Color(0xFF64748B),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton.icon(
+                          onPressed: () {
+                            _openDocumentPicker(
+                              context: context,
+                              title: 'OR/CR (LTO Registration)',
+                              onFileSelected: (fileName, sizeMb) {
+                                setSheetState(() {
+                                  orCrFile = fileName;
+                                  orCrSize = sizeMb;
+                                  localError = null;
+                                });
+                              },
+                            );
+                          },
+                          icon: const Icon(Icons.upload_file_rounded, size: 16),
+                          label: const Text('Upload File'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF0066FF),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            textStyle: const TextStyle(
                               fontSize: 12,
-                              fontWeight: FontWeight.w700,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
                         ),
                       ],
                     ),
                   ),
-                ],
+                  const SizedBox(height: 20),
 
-                // Plate Input
-                const Text(
-                  'Vehicle Plate Number *',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xFF0F172A),
-                  ),
-                ),
-                const SizedBox(height: 6),
-                TextField(
-                  controller: plateController,
-                  textCapitalization: TextCapitalization.characters,
-                  decoration: InputDecoration(
-                    hintText: 'e.g. 789GHI or 123ABC',
-                    filled: true,
-                    fillColor: const Color(0xFFF8FAFC),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
-                    ),
-                    prefixIcon: const Icon(Icons.pin_outlined),
-                  ),
-                ),
-                const SizedBox(height: 16),
+                  // Save Button
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        final result = RiderService.instance
+                            .updateVehicleDetails(
+                              newPlate: plateController.text,
+                              newOrCrName: orCrFile,
+                              orCrSizeMb: orCrSize,
+                            );
 
-                // Attached OR/CR document preview
-                const Text(
-                  'Upload New OR/CR (LTO Registration) *',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xFF0F172A),
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF8FAFC),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFE2E8F0)),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        orCrFile.toLowerCase().endsWith('.pdf')
-                            ? Icons.picture_as_pdf_rounded
-                            : Icons.image_rounded,
-                        color: orCrFile.toLowerCase().endsWith('.pdf')
-                            ? const Color(0xFFEF4444)
-                            : const Color(0xFF0066FF),
-                        size: 26,
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              orCrFile,
-                              style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w800,
-                                color: Color(0xFF0F172A),
+                        if (!result.success) {
+                          setSheetState(() {
+                            localError = result.message;
+                          });
+                        } else {
+                          Navigator.pop(ctx);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Row(
+                                children: [
+                                  const Icon(
+                                    Icons.check_circle_rounded,
+                                    color: Colors.white,
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(child: Text(result.message)),
+                                ],
                               ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                              backgroundColor: const Color(0xFF0066FF),
                             ),
-                            Text(
-                              'File Size: ${orCrSize < 1.0 ? '${(orCrSize * 1024).toStringAsFixed(0)} KB' : '${orCrSize.toStringAsFixed(2)} MB'} (Under 5.0 MB limit)',
-                              style: const TextStyle(
-                                  fontSize: 11, color: Color(0xFF64748B)),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      ElevatedButton.icon(
-                        onPressed: () {
-                          _openDocumentPicker(
-                            context: context,
-                            title: 'OR/CR (LTO Registration)',
-                            onFileSelected: (fileName, sizeMb) {
-                              setSheetState(() {
-                                orCrFile = fileName;
-                                orCrSize = sizeMb;
-                                localError = null;
-                              });
-                            },
                           );
-                        },
-                        icon: const Icon(Icons.upload_file_rounded, size: 16),
-                        label: const Text('Upload File'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF0066FF),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 8),
-                          textStyle: const TextStyle(
-                              fontSize: 12, fontWeight: FontWeight.bold),
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF0066FF),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
                         ),
                       ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 20),
-
-                // Save Button
-                SizedBox(
-                  width: double.infinity,
-                  height: 50,
-                  child: ElevatedButton(
-                    onPressed: () {
-                      final result =
-                          RiderService.instance.updateVehicleDetails(
-                        newPlate: plateController.text,
-                        newOrCrName: orCrFile,
-                        orCrSizeMb: orCrSize,
-                      );
-
-                      if (!result.success) {
-                        setSheetState(() {
-                          localError = result.message;
-                        });
-                      } else {
-                        Navigator.pop(ctx);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Row(
-                              children: [
-                                const Icon(Icons.check_circle_rounded,
-                                    color: Colors.white, size: 20),
-                                const SizedBox(width: 8),
-                                Expanded(child: Text(result.message)),
-                              ],
-                            ),
-                            backgroundColor: const Color(0xFF0066FF),
-                          ),
-                        );
-                      }
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF0066FF),
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
+                      child: const Text(
+                        'Save & Submit for Re-verification',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w900,
+                        ),
                       ),
                     ),
-                    child: const Text(
-                      'Save & Submit for Re-verification',
-                      style:
-                          TextStyle(fontSize: 14, fontWeight: FontWeight.w900),
-                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        );
+          );
         },
       ),
     );
@@ -750,8 +800,9 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
       builder: (ctx) => StatefulBuilder(
         builder: (context, setModalState) {
           final currentProfile = RiderService.instance.profile;
-          final activeDocName =
-              isLicense ? currentProfile.licenseDocName : currentProfile.orCrDocName;
+          final activeDocName = isLicense
+              ? currentProfile.licenseDocName
+              : currentProfile.orCrDocName;
 
           return SafeArea(
             child: Padding(
@@ -786,7 +837,9 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                       ),
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 4),
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: const Color(0xFFF0FDF4),
                           borderRadius: BorderRadius.circular(8),
@@ -806,8 +859,10 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                   const SizedBox(height: 4),
                   Text(
                     'Company: ${currentProfile.company} • File: $activeDocName',
-                    style:
-                        const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                    style: const TextStyle(
+                      fontSize: 11.5,
+                      color: Color(0xFF64748B),
+                    ),
                   ),
                   const SizedBox(height: 16),
 
@@ -840,8 +895,11 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                           children: [
                             Row(
                               children: [
-                                const Icon(Icons.security_rounded,
-                                    color: Color(0xFF0066FF), size: 20),
+                                const Icon(
+                                  Icons.security_rounded,
+                                  color: Color(0xFF0066FF),
+                                  size: 20,
+                                ),
                                 const SizedBox(width: 8),
                                 Text(
                                   isLicense
@@ -858,7 +916,9 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                             ),
                             Container(
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 6, vertical: 2),
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
                               decoration: BoxDecoration(
                                 color: const Color(0xFF10B981)
                                     .withValues(alpha: 0.25),
@@ -867,9 +927,10 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                               child: const Text(
                                 'OFFICIAL RECORD',
                                 style: TextStyle(
-                                    color: Color(0xFF34D399),
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.w800),
+                                  color: Color(0xFF34D399),
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w800,
+                                ),
                               ),
                             ),
                           ],
@@ -907,10 +968,15 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                             Text(
                               'Verified by Nexora Hub ID: ${currentProfile.id}',
                               style: const TextStyle(
-                                  color: Color(0xFF64748B), fontSize: 10),
+                                color: Color(0xFF64748B),
+                                fontSize: 10,
+                              ),
                             ),
-                            const Icon(Icons.qr_code_2_rounded,
-                                color: Colors.white70, size: 22),
+                            const Icon(
+                              Icons.qr_code_2_rounded,
+                              color: Colors.white70,
+                              size: 22,
+                            ),
                           ],
                         ),
                       ],
@@ -934,12 +1000,15 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                         Expanded(
                           child: Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 10),
+                              horizontal: 12,
+                              vertical: 10,
+                            ),
                             decoration: BoxDecoration(
                               color: const Color(0xFFF8FAFC),
                               borderRadius: BorderRadius.circular(10),
-                              border:
-                                  Border.all(color: const Color(0xFFE2E8F0)),
+                              border: Border.all(
+                                color: const Color(0xFFE2E8F0),
+                              ),
                             ),
                             child: Text(
                               'Current Expiry: ${currentProfile.licenseExpiry}',
@@ -958,8 +1027,9 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                             final picked = await showDatePicker(
                               context: context,
                               initialDate: now,
-                              firstDate:
-                                  now.subtract(const Duration(days: 365)),
+                              firstDate: now.subtract(
+                                const Duration(days: 365),
+                              ),
                               lastDate: now.add(const Duration(days: 3650)),
                             );
                             if (picked != null) {
@@ -977,14 +1047,18 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                               );
                             }
                           },
-                          icon: const Icon(Icons.calendar_today_rounded,
-                              size: 15),
+                          icon: const Icon(
+                            Icons.calendar_today_rounded,
+                            size: 15,
+                          ),
                           label: const Text('Pick Date'),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF0066FF),
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 10),
+                              horizontal: 12,
+                              vertical: 10,
+                            ),
                           ),
                         ),
                       ],
@@ -1006,7 +1080,9 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                   const SizedBox(height: 6),
                   Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 12),
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xFFF8FAFC),
                       borderRadius: BorderRadius.circular(12),
@@ -1042,7 +1118,9 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                               const Text(
                                 'JPG, PNG, or PDF • Max 5.0 MB',
                                 style: TextStyle(
-                                    fontSize: 11, color: Color(0xFF64748B)),
+                                  fontSize: 11,
+                                  color: Color(0xFF64748B),
+                                ),
                               ),
                             ],
                           ),
@@ -1078,16 +1156,22 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                               },
                             );
                           },
-                          icon: const Icon(Icons.file_upload_outlined,
-                              size: 16),
+                          icon: const Icon(
+                            Icons.file_upload_outlined,
+                            size: 16,
+                          ),
                           label: const Text('Upload File'),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF0066FF),
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 8),
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
                             textStyle: const TextStyle(
-                                fontSize: 12, fontWeight: FontWeight.bold),
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                       ],
@@ -1127,8 +1211,7 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
         final isOnline = profile.isOnline;
 
         // RID-PROF-007: Authorization Guard Check
-        if (_unauthorizedViewId != null &&
-            _unauthorizedViewId != profile.id) {
+        if (_unauthorizedViewId != null && _unauthorizedViewId != profile.id) {
           return Scaffold(
             backgroundColor: const Color(0xFFF8FAFC),
             appBar: AppBar(
@@ -1137,7 +1220,9 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
               title: const Text(
                 'Security Check',
                 style: TextStyle(
-                    fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
+                  fontWeight: FontWeight.w900,
+                  color: Color(0xFF0F172A),
+                ),
               ),
               leading: IconButton(
                 icon: const Icon(Icons.arrow_back, color: Color(0xFF0F172A)),
@@ -1190,9 +1275,10 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                         'Denied. Rider ${profile.name} (${profile.id}) is not permitted to view Rider 2 ($_unauthorizedViewId)\'s private record or documents.',
                         textAlign: TextAlign.center,
                         style: const TextStyle(
-                            fontSize: 13,
-                            color: Color(0xFF64748B),
-                            height: 1.4),
+                          fontSize: 13,
+                          color: Color(0xFF64748B),
+                          height: 1.4,
+                        ),
                       ),
                       const SizedBox(height: 20),
                       ElevatedButton(
@@ -1256,10 +1342,15 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                   shape: BoxShape.circle,
                 ),
                 child: IconButton(
-                  icon: const Icon(Icons.notifications_none_rounded,
-                      color: Color(0xFF0F172A), size: 20),
+                  icon: const Icon(
+                    Icons.notifications_none_rounded,
+                    color: Color(0xFF0F172A),
+                    size: 20,
+                  ),
                   onPressed: () {
-                    InAppNotificationService.instance.showNotificationHistory(context);
+                    InAppNotificationService.instance.showNotificationHistory(
+                      context,
+                    );
                   },
                 ),
               ),
@@ -1271,7 +1362,6 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-
                 // 1. Rider Header Card (RID-PROF-001)
                 Container(
                   padding: const EdgeInsets.all(16),
@@ -1297,30 +1387,39 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                             children: [
                               ClipRRect(
                                 borderRadius: BorderRadius.circular(14),
-                                child: (profile.avatarUrl.isNotEmpty && !profile.avatarUrl.contains('unsplash.com'))
+                                child:
+                                    (profile.avatarUrl.isNotEmpty &&
+                                        !profile.avatarUrl.contains(
+                                          'unsplash.com',
+                                        ))
                                     ? Image.network(
                                         profile.avatarUrl,
                                         width: 58,
                                         height: 58,
                                         fit: BoxFit.cover,
-                                        errorBuilder: (ctx, error, stackTrace) =>
-                                            Container(
-                                          width: 58,
-                                          height: 58,
-                                          color: const Color(0xFF0066FF),
-                                          child: Center(
-                                            child: Text(
-                                              profile.name.isNotEmpty
-                                                  ? profile.name[0].toUpperCase()
-                                                  : 'R',
-                                              style: const TextStyle(
-                                                color: Colors.white,
-                                                fontSize: 22,
-                                                fontWeight: FontWeight.w900,
+                                        errorBuilder:
+                                            (
+                                              ctx,
+                                              error,
+                                              stackTrace,
+                                            ) => Container(
+                                              width: 58,
+                                              height: 58,
+                                              color: const Color(0xFF0066FF),
+                                              child: Center(
+                                                child: Text(
+                                                  profile.name.isNotEmpty
+                                                      ? profile.name[0]
+                                                            .toUpperCase()
+                                                      : 'R',
+                                                  style: const TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 22,
+                                                    fontWeight: FontWeight.w900,
+                                                  ),
+                                                ),
                                               ),
                                             ),
-                                          ),
-                                        ),
                                       )
                                     : Container(
                                         width: 58,
@@ -1350,11 +1449,13 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                                     color: profile.accountStatus == 'Suspended'
                                         ? const Color(0xFFEF4444)
                                         : (isOnline
-                                            ? const Color(0xFF10B981)
-                                            : const Color(0xFF94A3B8)),
+                                              ? const Color(0xFF10B981)
+                                              : const Color(0xFF94A3B8)),
                                     shape: BoxShape.circle,
                                     border: Border.all(
-                                        color: Colors.white, width: 2),
+                                      color: Colors.white,
+                                      width: 2,
+                                    ),
                                   ),
                                 ),
                               ),
@@ -1384,7 +1485,8 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                                       profile.accountStatus == 'Suspended'
                                           ? Icons.block_rounded
                                           : Icons.verified_rounded,
-                                      color: profile.accountStatus == 'Suspended'
+                                      color:
+                                          profile.accountStatus == 'Suspended'
                                           ? const Color(0xFFEF4444)
                                           : const Color(0xFF0066FF),
                                       size: 16,
@@ -1409,7 +1511,9 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                           // Status Badge (Active / Suspended)
                           Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 4),
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
                             decoration: BoxDecoration(
                               color: profile.accountStatus == 'Suspended'
                                   ? const Color(0xFFFEF2F2)
@@ -1439,8 +1543,11 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                       // Hub line
                       Row(
                         children: [
-                          const Icon(Icons.storefront_outlined,
-                              size: 14, color: Color(0xFF64748B)),
+                          const Icon(
+                            Icons.storefront_outlined,
+                            size: 14,
+                            color: Color(0xFF64748B),
+                          ),
                           const SizedBox(width: 6),
                           Expanded(
                             child: Text(
@@ -1461,8 +1568,11 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                       // License summary line
                       Row(
                         children: [
-                          const Icon(Icons.badge_outlined,
-                              size: 14, color: Color(0xFF0066FF)),
+                          const Icon(
+                            Icons.badge_outlined,
+                            size: 14,
+                            color: Color(0xFF0066FF),
+                          ),
                           const SizedBox(width: 6),
                           Expanded(
                             child: Text(
@@ -1483,7 +1593,9 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                       // On Duty Toggle Container (RID-PROF-006: Block if Suspended)
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 10),
+                          horizontal: 14,
+                          vertical: 10,
+                        ),
                         decoration: BoxDecoration(
                           color: profile.accountStatus == 'Suspended'
                               ? const Color(0xFFFEF2F2)
@@ -1504,8 +1616,8 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                                 color: profile.accountStatus == 'Suspended'
                                     ? const Color(0xFFEF4444)
                                     : (isOnline
-                                        ? const Color(0xFF10B981)
-                                        : const Color(0xFF94A3B8)),
+                                          ? const Color(0xFF10B981)
+                                          : const Color(0xFF94A3B8)),
                                 shape: BoxShape.circle,
                               ),
                             ),
@@ -1521,8 +1633,8 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                                     style: TextStyle(
                                       fontSize: 13,
                                       fontWeight: FontWeight.w900,
-                                      color: profile.accountStatus ==
-                                              'Suspended'
+                                      color:
+                                          profile.accountStatus == 'Suspended'
                                           ? const Color(0xFF991B1B)
                                           : const Color(0xFF0F172A),
                                     ),
@@ -1531,12 +1643,12 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                                     profile.accountStatus == 'Suspended'
                                         ? 'Suspended riders cannot work or go online'
                                         : (isOnline
-                                            ? 'Accepting dispatches & drop-offs'
-                                            : 'Currently offline'),
+                                              ? 'Accepting dispatches & drop-offs'
+                                              : 'Currently offline'),
                                     style: TextStyle(
                                       fontSize: 11,
-                                      color: profile.accountStatus ==
-                                              'Suspended'
+                                      color:
+                                          profile.accountStatus == 'Suspended'
                                           ? const Color(0xFFDC2626)
                                           : const Color(0xFF64748B),
                                     ),
@@ -1550,7 +1662,9 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                               activeTrackColor: const Color(0xFF0066FF)
                                   .withValues(alpha: 0.35),
                               onChanged: (_) {
-                                ShiftDutyCoordinator.handleRiderToggleDuty(context);
+                                ShiftDutyCoordinator.handleRiderToggleDuty(
+                                  context,
+                                );
                               },
                             ),
                           ],
@@ -1583,20 +1697,30 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                         children: [
                           Expanded(
                             child: Container(
-                              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 12,
+                                horizontal: 10,
+                              ),
                               decoration: BoxDecoration(
                                 color: const Color(0xFFFFFBEB),
                                 borderRadius: BorderRadius.circular(14),
-                                border: Border.all(color: const Color(0xFFFDE68A)),
+                                border: Border.all(
+                                  color: const Color(0xFFFDE68A),
+                                ),
                               ),
                               child: Column(
                                 children: [
                                   FittedBox(
                                     fit: BoxFit.scaleDown,
                                     child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
                                       children: [
-                                        const Icon(Icons.star_rounded, color: Color(0xFFF59E0B), size: 18),
+                                        const Icon(
+                                          Icons.star_rounded,
+                                          color: Color(0xFFF59E0B),
+                                          size: 18,
+                                        ),
                                         const SizedBox(width: 4),
                                         Text(
                                           profile.rating.toStringAsFixed(2),
@@ -1627,11 +1751,16 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                           const SizedBox(width: 8),
                           Expanded(
                             child: Container(
-                              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 12,
+                                horizontal: 10,
+                              ),
                               decoration: BoxDecoration(
                                 color: const Color(0xFFECFDF5),
                                 borderRadius: BorderRadius.circular(14),
-                                border: Border.all(color: const Color(0xFFA7F3D0)),
+                                border: Border.all(
+                                  color: const Color(0xFFA7F3D0),
+                                ),
                               ),
                               child: Column(
                                 children: [
@@ -1664,11 +1793,16 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                           const SizedBox(width: 8),
                           Expanded(
                             child: Container(
-                              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 12,
+                                horizontal: 10,
+                              ),
                               decoration: BoxDecoration(
                                 color: const Color(0xFFF0F9FF),
                                 borderRadius: BorderRadius.circular(14),
-                                border: Border.all(color: const Color(0xFFBAE6FD)),
+                                border: Border.all(
+                                  color: const Color(0xFFBAE6FD),
+                                ),
                               ),
                               child: Column(
                                 children: [
@@ -1719,13 +1853,16 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                             decoration: BoxDecoration(
                               color: const Color(0xFFF8FAFC),
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: const Color(0xFFE2E8F0)),
+                              border: Border.all(
+                                color: const Color(0xFFE2E8F0),
+                              ),
                             ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
                                   children: [
                                     Text(
                                       '${review.customerName} • #${review.orderId}',
@@ -1774,7 +1911,8 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                                             ),
                                             decoration: BoxDecoration(
                                               color: const Color(0xFFE0F2FE),
-                                              borderRadius: BorderRadius.circular(6),
+                                              borderRadius:
+                                                  BorderRadius.circular(6),
                                             ),
                                             child: Text(
                                               tag,
@@ -1869,7 +2007,9 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                             // Plate Badge (Updates to 789GHI on valid save)
                             Container(
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 10, vertical: 5),
+                                horizontal: 10,
+                                vertical: 5,
+                              ),
                               decoration: BoxDecoration(
                                 color: const Color(0xFF1E293B),
                                 borderRadius: BorderRadius.circular(8),
@@ -1896,7 +2036,8 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                             child: Container(
                               padding: const EdgeInsets.all(10),
                               decoration: BoxDecoration(
-                                color: profile.vehicleReverificationStatus ==
+                                color:
+                                    profile.vehicleReverificationStatus ==
                                         'Pending Re-verification'
                                     ? const Color(0xFFFFFBEB)
                                     : const Color(0xFFF8FAFC),
@@ -1904,9 +2045,9 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                                 border: Border.all(
                                   color:
                                       profile.vehicleReverificationStatus ==
-                                              'Pending Re-verification'
-                                          ? const Color(0xFFFCD34D)
-                                          : const Color(0xFFE2E8F0),
+                                          'Pending Re-verification'
+                                      ? const Color(0xFFFCD34D)
+                                      : const Color(0xFFE2E8F0),
                                 ),
                               ),
                               child: Column(
@@ -1928,9 +2069,9 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                                       fontWeight: FontWeight.w800,
                                       color:
                                           profile.vehicleReverificationStatus ==
-                                                  'Pending Re-verification'
-                                              ? const Color(0xFFB45309)
-                                              : const Color(0xFF0F172A),
+                                              'Pending Re-verification'
+                                          ? const Color(0xFFB45309)
+                                          : const Color(0xFF0F172A),
                                     ),
                                   ),
                                   Text(
@@ -1943,9 +2084,9 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                                       fontWeight: FontWeight.w700,
                                       color:
                                           profile.vehicleReverificationStatus ==
-                                                  'Pending Re-verification'
-                                              ? const Color(0xFFD97706)
-                                              : const Color(0xFF10B981),
+                                              'Pending Re-verification'
+                                          ? const Color(0xFFD97706)
+                                          : const Color(0xFF10B981),
                                     ),
                                   ),
                                 ],
@@ -1960,7 +2101,8 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                                 color: const Color(0xFFF8FAFC),
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(
-                                    color: const Color(0xFFE2E8F0)),
+                                  color: const Color(0xFFE2E8F0),
+                                ),
                               ),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -2003,8 +2145,11 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                       // Maintenance Schedule row
                       Row(
                         children: [
-                          const Icon(Icons.build_outlined,
-                              size: 14, color: Color(0xFF64748B)),
+                          const Icon(
+                            Icons.build_outlined,
+                            size: 14,
+                            color: Color(0xFF64748B),
+                          ),
                           const SizedBox(width: 6),
                           const Expanded(
                             child: Text(
@@ -2156,7 +2301,9 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                           ),
                           Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 5),
+                              horizontal: 10,
+                              vertical: 5,
+                            ),
                             decoration: BoxDecoration(
                               color: const Color(0xFFE0F2FE),
                               borderRadius: BorderRadius.circular(10),
@@ -2219,8 +2366,9 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                             value: profile.audioPromptsEnabled,
                             activeColor: const Color(0xFF0066FF),
                             onChanged: (val) {
-                              RiderService.instance
-                                  .toggleAudioPrompts(val ?? true);
+                              RiderService.instance.toggleAudioPrompts(
+                                val ?? true,
+                              );
                             },
                           ),
                         ],
@@ -2312,12 +2460,15 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                               content: Text(
-                                  'Dialing Pasig Hub Supervisor Cluster Desk (+63 2 8999 4400)...'),
+                                'Dialing Pasig Hub Supervisor Cluster Desk (+63 2 8999 4400)...',
+                              ),
                             ),
                           );
                         },
-                        icon: const Icon(Icons.call_outlined,
-                            color: Color(0xFF0066FF)),
+                        icon: const Icon(
+                          Icons.call_outlined,
+                          color: Color(0xFF0066FF),
+                        ),
                       ),
                     ],
                   ),
@@ -2334,14 +2485,16 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                       color: const Color(0xFFFEF2F2),
                       borderRadius: BorderRadius.circular(18),
                       border: Border.all(
-                          color:
-                              const Color(0xFFEF4444).withValues(alpha: 0.3)),
+                        color: const Color(0xFFEF4444).withValues(alpha: 0.3),
+                      ),
                     ),
                     child: Row(
                       children: [
                         Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 8),
+                            horizontal: 10,
+                            vertical: 8,
+                          ),
                           decoration: BoxDecoration(
                             color: const Color(0xFFFEE2E2),
                             borderRadius: BorderRadius.circular(10),
@@ -2378,8 +2531,11 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                             ],
                           ),
                         ),
-                        const Icon(Icons.chevron_right_rounded,
-                            color: Color(0xFFEF4444), size: 20),
+                        const Icon(
+                          Icons.chevron_right_rounded,
+                          color: Color(0xFFEF4444),
+                          size: 20,
+                        ),
                       ],
                     ),
                   ),
@@ -2403,8 +2559,11 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                     child: const Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.power_settings_new_rounded,
-                            color: Color(0xFFEF4444), size: 20),
+                        Icon(
+                          Icons.power_settings_new_rounded,
+                          color: Color(0xFFEF4444),
+                          size: 20,
+                        ),
                         SizedBox(width: 8),
                         Flexible(
                           child: Text(
@@ -2444,7 +2603,6 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
     );
   }
 
-
   Widget _sectionHeader({
     required IconData icon,
     required String title,
@@ -2475,8 +2633,9 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
-                color: (actionColor ?? const Color(0xFF0066FF))
-                    .withValues(alpha: 0.1),
+                color: (actionColor ?? const Color(0xFF0066FF)).withValues(
+                  alpha: 0.1,
+                ),
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Text(
@@ -2506,7 +2665,6 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
     );
   }
 
-
   Widget _complianceItem({
     required IconData icon,
     required String title,
@@ -2531,10 +2689,7 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
               ),
               Text(
                 subtitle,
-                style: const TextStyle(
-                  fontSize: 11,
-                  color: Color(0xFF64748B),
-                ),
+                style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
               ),
             ],
           ),

@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+
 import '../constants/api_constants.dart';
 import '../network/api_client.dart';
 import 'rider_service.dart';
@@ -8,15 +9,21 @@ class RiderValidationRules {
   static const int minNameLength = 2;
   static const int maxNameLength = 50;
   static const double maxFileSizeMb = 5.0; // 5,120 KB per A10
-  static const List<String> allowedFileExtensions = ['jpg', 'jpeg', 'png', 'pdf'];
+  static const List<String> allowedFileExtensions = [
+    'jpg',
+    'jpeg',
+    'png',
+    'pdf',
+  ];
   static const List<String> allowedVehicleTypes = ['Motorcycle', 'Car', 'Van'];
 
   // Name Regex: Letters (including accented), spaces, hyphen, apostrophe, period (A2)
   static final RegExp nameRegex = RegExp(r"^[a-zA-ZÀ-ÿ\s\.\'\-]+$");
 
   // Email Regex: RFC-compliant email format (A3)
-  static final RegExp emailRegex =
-      RegExp(r"^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)+$");
+  static final RegExp emailRegex = RegExp(
+    r"^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)+$",
+  );
 
   // Philippine Mobile: 09XXXXXXXXX (11 digits) or +639XXXXXXXXX (A4)
   static final RegExp phoneRegex = RegExp(r"^(?:09|\+639)\d{9}$");
@@ -165,23 +172,18 @@ class RiderOpResult {
     String message = 'Success',
     RiderAccountRecord? rider,
     String? activationToken,
-  }) =>
-      RiderOpResult(
-        success: true,
-        message: message,
-        rider: rider,
-        activationToken: activationToken,
-      );
+  }) => RiderOpResult(
+    success: true,
+    message: message,
+    rider: rider,
+    activationToken: activationToken,
+  );
 
   factory RiderOpResult.fail(
     String message, {
     Map<String, String>? fieldErrors,
   }) =>
-      RiderOpResult(
-        success: false,
-        message: message,
-        fieldErrors: fieldErrors,
-      );
+      RiderOpResult(success: false, message: message, fieldErrors: fieldErrors);
 }
 
 /// Service managing Rider Account Creation, Unique Registries, Activation Tokens, and Access Control
@@ -208,7 +210,8 @@ class RiderAccountService extends ChangeNotifier {
   final Map<String, String> _activationTokens = {};
 
   // Simulated current logged-in user session
-  String _currentUserRole = 'logistics'; // 'logistics', 'buyer', 'seller', 'rider', 'guest'
+  String _currentUserRole =
+      'logistics'; // 'logistics', 'buyer', 'seller', 'rider', 'guest'
   String _currentLogisticsCompany = 'Bilis Hatid Express Inc.';
   String _currentLogisticsEmail = 'operations@bilishatid.example.com';
   String get currentLogisticsEmail => _currentLogisticsEmail;
@@ -239,17 +242,29 @@ class RiderAccountService extends ChangeNotifier {
     _activationTokens.clear();
 
     // 1. Seed cross-role accounts (from Test Data sheet)
-    _registeredEmails.add('juanmiguel.delacruz@example.com'.toLowerCase()); // Buyer Account 1 (TC-RID-008)
-    _registeredPhones.add(RiderValidationRules.normalizePhone('09171234567')); // Buyer Account 1 (TC-RID-011)
+    _registeredEmails.add(
+      'juanmiguel.delacruz@example.com'.toLowerCase(),
+    ); // Buyer Account 1 (TC-RID-008)
+    _registeredPhones.add(
+      RiderValidationRules.normalizePhone('09171234567'),
+    ); // Buyer Account 1 (TC-RID-011)
 
-    _registeredEmails.add('mariaclara.santos@example.com'.toLowerCase()); // Seller Account 1
-    _registeredEmails.add('seller.manila@example.com'.toLowerCase()); // Seller Account 2
+    _registeredEmails.add(
+      'mariaclara.santos@example.com'.toLowerCase(),
+    ); // Seller Account 1
+    _registeredEmails.add(
+      'seller.manila@example.com'.toLowerCase(),
+    ); // Seller Account 2
     _registeredPhones.add(RiderValidationRules.normalizePhone('09189876543'));
 
-    _registeredEmails.add('operations@bilishatid.example.com'.toLowerCase()); // Logistics Account 1
+    _registeredEmails.add(
+      'operations@bilishatid.example.com'.toLowerCase(),
+    ); // Logistics Account 1
     _registeredPhones.add(RiderValidationRules.normalizePhone('09285551234'));
 
-    _registeredEmails.add('admin@agilacargo.example.com'.toLowerCase()); // Logistics Account 2
+    _registeredEmails.add(
+      'admin@agilacargo.example.com'.toLowerCase(),
+    ); // Logistics Account 2
     _registeredPhones.add(RiderValidationRules.normalizePhone('09396667890'));
 
     // Seeded unique fleet identifiers
@@ -325,7 +340,8 @@ class RiderAccountService extends ChangeNotifier {
   RiderAccountRecord? findRiderByPhone(String phone) {
     final clean = RiderValidationRules.normalizePhone(phone);
     for (final r in _riders.values) {
-      if (RiderValidationRules.normalizePhone(r.mobileNumber) == clean) return r;
+      if (RiderValidationRules.normalizePhone(r.mobileNumber) == clean)
+        return r;
     }
     return null;
   }
@@ -369,7 +385,8 @@ class RiderAccountService extends ChangeNotifier {
     if (cleanFirst.isEmpty) {
       errors['firstName'] = 'First name is required.';
     } else if (!RiderValidationRules.nameRegex.hasMatch(cleanFirst)) {
-      errors['firstName'] = 'Only letters, spaces, hyphen, apostrophe, and period are allowed.';
+      errors['firstName'] =
+          'Only letters, spaces, hyphen, apostrophe, and period are allowed.';
     } else if (cleanFirst.length < RiderValidationRules.minNameLength ||
         cleanFirst.length > RiderValidationRules.maxNameLength) {
       errors['firstName'] = 'Name must be between 2 and 50 characters.';
@@ -380,7 +397,8 @@ class RiderAccountService extends ChangeNotifier {
     if (cleanLast.isEmpty) {
       errors['lastName'] = 'Last name is required.';
     } else if (!RiderValidationRules.nameRegex.hasMatch(cleanLast)) {
-      errors['lastName'] = 'Only letters, spaces, hyphen, apostrophe, and period are allowed.';
+      errors['lastName'] =
+          'Only letters, spaces, hyphen, apostrophe, and period are allowed.';
     } else if (cleanLast.length < RiderValidationRules.minNameLength ||
         cleanLast.length > RiderValidationRules.maxNameLength) {
       errors['lastName'] = 'Name must be between 2 and 50 characters.';
@@ -425,7 +443,8 @@ class RiderAccountService extends ChangeNotifier {
     if (rawPhone.isEmpty) {
       errors['mobileNumber'] = 'Mobile number is required.';
     } else if (!RiderValidationRules.phoneRegex.hasMatch(rawPhone)) {
-      errors['mobileNumber'] = 'Please enter a valid mobile number (09XXXXXXXXX or +639XXXXXXXXX).';
+      errors['mobileNumber'] =
+          'Please enter a valid mobile number (09XXXXXXXXX or +639XXXXXXXXX).';
     } else if (normPhone.length != 11) {
       errors['mobileNumber'] = 'Mobile number must be exactly 11 digits.';
     } else if (_registeredPhones.contains(normPhone)) {
@@ -437,9 +456,11 @@ class RiderAccountService extends ChangeNotifier {
     if (cleanLicense.isEmpty) {
       errors['licenseNumber'] = 'Driver\'s license number is required.';
     } else if (!RiderValidationRules.licenseRegex.hasMatch(cleanLicense)) {
-      errors['licenseNumber'] = 'Driver\'s license must follow format A00-00-000000.';
+      errors['licenseNumber'] =
+          'Driver\'s license must follow format A00-00-000000.';
     } else if (_registeredLicenses.contains(cleanLicense)) {
-      errors['licenseNumber'] = 'This driver\'s license number is already registered.';
+      errors['licenseNumber'] =
+          'This driver\'s license number is already registered.';
     }
 
     // 7. License Expiry Date
@@ -455,7 +476,8 @@ class RiderAccountService extends ChangeNotifier {
             int.parse(parts[1]),
           );
           if (!RiderValidationRules.isLicenseNotExpired(exp)) {
-            errors['licenseExpiryDate'] = 'License is expired. Expiry date must be today or later.';
+            errors['licenseExpiryDate'] =
+                'License is expired. Expiry date must be today or later.';
           }
         } else {
           errors['licenseExpiryDate'] = 'Invalid date format. Use MM/DD/YYYY.';
@@ -468,12 +490,18 @@ class RiderAccountService extends ChangeNotifier {
     // 8. Vehicle Type
     if (vehicleType.trim().isEmpty) {
       errors['vehicleType'] = 'Vehicle type is required.';
-    } else if (!RiderValidationRules.allowedVehicleTypes.contains(vehicleType.trim())) {
-      errors['vehicleType'] = 'Please select a valid vehicle type (Motorcycle, Car, or Van).';
+    } else if (!RiderValidationRules.allowedVehicleTypes.contains(
+      vehicleType.trim(),
+    )) {
+      errors['vehicleType'] =
+          'Please select a valid vehicle type (Motorcycle, Car, or Van).';
     }
 
     // 9. Plate Number
-    final cleanPlate = plateNumber.trim().toUpperCase().replaceAll(RegExp(r'[\s\-]'), '');
+    final cleanPlate = plateNumber.trim().toUpperCase().replaceAll(
+      RegExp(r'[\s\-]'),
+      '',
+    );
     if (cleanPlate.isEmpty) {
       errors['plateNumber'] = 'Vehicle plate number is required.';
     } else if (_registeredPlates.contains(cleanPlate)) {
@@ -486,7 +514,8 @@ class RiderAccountService extends ChangeNotifier {
     } else {
       final ext = licenseDocName.split('.').last.toLowerCase();
       if (!RiderValidationRules.allowedFileExtensions.contains(ext)) {
-        errors['licenseDoc'] = 'Invalid file type. Only JPG, PNG, and PDF files are accepted.';
+        errors['licenseDoc'] =
+            'Invalid file type. Only JPG, PNG, and PDF files are accepted.';
       } else if (licenseDocSizeMb > RiderValidationRules.maxFileSizeMb) {
         errors['licenseDoc'] = 'File size exceeds maximum limit of 5.0 MB.';
       }
@@ -498,7 +527,8 @@ class RiderAccountService extends ChangeNotifier {
     } else {
       final ext = orCrDocName.split('.').last.toLowerCase();
       if (!RiderValidationRules.allowedFileExtensions.contains(ext)) {
-        errors['orCrDoc'] = 'Invalid file type. Only JPG, PNG, and PDF files are accepted.';
+        errors['orCrDoc'] =
+            'Invalid file type. Only JPG, PNG, and PDF files are accepted.';
       } else if (orCrDocSizeMb > RiderValidationRules.maxFileSizeMb) {
         errors['orCrDoc'] = 'File size exceeds maximum limit of 5.0 MB.';
       }
@@ -562,7 +592,10 @@ class RiderAccountService extends ChangeNotifier {
 
     // 4. Create new Rider record
     final id = 'NX-RDR-${_riders.length + 101}';
-    final cleanPlate = plateNumber.trim().toUpperCase().replaceAll(RegExp(r'[\s\-]'), '');
+    final cleanPlate = plateNumber.trim().toUpperCase().replaceAll(
+      RegExp(r'[\s\-]'),
+      '',
+    );
     final normPhone = RiderValidationRules.normalizePhone(mobileNumber);
     final cleanEmail = email.trim().toLowerCase();
     final cleanLicense = licenseNumber.trim().toUpperCase();
@@ -629,7 +662,8 @@ class RiderAccountService extends ChangeNotifier {
     }
 
     // Create new token valid for 24h
-    final newToken = 'ACT-RIDER-${DateTime.now().millisecondsSinceEpoch}-${rider.id}';
+    final newToken =
+        'ACT-RIDER-${DateTime.now().millisecondsSinceEpoch}-${rider.id}';
     rider.activationToken = newToken;
     rider.tokenCreatedAt = DateTime.now();
     rider.tokenExpiresAt = DateTime.now().add(const Duration(hours: 24));
@@ -638,7 +672,8 @@ class RiderAccountService extends ChangeNotifier {
 
     notifyListeners();
     return RiderOpResult.ok(
-      message: 'New activation link generated and sent to ${rider.email}. Previous link invalidated.',
+      message:
+          'New activation link generated and sent to ${rider.email}. Previous link invalidated.',
       rider: rider,
       activationToken: newToken,
     );
@@ -649,7 +684,8 @@ class RiderAccountService extends ChangeNotifier {
     required String token,
     required String password,
     required String confirmPassword,
-    DateTime? testCurrentTime, // Allows testing simulated expired link (TC-RID-023)
+    DateTime?
+    testCurrentTime, // Allows testing simulated expired link (TC-RID-023)
   }) {
     final riderId = _activationTokens[token];
     if (riderId == null) {
@@ -672,7 +708,8 @@ class RiderAccountService extends ChangeNotifier {
 
     // Check if token expired (> 24 hours, TC-RID-023)
     final checkTime = testCurrentTime ?? DateTime.now();
-    if (rider.tokenExpiresAt != null && checkTime.isAfter(rider.tokenExpiresAt!)) {
+    if (rider.tokenExpiresAt != null &&
+        checkTime.isAfter(rider.tokenExpiresAt!)) {
       return RiderOpResult.fail(
         'This activation link has expired. Please ask your logistics provider to resend the activation email.',
       );
@@ -761,15 +798,14 @@ class RiderAccountService extends ChangeNotifier {
     try {
       final res = await ApiClient.instance.post(
         ApiConstants.riderLogin,
-        body: {
-          'email': email.trim(),
-          'password': password,
-        },
+        body: {'email': email.trim(), 'password': password},
       );
 
       final userData = res.data['user'] as Map<String, dynamic>?;
-      final courierProfileData = res.data['courier_profile'] as Map<String, dynamic>?;
-      final role = res.data['role']?.toString() ??
+      final courierProfileData =
+          res.data['courier_profile'] as Map<String, dynamic>?;
+      final role =
+          res.data['role']?.toString() ??
           userData?['role']?.toString() ??
           'rider';
 
@@ -779,22 +815,28 @@ class RiderAccountService extends ChangeNotifier {
       }
 
       final rider = RiderAccountRecord(
-        id: userData?['id']?.toString() ?? 'rider-${DateTime.now().millisecondsSinceEpoch}',
+        id:
+            userData?['id']?.toString() ??
+            'rider-${DateTime.now().millisecondsSinceEpoch}',
         firstName: userData?['first_name']?.toString() ?? '',
         lastName: userData?['last_name']?.toString() ?? '',
         dateOfBirth: userData?['birthday']?.toString() ?? '1995-01-01',
         email: userData?['email']?.toString() ?? email,
         mobileNumber: userData?['contact_number']?.toString() ?? '',
         licenseNumber: courierProfileData?['license_number']?.toString() ?? '',
-        licenseExpiryDate: courierProfileData?['license_expiry_date']?.toString() ?? '',
+        licenseExpiryDate:
+            courierProfileData?['license_expiry_date']?.toString() ?? '',
         vehicleType: courierProfileData?['vehicle_type']?.toString() ?? '',
         plateNumber: courierProfileData?['plate_number']?.toString() ?? '',
         licenseDocName: 'license.jpg',
         orCrDocName: 'or_cr.jpg',
-        companyName: courierProfileData?['company_name']?.toString() ??
+        companyName:
+            courierProfileData?['company_name']?.toString() ??
             courierProfileData?['sorting_center']?.toString() ??
             'Logistics Partner',
-        accountStatus: userData?['account_status']?.toString() == 'active' ? 'Active' : 'Pending Activation',
+        accountStatus: userData?['account_status']?.toString() == 'active'
+            ? 'Active'
+            : 'Pending Activation',
       );
 
       _activeRiderSession = rider;
@@ -808,17 +850,16 @@ class RiderAccountService extends ChangeNotifier {
           email: rider.email,
           phone: rider.mobileNumber,
           plateNumber: rider.plateNumber,
-          vehicleType: rider.vehicleType.isNotEmpty ? rider.vehicleType : 'Motorcycle',
+          vehicleType: rider.vehicleType.isNotEmpty
+              ? rider.vehicleType
+              : 'Motorcycle',
           isOnline: courierProfileData?['is_online'] == true,
         );
       }
 
       notifyListeners();
 
-      return RiderOpResult.ok(
-        message: res.message,
-        rider: rider,
-      );
+      return RiderOpResult.ok(message: res.message, rider: rider);
     } on ApiException catch (e) {
       final firstErr = e.errors?.values.firstOrNull;
       final msg = firstErr is List ? firstErr.first.toString() : e.message;
@@ -836,8 +877,10 @@ class RiderAccountService extends ChangeNotifier {
     try {
       final res = await ApiClient.instance.get(ApiConstants.me);
       final userData = res.data['user'] as Map<String, dynamic>?;
-      final courierProfileData = res.data['courier_profile'] as Map<String, dynamic>?;
-      final role = res.data['role']?.toString() ??
+      final courierProfileData =
+          res.data['courier_profile'] as Map<String, dynamic>?;
+      final role =
+          res.data['role']?.toString() ??
           userData?['role']?.toString() ??
           ApiClient.instance.savedRole ??
           'rider';
@@ -855,15 +898,19 @@ class RiderAccountService extends ChangeNotifier {
         email: userData?['email']?.toString() ?? '',
         mobileNumber: userData?['contact_number']?.toString() ?? '',
         licenseNumber: courierProfileData?['license_number']?.toString() ?? '',
-        licenseExpiryDate: courierProfileData?['license_expiry_date']?.toString() ?? '',
+        licenseExpiryDate:
+            courierProfileData?['license_expiry_date']?.toString() ?? '',
         vehicleType: courierProfileData?['vehicle_type']?.toString() ?? '',
         plateNumber: courierProfileData?['plate_number']?.toString() ?? '',
         licenseDocName: 'license.jpg',
         orCrDocName: 'or_cr.jpg',
-        companyName: courierProfileData?['company_name']?.toString() ??
+        companyName:
+            courierProfileData?['company_name']?.toString() ??
             courierProfileData?['sorting_center']?.toString() ??
             'Logistics Partner',
-        accountStatus: userData?['account_status']?.toString() == 'active' ? 'Active' : 'Pending Activation',
+        accountStatus: userData?['account_status']?.toString() == 'active'
+            ? 'Active'
+            : 'Pending Activation',
       );
       notifyListeners();
       return role;
@@ -929,18 +976,23 @@ class RiderAccountService extends ChangeNotifier {
     _isSaveLocked = true;
     return true;
   }
+
   void releaseSaveLock() {
     _isSaveLocked = false;
   }
 
   // Token validation (TC-RID-023, 025)
-  TokenValidationResult validateActivationToken(String token, {DateTime? testCurrentTime}) {
+  TokenValidationResult validateActivationToken(
+    String token, {
+    DateTime? testCurrentTime,
+  }) {
     final riderId = _activationTokens[token];
     if (riderId == null) {
       return const TokenValidationResult(
         isValid: false,
         isUsed: true,
-        errorMessage: 'This activation link is invalid or has already been used.',
+        errorMessage:
+            'This activation link is invalid or has already been used.',
       );
     }
     final rider = _riders[riderId];
@@ -1002,7 +1054,9 @@ class RiderAccountService extends ChangeNotifier {
     _riders[id] = rider;
     _registeredEmails.add(email.toLowerCase());
     _registeredLicenses.add(rider.licenseNumber.toUpperCase());
-    _registeredPlates.add(rider.plateNumber.toUpperCase().replaceAll(RegExp(r'[\s\-]'), ''));
+    _registeredPlates.add(
+      rider.plateNumber.toUpperCase().replaceAll(RegExp(r'[\s\-]'), ''),
+    );
     _activationTokens[token] = id;
   }
 
@@ -1048,7 +1102,10 @@ class RiderAccountService extends ChangeNotifier {
       final day = int.parse(parts[1]);
       final year = int.parse(parts[2]);
       final dob = DateTime(year, month, day);
-      final is18 = RiderValidationRules.isAtLeast18YearsOld(dob, testNow ?? DateTime(2026, 10, 21));
+      final is18 = RiderValidationRules.isAtLeast18YearsOld(
+        dob,
+        testNow ?? DateTime(2026, 10, 21),
+      );
       if (!is18) return 'Rider must be at least 18 years old';
       return null;
     } catch (_) {
@@ -1106,7 +1163,10 @@ class RiderAccountService extends ChangeNotifier {
       final day = int.parse(parts[1]);
       final year = int.parse(parts[2]);
       final exp = DateTime(year, month, day);
-      final valid = RiderValidationRules.isLicenseNotExpired(exp, testNow ?? DateTime(2026, 10, 21));
+      final valid = RiderValidationRules.isLicenseNotExpired(
+        exp,
+        testNow ?? DateTime(2026, 10, 21),
+      );
       if (!valid) {
         return "Driver's license has expired or must be valid today or later";
       }
@@ -1198,12 +1258,28 @@ class RiderAccountService extends ChangeNotifier {
     final expErr = validateLicenseExpiryDate(licenseExpiry);
     final vehErr = validateVehicleType(vehicleType);
     final pltErr = validatePlateNumber(plateNumber);
-    final doc1Err = validateDocument(licenseFileName, licenseFileSizeMb, "Driver's License");
-    final doc2Err = validateDocument(orCrFileName, orCrFileSizeMb, "Vehicle OR/CR");
+    final doc1Err = validateDocument(
+      licenseFileName,
+      licenseFileSizeMb,
+      "Driver's License",
+    );
+    final doc2Err = validateDocument(
+      orCrFileName,
+      orCrFileSizeMb,
+      "Vehicle OR/CR",
+    );
 
-    if (fnErr != null || lnErr != null || dobErr != null || emErr != null ||
-        mobErr != null || licErr != null || expErr != null || vehErr != null ||
-        pltErr != null || doc1Err != null || doc2Err != null) {
+    if (fnErr != null ||
+        lnErr != null ||
+        dobErr != null ||
+        emErr != null ||
+        mobErr != null ||
+        licErr != null ||
+        expErr != null ||
+        vehErr != null ||
+        pltErr != null ||
+        doc1Err != null ||
+        doc2Err != null) {
       return RiderOpResult.fail('Validation error');
     }
 
@@ -1235,7 +1311,9 @@ class RiderAccountService extends ChangeNotifier {
     _registeredEmails.add(email.toLowerCase());
     _registeredPhones.add(RiderValidationRules.normalizePhone(mobileNumber));
     _registeredLicenses.add(licenseNumber.toUpperCase());
-    _registeredPlates.add(plateNumber.toUpperCase().replaceAll(RegExp(r'[\s\-]'), ''));
+    _registeredPlates.add(
+      plateNumber.toUpperCase().replaceAll(RegExp(r'[\s\-]'), ''),
+    );
     _activationTokens[token] = id;
 
     return RiderOpResult.ok(

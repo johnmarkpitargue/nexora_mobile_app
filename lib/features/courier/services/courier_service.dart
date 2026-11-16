@@ -1201,7 +1201,9 @@ class CourierService extends ChangeNotifier {
     double lat = parcel.customerLat ?? 0.0;
     double lng = parcel.customerLng ?? 0.0;
     if (lat == 0.0 || lng == 0.0) {
-      final resolved = LagunaPlacesService.instance.resolveCoordinates(parcel.customerAddress);
+      final resolved = LagunaPlacesService.instance.resolveCoordinates(
+        parcel.customerAddress,
+      );
       lat = resolved.latitude;
       lng = resolved.longitude;
     }
@@ -1256,7 +1258,11 @@ class CourierService extends ChangeNotifier {
   }
 
   /// Sync status from DeliveryService so Rider and Courier views stay 100% unified
-  void syncFromDeliveryOrder(String orderId, String statusStr, {String? riderName}) {
+  void syncFromDeliveryOrder(
+    String orderId,
+    String statusStr, {
+    String? riderName,
+  }) {
     final clean = orderId.replaceAll('#', '').trim().toLowerCase();
     final idx = _parcels.indexWhere(
       (p) => p.id.replaceAll('#', '').trim().toLowerCase() == clean,
@@ -1266,7 +1272,9 @@ class CourierService extends ChangeNotifier {
     final parcel = _parcels[idx];
     bool changed = false;
 
-    if (riderName != null && riderName.isNotEmpty && parcel.assignedRiderName != riderName) {
+    if (riderName != null &&
+        riderName.isNotEmpty &&
+        parcel.assignedRiderName != riderName) {
       parcel.assignedRiderName = riderName;
       parcel.assignedRiderId ??= 'NX-RD-001';
       changed = true;
@@ -1311,13 +1319,16 @@ class CourierService extends ChangeNotifier {
 
   void _syncParcelToSupabaseAndRider(CourierParcel parcel, String statusStr) {
     final clean = parcel.id.replaceAll('#', '').trim();
-    final activeCourierName = parcel.assignedRiderName ??
+    final activeCourierName =
+        parcel.assignedRiderName ??
         (CourierProfileService.instance.profile.name.isNotEmpty
             ? CourierProfileService.instance.profile.name
             : RiderService.instance.profile.name);
 
     // 1. Update RiderLocationService live GPS broadcast for Buyer OrderTrackingScreen
-    if (statusStr == 'to_deliver' || statusStr == 'in_transit' || statusStr == 'picked_up') {
+    if (statusStr == 'to_deliver' ||
+        statusStr == 'in_transit' ||
+        statusStr == 'picked_up') {
       RiderLocationService.instance.startTracking(
         orderId: clean,
         riderName: activeCourierName,
@@ -1332,7 +1343,10 @@ class CourierService extends ChangeNotifier {
     }
 
     // 2. Subscribe RiderChatService so Courier receives Buyer chat messages for this parcel
-    RiderChatService.instance.subscribeToOrder(clean, customerName: parcel.customerName);
+    RiderChatService.instance.subscribeToOrder(
+      clean,
+      customerName: parcel.customerName,
+    );
 
     // 3. Sync with Supabase database and broadcast channels
     if (!isSupabaseReady) return;
@@ -1397,11 +1411,16 @@ class CourierService extends ChangeNotifier {
     try {
       // Subscribe to chat for seeded parcels when Supabase is live
       for (final p in _parcels) {
-        RiderChatService.instance.subscribeToOrder(p.id, customerName: p.customerName);
+        RiderChatService.instance.subscribeToOrder(
+          p.id,
+          customerName: p.customerName,
+        );
       }
 
       // Listen to orders_dispatch broadcast for new orders and customer pin updates
-      final dispatchChannel = Supabase.instance.client.channel('orders_dispatch_courier');
+      final dispatchChannel = Supabase.instance.client.channel(
+        'orders_dispatch_courier',
+      );
       dispatchChannel
           .onBroadcast(
             event: 'order_created',
@@ -1410,32 +1429,47 @@ class CourierService extends ChangeNotifier {
               if (orderCode.isEmpty) return;
               final clean = orderCode.replaceAll('#', '').trim();
               final exists = _parcels.any(
-                (p) => p.id.replaceAll('#', '').trim().toLowerCase() == clean.toLowerCase(),
+                (p) =>
+                    p.id.replaceAll('#', '').trim().toLowerCase() ==
+                    clean.toLowerCase(),
               );
               if (!exists) {
-                final addressStr = (payload['delivery_address'] ?? 'Santa Rosa, Laguna').toString();
+                final addressStr =
+                    (payload['delivery_address'] ?? 'Santa Rosa, Laguna')
+                        .toString();
                 final rawLat = (payload['delivery_lat'] as num?)?.toDouble();
                 final rawLng = (payload['delivery_lng'] as num?)?.toDouble();
-                final resolved = LagunaPlacesService.instance.resolveCoordinates(addressStr);
+                final resolved = LagunaPlacesService.instance
+                    .resolveCoordinates(addressStr);
                 final newParcel = CourierParcel(
                   id: clean,
                   merchantName: 'Nexora Official Flagship Store',
-                  customerName: (payload['customer_id'] ?? 'Alex Rivera').toString(),
+                  customerName: (payload['customer_id'] ?? 'Alex Rivera')
+                      .toString(),
                   customerPhone: '+63 975 963 2035',
                   customerAddress: addressStr,
                   city: 'Laguna',
-                  itemsDescription: DeliveryService.extractItemTitle(payload['item_details']),
+                  itemsDescription: DeliveryService.extractItemTitle(
+                    payload['item_details'],
+                  ),
                   weightKg: 0.9,
                   amountCod: (payload['total'] as num?)?.toDouble() ?? 444.0,
                   isCod: true,
                   status: CourierParcelStatus.sorting,
                   createdAt: DateTime.now(),
                   notes: 'Live Buyer Order synced from Nexora App',
-                  customerLat: (rawLat != null && rawLat != 0.0) ? rawLat : resolved.latitude,
-                  customerLng: (rawLng != null && rawLng != 0.0) ? rawLng : resolved.longitude,
+                  customerLat: (rawLat != null && rawLat != 0.0)
+                      ? rawLat
+                      : resolved.latitude,
+                  customerLng: (rawLng != null && rawLng != 0.0)
+                      ? rawLng
+                      : resolved.longitude,
                 );
                 _parcels.insert(0, newParcel);
-                RiderChatService.instance.subscribeToOrder(clean, customerName: newParcel.customerName);
+                RiderChatService.instance.subscribeToOrder(
+                  clean,
+                  customerName: newParcel.customerName,
+                );
                 notifyListeners();
               }
             },
@@ -1443,15 +1477,22 @@ class CourierService extends ChangeNotifier {
           .onBroadcast(
             event: 'location_updated',
             callback: (payload) {
-              final orderCode = (payload['order_id'] ?? '').toString().replaceAll('#', '').trim();
+              final orderCode = (payload['order_id'] ?? '')
+                  .toString()
+                  .replaceAll('#', '')
+                  .trim();
               if (orderCode.isEmpty) return;
-              final rawLat = (payload['delivery_lat'] as num?)?.toDouble() ??
+              final rawLat =
+                  (payload['delivery_lat'] as num?)?.toDouble() ??
                   double.tryParse(payload['delivery_lat']?.toString() ?? '');
-              final rawLng = (payload['delivery_lng'] as num?)?.toDouble() ??
+              final rawLng =
+                  (payload['delivery_lng'] as num?)?.toDouble() ??
                   double.tryParse(payload['delivery_lng']?.toString() ?? '');
               final addressStr = payload['delivery_address']?.toString();
               final idx = _parcels.indexWhere(
-                (p) => p.id.replaceAll('#', '').trim().toLowerCase() == orderCode.toLowerCase(),
+                (p) =>
+                    p.id.replaceAll('#', '').trim().toLowerCase() ==
+                    orderCode.toLowerCase(),
               );
               if (idx != -1 && rawLat != null && rawLng != null) {
                 final old = _parcels[idx];
@@ -1488,9 +1529,15 @@ class CourierService extends ChangeNotifier {
           .onBroadcast(
             event: 'rider_rated',
             callback: (payload) {
-              final courierName = (payload['courier_name'] ?? RiderService.instance.profile.name).toString();
-              final newRating = (payload['new_courier_rating'] as num?)?.toDouble() ??
-                  double.tryParse(payload['new_courier_rating']?.toString() ?? '');
+              final courierName =
+                  (payload['courier_name'] ??
+                          RiderService.instance.profile.name)
+                      .toString();
+              final newRating =
+                  (payload['new_courier_rating'] as num?)?.toDouble() ??
+                  double.tryParse(
+                    payload['new_courier_rating']?.toString() ?? '',
+                  );
               if (newRating != null) {
                 updateRiderRating(courierName, newRating);
               }
