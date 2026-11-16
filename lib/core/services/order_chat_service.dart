@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'buyer_account_service.dart';
-import 'chat_service.dart';
 import 'profile_service.dart';
 import 'in_app_notification_service.dart';
 import '../../features/chat/presentation/chat_detail_page.dart';
@@ -79,14 +78,6 @@ class OrderChatService extends ChangeNotifier {
 
               _riderTyping[clean] = false;
               _typingTimers[clean]?.cancel();
-
-              try {
-                ChatService.instance.receiveIncomingMessage(
-                  conversationId: 'courier_$clean',
-                  text: text,
-                  senderName: senderName,
-                );
-              } catch (_) {}
 
               notifyListeners();
             }
@@ -306,14 +297,6 @@ class OrderChatService extends ChangeNotifier {
               _typingTimers[clean]?.cancel();
 
               // Sync to general ChatService for Messages tab
-              try {
-                ChatService.instance.receiveIncomingMessage(
-                  conversationId: 'courier_$clean',
-                  text: text,
-                  senderName: senderName,
-                );
-              } catch (_) {}
-
               notifyListeners();
             }
           } catch (e) {
@@ -512,11 +495,6 @@ class OrderChatService extends ChangeNotifier {
 
     // Stop typing indicator after sending
     sendTyping(orderId, false);
-
-    // Sync to general ChatService for Messages tab
-    try {
-      ChatService.instance.sendUserMessage('courier_$clean', trimmed);
-    } catch (_) {}
   }
 
   /// Broadcasts typing indicator to rider

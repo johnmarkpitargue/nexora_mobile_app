@@ -796,12 +796,13 @@ class _ChatPageState extends State<ChatPage> {
 
   /// Search Bar with outlined rounded pill layout
   Widget _buildSearchBar() {
+    final theme = Theme.of(context);
     return Container(
       height: 48,
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFCBD5E1), width: 1),
+        color: theme.colorScheme.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: theme.colorScheme.outlineVariant, width: 1),
       ),
       child: TextField(
         controller: _searchController,
@@ -811,20 +812,22 @@ class _ChatPageState extends State<ChatPage> {
             _searchQuery = val;
           });
         },
-        style: const TextStyle(fontSize: 14, color: Color(0xFF0F172A)),
+        style: TextStyle(fontSize: 14, color: theme.colorScheme.onSurface),
         decoration: InputDecoration(
+          filled: false,
+          fillColor: Colors.transparent,
           hintText: 'Search messages, orders, or stores...',
-          hintStyle: TextStyle(color: Colors.grey.shade500, fontSize: 13.5),
+          hintStyle: TextStyle(color: theme.colorScheme.onSurfaceVariant, fontSize: 13.5),
           prefixIcon: Icon(
             Icons.search_rounded,
-            color: Colors.grey.shade500,
+            color: theme.colorScheme.onSurfaceVariant,
             size: 20,
           ),
           suffixIcon: _searchQuery.isNotEmpty
               ? IconButton(
-                  icon: const Icon(
+                  icon: Icon(
                     Icons.close_rounded,
-                    color: Color(0xFF64748B),
+                    color: theme.colorScheme.onSurfaceVariant,
                     size: 18,
                   ),
                   onPressed: () {
@@ -836,6 +839,11 @@ class _ChatPageState extends State<ChatPage> {
                 )
               : null,
           border: InputBorder.none,
+          enabledBorder: InputBorder.none,
+          focusedBorder: InputBorder.none,
+          disabledBorder: InputBorder.none,
+          errorBorder: InputBorder.none,
+          focusedErrorBorder: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(vertical: 12),
         ),
       ),

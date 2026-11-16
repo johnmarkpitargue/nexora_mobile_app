@@ -266,26 +266,6 @@ class _CartPageState extends State<CartPage> {
                     ),
                   ),
                 ),
-              IconButton(
-                icon: Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: isDark
-                        ? theme.colorScheme.surfaceContainer
-                        : const Color(0xFF050B28),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.chat_bubble_outline_rounded,
-                    color: isDark ? theme.colorScheme.onSurface : Colors.white,
-                    size: 16,
-                  ),
-                ),
-                onPressed: () {
-                  Navigator.pushNamed(context, AppRoutes.chat);
-                },
-              ),
               const SizedBox(width: 8),
             ],
           ),
@@ -335,11 +315,9 @@ class _CartPageState extends State<CartPage> {
               if (hasSession && _cartService.items.isNotEmpty)
                 Align(
                   alignment: Alignment.bottomCenter,
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 820),
-                      child: _buildBottomDock(theme, isDark),
-                    ),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 820),
+                    child: _buildBottomDock(theme, isDark),
                   ),
                 ),
             ],

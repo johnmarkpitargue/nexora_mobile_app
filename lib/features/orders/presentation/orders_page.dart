@@ -624,40 +624,45 @@ class _OrdersPageState extends State<OrdersPage>
   }
 
   Widget _buildReturnGuaranteeBanner() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       margin: const EdgeInsets.fromLTRB(12, 12, 12, 0),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFFF4F7FB),
+        color: isDark ? const Color(0xFF0D182E) : const Color(0xFFF4F7FB),
         borderRadius: BorderRadius.circular(8),
+        border: isDark ? Border.all(color: const Color(0xFF1E3A8A).withValues(alpha: 0.5)) : null,
       ),
-      child: const Column(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
               Icon(
                 Icons.verified_user_outlined,
-                color: Color(0xFF1E3A8A),
+                color: isDark ? const Color(0xFF60A5FA) : const Color(0xFF1E3A8A),
                 size: 18,
               ),
-              SizedBox(width: 8),
+              const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   'Return & Refund Guarantee',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 12,
-                    color: Colors.black87,
+                    color: isDark ? Colors.white : Colors.black87,
                   ),
                 ),
               ),
             ],
           ),
-          SizedBox(height: 4),
+          const SizedBox(height: 4),
           Text(
             'Delivered items are eligible for return/refund within 7 days with 1–5 proof photos or videos.',
-            style: TextStyle(color: Colors.black54, fontSize: 11),
+            style: TextStyle(
+              color: isDark ? const Color(0xFF94A3B8) : Colors.black54,
+              fontSize: 11,
+            ),
           ),
         ],
       ),

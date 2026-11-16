@@ -100,7 +100,9 @@ class FloatingNavDock extends StatelessWidget {
                         badgeColor: index == 3
                             ? theme.colorScheme.tertiary
                             : theme.colorScheme.secondary,
-                        badgeForegroundColor: Colors.white,
+                        badgeForegroundColor: index == 3
+                            ? Colors.white
+                            : NexoraTheme.darkNavy,
                         motionDuration: motionDuration,
                         onTap: () => onTap(index),
                       ),

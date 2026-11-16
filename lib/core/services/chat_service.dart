@@ -215,16 +215,16 @@ class ChatService extends ChangeNotifier {
   final List<ChatConversationModel> _conversations = [];
 
   List<ChatConversationModel> get conversations =>
-      _conversations.where((c) => !c.isDeleted && !c.isHidden).toList();
+      _conversations.where((c) => !c.isDeleted && !c.isHidden && !c.id.startsWith('courier_')).toList();
 
   List<ChatConversationModel> get hiddenConversations =>
-      _conversations.where((c) => !c.isDeleted && c.isHidden).toList();
+      _conversations.where((c) => !c.isDeleted && c.isHidden && !c.id.startsWith('courier_')).toList();
 
   List<ChatConversationModel> get allConversations =>
-      _conversations.where((c) => !c.isDeleted).toList();
+      _conversations.where((c) => !c.isDeleted && !c.id.startsWith('courier_')).toList();
 
   int get totalUnreadCount =>
-      _conversations.where((c) => !c.isDeleted && !c.isHidden).fold(0, (sum, c) => sum + c.unread);
+      _conversations.where((c) => !c.isDeleted && !c.isHidden && !c.id.startsWith('courier_')).fold(0, (sum, c) => sum + c.unread);
 
   void _initConversations() {
     // Production conversations load exclusively from Laravel GET /api/mobile/v1/buyer/chat
