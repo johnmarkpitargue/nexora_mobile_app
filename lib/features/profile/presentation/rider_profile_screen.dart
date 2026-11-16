@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../core/services/rider_account_service.dart';
 import '../../../core/services/rider_service.dart';
 import '../../../core/services/in_app_notification_service.dart';
+import '../../../core/widgets/report_issue_sheet.dart';
 import '../../auth/presentation/rider_landing_page.dart';
 import '../../courier/services/shift_duty_coordinator.dart';
 
@@ -2540,6 +2541,54 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                     ),
                   ),
                 ),
+                const SizedBox(height: 10),
+
+                // Safety & Reports
+                InkWell(
+                  onTap: () => _showRiderSafetyMenu(context),
+                  borderRadius: BorderRadius.circular(18),
+                  child: Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: Row(
+                      children: [
+                        _toolIcon(Icons.shield_outlined),
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Safety & Reports',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w800,
+                                  color: Color(0xFF0F172A),
+                                ),
+                              ),
+                              Text(
+                                'Report safety concerns or track submitted cases',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Color(0xFF64748B),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Icon(
+                          Icons.chevron_right_rounded,
+                          color: Color(0xFF64748B),
+                          size: 20,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
                 const SizedBox(height: 22),
 
                 // 6. End Shift & Log Out Button
@@ -2710,6 +2759,58 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  void _showRiderSafetyMenu(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text(
+                'Safety & Reports',
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 8),
+              ListTile(
+                leading: const Icon(Icons.flag_outlined, color: Color(0xFFE11D48)),
+                title: const Text('Report Safety Concern'),
+                subtitle: const Text('Report customer misconduct, tampering, or COD issues'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  showRiderSafetyReportSheet(
+                    context,
+                    defaultCategory: 'other_violation',
+                    defaultTitle: '',
+                  );
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.shield_outlined, color: Color(0xFF0066FF)),
+                title: const Text('My Safety Reports'),
+                subtitle: const Text('Track submitted safety reports & Admin updates'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const RiderSafetyReportsScreen(),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
