@@ -5,6 +5,8 @@ import 'package:flutter/services.dart';
 
 import 'external_notification_service.dart';
 import 'delivery_service.dart';
+import '../constants/api_constants.dart';
+import '../network/api_client.dart';
 import '../../features/delivery/presentation/active_delivery_screen.dart';
 import '../../features/delivery/presentation/rider_live_orders_screen.dart';
 import '../../features/chat/presentation/rider_chat_screen.dart';
@@ -60,11 +62,89 @@ class InAppNotificationService {
 
   List<RiderNotificationItem> get history => List.unmodifiable(_history);
 
+  Future<void> fetchNotificationsRemote() async {
+    if (!ApiClient.instance.isAuthenticated) return;
+    try {
+      final res = await ApiClient.instance.get(ApiConstants.notifications);
+      final rawData = res.data;
+      final List<dynamic> rawList;
+      if (rawData is List) {
+        rawList = rawData;
+      } else if (rawData is Map && rawData['notifications'] is List) {
+        rawList = rawData['notifications'] as List;
+      } else if (rawData is Map && rawData['data'] is List) {
+        rawList = rawData['data'] as List;
+      } else {
+        return;
+      }
+
+      final fetched = <RiderNotificationItem>[];
+      for (final item in rawList) {
+        if (item is! Map) continue;
+        final map = Map<String, dynamic>.from(item);
+        final payload = map['data'] is Map
+            ? Map<String, dynamic>.from(map['data'] as Map)
+            : <String, dynamic>{};
+        final title = map['title']?.toString() ??
+            payload['title']?.toString() ??
+            'Nexora Notification';
+        final message = map['message']?.toString() ??
+            map['body']?.toString() ??
+            payload['message']?.toString() ??
+            '';
+        final orderId = map['order_id']?.toString() ??
+            payload['tracking_number']?.toString() ??
+            payload['order_number']?.toString() ??
+            payload['order_id']?.toString() ??
+            '';
+        final createdStr = map['created_at']?.toString() ?? '';
+        final parsedTime = DateTime.tryParse(createdStr) ?? DateTime.now();
+        final isRead = map['is_read'] == true || map['read_at'] != null;
+
+        fetched.add(
+          RiderNotificationItem(
+            id: map['id']?.toString() ??
+                'srv_${parsedTime.millisecondsSinceEpoch}_${fetched.length}',
+            title: title,
+            message: message,
+            orderId: orderId,
+            timestamp: parsedTime,
+            isRead: isRead,
+          ),
+        );
+      }
+
+      if (fetched.isEmpty && _history.isNotEmpty) return;
+
+      final fetchedIds = fetched.map((e) => e.id).toSet();
+      final localOnly = _history.where((e) => !fetchedIds.contains(e.id)).toList();
+      _history
+        ..clear()
+        ..addAll(fetched)
+        ..addAll(localOnly);
+      _history.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+      if (_history.length > 50) {
+        _history.removeRange(50, _history.length);
+      }
+      unreadCountNotifier.value = _history.where((e) => !e.isRead).length;
+    } catch (_) {
+      // Keep cached notification history on network error
+    }
+  }
+
   void markAllAsRead() {
     for (final item in _history) {
       item.isRead = true;
     }
     unreadCountNotifier.value = 0;
+  }
+
+  Future<void> markAllAsReadRemote() async {
+    markAllAsRead();
+    if (!ApiClient.instance.isAuthenticated) return;
+    try {
+      await ApiClient.instance.post(ApiConstants.readAllNotifications);
+    } catch (_) {}
   }
 
   void clearHistory() {
@@ -204,7 +284,7 @@ class InAppNotificationService {
 
   /// Displays the full Nexora Notification History Bottom Sheet
   void showNotificationHistory(BuildContext context) {
-    markAllAsRead();
+    markAllAsReadRemote();
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,

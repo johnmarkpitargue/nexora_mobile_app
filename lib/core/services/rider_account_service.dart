@@ -756,6 +756,7 @@ class RiderAccountService extends ChangeNotifier {
   Future<RiderOpResult> loginRemote({
     required String email,
     required String password,
+    bool rememberDevice = true,
   }) async {
     try {
       final res = await ApiClient.instance.post(
@@ -774,7 +775,7 @@ class RiderAccountService extends ChangeNotifier {
 
       final token = res.data['token']?.toString();
       if (token != null) {
-        await ApiClient.instance.saveToken(token, role);
+        await ApiClient.instance.saveToken(token, role, rememberDevice);
       }
 
       final rider = RiderAccountRecord(
@@ -903,10 +904,9 @@ class RiderAccountService extends ChangeNotifier {
     } on ApiException catch (e) {
       return RiderOpResult.fail(e.message);
     } catch (_) {
-      return activateAccount(
-        token: token,
-        password: password,
-        confirmPassword: passwordConfirmation,
+      return const RiderOpResult(
+        success: false,
+        message: 'Unable to connect to Nexora servers. Please check your connection and try again.',
       );
     }
   }

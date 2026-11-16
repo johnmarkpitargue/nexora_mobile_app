@@ -11,7 +11,6 @@ import '../../../core/models/delivery_order.dart';
 import '../../../core/models/chat_message.dart';
 import '../../../core/services/profanity_filter_service.dart';
 import '../../../core/services/in_app_notification_service.dart';
-import '../../courier/services/courier_service.dart';
 
 class RiderChatScreen extends StatefulWidget {
   final String orderId;
@@ -384,16 +383,6 @@ class _RiderChatScreenState extends State<RiderChatScreen> with WidgetsBindingOb
       ?active,
       ...available,
     ];
-    final seenIds = <String>{
-      for (final o in allOrders) RiderChatService.instance.normalizeOrderId(o.id),
-    };
-    for (final p in CourierService.instance.parcels) {
-      final norm = RiderChatService.instance.normalizeOrderId(p.id);
-      if (!seenIds.contains(norm)) {
-        seenIds.add(norm);
-        allOrders.add(CourierService.instance.toDeliveryOrder(p));
-      }
-    }
 
     showModalBottomSheet(
       context: context,

@@ -48,7 +48,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Verify Month view is visible
-      expect(find.text('October Payouts'), findsOneWidget);
+      expect(find.text('This Month Payouts'), findsOneWidget);
       expect(find.text('W1'), findsOneWidget);
       expect(find.text('W2'), findsOneWidget);
       expect(find.text('W3'), findsOneWidget);

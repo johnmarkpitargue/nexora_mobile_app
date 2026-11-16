@@ -1,12 +1,13 @@
 import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
+
 import '../../../core/network/api_client.dart';
-import '../../../core/theme/rider_theme.dart';
 import '../../../core/models/delivery_order.dart';
 import '../../../core/services/delivery_service.dart';
 import '../../../core/services/rider_location_service.dart';
@@ -22,11 +23,12 @@ import 'widgets/route_progress_widget.dart';
 class ActiveDeliveryScreen extends StatefulWidget {
   final DeliveryOrder order;
   final Future<ParcelScanSubmissionResult> Function(String trackingNumber)?
-      onPickupBarcodeSubmitOverride;
+  onPickupBarcodeSubmitOverride;
   final Widget Function(
     BuildContext context,
     void Function(String rawCode) emitBarcode,
-  )? scannerPreviewOverride;
+  )?
+  scannerPreviewOverride;
 
   const ActiveDeliveryScreen({
     super.key,
@@ -79,20 +81,23 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
     final active = DeliveryService.instance.activeOrder;
     if (active != null &&
         (active.id == widget.order.id ||
-            active.id.replaceAll('#', '') == widget.order.id.replaceAll('#', ''))) {
+            active.id.replaceAll('#', '') ==
+                widget.order.id.replaceAll('#', ''))) {
       _currentStage = DeliveryService.instance.activeOrderStage;
       _pkg1Scanned = DeliveryService.instance.pkg1Scanned;
       _pkg2Scanned = DeliveryService.instance.pkg2Scanned;
       _tamperSealChecked = DeliveryService.instance.tamperSealChecked;
       _fragileSecuredChecked = DeliveryService.instance.fragileSecuredChecked;
       _handoverCodeVerified = DeliveryService.instance.handoverCodeVerified;
-      _capturedPodPhotoPath = DeliveryService.instance.activeOrder?.proofPhotoPath;
+      _capturedPodPhotoPath =
+          DeliveryService.instance.activeOrder?.proofPhotoPath;
       _deliveryCompletedTime = DeliveryService.instance.deliveryCompletedTime;
     } else {
       final status = widget.order.status;
       if (status == DeliveryStatus.atMerchant) {
         _currentStage = 1;
-      } else if (status == DeliveryStatus.pickedUp || status == DeliveryStatus.atCustomer) {
+      } else if (status == DeliveryStatus.pickedUp ||
+          status == DeliveryStatus.atCustomer) {
         _currentStage = 3;
       } else if (status == DeliveryStatus.delivered) {
         _currentStage = 4;
@@ -121,7 +126,9 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
     RiderChatService.instance.onNewMessageReceived = (msg) {
       if (!mounted) return;
       InAppNotificationService.instance.showNotification(
-        senderName: msg.senderName.isNotEmpty ? msg.senderName : widget.order.customerName,
+        senderName: msg.senderName.isNotEmpty
+            ? msg.senderName
+            : widget.order.customerName,
         message: msg.text,
         orderId: msg.orderId,
         icon: Icons.person_pin_circle_rounded,
@@ -164,7 +171,9 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
           _deliveryCompletedTime = DateTime.now();
           DeliveryService.instance.completeCurrentDelivery(
             photoPath: _capturedPodPhotoPath,
-            notes: _podRecipientNotes ?? 'Package handed directly to customer at destination pin.',
+            notes:
+                _podRecipientNotes ??
+                'Package handed directly to customer at destination pin.',
           );
           RiderLocationService.instance.stopTracking();
         } else {
@@ -182,7 +191,9 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
 
   Future<void> _showMandatoryPodCameraModal(DeliveryOrder order) async {
     final picker = ImagePicker();
-    final notesController = TextEditingController(text: _podRecipientNotes ?? 'Received by recipient in person');
+    final notesController = TextEditingController(
+      text: _podRecipientNotes ?? 'Received by recipient in person',
+    );
     final otpController = TextEditingController();
     bool isSubmitting = false;
     String? serverError;
@@ -195,7 +206,9 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setModalState) {
           final bottomInset = MediaQuery.of(ctx).viewInsets.bottom;
-          final hasPhoto = _capturedPodPhotoPath != null && _capturedPodPhotoPath!.isNotEmpty;
+          final hasPhoto =
+              _capturedPodPhotoPath != null &&
+              _capturedPodPhotoPath!.isNotEmpty;
 
           return Container(
             constraints: BoxConstraints(
@@ -227,10 +240,15 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                       Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF0066FF).withValues(alpha: 0.12),
+                          color: const Color(0xFF0066FF)
+                              .withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        child: const Icon(Icons.verified_rounded, color: Color(0xFF0066FF), size: 22),
+                        child: const Icon(
+                          Icons.verified_rounded,
+                          color: Color(0xFF0066FF),
+                          size: 22,
+                        ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -260,13 +278,19 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                             ),
                             Text(
                               'Order #${order.id} • ${order.customerName}',
-                              style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFF64748B),
+                              ),
                             ),
                           ],
                         ),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.close_rounded, color: Color(0xFF64748B)),
+                        icon: const Icon(
+                          Icons.close_rounded,
+                          color: Color(0xFF64748B),
+                        ),
                         onPressed: () => Navigator.pop(ctx),
                       ),
                     ],
@@ -287,7 +311,11 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                         children: [
                           Row(
                             children: [
-                              const Icon(Icons.error_outline_rounded, color: Color(0xFFDC2626), size: 16),
+                              const Icon(
+                                Icons.error_outline_rounded,
+                                color: Color(0xFFDC2626),
+                                size: 16,
+                              ),
                               const SizedBox(width: 6),
                               Expanded(
                                 child: Text(
@@ -310,14 +338,26 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                                   Navigator.pop(ctx);
                                   _showFailDeliveryModal(order);
                                 },
-                                icon: const Icon(Icons.report_problem_rounded, size: 16, color: Color(0xFFDC2626)),
+                                icon: const Icon(
+                                  Icons.report_problem_rounded,
+                                  size: 16,
+                                  color: Color(0xFFDC2626),
+                                ),
                                 label: const Text(
                                   'Report Delivery Failed',
-                                  style: TextStyle(color: Color(0xFFDC2626), fontWeight: FontWeight.bold, fontSize: 12),
+                                  style: TextStyle(
+                                    color: Color(0xFFDC2626),
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
                                 ),
                                 style: OutlinedButton.styleFrom(
-                                  side: const BorderSide(color: Color(0xFFDC2626)),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                  side: const BorderSide(
+                                    color: Color(0xFFDC2626),
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
                                 ),
                               ),
                             ),
@@ -332,14 +372,28 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                   // 6-digit Customer Delivery OTP
                   const Row(
                     children: [
-                      Icon(Icons.pin_rounded, size: 16, color: Color(0xFF0066FF)),
+                      Icon(
+                        Icons.pin_rounded,
+                        size: 16,
+                        color: Color(0xFF0066FF),
+                      ),
                       SizedBox(width: 6),
                       Text(
                         'Customer 6-Digit Delivery OTP',
-                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF0F172A),
+                        ),
                       ),
                       SizedBox(width: 4),
-                      Text('*', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+                      Text(
+                        '*',
+                        style: TextStyle(
+                          color: Colors.red,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 4),
@@ -352,14 +406,24 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                     controller: otpController,
                     keyboardType: TextInputType.number,
                     maxLength: 6,
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 4),
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 4,
+                    ),
                     decoration: InputDecoration(
                       hintText: '• • • • • •',
-                      hintStyle: const TextStyle(letterSpacing: 4, color: Color(0xFF94A3B8)),
+                      hintStyle: const TextStyle(
+                        letterSpacing: 4,
+                        color: Color(0xFF94A3B8),
+                      ),
                       filled: true,
                       fillColor: const Color(0xFFF8FAFC),
                       counterText: '',
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
@@ -375,7 +439,11 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                   // POD Photo Capture Area
                   const Text(
                     'Proof of Delivery Photo',
-                    style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: Color(0xFF334155)),
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF334155),
+                    ),
                   ),
                   const SizedBox(height: 6),
                   GestureDetector(
@@ -410,7 +478,9 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                         color: const Color(0xFFF8FAFC),
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
-                          color: hasPhoto ? const Color(0xFF10B981) : const Color(0xFF0066FF),
+                          color: hasPhoto
+                              ? const Color(0xFF10B981)
+                              : const Color(0xFF0066FF),
                           width: 2,
                           strokeAlign: BorderSide.strokeAlignInside,
                         ),
@@ -430,7 +500,10 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                                   top: 10,
                                   right: 10,
                                   child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 5,
+                                    ),
                                     decoration: BoxDecoration(
                                       color: const Color(0xFF10B981),
                                       borderRadius: BorderRadius.circular(20),
@@ -438,11 +511,19 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                                     child: const Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        Icon(Icons.check_circle_rounded, color: Colors.white, size: 14),
+                                        Icon(
+                                          Icons.check_circle_rounded,
+                                          color: Colors.white,
+                                          size: 14,
+                                        ),
                                         SizedBox(width: 4),
                                         Text(
                                           'PHOTO CAPTURED',
-                                          style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                          ),
                                         ),
                                       ],
                                     ),
@@ -452,19 +533,32 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                                   bottom: 10,
                                   right: 10,
                                   child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 6,
+                                    ),
                                     decoration: BoxDecoration(
-                                      color: Colors.black.withValues(alpha: 0.75),
+                                      color: Colors.black.withValues(
+                                        alpha: 0.75,
+                                      ),
                                       borderRadius: BorderRadius.circular(20),
                                     ),
                                     child: const Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        Icon(Icons.refresh_rounded, color: Colors.white, size: 14),
+                                        Icon(
+                                          Icons.refresh_rounded,
+                                          color: Colors.white,
+                                          size: 14,
+                                        ),
                                         SizedBox(width: 4),
                                         Text(
                                           'Retake Photo',
-                                          style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700),
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w700,
+                                          ),
                                         ),
                                       ],
                                     ),
@@ -478,7 +572,8 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                                 Container(
                                   padding: const EdgeInsets.all(14),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFF0066FF).withValues(alpha: 0.1),
+                                    color: const Color(0xFF0066FF)
+                                        .withValues(alpha: 0.1),
                                     shape: BoxShape.circle,
                                   ),
                                   child: const Icon(
@@ -502,7 +597,10 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                                   child: Text(
                                     'Clear photo of package handed to recipient or at doorstep',
                                     textAlign: TextAlign.center,
-                                    style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: Color(0xFF64748B),
+                                    ),
                                   ),
                                 ),
                               ],
@@ -514,17 +612,27 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                   // Recipient note / handover note
                   const Text(
                     'Handover Notes / Recipient Name',
-                    style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: Color(0xFF334155)),
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF334155),
+                    ),
                   ),
                   const SizedBox(height: 6),
                   TextField(
                     controller: notesController,
                     decoration: InputDecoration(
                       hintText: 'e.g., Received by buyer / Left at guard house',
-                      hintStyle: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+                      hintStyle: const TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF94A3B8),
+                      ),
                       filled: true,
                       fillColor: const Color(0xFFF8FAFC),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 12,
+                      ),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
@@ -549,15 +657,18 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                               if (otp.length != 6) {
                                 HapticFeedback.vibrate();
                                 setModalState(() {
-                                  serverError = 'Please enter the 6-digit Delivery OTP.';
+                                  serverError =
+                                      'Please enter the 6-digit Delivery OTP.';
                                 });
                                 return;
                               }
 
-                              if (_capturedPodPhotoPath == null || _capturedPodPhotoPath!.isEmpty) {
+                              if (_capturedPodPhotoPath == null ||
+                                  _capturedPodPhotoPath!.isEmpty) {
                                 HapticFeedback.vibrate();
                                 setModalState(() {
-                                  serverError = 'Proof of Delivery photo is mandatory!';
+                                  serverError =
+                                      'Proof of Delivery photo is mandatory!';
                                 });
                                 return;
                               }
@@ -568,13 +679,15 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                               });
 
                               try {
-                                _podRecipientNotes = notesController.text.trim();
-                                await DeliveryService.instance.completeDeliveryRemote(
-                                  orderId: order.id,
-                                  deliveryOtp: otp,
-                                  podFilePath: _capturedPodPhotoPath!,
-                                  notes: _podRecipientNotes,
-                                );
+                                _podRecipientNotes = notesController.text
+                                    .trim();
+                                await DeliveryService.instance
+                                    .completeDeliveryRemote(
+                                      orderId: order.id,
+                                      deliveryOtp: otp,
+                                      podFilePath: _capturedPodPhotoPath!,
+                                      notes: _podRecipientNotes,
+                                    );
                                 if (!ctx.mounted || !mounted) return;
                                 Navigator.pop(ctx);
                                 _nextStage();
@@ -582,9 +695,14 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                                 setModalState(() {
                                   isSubmitting = false;
                                   serverError = e.message;
-                                  isLocked = e.statusCode == 423 ||
-                                      e.message.toLowerCase().contains('locked') ||
-                                      e.message.toLowerCase().contains('3 failed attempts');
+                                  isLocked =
+                                      e.statusCode == 423 ||
+                                      e.message.toLowerCase().contains(
+                                        'locked',
+                                      ) ||
+                                      e.message.toLowerCase().contains(
+                                        '3 failed attempts',
+                                      );
                                 });
                               } catch (e) {
                                 setModalState(() {
@@ -597,18 +715,31 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                           ? const SizedBox(
                               width: 18,
                               height: 18,
-                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
                             )
                           : const Icon(Icons.check_circle_rounded, size: 20),
                       label: Text(
-                        isSubmitting ? 'VERIFYING...' : 'CONFIRM POD & COMPLETE DELIVERY',
-                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5, letterSpacing: 0.3),
+                        isSubmitting
+                            ? 'VERIFYING...'
+                            : 'CONFIRM POD & COMPLETE DELIVERY',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 13.5,
+                          letterSpacing: 0.3,
+                        ),
                       ),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: hasPhoto ? const Color(0xFF10B981) : const Color(0xFF94A3B8),
+                        backgroundColor: hasPhoto
+                            ? const Color(0xFF10B981)
+                            : const Color(0xFF94A3B8),
                         foregroundColor: Colors.white,
                         elevation: 0,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
                       ),
                     ),
                   ),
@@ -620,10 +751,18 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                         Navigator.pop(ctx);
                         _showFailDeliveryModal(order);
                       },
-                      icon: const Icon(Icons.report_problem_outlined, size: 16, color: Color(0xFF64748B)),
+                      icon: const Icon(
+                        Icons.report_problem_outlined,
+                        size: 16,
+                        color: Color(0xFF64748B),
+                      ),
                       label: const Text(
                         'Report Delivery Issue / Cannot Complete',
-                        style: TextStyle(color: Color(0xFF64748B), fontSize: 12, fontWeight: FontWeight.w600),
+                        style: TextStyle(
+                          color: Color(0xFF64748B),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ),
@@ -673,7 +812,11 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                   const SizedBox(height: 16),
                   const Row(
                     children: [
-                      Icon(Icons.report_problem_rounded, color: Color(0xFFE11D48), size: 22),
+                      Icon(
+                        Icons.report_problem_rounded,
+                        color: Color(0xFFE11D48),
+                        size: 22,
+                      ),
                       SizedBox(width: 8),
                       Text(
                         'Report Failed Delivery',
@@ -688,7 +831,10 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                   const SizedBox(height: 6),
                   Text(
                     'Order #${order.id} • ${order.customerName}',
-                    style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF64748B),
+                    ),
                   ),
                   if (errorMessage != null) ...[
                     const SizedBox(height: 12),
@@ -701,36 +847,67 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                       ),
                       child: Text(
                         errorMessage!,
-                        style: const TextStyle(color: Color(0xFFDC2626), fontSize: 12, fontWeight: FontWeight.bold),
+                        style: const TextStyle(
+                          color: Color(0xFFDC2626),
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ],
                   const SizedBox(height: 16),
-                  const Text('Select Failure Reason', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700)),
+                  const Text(
+                    'Select Failure Reason',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                   const SizedBox(height: 8),
                   RadioListTile<String>(
                     value: 'buyer_not_home',
                     // ignore: deprecated_member_use
                     groupValue: selectedReason,
-                    title: const Text('Buyer Not Home / Unreachable', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                    title: const Text(
+                      'Buyer Not Home / Unreachable',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                     // ignore: deprecated_member_use
-                    onChanged: (val) => setModalState(() => selectedReason = val!),
+                    onChanged: (val) =>
+                        setModalState(() => selectedReason = val!),
                   ),
                   RadioListTile<String>(
                     value: 'wrong_address',
                     // ignore: deprecated_member_use
                     groupValue: selectedReason,
-                    title: const Text('Incorrect / Unlocatable Address', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                    title: const Text(
+                      'Incorrect / Unlocatable Address',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                     // ignore: deprecated_member_use
-                    onChanged: (val) => setModalState(() => selectedReason = val!),
+                    onChanged: (val) =>
+                        setModalState(() => selectedReason = val!),
                   ),
                   RadioListTile<String>(
                     value: 'refused',
                     // ignore: deprecated_member_use
                     groupValue: selectedReason,
-                    title: const Text('Buyer Refused Delivery', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                    title: const Text(
+                      'Buyer Refused Delivery',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                     // ignore: deprecated_member_use
-                    onChanged: (val) => setModalState(() => selectedReason = val!),
+                    onChanged: (val) =>
+                        setModalState(() => selectedReason = val!),
                   ),
                   const SizedBox(height: 10),
                   TextField(
@@ -739,7 +916,9 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                       hintText: 'Additional attempt notes...',
                       filled: true,
                       fillColor: const Color(0xFFF8FAFC),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -752,14 +931,17 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                           : () async {
                               setModalState(() => isSubmitting = true);
                               try {
-                                await DeliveryService.instance.failDeliveryRemote(
-                                  orderId: order.id,
-                                  reason: selectedReason,
-                                  notes: notesController.text.trim(),
-                                );
+                                await DeliveryService.instance
+                                    .failDeliveryRemote(
+                                      orderId: order.id,
+                                      reason: selectedReason,
+                                      notes: notesController.text.trim(),
+                                    );
                                 if (!ctx.mounted || !mounted) return;
                                 Navigator.pop(ctx);
-                                Navigator.pop(context); // Exit active delivery screen
+                                Navigator.pop(
+                                  context,
+                                ); // Exit active delivery screen
                               } on ApiException catch (e) {
                                 setModalState(() {
                                   errorMessage = e.message;
@@ -775,11 +957,16 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFE11D48),
                         foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
                       child: isSubmitting
                           ? const CircularProgressIndicator(color: Colors.white)
-                          : const Text('Submit Delivery Failure', style: TextStyle(fontWeight: FontWeight.bold)),
+                          : const Text(
+                              'Submit Delivery Failure',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
                     ),
                   ),
                 ],
@@ -799,22 +986,33 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
     try {
       Uri? navUri;
       if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-        final googleNavIntent = Uri.parse('google.navigation:q=$lat,$lng&mode=d');
+        final googleNavIntent = Uri.parse(
+          'google.navigation:q=$lat,$lng&mode=d',
+        );
         if (await canLaunchUrl(googleNavIntent)) {
           navUri = googleNavIntent;
         }
       } else if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
-        final googleMapsIos = Uri.parse('comgooglemaps://?daddr=$lat,$lng&directionsmode=driving');
+        final googleMapsIos = Uri.parse(
+          'comgooglemaps://?daddr=$lat,$lng&directionsmode=driving',
+        );
         if (await canLaunchUrl(googleMapsIos)) {
           navUri = googleMapsIos;
         }
       }
 
-      navUri ??= Uri.parse('https://www.google.com/maps/dir/?api=1&destination=$lat,$lng&travelmode=driving');
+      navUri ??= Uri.parse(
+        'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng&travelmode=driving',
+      );
 
-      final launched = await launchUrl(navUri, mode: LaunchMode.externalApplication);
+      final launched = await launchUrl(
+        navUri,
+        mode: LaunchMode.externalApplication,
+      );
       if (!launched) {
-        final fallback = Uri.parse('https://www.google.com/maps/search/?api=1&query=$lat,$lng($label)');
+        final fallback = Uri.parse(
+          'https://www.google.com/maps/search/?api=1&query=$lat,$lng($label)',
+        );
         await launchUrl(fallback, mode: LaunchMode.externalApplication);
       }
     } catch (e) {
@@ -840,10 +1038,16 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
       SnackBar(
         content: Row(
           children: [
-            const Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 18),
+            const Icon(
+              Icons.check_circle_rounded,
+              color: Color(0xFF10B981),
+              size: 18,
+            ),
             const SizedBox(width: 8),
             Expanded(
-              child: Text('✓ Arrived at ${order.merchantName}! Ready for parcel verification.'),
+              child: Text(
+                '✓ Arrived at ${order.merchantName}! Ready for parcel verification.',
+              ),
             ),
           ],
         ),
@@ -867,11 +1071,14 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
       title: 'Scan Order Waybill',
       subtitle: 'Point camera at ${widget.order.merchantName} parcel barcode',
       expectedTrackingNumber: widget.order.trackingNumber,
-      initialProgressText: 'Order ${widget.order.id} • ${_pkg1Scanned ? 1 : 0}/1 verified',
+      initialProgressText:
+          'Order ${widget.order.id} • ${_pkg1Scanned ? 1 : 0}/1 verified',
       scannerPreviewOverride: widget.scannerPreviewOverride,
       onBarcodeSubmitted: (trackingNumber) async {
         if (widget.onPickupBarcodeSubmitOverride != null) {
-          final result = await widget.onPickupBarcodeSubmitOverride!(trackingNumber);
+          final result = await widget.onPickupBarcodeSubmitOverride!(
+            trackingNumber,
+          );
           if (result.success && mounted) {
             setState(() {
               _pkg1Scanned = true;
@@ -903,10 +1110,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
             progressText: '1 / 1 verified',
           );
         } on ApiException catch (e) {
-          return ParcelScanSubmissionResult(
-            success: false,
-            message: e.message,
-          );
+          return ParcelScanSubmissionResult(success: false, message: e.message);
         } catch (e) {
           return ParcelScanSubmissionResult(
             success: false,
@@ -924,7 +1128,9 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
               const Icon(Icons.check_circle, color: Colors.white, size: 18),
               const SizedBox(width: 8),
               Expanded(
-                child: Text('Waybill $_canonicalTrackingNumber pickup confirmed.'),
+                child: Text(
+                  'Waybill $_canonicalTrackingNumber pickup confirmed.',
+                ),
               ),
             ],
           ),
@@ -939,7 +1145,9 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
     if (clean.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('⚠️ Please request the handover code from the merchant counter staff'),
+          content: Text(
+            '⚠️ Please request the handover code from the merchant counter staff',
+          ),
           backgroundColor: Color(0xFFDC2626),
         ),
       );
@@ -959,7 +1167,9 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
             const Icon(Icons.verified_rounded, color: Colors.white, size: 18),
             const SizedBox(width: 8),
             Expanded(
-              child: Text('✓ Handover Code "$clean" verified! Custody transfer authorized.'),
+              child: Text(
+                '✓ Handover Code "$clean" verified! Custody transfer authorized.',
+              ),
             ),
           ],
         ),
@@ -1000,7 +1210,11 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
               child: const Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.badge_outlined, size: 14, color: Color(0xFF0066FF)),
+                  Icon(
+                    Icons.badge_outlined,
+                    size: 14,
+                    color: Color(0xFF0066FF),
+                  ),
                   SizedBox(width: 4),
                   Text(
                     'COURIER IDENTIFICATION BADGE',
@@ -1027,7 +1241,11 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
             Text(
               'Present this digital authorization badge to the merchant pickup attendant to verify package custody release.',
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), height: 1.35),
+              style: const TextStyle(
+                fontSize: 12,
+                color: Color(0xFF64748B),
+                height: 1.35,
+              ),
             ),
             const SizedBox(height: 18),
             Container(
@@ -1046,7 +1264,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'RIDER: NX-7819 • ORDER #${widget.order.id}',
+                    'RIDER: ${RiderService.instance.profile.id} • ORDER #${widget.order.id}',
                     style: const TextStyle(
                       fontSize: 11.5,
                       fontWeight: FontWeight.w800,
@@ -1065,7 +1283,8 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                 onPressed: () {
                   setState(() {
                     _handoverCodeVerified = true;
-                    _handoverCodeController.text = 'NX-8942-S';
+                    _handoverCodeController.text =
+                        'NX-${widget.order.id.replaceAll('#', '')}';
                     DeliveryService.instance.updateActiveOrderScanProgress(
                       handoverVerified: true,
                     );
@@ -1075,10 +1294,16 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                     const SnackBar(
                       content: Row(
                         children: [
-                          Icon(Icons.verified_rounded, color: Colors.white, size: 18),
+                          Icon(
+                            Icons.verified_rounded,
+                            color: Colors.white,
+                            size: 18,
+                          ),
                           SizedBox(width: 8),
                           Expanded(
-                            child: Text('✓ Store attendant verified rider badge. Handover authorized.'),
+                            child: Text(
+                              '✓ Store attendant verified rider badge. Handover authorized.',
+                            ),
                           ),
                         ],
                       ),
@@ -1095,7 +1320,9 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                   backgroundColor: const Color(0xFF0066FF),
                   foregroundColor: const Color(0xFF0F172A),
                   elevation: 0,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
                 ),
               ),
             ),
@@ -1106,14 +1333,14 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
   }
 
   void _openChat(String name, {bool isMerchant = false}) {
-    final effectiveId = isMerchant ? '${widget.order.id}_merchant' : widget.order.id;
+    final effectiveId = isMerchant
+        ? '${widget.order.id}_merchant'
+        : widget.order.id;
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (ctx) => RiderChatScreen(
-          customerName: name,
-          orderId: effectiveId,
-        ),
+        builder: (ctx) =>
+            RiderChatScreen(customerName: name, orderId: effectiveId),
       ),
     );
   }
@@ -1136,10 +1363,16 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
       SnackBar(
         content: Row(
           children: [
-            const Icon(Icons.phone_in_talk_rounded, color: Colors.white, size: 16),
+            const Icon(
+              Icons.phone_in_talk_rounded,
+              color: Colors.white,
+              size: 16,
+            ),
             const SizedBox(width: 8),
             Expanded(
-              child: Text('Connecting anonymized VoIP call to $name ($masked)...'),
+              child: Text(
+                'Connecting anonymized VoIP call to $name ($masked)...',
+              ),
             ),
           ],
         ),
@@ -1149,10 +1382,33 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
   }
 
   void _reportDelay() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('⏱️ Merchant queue delay reported to dispatch.'),
-        backgroundColor: Color(0xFFD97706),
+    final trackingRef = widget.order.trackingNumber ?? widget.order.id;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: const Row(
+          children: [
+            Icon(Icons.access_time_filled_rounded, color: Color(0xFFD97706)),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Merchant Pickup Delay',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          'Automatic delay reporting to dispatch is not available yet. Please contact your hub dispatcher directly and quote parcel reference $trackingRef if pickup wait exceeds 15 minutes.',
+          style: const TextStyle(fontSize: 13, height: 1.4, color: Color(0xFF334155)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('OK'),
+          ),
+        ],
       ),
     );
   }
@@ -1163,9 +1419,11 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
       listenable: DeliveryService.instance,
       builder: (context, _) {
         final active = DeliveryService.instance.activeOrder;
-        final order = (active != null &&
+        final order =
+            (active != null &&
                 (active.id == widget.order.id ||
-                    active.id.replaceAll('#', '') == widget.order.id.replaceAll('#', '')))
+                    active.id.replaceAll('#', '') ==
+                        widget.order.id.replaceAll('#', '')))
             ? active
             : widget.order;
 
@@ -1176,7 +1434,10 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
             elevation: 0,
             scrolledUnderElevation: 0,
             leading: IconButton(
-              icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF0F172A)),
+              icon: const Icon(
+                Icons.arrow_back_rounded,
+                color: Color(0xFF0F172A),
+              ),
               onPressed: () => Navigator.pop(context),
             ),
             title: const Text(
@@ -1188,52 +1449,8 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                 letterSpacing: -0.3,
               ),
             ),
-            actions: [
-              // Hidden mobile-only feature: Rider-buyer chat disabled (no web equivalent)
-              Opacity(
-                opacity: 0.0,
-                child: IgnorePointer(
-                  child: AnimatedBuilder(
-                    animation: RiderChatService.instance,
-                    builder: (context, _) {
-                      final unread = RiderChatService.instance.getUnreadCount(order.id);
-                      return Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.chat_bubble_outline_rounded, color: Color(0xFF0066FF)),
-                            tooltip: 'Chat Customer',
-                            onPressed: () => _openChat(order.customerName),
-                          ),
-                          if (unread > 0)
-                            Positioned(
-                              top: 8,
-                              right: 8,
-                              child: Container(
-                                padding: const EdgeInsets.all(4),
-                                decoration: const BoxDecoration(
-                                  color: Color(0xFFEF4444),
-                                  shape: BoxShape.circle,
-                                ),
-                                constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
-                                child: Text(
-                                  '$unread',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.w900,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ),
-                            ),
-                        ],
-                      );
-                    },
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
+            actions: const [
+              SizedBox(width: 8),
             ],
           ),
           body: ScrollConfiguration(
@@ -1261,9 +1478,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
 
                     if (_currentStage == 4) ...[
                       // In Stage 5, progress stepper sits above the completion hero card
-                      RouteProgressWidget(
-                        currentStageIndex: _currentStage,
-                      ),
+                      RouteProgressWidget(currentStageIndex: _currentStage),
                       const SizedBox(height: 14),
                       _buildDarkHeroCard(order),
                     ] else ...[
@@ -1272,9 +1487,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                       const SizedBox(height: 14),
 
                       // 3. 5-Stage Stepper Progress Widget (Locked progression via bottom CTA only)
-                      RouteProgressWidget(
-                        currentStageIndex: _currentStage,
-                      ),
+                      RouteProgressWidget(currentStageIndex: _currentStage),
                     ],
                     const SizedBox(height: 14),
 
@@ -1412,7 +1625,6 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
 
     if (_currentStage >= 2) {
       // Stage 3 & 4 Header
-      final isTransit = _currentStage == 3;
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
         decoration: BoxDecoration(
@@ -1439,7 +1651,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    isTransit ? '1.8 km • ~8 mins' : '${order.distanceKm} km • ~${order.estimatedMinutes} mins',
+                    '${order.distanceKm} km • ~${order.estimatedMinutes} mins',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
@@ -1497,7 +1709,10 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFFF1F5F9),
                   borderRadius: BorderRadius.circular(10),
@@ -1512,7 +1727,10 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFFE0F2FE),
                   borderRadius: BorderRadius.circular(10),
@@ -1531,7 +1749,11 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
           const SizedBox(height: 6),
           Text(
             '${order.distanceKm} km • ~${order.estimatedMinutes} mins',
-            style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w600),
+            style: const TextStyle(
+              fontSize: 12,
+              color: Color(0xFF64748B),
+              fontWeight: FontWeight.w600,
+            ),
           ),
           const SizedBox(height: 12),
           const Divider(height: 1, color: Color(0xFFF1F5F9)),
@@ -1563,7 +1785,10 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
               ),
               const SizedBox(width: 8),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFFE0F2FE),
                   borderRadius: BorderRadius.circular(12),
@@ -1571,7 +1796,11 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.verified_outlined, size: 14, color: Color(0xFF0066FF)),
+                    Icon(
+                      Icons.verified_outlined,
+                      size: 14,
+                      color: Color(0xFF0066FF),
+                    ),
                     SizedBox(width: 4),
                     Text(
                       'Guaranteed',
@@ -1645,7 +1874,11 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                     const Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        Icon(Icons.location_on_rounded, size: 13, color: Color(0xFF0066FF)),
+                        Icon(
+                          Icons.location_on_rounded,
+                          size: 13,
+                          color: Color(0xFF0066FF),
+                        ),
                         SizedBox(width: 4),
                         Expanded(
                           child: Text(
@@ -1678,7 +1911,11 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                     color: Colors.white.withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.navigation_rounded, color: Color(0xFF0066FF), size: 18),
+                  child: const Icon(
+                    Icons.navigation_rounded,
+                    color: Color(0xFF0066FF),
+                    size: 18,
+                  ),
                 ),
               ),
             ),
@@ -1707,7 +1944,11 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                     color: const Color(0xFF0066FF).withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(Icons.storefront_rounded, color: Color(0xFF0066FF), size: 20),
+                  child: const Icon(
+                    Icons.storefront_rounded,
+                    color: Color(0xFF0066FF),
+                    size: 20,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -1761,9 +2002,13 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                         child: Row(
                           children: [
                             Icon(
-                              _handoverCodeVerified ? Icons.check_circle_rounded : Icons.vpn_key_rounded,
+                              _handoverCodeVerified
+                                  ? Icons.check_circle_rounded
+                                  : Icons.vpn_key_rounded,
                               size: 13,
-                              color: _handoverCodeVerified ? const Color(0xFF34D399) : const Color(0xFF0066FF),
+                              color: _handoverCodeVerified
+                                  ? const Color(0xFF34D399)
+                                  : const Color(0xFF0066FF),
                             ),
                             const SizedBox(width: 5),
                             Expanded(
@@ -1774,7 +2019,9 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                                 style: TextStyle(
                                   fontSize: 9.5,
                                   fontWeight: FontWeight.w900,
-                                  color: _handoverCodeVerified ? const Color(0xFF34D399) : const Color(0xFF94A3B8),
+                                  color: _handoverCodeVerified
+                                      ? const Color(0xFF34D399)
+                                      : const Color(0xFF94A3B8),
                                   letterSpacing: 0.4,
                                 ),
                                 maxLines: 1,
@@ -1787,13 +2034,24 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                       const SizedBox(width: 6),
                       TextButton.icon(
                         onPressed: _showRiderPickupQrModal,
-                        icon: const Icon(Icons.qr_code_2_rounded, size: 14, color: Color(0xFF0066FF)),
+                        icon: const Icon(
+                          Icons.qr_code_2_rounded,
+                          size: 14,
+                          color: Color(0xFF0066FF),
+                        ),
                         label: const Text(
                           'Show My QR',
-                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Color(0xFF0066FF)),
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF0066FF),
+                          ),
                         ),
                         style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
                           minimumSize: Size.zero,
                           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         ),
@@ -1803,15 +2061,24 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                   const SizedBox(height: 8),
                   if (_handoverCodeVerified) ...[
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFF10B981).withValues(alpha: 0.18),
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.3)),
+                        border: Border.all(
+                          color: const Color(0xFF10B981).withValues(alpha: 0.3),
+                        ),
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.verified_rounded, size: 15, color: Color(0xFF34D399)),
+                          const Icon(
+                            Icons.verified_rounded,
+                            size: 15,
+                            color: Color(0xFF34D399),
+                          ),
                           const SizedBox(width: 6),
                           Expanded(
                             child: Text(
@@ -1853,18 +2120,28 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                                 ),
                                 filled: true,
                                 fillColor: Colors.white.withValues(alpha: 0.08),
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 8,
+                                ),
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(10),
-                                  borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.15)),
+                                  borderSide: BorderSide(
+                                    color: Colors.white.withValues(alpha: 0.15),
+                                  ),
                                 ),
                                 enabledBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(10),
-                                  borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.15)),
+                                  borderSide: BorderSide(
+                                    color: Colors.white.withValues(alpha: 0.15),
+                                  ),
                                 ),
                                 focusedBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(10),
-                                  borderSide: const BorderSide(color: Color(0xFF0066FF), width: 1.5),
+                                  borderSide: const BorderSide(
+                                    color: Color(0xFF0066FF),
+                                    width: 1.5,
+                                  ),
                                 ),
                               ),
                               onSubmitted: _validateHandoverCode,
@@ -1875,15 +2152,27 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                         SizedBox(
                           height: 38,
                           child: ElevatedButton(
-                            onPressed: () => _validateHandoverCode(_handoverCodeController.text),
+                            onPressed: () => _validateHandoverCode(
+                              _handoverCodeController.text,
+                            ),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFF0066FF),
                               foregroundColor: const Color(0xFF0F172A),
                               elevation: 0,
-                              padding: const EdgeInsets.symmetric(horizontal: 12),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
                             ),
-                            child: const Text('Verify', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900)),
+                            child: const Text(
+                              'Verify',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
                           ),
                         ),
                       ],
@@ -1898,13 +2187,18 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
               children: [
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: () => _callPhone(order.merchantPhone, order.merchantName),
+                    onPressed: () =>
+                        _callPhone(order.merchantPhone, order.merchantName),
                     icon: const Icon(Icons.call_rounded, size: 15),
                     label: const Text('Call Merchant'),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Colors.white,
-                      side: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      side: BorderSide(
+                        color: Colors.white.withValues(alpha: 0.2),
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                       padding: const EdgeInsets.symmetric(vertical: 10),
                     ),
                   ),
@@ -1917,8 +2211,12 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                     label: const Text('Report Delay'),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Colors.white70,
-                      side: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      side: BorderSide(
+                        color: Colors.white.withValues(alpha: 0.2),
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                       padding: const EdgeInsets.symmetric(vertical: 10),
                     ),
                   ),
@@ -1981,7 +2279,11 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                     color: const Color(0xFF0066FF).withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.archive_outlined, color: Color(0xFF0066FF), size: 18),
+                  child: const Icon(
+                    Icons.archive_outlined,
+                    color: Color(0xFF0066FF),
+                    size: 18,
+                  ),
                 ),
               ],
             ),
@@ -1994,14 +2296,14 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
               ),
-              child: const Row(
+              child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
+                        const Text(
                           'MERCHANT HANDOVER CODE',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -2011,12 +2313,14 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                             color: Color(0xFF94A3B8),
                           ),
                         ),
-                        SizedBox(height: 2),
+                        const SizedBox(height: 2),
                         Text(
-                          'NX-8942-S',
+                          _handoverCodeController.text.isNotEmpty
+                              ? _handoverCodeController.text
+                              : (order.trackingNumber ?? order.id),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w900,
                             color: Colors.white,
@@ -2026,12 +2330,16 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                       ],
                     ),
                   ),
-                  SizedBox(width: 8),
-                  Flexible(
+                  const SizedBox(width: 8),
+                  const Flexible(
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.check_circle_rounded, size: 14, color: Color(0xFF0066FF)),
+                        Icon(
+                          Icons.check_circle_rounded,
+                          size: 14,
+                          color: Color(0xFF0066FF),
+                        ),
                         SizedBox(width: 4),
                         Flexible(
                           child: Text(
@@ -2059,14 +2367,22 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                 Expanded(
                   child: Row(
                     children: [
-                      Icon(Icons.badge_outlined, size: 14, color: Color(0xFF0066FF)),
+                      Icon(
+                        Icons.badge_outlined,
+                        size: 14,
+                        color: Color(0xFF0066FF),
+                      ),
                       SizedBox(width: 4),
                       Flexible(
                         child: Text(
                           'Authorized Merchant Pickup',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontSize: 11, color: Colors.white70, fontWeight: FontWeight.w600),
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.white70,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                     ],
@@ -2120,10 +2436,17 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                   color: const Color(0xFF0066FF).withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(Icons.check_circle_outline_rounded, color: Color(0xFF0066FF), size: 22),
+                child: const Icon(
+                  Icons.check_circle_outline_rounded,
+                  color: Color(0xFF0066FF),
+                  size: 22,
+                ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFF0066FF).withValues(alpha: 0.3),
                   borderRadius: BorderRadius.circular(12),
@@ -2134,7 +2457,11 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                     SizedBox(width: 5),
                     Text(
                       'PAYOUT SETTLED',
-                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Color(0xFF0066FF)),
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFF0066FF),
+                      ),
                     ),
                   ],
                 ),
@@ -2145,17 +2472,30 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
 
           const Text(
             'Delivery Completed!',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: -0.3),
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w900,
+              color: Colors.white,
+              letterSpacing: -0.3,
+            ),
           ),
           const SizedBox(height: 4),
           Row(
             children: [
-              const Icon(Icons.access_time_rounded, size: 13, color: Color(0xFF94A3B8)),
+              const Icon(
+                Icons.access_time_rounded,
+                size: 13,
+                color: Color(0xFF94A3B8),
+              ),
               const SizedBox(width: 5),
               Flexible(
                 child: Text(
                   '${_getFormattedCompletionTime()} • Handed to ${order.customerName}',
-                  style: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8), fontWeight: FontWeight.w600),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF94A3B8),
+                    fontWeight: FontWeight.w600,
+                  ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -2181,14 +2521,22 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                     children: [
                       const Text(
                         'CREDITED TO EARNINGS',
-                        style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w800, color: Color(0xFF94A3B8)),
+                        style: TextStyle(
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF94A3B8),
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 3),
                       Text(
                         '+₱${order.riderEarnings.toStringAsFixed(2)}',
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Color(0xFF0066FF)),
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
+                          color: Color(0xFF0066FF),
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -2202,14 +2550,22 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                     children: [
                       const Text(
                         'NEW WALLET BALANCE',
-                        style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w800, color: Color(0xFF94A3B8)),
+                        style: TextStyle(
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF94A3B8),
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 3),
                       Text(
                         '₱${balance.toStringAsFixed(2)}',
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.white),
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.white,
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -2258,40 +2614,70 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3.5,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFE0F2FE),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Text('STORE PICKUP',
-                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Color(0xFF0066FF))),
+                  child: const Text(
+                    'STORE PICKUP',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF0066FF),
+                    ),
+                  ),
                 ),
                 const SizedBox(width: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3.5,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFDCFCE7),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Text('● Prepaid',
-                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Color(0xFF10B981))),
+                  child: const Text(
+                    '● Prepaid',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF10B981),
+                    ),
+                  ),
                 ),
               ],
             ),
             const SizedBox(height: 10),
             Text(
               order.merchantName,
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w900,
+                color: Color(0xFF0F172A),
+              ),
             ),
             const SizedBox(height: 4),
             Row(
               children: [
-                const Icon(Icons.location_on_outlined, size: 14, color: Color(0xFF64748B)),
+                const Icon(
+                  Icons.location_on_outlined,
+                  size: 14,
+                  color: Color(0xFF64748B),
+                ),
                 const SizedBox(width: 4),
                 Expanded(
                   child: Text(
                     order.merchantAddress,
-                    style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B), height: 1.3),
+                    style: const TextStyle(
+                      fontSize: 11.5,
+                      color: Color(0xFF64748B),
+                      height: 1.3,
+                    ),
                   ),
                 ),
               ],
@@ -2301,14 +2687,17 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
               children: [
                 Expanded(
                   child: ElevatedButton.icon(
-                    onPressed: () => _callPhone(order.merchantPhone, order.merchantName),
+                    onPressed: () =>
+                        _callPhone(order.merchantPhone, order.merchantName),
                     icon: const Icon(Icons.call_rounded, size: 15),
                     label: const Text('Call Store'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFFF1F5F9),
                       foregroundColor: const Color(0xFF0F172A),
                       elevation: 0,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                       padding: const EdgeInsets.symmetric(vertical: 10),
                     ),
                   ),
@@ -2319,14 +2708,20 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                     opacity: 0.0,
                     child: IgnorePointer(
                       child: ElevatedButton.icon(
-                        onPressed: () => _openChat(order.merchantName, isMerchant: true),
-                        icon: const Icon(Icons.chat_bubble_outline_rounded, size: 15),
+                        onPressed: () =>
+                            _openChat(order.merchantName, isMerchant: true),
+                        icon: const Icon(
+                          Icons.chat_bubble_outline_rounded,
+                          size: 15,
+                        ),
                         label: const Text('Chat'),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFFF1F5F9),
                           foregroundColor: const Color(0xFF0F172A),
                           elevation: 0,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                           padding: const EdgeInsets.symmetric(vertical: 10),
                         ),
                       ),
@@ -2355,22 +2750,39 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
               children: [
                 const Row(
                   children: [
-                    Icon(Icons.inventory_2_outlined, size: 16, color: Color(0xFF0066FF)),
+                    Icon(
+                      Icons.inventory_2_outlined,
+                      size: 16,
+                      color: Color(0xFF0066FF),
+                    ),
                     SizedBox(width: 6),
                     Text(
                       'PACKAGE MANIFEST',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFF0F172A),
+                      ),
                     ),
                   ],
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFF1F5F9),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Text('1 Parcel',
-                      style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: Color(0xFF64748B))),
+                  child: const Text(
+                    '1 Parcel',
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF64748B),
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -2379,10 +2791,15 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
             _buildManifestItem(
               isScanned: _pkg1Scanned,
               title: 'Waybill $_canonicalTrackingNumber',
-              desc: 'Order ${order.id} • ${order.items.length} item(s) • ${order.packageWeightKg.toStringAsFixed(2)} kg',
+              desc:
+                  'Order ${order.id} • ${order.items.length} item(s) • ${order.packageWeightKg.toStringAsFixed(2)} kg',
               tag: order.isFragile ? 'FRAGILE' : 'WAYBILL',
-              tagColor: order.isFragile ? const Color(0xFFFEE2E2) : const Color(0xFFE0F2FE),
-              tagTextColor: order.isFragile ? const Color(0xFFDC2626) : const Color(0xFF0066FF),
+              tagColor: order.isFragile
+                  ? const Color(0xFFFEE2E2)
+                  : const Color(0xFFE0F2FE),
+              tagTextColor: order.isFragile
+                  ? const Color(0xFFDC2626)
+                  : const Color(0xFF0066FF),
               onScanTap: _openWaybillPickupScanner,
             ),
           ],
@@ -2416,17 +2833,32 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                     color: const Color(0xFFE0F2FE),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.location_on_rounded, color: Color(0xFF0066FF), size: 20),
+                  child: const Icon(
+                    Icons.location_on_rounded,
+                    color: Color(0xFF0066FF),
+                    size: 20,
+                  ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(order.merchantName,
-                          style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w900, color: Color(0xFF0F172A))),
-                      Text(order.merchantAddress,
-                          style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                      Text(
+                        order.merchantName,
+                        style: const TextStyle(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w900,
+                          color: Color(0xFF0F172A),
+                        ),
+                      ),
+                      Text(
+                        order.merchantAddress,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF64748B),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -2441,7 +2873,11 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                 Flexible(
                   child: Text(
                     'Order ${order.id}',
-                    style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: Color(0xFF0F172A)),
+                    style: const TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF0F172A),
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -2450,7 +2886,11 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                 Flexible(
                   child: Text(
                     'Waybill: $_canonicalTrackingNumber',
-                    style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: Color(0xFF0066FF)),
+                    style: const TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF0066FF),
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -2478,16 +2918,25 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                 const Flexible(
                   child: Text(
                     'Order Waybill Verification',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF0F172A),
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 const SizedBox(width: 6),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
-                    color: _pkg1Scanned ? const Color(0xFFDCFCE7) : const Color(0xFFE0F2FE),
+                    color: _pkg1Scanned
+                        ? const Color(0xFFDCFCE7)
+                        : const Color(0xFFE0F2FE),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
@@ -2495,7 +2944,9 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                     style: TextStyle(
                       fontSize: 10.5,
                       fontWeight: FontWeight.w800,
-                      color: _pkg1Scanned ? const Color(0xFF10B981) : const Color(0xFF0066FF),
+                      color: _pkg1Scanned
+                          ? const Color(0xFF10B981)
+                          : const Color(0xFF0066FF),
                     ),
                   ),
                 ),
@@ -2510,21 +2961,34 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
               child: ElevatedButton.icon(
                 onPressed: _openWaybillPickupScanner,
                 icon: Icon(
-                  _pkg1Scanned ? Icons.verified_rounded : Icons.qr_code_scanner_rounded,
+                  _pkg1Scanned
+                      ? Icons.verified_rounded
+                      : Icons.qr_code_scanner_rounded,
                   size: 16,
                 ),
                 label: Text(
                   _pkg1Scanned ? 'Waybill Verified' : 'Scan Waybill Barcode',
-                  style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800),
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: _pkg1Scanned ? const Color(0xFFDCFCE7) : const Color(0xFFF0F9FF),
-                  foregroundColor: _pkg1Scanned ? const Color(0xFF10B981) : const Color(0xFF0066FF),
+                  backgroundColor: _pkg1Scanned
+                      ? const Color(0xFFDCFCE7)
+                      : const Color(0xFFF0F9FF),
+                  foregroundColor: _pkg1Scanned
+                      ? const Color(0xFF10B981)
+                      : const Color(0xFF0066FF),
                   elevation: 0,
                   side: BorderSide(
-                    color: _pkg1Scanned ? const Color(0xFFA7F3D0) : const Color(0xFFBAE6FD),
+                    color: _pkg1Scanned
+                        ? const Color(0xFFA7F3D0)
+                        : const Color(0xFFBAE6FD),
                   ),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
               ),
             ),
@@ -2534,7 +2998,8 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
             _buildPickupScanTile(
               pkgId: _canonicalTrackingNumber,
               badge: order.isFragile ? 'FRAGILE' : 'WAYBILL',
-              desc: '${order.items.length} item(s) • ${order.packageWeightKg.toStringAsFixed(2)} kg',
+              desc:
+                  '${order.items.length} item(s) • ${order.packageWeightKg.toStringAsFixed(2)} kg',
               isScanned: _pkg1Scanned,
               onScanTap: _openWaybillPickupScanner,
             ),
@@ -2560,7 +3025,11 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                 SizedBox(width: 6),
                 Text(
                   'Inspection & Protocol',
-                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF0F172A),
+                  ),
                 ),
               ],
             ),
@@ -2614,7 +3083,11 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                     'Confidential Manifest',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF0F172A),
+                    ),
                   ),
                 ),
                 SizedBox(width: 8),
@@ -2622,16 +3095,32 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text('1/1 Verified',
-                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Color(0xFF0066FF))),
+                      Text(
+                        '1/1 Verified',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF0066FF),
+                        ),
+                      ),
                       SizedBox(width: 6),
-                      Icon(Icons.qr_code_scanner_rounded, size: 14, color: Color(0xFF0066FF)),
+                      Icon(
+                        Icons.qr_code_scanner_rounded,
+                        size: 14,
+                        color: Color(0xFF0066FF),
+                      ),
                       SizedBox(width: 4),
                       Flexible(
-                        child: Text('Waybill Scanned',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Color(0xFF0066FF))),
+                        child: Text(
+                          'Waybill Scanned',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF0066FF),
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -2641,11 +3130,14 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
             const SizedBox(height: 12),
 
             _buildVerifiedStowTile(
-              icon: order.isFragile ? Icons.shield_outlined : Icons.inventory_2_outlined,
+              icon: order.isFragile
+                  ? Icons.shield_outlined
+                  : Icons.inventory_2_outlined,
               iconColor: const Color(0xFF0066FF),
               pkgId: _canonicalTrackingNumber,
               tag: order.isFragile ? 'FRAGILE' : 'VERIFIED',
-              desc: '${order.items.length} item(s) • ${order.packageWeightKg.toStringAsFixed(2)} kg',
+              desc:
+                  '${order.items.length} item(s) • ${order.packageWeightKg.toStringAsFixed(2)} kg',
               stowLocation: 'Stowed for Delivery',
               bayText: 'ORDER ${order.id}',
             ),
@@ -2672,7 +3164,12 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                     'SECURITY & DISPATCH CHECKLIST',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w900, color: Color(0xFF94A3B8), letterSpacing: 0.6),
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF94A3B8),
+                      letterSpacing: 0.6,
+                    ),
                   ),
                 ),
                 SizedBox(width: 8),
@@ -2680,13 +3177,23 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.check_rounded, size: 14, color: Color(0xFF0066FF)),
+                      Icon(
+                        Icons.check_rounded,
+                        size: 14,
+                        color: Color(0xFF0066FF),
+                      ),
                       SizedBox(width: 4),
                       Flexible(
-                        child: Text('All Cleared',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Color(0xFF0066FF))),
+                        child: Text(
+                          'All Cleared',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF0066FF),
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -2696,7 +3203,9 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
             const SizedBox(height: 12),
             _buildStaticCheckRow('Tamper-evident seal intact and scanned'),
             const SizedBox(height: 8),
-            _buildStaticCheckRow('Fragile cargo safely secured in insulated top-box'),
+            _buildStaticCheckRow(
+              'Fragile cargo safely secured in insulated top-box',
+            ),
             const SizedBox(height: 8),
             _buildStaticCheckRow('Merchant digital signature logged'),
           ],
@@ -2721,18 +3230,32 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                 color: const Color(0xFFE0F2FE),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: const Icon(Icons.navigation_rounded, color: Color(0xFF0066FF), size: 18),
+              child: const Icon(
+                Icons.navigation_rounded,
+                color: Color(0xFF0066FF),
+                size: 18,
+              ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('NEXT DESTINATION',
-                      style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w900, color: Color(0xFF94A3B8))),
+                  const Text(
+                    'NEXT DESTINATION',
+                    style: TextStyle(
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF94A3B8),
+                    ),
+                  ),
                   Text(
                     order.customerAddress,
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFF0F172A)),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF0F172A),
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -2750,10 +3273,16 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           const Flexible(
-            child: Text('Trip Guaranteed Payout',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.w600)),
+            child: Text(
+              'Trip Guaranteed Payout',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 11,
+                color: Color(0xFF64748B),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
           const SizedBox(width: 8),
           Flexible(
@@ -2762,11 +3291,19 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
               overflow: TextOverflow.ellipsis,
               text: TextSpan(
                 text: '₱${order.riderEarnings.toStringAsFixed(2)} ',
-                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w900,
+                  color: Color(0xFF0F172A),
+                ),
                 children: const [
                   TextSpan(
                     text: '+₱25 Bonus applied',
-                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Color(0xFF0066FF)),
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF0066FF),
+                    ),
                   ),
                 ],
               ),
@@ -2797,14 +3334,22 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                 Expanded(
                   child: Row(
                     children: [
-                      const Icon(Icons.archive_outlined, size: 16, color: Color(0xFF0066FF)),
+                      const Icon(
+                        Icons.archive_outlined,
+                        size: 16,
+                        color: Color(0xFF0066FF),
+                      ),
                       const SizedBox(width: 6),
                       Flexible(
                         child: Text(
                           '2 Secured Parcels Stowed',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFF0F172A),
+                          ),
                         ),
                       ),
                     ],
@@ -2812,7 +3357,10 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                 ),
                 const SizedBox(width: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFE0F2FE),
                     borderRadius: BorderRadius.circular(10),
@@ -2820,10 +3368,20 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                   child: const Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.lock_rounded, size: 12, color: Color(0xFF0066FF)),
+                      Icon(
+                        Icons.lock_rounded,
+                        size: 12,
+                        color: Color(0xFF0066FF),
+                      ),
                       SizedBox(width: 4),
-                      Text('Secured',
-                          style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w900, color: Color(0xFF0066FF))),
+                      Text(
+                        'Secured',
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w900,
+                          color: Color(0xFF0066FF),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -2834,7 +3392,8 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
             _buildTransitParcelTile(
               icon: Icons.inventory_2_outlined,
               pkgId: _canonicalTrackingNumber,
-              subtitle: '${order.isFragile ? '! FRAGILE • ' : ''}${order.items.length} item(s) • ${order.packageWeightKg.toStringAsFixed(2)} kg',
+              subtitle:
+                  '${order.isFragile ? '! FRAGILE • ' : ''}${order.items.length} item(s) • ${order.packageWeightKg.toStringAsFixed(2)} kg',
               vault: 'Order ${order.id}',
             ),
             const SizedBox(height: 8),
@@ -2874,10 +3433,15 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                       Container(
                         padding: const EdgeInsets.all(5),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFEF4444).withValues(alpha: 0.12),
+                          color: const Color(0xFFEF4444)
+                              .withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: const Icon(Icons.pin_drop_rounded, size: 15, color: Color(0xFFEF4444)),
+                        child: const Icon(
+                          Icons.pin_drop_rounded,
+                          size: 15,
+                          color: Color(0xFFEF4444),
+                        ),
                       ),
                       const SizedBox(width: 6),
                       const Flexible(
@@ -2897,7 +3461,10 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                 ),
                 const SizedBox(width: 6),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 7,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFDCFCE7),
                     borderRadius: BorderRadius.circular(10),
@@ -2905,11 +3472,19 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                   child: const Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.verified_rounded, size: 11, color: Color(0xFF10B981)),
+                      Icon(
+                        Icons.verified_rounded,
+                        size: 11,
+                        color: Color(0xFF10B981),
+                      ),
                       SizedBox(width: 4),
                       Text(
                         'Accurate GPS',
-                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Color(0xFF10B981)),
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w900,
+                          color: Color(0xFF10B981),
+                        ),
                       ),
                     ],
                   ),
@@ -2935,7 +3510,11 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.gps_fixed_rounded, size: 13, color: Color(0xFF64748B)),
+                  const Icon(
+                    Icons.gps_fixed_rounded,
+                    size: 13,
+                    color: Color(0xFF64748B),
+                  ),
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
@@ -2973,28 +3552,58 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                 CircleAvatar(
                   radius: 18,
                   backgroundColor: const Color(0xFFE0F2FE),
-                  child: const Text('JD',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: Color(0xFF0066FF))),
+                  child: const Text(
+                    'JD',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF0066FF),
+                    ),
+                  ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('RECIPIENT',
-                          style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w800, color: Color(0xFF94A3B8))),
-                      Text(order.customerName,
-                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: Color(0xFF0F172A))),
+                      const Text(
+                        'RECIPIENT',
+                        style: TextStyle(
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF94A3B8),
+                        ),
+                      ),
+                      Text(
+                        order.customerName,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w900,
+                          color: Color(0xFF0F172A),
+                        ),
+                      ),
                     ],
                   ),
                 ),
                 const Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Text('ESTIMATED ARRIVAL',
-                        style: TextStyle(fontSize: 9, fontWeight: FontWeight.w800, color: Color(0xFF94A3B8))),
-                    Text('8 mins',
-                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: Color(0xFF0066FF))),
+                    Text(
+                      'ESTIMATED ARRIVAL',
+                      style: TextStyle(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF94A3B8),
+                      ),
+                    ),
+                    Text(
+                      '8 mins',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFF0066FF),
+                      ),
+                    ),
                   ],
                 ),
               ],
@@ -3012,34 +3621,49 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                   Expanded(
                     child: Row(
                       children: [
-                        const Icon(Icons.shield_rounded, size: 13, color: Color(0xFF0066FF)),
+                        const Icon(
+                          Icons.shield_rounded,
+                          size: 13,
+                          color: Color(0xFF0066FF),
+                        ),
                         const SizedBox(width: 5),
                         Flexible(
                           child: Text(
                             _maskPhoneNumber(order.customerPhone),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: Color(0xFF0F172A)),
+                            style: const TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF0F172A),
+                            ),
                           ),
                         ),
                         const SizedBox(width: 6),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 5,
+                            vertical: 1.5,
+                          ),
                           decoration: BoxDecoration(
                             color: const Color(0xFFE0F2FE),
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: const Text(
                             'MASKED',
-                            style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.w900, color: Color(0xFF0066FF)),
+                            style: TextStyle(
+                              fontSize: 8.5,
+                              fontWeight: FontWeight.w900,
+                              color: Color(0xFF0066FF),
+                            ),
                           ),
                         ),
                       ],
                     ),
                   ),
                   const SizedBox(width: 8),
-                  const Text('1.8 km remaining',
-                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF0066FF))),
+                  Text('${order.distanceKm} km remaining',
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF0066FF))),
                 ],
               ),
             ),
@@ -3061,7 +3685,11 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                   Expanded(
                     child: Text(
                       'Customer Note: "Drop at Guard House / Lobby Reception if unavailable. Contact upon arrival."',
-                      style: TextStyle(fontSize: 11, color: Color(0xFF0369A1), height: 1.3),
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF0369A1),
+                        height: 1.3,
+                      ),
                     ),
                   ),
                 ],
@@ -3073,46 +3701,18 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
               children: [
                 Expanded(
                   child: ElevatedButton.icon(
-                    onPressed: () => _callPhone(order.customerPhone, order.customerName),
+                    onPressed: () =>
+                        _callPhone(order.customerPhone, order.customerName),
                     icon: const Icon(Icons.call_rounded, size: 15),
                     label: const Text('Call Customer'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF0F172A),
                       foregroundColor: Colors.white,
                       elevation: 0,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Opacity(
-                    opacity: 0.0,
-                    child: IgnorePointer(
-                      child: AnimatedBuilder(
-                        animation: RiderChatService.instance,
-                        builder: (context, _) {
-                          final unread = RiderChatService.instance.getUnreadCount(order.id);
-                          return ElevatedButton.icon(
-                            onPressed: () => _openChat(order.customerName),
-                            icon: Badge(
-                              isLabelVisible: unread > 0,
-                              label: Text('$unread', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
-                              backgroundColor: const Color(0xFFEF4444),
-                              child: const Icon(Icons.chat_bubble_outline_rounded, size: 15),
-                            ),
-                            label: Text(unread > 0 ? 'Chat Customer ($unread)' : 'Chat Customer'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: unread > 0 ? const Color(0xFFEFF6FF) : const Color(0xFFF1F5F9),
-                              foregroundColor: unread > 0 ? RiderTheme.primary : const Color(0xFF0F172A),
-                              elevation: 0,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                              padding: const EdgeInsets.symmetric(vertical: 10),
-                            ),
-                          );
-                        },
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
                       ),
+                      padding: const EdgeInsets.symmetric(vertical: 10),
                     ),
                   ),
                 ),
@@ -3131,13 +3731,21 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
               'Trip Payout upon confirmation',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.w600),
+              style: TextStyle(
+                fontSize: 11,
+                color: Color(0xFF64748B),
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
           const SizedBox(width: 8),
           Text(
             '₱${order.riderEarnings.toStringAsFixed(2)} Total',
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w900,
+              color: Color(0xFF0F172A),
+            ),
           ),
         ],
       ),
@@ -3163,12 +3771,20 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                 Expanded(
                   child: Row(
                     children: [
-                      const Icon(Icons.inventory_2_outlined, size: 16, color: Color(0xFF0066FF)),
+                      const Icon(
+                        Icons.inventory_2_outlined,
+                        size: 16,
+                        color: Color(0xFF0066FF),
+                      ),
                       const SizedBox(width: 6),
                       Flexible(
                         child: Text(
                           'Delivery Manifest',
-                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFF0F172A),
+                          ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -3177,8 +3793,14 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                const Text('1 / 1 Parcel',
-                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Color(0xFF64748B))),
+                const Text(
+                  '1 / 1 Parcel',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF64748B),
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 12),
@@ -3193,7 +3815,11 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.check_circle_rounded, size: 14, color: Color(0xFF0066FF)),
+                        const Icon(
+                          Icons.check_circle_rounded,
+                          size: 14,
+                          color: Color(0xFF0066FF),
+                        ),
                         const SizedBox(width: 6),
                         Expanded(
                           child: Column(
@@ -3201,13 +3827,19 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                             children: [
                               Text(
                                 _canonicalTrackingNumber,
-                                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w800,
+                                ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
                               Text(
                                 'Delivered • ${order.items.length} item(s) • ${order.packageWeightKg.toStringAsFixed(2)} kg',
-                                style: const TextStyle(fontSize: 9.5, color: Color(0xFF64748B)),
+                                style: const TextStyle(
+                                  fontSize: 9.5,
+                                  color: Color(0xFF64748B),
+                                ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -3242,12 +3874,20 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                 Expanded(
                   child: Row(
                     children: [
-                      const Icon(Icons.draw_rounded, size: 16, color: Color(0xFF0066FF)),
+                      const Icon(
+                        Icons.draw_rounded,
+                        size: 16,
+                        color: Color(0xFF0066FF),
+                      ),
                       const SizedBox(width: 6),
                       Flexible(
                         child: Text(
                           'Digital Sign-off & POD',
-                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFF0F172A),
+                          ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -3257,13 +3897,22 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                 ),
                 const SizedBox(width: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFDCFCE7),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Text('Verified',
-                      style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w900, color: Color(0xFF10B981))),
+                  child: const Text(
+                    'Verified',
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF10B981),
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -3283,31 +3932,45 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                     child: Stack(
                       alignment: Alignment.bottomRight,
                       children: [
-                        if (_capturedPodPhotoPath != null && _capturedPodPhotoPath!.isNotEmpty)
-                          (_capturedPodPhotoPath!.startsWith('http') || _capturedPodPhotoPath!.startsWith('assets'))
+                        if (_capturedPodPhotoPath != null &&
+                            _capturedPodPhotoPath!.isNotEmpty)
+                          (_capturedPodPhotoPath!.startsWith('http') ||
+                                  _capturedPodPhotoPath!.startsWith('assets'))
                               ? Image.asset(
                                   _capturedPodPhotoPath!,
                                   width: 52,
                                   height: 52,
                                   fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) => Container(
-                                    width: 52,
-                                    height: 52,
-                                    color: const Color(0xFF0066FF).withValues(alpha: 0.12),
-                                    child: const Icon(Icons.photo_camera_rounded, color: Color(0xFF0066FF), size: 24),
-                                  ),
+                                  errorBuilder: (context, error, stackTrace) =>
+                                      Container(
+                                        width: 52,
+                                        height: 52,
+                                        color: const Color(0xFF0066FF)
+                                            .withValues(alpha: 0.12),
+                                        child: const Icon(
+                                          Icons.photo_camera_rounded,
+                                          color: Color(0xFF0066FF),
+                                          size: 24,
+                                        ),
+                                      ),
                                 )
                               : Image.file(
                                   File(_capturedPodPhotoPath!),
                                   width: 52,
                                   height: 52,
                                   fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) => Container(
-                                    width: 52,
-                                    height: 52,
-                                    color: const Color(0xFF0066FF).withValues(alpha: 0.12),
-                                    child: const Icon(Icons.photo_camera_rounded, color: Color(0xFF0066FF), size: 24),
-                                  ),
+                                  errorBuilder: (context, error, stackTrace) =>
+                                      Container(
+                                        width: 52,
+                                        height: 52,
+                                        color: const Color(0xFF0066FF)
+                                            .withValues(alpha: 0.12),
+                                        child: const Icon(
+                                          Icons.photo_camera_rounded,
+                                          color: Color(0xFF0066FF),
+                                          size: 24,
+                                        ),
+                                      ),
                                 )
                         else
                           Image.asset(
@@ -3315,16 +3978,25 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                             width: 52,
                             height: 52,
                             fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) => Container(
-                              width: 52,
-                              height: 52,
-                              color: const Color(0xFF0066FF).withValues(alpha: 0.1),
-                              child: const Icon(Icons.photo_camera_rounded, color: Color(0xFF0066FF), size: 24),
-                            ),
+                            errorBuilder: (context, error, stackTrace) =>
+                                Container(
+                                  width: 52,
+                                  height: 52,
+                                  color: const Color(0xFF0066FF)
+                                      .withValues(alpha: 0.1),
+                                  child: const Icon(
+                                    Icons.photo_camera_rounded,
+                                    color: Color(0xFF0066FF),
+                                    size: 24,
+                                  ),
+                                ),
                           ),
                         Container(
                           margin: const EdgeInsets.all(3),
-                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1.5),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                            vertical: 1.5,
+                          ),
                           decoration: BoxDecoration(
                             color: Colors.black.withValues(alpha: 0.72),
                             borderRadius: BorderRadius.circular(4),
@@ -3332,11 +4004,19 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                           child: const Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.pin_drop_rounded, size: 8, color: Color(0xFF0066FF)),
+                              Icon(
+                                Icons.pin_drop_rounded,
+                                size: 8,
+                                color: Color(0xFF0066FF),
+                              ),
                               SizedBox(width: 2),
                               Text(
                                 'GPS',
-                                style: TextStyle(fontSize: 7.5, fontWeight: FontWeight.w900, color: Colors.white),
+                                style: TextStyle(
+                                  fontSize: 7.5,
+                                  fontWeight: FontWeight.w900,
+                                  color: Colors.white,
+                                ),
                               ),
                             ],
                           ),
@@ -3349,17 +4029,31 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Tower 2 Concierge Desk',
-                            style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w900, color: Color(0xFF0F172A))),
+                        Text(
+                          'Tower 2 Concierge Desk',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFF0F172A),
+                          ),
+                        ),
                         SizedBox(height: 3),
                         Row(
                           children: [
-                            Icon(Icons.check_circle_rounded, size: 12, color: Color(0xFF10B981)),
+                            Icon(
+                              Icons.check_circle_rounded,
+                              size: 12,
+                              color: Color(0xFF10B981),
+                            ),
                             SizedBox(width: 4),
                             Expanded(
                               child: Text(
                                 'Signature on file: J. Dela Cruz',
-                                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF64748B)),
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF64748B),
+                                ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -3383,12 +4077,12 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                       color: const Color(0xFFF0F9FF),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Column(
+                    child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('DISTANCE', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w900, color: Color(0xFF0066FF))),
-                        SizedBox(height: 2),
-                        Text('1.8 km total', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: Color(0xFF0F172A))),
+                        const Text('DISTANCE', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w900, color: Color(0xFF0066FF))),
+                        const SizedBox(height: 2),
+                        Text('${order.distanceKm} km total', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: Color(0xFF0F172A))),
                       ],
                     ),
                   ),
@@ -3404,9 +4098,23 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                     child: const Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('DURATION', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w900, color: Color(0xFF0066FF))),
+                        Text(
+                          'DURATION',
+                          style: TextStyle(
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFF0066FF),
+                          ),
+                        ),
                         SizedBox(height: 2),
-                        Text('28 mins (On-Time)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: Color(0xFF0F172A))),
+                        Text(
+                          '28 mins (On-Time)',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFF0F172A),
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -3418,7 +4126,11 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
             const Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.satellite_alt_rounded, size: 11, color: Color(0xFF94A3B8)),
+                Icon(
+                  Icons.satellite_alt_rounded,
+                  size: 11,
+                  color: Color(0xFF94A3B8),
+                ),
                 SizedBox(width: 4),
                 Flexible(
                   child: Text(
@@ -3467,30 +4179,54 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                           Flexible(
                             child: Text(
                               order.customerName,
-                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w900,
+                                color: Color(0xFF0F172A),
+                              ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
                           const SizedBox(width: 6),
-                          const Text('★★★★★',
-                              style: TextStyle(fontSize: 12, color: Color(0xFFFBBF24))),
+                          const Text(
+                            '★★★★★',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFFFBBF24),
+                            ),
+                          ),
                         ],
                       ),
                       const SizedBox(height: 2),
-                      const Text('"Fast & careful handling, highly recommended!"',
-                          style: TextStyle(fontSize: 11, color: Color(0xFF64748B), fontStyle: FontStyle.italic)),
+                      const Text(
+                        '"Fast & careful handling, highly recommended!"',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF64748B),
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
                     ],
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFF1F5F9),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Text('5.0',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: Color(0xFF0F172A))),
+                  child: const Text(
+                    '5.0',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF0F172A),
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -3504,12 +4240,20 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
               ),
               child: const Row(
                 children: [
-                  Icon(Icons.lightbulb_outline_rounded, size: 14, color: Color(0xFF10B981)),
+                  Icon(
+                    Icons.lightbulb_outline_rounded,
+                    size: 14,
+                    color: Color(0xFF10B981),
+                  ),
                   SizedBox(width: 6),
                   Expanded(
                     child: Text(
                       'You achieved a 100% on-time score for this fulfillment cycle.',
-                      style: TextStyle(fontSize: 11, color: Color(0xFF10B981), fontWeight: FontWeight.w600),
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF10B981),
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ],
@@ -3541,7 +4285,9 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                 backgroundColor: const Color(0xFF0066FF),
                 foregroundColor: const Color(0xFF0F172A),
                 elevation: 0,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
               ),
               child: const Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -3550,7 +4296,11 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                   Flexible(
                     child: Text(
                       'FIND NEXT DELIVERY TASK',
-                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, letterSpacing: 0.3),
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 0.3,
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -3580,7 +4330,9 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
               style: OutlinedButton.styleFrom(
                 foregroundColor: const Color(0xFF0066FF),
                 side: const BorderSide(color: Color(0xFF0066FF), width: 1.5),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
               ),
             ),
           ),
@@ -3601,13 +4353,19 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
               icon: const Icon(Icons.navigation_rounded, size: 18),
               label: const Text(
                 'NAVIGATE TO STORE (GOOGLE MAPS)',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, letterSpacing: 0.3),
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0.3,
+                ),
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF0066FF),
                 foregroundColor: const Color(0xFF0F172A),
                 elevation: 0,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
               ),
             ),
           ),
@@ -3620,12 +4378,18 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
               icon: const Icon(Icons.storefront_rounded, size: 18),
               label: const Text(
                 'I HAVE ARRIVED AT STORE',
-                style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w900, letterSpacing: 0.2),
+                style: TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0.2,
+                ),
               ),
               style: OutlinedButton.styleFrom(
                 foregroundColor: const Color(0xFF0066FF),
                 side: const BorderSide(color: Color(0xFF0066FF), width: 1.5),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
                 backgroundColor: Colors.white,
               ),
             ),
@@ -3635,7 +4399,11 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
             child: GestureDetector(
               onTap: () {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Pasig Hub Dispatch hotline connected: (02) 8888-RIDE')),
+                  const SnackBar(
+                    content: Text(
+                      'Pasig Hub Dispatch hotline connected: (02) 8888-RIDE',
+                    ),
+                  ),
                 );
               },
               child: const Text(
@@ -3665,7 +4433,8 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
         btnText = 'SCAN WAYBILL BARCODE';
         prefixIcon = Icons.qr_code_scanner_rounded;
         suffixIcon = null;
-        subLinkText = 'Scan printed waybill ($_canonicalTrackingNumber) to confirm pickup';
+        subLinkText =
+            'Scan printed waybill ($_canonicalTrackingNumber) to confirm pickup';
         onCtaPressed = _openWaybillPickupScanner;
       } else {
         btnText = 'CONFIRM PICKUP & PROCEED';
@@ -3696,7 +4465,9 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
         HapticFeedback.mediumImpact();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Arrived at customer dropoff! Tap Complete Delivery after handing over the parcel.'),
+            content: Text(
+              'Arrived at customer dropoff! Tap Complete Delivery after handing over the parcel.',
+            ),
             backgroundColor: Color(0xFF0066FF),
           ),
         );
@@ -3720,7 +4491,9 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
               backgroundColor: const Color(0xFF0066FF),
               foregroundColor: const Color(0xFF0F172A),
               elevation: 0,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -3731,7 +4504,11 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                 Flexible(
                   child: Text(
                     btnText,
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, letterSpacing: 0.3),
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 0.3,
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -3749,7 +4526,11 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
           child: GestureDetector(
             onTap: () {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Pasig Hub Dispatch hotline connected: (02) 8888-RIDE')),
+                const SnackBar(
+                  content: Text(
+                    'Pasig Hub Dispatch hotline connected: (02) 8888-RIDE',
+                  ),
+                ),
               );
             },
             child: Text(
@@ -3811,7 +4592,9 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                   ),
                 ),
                 child: Icon(
-                  isScanned ? Icons.check_rounded : Icons.qr_code_scanner_rounded,
+                  isScanned
+                      ? Icons.check_rounded
+                      : Icons.qr_code_scanner_rounded,
                   size: 17,
                   color: isScanned ? Colors.white : const Color(0xFF0066FF),
                 ),
@@ -3828,24 +4611,42 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                     Flexible(
                       child: Text(
                         title,
-                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900),
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w900,
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     const SizedBox(width: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(color: tagColor, borderRadius: BorderRadius.circular(6)),
-                      child: Text(tag,
-                          style: TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: tagTextColor)),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: tagColor,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        tag,
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w900,
+                          color: tagTextColor,
+                        ),
+                      ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 2),
                 Text(
                   desc,
-                  style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF64748B),
+                  ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -3863,16 +4664,22 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                 color: isScanned ? const Color(0xFFDCFCE7) : Colors.white,
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
-                  color: isScanned ? const Color(0xFFA7F3D0) : const Color(0xFFCBD5E1),
+                  color: isScanned
+                      ? const Color(0xFFA7F3D0)
+                      : const Color(0xFFCBD5E1),
                 ),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
-                    isScanned ? Icons.verified_rounded : Icons.camera_alt_outlined,
+                    isScanned
+                        ? Icons.verified_rounded
+                        : Icons.camera_alt_outlined,
                     size: 12,
-                    color: isScanned ? const Color(0xFF10B981) : const Color(0xFF0066FF),
+                    color: isScanned
+                        ? const Color(0xFF10B981)
+                        : const Color(0xFF0066FF),
                   ),
                   const SizedBox(width: 4),
                   Text(
@@ -3880,7 +4687,9 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                     style: TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.w900,
-                      color: isScanned ? const Color(0xFF10B981) : const Color(0xFF0066FF),
+                      color: isScanned
+                          ? const Color(0xFF10B981)
+                          : const Color(0xFF0066FF),
                       letterSpacing: 0.3,
                     ),
                   ),
@@ -3907,7 +4716,9 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
       decoration: BoxDecoration(
         color: isScanned ? const Color(0xFFF0FDF4) : const Color(0xFFF8FAFC),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: isScanned ? const Color(0xFFBBF7D0) : const Color(0xFFE2E8F0)),
+        border: Border.all(
+          color: isScanned ? const Color(0xFFBBF7D0) : const Color(0xFFE2E8F0),
+        ),
       ),
       child: Row(
         children: [
@@ -3919,7 +4730,11 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
               decoration: BoxDecoration(
                 color: isScanned ? const Color(0xFF10B981) : Colors.white,
                 shape: BoxShape.circle,
-                border: Border.all(color: isScanned ? const Color(0xFF10B981) : const Color(0xFFCBD5E1)),
+                border: Border.all(
+                  color: isScanned
+                      ? const Color(0xFF10B981)
+                      : const Color(0xFFCBD5E1),
+                ),
               ),
               child: isScanned
                   ? const Icon(Icons.check, size: 14, color: Colors.white)
@@ -3936,16 +4751,24 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                     Flexible(
                       child: Text(
                         pkgId,
-                        style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w900),
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w900,
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     const SizedBox(width: 6),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
-                        color: isFragile ? const Color(0xFFFEE2E2) : const Color(0xFFE0F2FE),
+                        color: isFragile
+                            ? const Color(0xFFFEE2E2)
+                            : const Color(0xFFE0F2FE),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
@@ -3953,7 +4776,9 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                         style: TextStyle(
                           fontSize: 9,
                           fontWeight: FontWeight.w900,
-                          color: isFragile ? const Color(0xFFDC2626) : const Color(0xFF0066FF),
+                          color: isFragile
+                              ? const Color(0xFFDC2626)
+                              : const Color(0xFF0066FF),
                         ),
                       ),
                     ),
@@ -3962,7 +4787,10 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                 const SizedBox(height: 2),
                 Text(
                   desc,
-                  style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF64748B),
+                  ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -3971,15 +4799,28 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
           ),
           ElevatedButton.icon(
             onPressed: onScanTap,
-            icon: Icon(isScanned ? Icons.check : Icons.qr_code_scanner_rounded, size: 13),
+            icon: Icon(
+              isScanned ? Icons.check : Icons.qr_code_scanner_rounded,
+              size: 13,
+            ),
             label: Text(isScanned ? 'Verified' : 'Scan'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: isScanned ? const Color(0xFFDCFCE7) : Colors.white,
-              foregroundColor: isScanned ? const Color(0xFF10B981) : const Color(0xFF0066FF),
+              backgroundColor: isScanned
+                  ? const Color(0xFFDCFCE7)
+                  : Colors.white,
+              foregroundColor: isScanned
+                  ? const Color(0xFF10B981)
+                  : const Color(0xFF0066FF),
               elevation: 0,
-              side: BorderSide(color: isScanned ? const Color(0xFFA7F3D0) : const Color(0xFFCBD5E1)),
+              side: BorderSide(
+                color: isScanned
+                    ? const Color(0xFFA7F3D0)
+                    : const Color(0xFFCBD5E1),
+              ),
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
           ),
         ],
@@ -4010,7 +4851,11 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
           Expanded(
             child: Text(
               text,
-              style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: Color(0xFF0F172A)),
+              style: const TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF0F172A),
+              ),
             ),
           ),
         ],
@@ -4051,26 +4896,48 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                             pkgId,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900),
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w900,
+                            ),
                           ),
                         ),
                         const SizedBox(width: 6),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
                             color: const Color(0xFFFEE2E2),
                             borderRadius: BorderRadius.circular(6),
                           ),
-                          child: Text(tag,
-                              style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w900, color: Color(0xFFDC2626))),
+                          child: Text(
+                            tag,
+                            style: const TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w900,
+                              color: Color(0xFFDC2626),
+                            ),
+                          ),
                         ),
                       ],
                     ),
-                    Text(desc, style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                    Text(
+                      desc,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF64748B),
+                      ),
+                    ),
                   ],
                 ),
               ),
-              const Icon(Icons.check_circle_rounded, color: Color(0xFF0066FF), size: 18),
+              const Icon(
+                Icons.check_circle_rounded,
+                color: Color(0xFF0066FF),
+                size: 18,
+              ),
             ],
           ),
           const SizedBox(height: 8),
@@ -4086,23 +4953,39 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                 Expanded(
                   child: Row(
                     children: [
-                      const Icon(Icons.archive_outlined, size: 13, color: Color(0xFF0066FF)),
+                      const Icon(
+                        Icons.archive_outlined,
+                        size: 13,
+                        color: Color(0xFF0066FF),
+                      ),
                       const SizedBox(width: 5),
                       Flexible(
-                        child: Text(stowLocation,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF0066FF))),
+                        child: Text(
+                          stowLocation,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF0066FF),
+                          ),
+                        ),
                       ),
                     ],
                   ),
                 ),
                 const SizedBox(width: 8),
                 Flexible(
-                  child: Text(bayText,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Color(0xFF0F172A))),
+                  child: Text(
+                    bayText,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF0F172A),
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -4121,11 +5004,21 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
       ),
       child: Row(
         children: [
-          const Icon(Icons.check_box_rounded, size: 18, color: Color(0xFF0066FF)),
+          const Icon(
+            Icons.check_box_rounded,
+            size: 18,
+            color: Color(0xFF0066FF),
+          ),
           const SizedBox(width: 8),
           Expanded(
-            child: Text(text,
-                style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: Color(0xFF0F172A))),
+            child: Text(
+              text,
+              style: const TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF0F172A),
+              ),
+            ),
           ),
         ],
       ),
@@ -4153,13 +5046,23 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(pkgId, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w900)),
-                Text(subtitle,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: subtitle.contains('FRAGILE') ? const Color(0xFFDC2626) : const Color(0xFF64748B),
-                    )),
+                Text(
+                  pkgId,
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: subtitle.contains('FRAGILE')
+                        ? const Color(0xFFDC2626)
+                        : const Color(0xFF64748B),
+                  ),
+                ),
               ],
             ),
           ),
@@ -4170,8 +5073,14 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: const Color(0xFFCBD5E1)),
             ),
-            child: Text(vault,
-                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: Color(0xFF0F172A))),
+            child: Text(
+              vault,
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w900,
+                color: Color(0xFF0F172A),
+              ),
+            ),
           ),
         ],
       ),

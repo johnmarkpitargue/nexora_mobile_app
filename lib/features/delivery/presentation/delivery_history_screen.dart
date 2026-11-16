@@ -13,6 +13,34 @@ class DeliveryHistoryScreen extends StatefulWidget {
 
 class _DeliveryHistoryScreenState extends State<DeliveryHistoryScreen> {
   int _selectedTab = 0; // 0: All, 1: Active, 2: Completed
+  bool _isRefreshing = false;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _refreshHistory());
+  }
+
+  Future<void> _refreshHistory() async {
+    if (!mounted) return;
+    setState(() {
+      _isRefreshing = true;
+      _errorMessage = null;
+    });
+    try {
+      await DeliveryService.instance.fetchActiveDeliveriesRemote();
+      await DeliveryService.instance.fetchDeliveryHistoryRemote();
+    } catch (_) {
+      if (mounted) {
+        _errorMessage = 'Unable to refresh delivery history.';
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isRefreshing = false);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -51,43 +79,88 @@ class _DeliveryHistoryScreenState extends State<DeliveryHistoryScreen> {
               // Segmented Bar
               Container(
                 color: Colors.white,
+                width: double.infinity,
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Row(
-                  children: [
-                    _tabButton('All (${(activeOrder != null ? 1 : 0) + completedOrders.length})', 0),
-                    const SizedBox(width: 8),
-                    _tabButton('Active (${activeOrder != null ? 1 : 0})', 1),
-                    const SizedBox(width: 8),
-                    _tabButton('Completed (${completedOrders.length})', 2),
-                  ],
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      _tabButton('All (${(activeOrder != null ? 1 : 0) + completedOrders.length})', 0),
+                      const SizedBox(width: 8),
+                      _tabButton('Active (${activeOrder != null ? 1 : 0})', 1),
+                      const SizedBox(width: 8),
+                      _tabButton('Completed (${completedOrders.length})', 2),
+                    ],
+                  ),
                 ),
               ),
               const Divider(height: 1, color: RiderTheme.cardBorder),
 
               // Orders List
-              Expanded(
-                child: displayedOrders.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.inbox_outlined,
-                                size: 54, color: Colors.grey.shade400),
-                            const SizedBox(height: 10),
-                            Text(
-                              'No ${_selectedTab == 1 ? "active" : "past"} deliveries found',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w700,
-                                color: Colors.grey.shade600,
-                              ),
+              if (_errorMessage != null)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                  child: Material(
+                    color: const Color(0xFFFEF2F2),
+                    borderRadius: BorderRadius.circular(10),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.error_outline, color: Color(0xFFDC2626), size: 18),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _errorMessage!,
+                              style: const TextStyle(fontSize: 12, color: Color(0xFF991B1B)),
                             ),
-                          ],
-                        ),
-                      )
-                    : ListView.builder(
-                        physics: const BouncingScrollPhysics(),
-                        padding: const EdgeInsets.all(16),
+                          ),
+                          TextButton(
+                            onPressed: _refreshHistory,
+                            child: const Text('Retry'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              Expanded(
+                child: RefreshIndicator(
+                  onRefresh: _refreshHistory,
+                  child: _isRefreshing && displayedOrders.isEmpty
+                      ? const Center(child: CircularProgressIndicator())
+                      : displayedOrders.isEmpty
+                          ? ListView(
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              children: [
+                                SizedBox(
+                                  height: MediaQuery.of(context).size.height * 0.45,
+                                  child: Center(
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(Icons.inbox_outlined,
+                                            size: 54, color: Colors.grey.shade400),
+                                        const SizedBox(height: 10),
+                                        Text(
+                                          'No ${_selectedTab == 1 ? "active" : "past"} deliveries found',
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w700,
+                                            color: Colors.grey.shade600,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            )
+                          : ListView.builder(
+                              physics: const AlwaysScrollableScrollPhysics(
+                                parent: BouncingScrollPhysics(),
+                              ),
+                              padding: const EdgeInsets.all(16),
                         itemCount: displayedOrders.length,
                         itemBuilder: (context, index) {
                           final order = displayedOrders[index];
@@ -241,6 +314,7 @@ class _DeliveryHistoryScreenState extends State<DeliveryHistoryScreen> {
                           );
                         },
                       ),
+                ),
               ),
             ],
           ),

@@ -69,7 +69,14 @@ class CourierService extends ChangeNotifier {
 
   int get activeRidersCount => _riders.where((r) => r.isOnline).length;
 
-  double get onTimeSuccessRate => 96.8;
+  double get onTimeSuccessRate {
+    if (_parcels.isEmpty) return 0.0;
+    final completed = deliveredTodayCount + returnedCount;
+    if (completed == 0) return 0.0;
+    return double.parse(
+      ((deliveredTodayCount / completed) * 100).toStringAsFixed(1),
+    );
+  }
 
   double get todayTotalCodCollected {
     return _parcels

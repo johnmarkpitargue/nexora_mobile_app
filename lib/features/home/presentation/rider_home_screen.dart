@@ -39,10 +39,11 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
     ExternalNotificationService.requestPermissionAsync();
     // Initialize accurate rider phone GPS fix immediately
     RiderLocationService.instance.getCurrentLocation();
-    // Fetch profile, earnings, and sync latest active deliveries and offers
+    // Fetch profile, earnings, notifications, and sync latest active deliveries and offers
     RiderService.instance.fetchProfileRemote();
     EarningsService.instance.fetchEarningsRemote();
     DeliveryService.instance.refreshAvailableOrders();
+    InAppNotificationService.instance.fetchNotificationsRemote();
   }
 
   void _subscribeChat() {
@@ -50,7 +51,8 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
     final orderId = activeOrder?.id ??
         (DeliveryService.instance.availableOrders.isNotEmpty
             ? DeliveryService.instance.availableOrders.first.id
-            : 'NX-8942-ORD');
+            : '');
+    if (orderId.isEmpty) return;
     RiderChatService.instance.subscribeToOrder(orderId);
     RiderChatService.instance.onNewMessageReceived = _handleNewMessage;
   }
@@ -117,40 +119,49 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
               ),
             ),
             const SizedBox(width: 8),
-            const Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Text(
-                      'Nexora',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w900,
-                        fontSize: 16,
-                        color: RiderTheme.textDark,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          'Nexora',
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w900,
+                            fontSize: 16,
+                            color: RiderTheme.textDark,
+                          ),
+                        ),
                       ),
-                    ),
-                    SizedBox(width: 4),
-                    Text(
-                      'RIDER',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w900,
-                        fontSize: 12,
-                        color: RiderTheme.primary,
-                        letterSpacing: 0.8,
+                      SizedBox(width: 4),
+                      Text(
+                        'RIDER',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 12,
+                          color: RiderTheme.primary,
+                          letterSpacing: 0.8,
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-                Text(
-                  'Central Logistics Hub #4',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                    color: RiderTheme.textMuted,
+                    ],
                   ),
-                ),
-              ],
+                  Text(
+                    RiderService.instance.profile.assignedHub.isNotEmpty
+                        ? RiderService.instance.profile.assignedHub
+                        : 'No Hub Assigned',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      color: RiderTheme.textMuted,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -159,8 +170,10 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
             animation: RiderChatService.instance,
             builder: (context, _) {
               final activeOrder = DeliveryService.instance.activeOrder;
-              final orderId = activeOrder?.id ?? 'NX-8942-ORD';
-              final unread = RiderChatService.instance.getUnreadCount(orderId);
+              final orderId = activeOrder?.id ?? '';
+              final unread = orderId.isNotEmpty
+                  ? RiderChatService.instance.getUnreadCount(orderId)
+                  : 0;
               return Stack(
                 alignment: Alignment.center,
                 children: [
@@ -172,14 +185,20 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
                           (DeliveryService.instance.availableOrders.isNotEmpty
                               ? DeliveryService.instance.availableOrders.first
                               : null);
-                      final name = targetOrder?.customerName ?? 'Alex Rivera';
-                      final id = targetOrder?.id ?? 'NX-8942-ORD';
+                      if (targetOrder == null) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Accept a dispatch order to message the customer.'),
+                          ),
+                        );
+                        return;
+                      }
                       Navigator.push(
                         context,
                         MaterialPageRoute(
                           builder: (_) => RiderChatScreen(
-                            orderId: id,
-                            customerName: name,
+                            orderId: targetOrder.id,
+                            customerName: targetOrder.customerName,
                           ),
                         ),
                       );
@@ -292,8 +311,25 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
           final activeOrder = DeliveryService.instance.activeOrder;
           final availableOrders = DeliveryService.instance.availableOrders;
 
-          return SingleChildScrollView(
-            physics: const BouncingScrollPhysics(),
+          return RefreshIndicator(
+            onRefresh: () async {
+              Future<void> safe(Future<dynamic> Function() call) async {
+                try {
+                  await call();
+                } catch (_) {}
+              }
+
+              await Future.wait([
+                safe(() => RiderService.instance.fetchProfileRemote()),
+                safe(() => EarningsService.instance.fetchEarningsRemote()),
+                safe(() => DeliveryService.instance.fetchActiveDeliveriesRemote()),
+                safe(() => DeliveryService.instance.refreshAvailableOrders()),
+              ]);
+            },
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(
+                parent: BouncingScrollPhysics(),
+              ),
             padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -435,7 +471,7 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
 
                 // 3. Earnings Summary Card
                 EarningsSummaryCard(
-                  onSeeWallet: () => widget.onNavigateTab(2), // Switch to wallet tab
+                  onSeeWallet: () => widget.onNavigateTab(3), // Switch to wallet/earnings tab
                 ),
                 const SizedBox(height: 14),
 
@@ -444,39 +480,38 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
 
                 // 5. Available Orders Header
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Row(
-                      children: [
-                        const Text(
-                          'Available Dispatch Requests',
-                          style: TextStyle(
-                            fontSize: 15,
+                    const Flexible(
+                      child: Text(
+                        'Available Dispatch Requests',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w900,
+                          color: RiderTheme.textDark,
+                        ),
+                      ),
+                    ),
+                    if (availableOrders.isNotEmpty) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: RiderTheme.primary,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          '${availableOrders.length}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
                             fontWeight: FontWeight.w900,
-                            color: RiderTheme.textDark,
                           ),
                         ),
-                        if (availableOrders.isNotEmpty) ...[
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: RiderTheme.primary,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Text(
-                              '${availableOrders.length}',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w900,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
+                      ),
+                    ],
                   ],
                 ),
                 const SizedBox(height: 10),
@@ -629,6 +664,7 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
                   }),
                 const SizedBox(height: 24),
               ],
+            ),
             ),
           );
         },

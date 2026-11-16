@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import '../../../core/services/rider_account_service.dart';
 import '../../../core/services/rider_service.dart';
 import '../../../core/services/in_app_notification_service.dart';
 import '../../auth/presentation/rider_landing_page.dart';
@@ -201,8 +202,11 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: ElevatedButton(
-                    onPressed: () {
+                    onPressed: () async {
+                      await RiderAccountService.instance.logoutRemote();
+                      if (!ctx.mounted) return;
                       Navigator.pop(ctx);
+                      if (!context.mounted) return;
                       Navigator.pushAndRemoveUntil(
                         context,
                         MaterialPageRoute(
@@ -422,124 +426,28 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
     required String title,
     required void Function(String fileName, double fileSizeMb) onFileSelected,
   }) async {
-    final nameController = TextEditingController(
-      text: title.toLowerCase().contains('license')
-          ? 'driver_license_scan.pdf'
-          : 'or_cr_official_copy.pdf',
-    );
-    double selectedSizeMb = 1.2;
-
-    await showDialog(
-      context: context,
-      builder: (dialogCtx) => StatefulBuilder(
-        builder: (ctx, setDlgState) {
-          return AlertDialog(
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            title: const Row(
-              children: [
-                Icon(Icons.picture_as_pdf_rounded,
-                    color: Color(0xFFEF4444), size: 24),
-                SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Attach Digital PDF',
-                    style: TextStyle(
-                        fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ],
-            ),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Enter or select document file name (JPG, PNG, or PDF):',
-                    style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
-                  ),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: nameController,
-                    decoration: InputDecoration(
-                      labelText: 'File Name',
-                      hintText: 'e.g. document.pdf',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      prefixIcon: const Icon(Icons.description_outlined),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'Document Size:',
-                        style: TextStyle(
-                            fontSize: 12, fontWeight: FontWeight.w700),
-                      ),
-                      Text(
-                        '${selectedSizeMb.toStringAsFixed(1)} MB',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: selectedSizeMb > 5.0
-                              ? const Color(0xFFEF4444)
-                              : const Color(0xFF10B981),
-                        ),
-                      ),
-                    ],
-                  ),
-                  Slider(
-                    value: selectedSizeMb,
-                    min: 0.5,
-                    max: 6.0,
-                    divisions: 11,
-                    label: '${selectedSizeMb.toStringAsFixed(1)} MB',
-                    activeColor: selectedSizeMb > 5.0
-                        ? const Color(0xFFEF4444)
-                        : const Color(0xFF0066FF),
-                    onChanged: (val) {
-                      setDlgState(() => selectedSizeMb = val);
-                    },
-                  ),
-                  const Text(
-                    'Rule: Only JPG, PNG, and PDF up to 5.0 MB are accepted.',
-                    style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
-                  ),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(dialogCtx),
-                child: const Text('Cancel'),
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(dialogCtx);
-                  _validateAndDispatchFile(
-                    context: context,
-                    fileName: nameController.text.trim(),
-                    sizeMb: selectedSizeMb,
-                    onFileSelected: onFileSelected,
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF0066FF),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10)),
-                ),
-                child: const Text('Attach & Validate'),
-              ),
-            ],
-          );
-        },
-      ),
-    );
+    try {
+      final picker = ImagePicker();
+      final XFile? file = await picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 90,
+      );
+      if (file == null) return;
+      final bytes = await file.readAsBytes();
+      final sizeMb = bytes.length / (1024 * 1024);
+      if (!context.mounted) return;
+      _validateAndDispatchFile(
+        context: context,
+        fileName: file.name,
+        sizeMb: sizeMb,
+        onFileSelected: onFileSelected,
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Unable to select document image: $e')),
+      );
+    }
   }
 
   void _validateAndDispatchFile({
@@ -1683,24 +1591,29 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                               ),
                               child: Column(
                                 children: [
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      const Icon(Icons.star_rounded, color: Color(0xFFF59E0B), size: 18),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        profile.rating.toStringAsFixed(2),
-                                        style: const TextStyle(
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.w900,
-                                          color: Color(0xFF92400E),
+                                  FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        const Icon(Icons.star_rounded, color: Color(0xFFF59E0B), size: 18),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          profile.rating.toStringAsFixed(2),
+                                          style: const TextStyle(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.w900,
+                                            color: Color(0xFF92400E),
+                                          ),
                                         ),
-                                      ),
-                                    ],
+                                      ],
+                                    ),
                                   ),
                                   const SizedBox(height: 2),
                                   const Text(
                                     'Rider Rating',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
                                       fontSize: 10.5,
                                       fontWeight: FontWeight.w700,
@@ -1722,17 +1635,22 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                               ),
                               child: Column(
                                 children: [
-                                  Text(
-                                    '${profile.completionRate.toStringAsFixed(1)}%',
-                                    style: const TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w900,
-                                      color: Color(0xFF065F46),
+                                  FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Text(
+                                      '${profile.completionRate.toStringAsFixed(1)}%',
+                                      style: const TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.w900,
+                                        color: Color(0xFF065F46),
+                                      ),
                                     ),
                                   ),
                                   const SizedBox(height: 2),
                                   const Text(
                                     'Acceptance Rate',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
                                       fontSize: 10.5,
                                       fontWeight: FontWeight.w700,
@@ -1754,17 +1672,22 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                               ),
                               child: Column(
                                 children: [
-                                  Text(
-                                    '${profile.totalDeliveries}',
-                                    style: const TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w900,
-                                      color: Color(0xFF075985),
+                                  FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Text(
+                                      '${profile.totalDeliveries}',
+                                      style: const TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.w900,
+                                        color: Color(0xFF075985),
+                                      ),
                                     ),
                                   ),
                                   const SizedBox(height: 2),
                                   const Text(
                                     'Deliveries',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
                                       fontSize: 10.5,
                                       fontWeight: FontWeight.w700,
@@ -2083,21 +2006,30 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                           const Icon(Icons.build_outlined,
                               size: 14, color: Color(0xFF64748B)),
                           const SizedBox(width: 6),
-                          const Text(
-                            'Fleet Maintenance Schedule',
-                            style: TextStyle(
-                              fontSize: 11.5,
-                              color: Color(0xFF64748B),
-                              fontWeight: FontWeight.w600,
+                          const Expanded(
+                            child: Text(
+                              'Fleet Maintenance Schedule',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                color: Color(0xFF64748B),
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
-                          const Spacer(),
-                          Text(
-                            profile.maintenanceSchedule,
-                            style: const TextStyle(
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w800,
-                              color: Color(0xFF0066FF),
+                          const SizedBox(width: 8),
+                          Flexible(
+                            child: Text(
+                              profile.maintenanceSchedule,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.right,
+                              style: const TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w800,
+                                color: Color(0xFF0066FF),
+                              ),
                             ),
                           ),
                         ],
@@ -2295,7 +2227,7 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                       ),
                       const Divider(height: 22, color: Color(0xFFF1F5F9)),
 
-                      // Waybill Optical Engine
+                      // Mobile Barcode Scanner
                       Row(
                         children: [
                           _toolIcon(Icons.qr_code_scanner_rounded),
@@ -2305,7 +2237,7 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Waybill Optical Engine',
+                                  'Mobile Barcode Scanner',
                                   style: TextStyle(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w800,
@@ -2313,7 +2245,7 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                                   ),
                                 ),
                                 Text(
-                                  'AI Auto-Detect Active (Continuous 60 FPS)',
+                                  'Code 128 & QR Camera Verification Ready',
                                   style: TextStyle(
                                     fontSize: 11,
                                     color: Color(0xFF64748B),
@@ -2474,12 +2406,16 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
                         Icon(Icons.power_settings_new_rounded,
                             color: Color(0xFFEF4444), size: 20),
                         SizedBox(width: 8),
-                        Text(
-                          'End Shift & Log Out',
-                          style: TextStyle(
-                            fontSize: 14.5,
-                            fontWeight: FontWeight.w900,
-                            color: Color(0xFFEF4444),
+                        Flexible(
+                          child: Text(
+                            'End Shift & Log Out',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 14.5,
+                              fontWeight: FontWeight.w900,
+                              color: Color(0xFFEF4444),
+                            ),
                           ),
                         ),
                       ],
@@ -2520,16 +2456,20 @@ class _RiderProfileScreenState extends State<RiderProfileScreen> {
       children: [
         Icon(icon, size: 16, color: const Color(0xFF0066FF)),
         const SizedBox(width: 6),
-        Text(
-          title,
-          style: const TextStyle(
-            fontSize: 13.5,
-            fontWeight: FontWeight.w900,
-            color: Color(0xFF0F172A),
+        Expanded(
+          child: Text(
+            title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 13.5,
+              fontWeight: FontWeight.w900,
+              color: Color(0xFF0F172A),
+            ),
           ),
         ),
         if (actionText != null) ...[
-          const Spacer(),
+          const SizedBox(width: 8),
           GestureDetector(
             onTap: onAction,
             child: Container(

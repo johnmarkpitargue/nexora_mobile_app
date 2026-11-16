@@ -36,43 +36,50 @@ class EarningsSummaryCard extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        "Today's Earnings",
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: RiderTheme.textMuted,
-                          fontWeight: FontWeight.w700,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          "Today's Earnings",
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: RiderTheme.textMuted,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.baseline,
-                        textBaseline: TextBaseline.alphabetic,
-                        children: [
-                          const Text(
-                            '₱',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w900,
-                              color: RiderTheme.textDark,
-                            ),
+                        const SizedBox(height: 4),
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.baseline,
+                            textBaseline: TextBaseline.alphabetic,
+                            children: [
+                              const Text(
+                                '₱',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w900,
+                                  color: RiderTheme.textDark,
+                                ),
+                              ),
+                              Text(
+                                profile.todayEarnings.toStringAsFixed(2),
+                                style: const TextStyle(
+                                  fontSize: 26,
+                                  fontWeight: FontWeight.w900,
+                                  color: RiderTheme.textDark,
+                                  letterSpacing: -0.5,
+                                ),
+                              ),
+                            ],
                           ),
-                          Text(
-                            profile.todayEarnings.toStringAsFixed(2),
-                            style: const TextStyle(
-                              fontSize: 26,
-                              fontWeight: FontWeight.w900,
-                              color: RiderTheme.textDark,
-                              letterSpacing: -0.5,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
+                        ),
+                      ],
+                    ),
                   ),
+                  const SizedBox(width: 8),
                   InkWell(
                     onTap: onSeeWallet,
                     borderRadius: BorderRadius.circular(12),
@@ -105,27 +112,32 @@ class EarningsSummaryCard extends StatelessWidget {
               const Divider(color: RiderTheme.cardBorder, height: 1),
               const SizedBox(height: 14),
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  _statItem(
-                    label: 'Trips Done',
-                    value: '${profile.todayDeliveries}',
-                    icon: Icons.check_circle_outline_rounded,
-                    color: RiderTheme.onlineGreen,
+                  Expanded(
+                    child: _statItem(
+                      label: 'Trips Done',
+                      value: '${profile.todayDeliveries}',
+                      icon: Icons.check_circle_outline_rounded,
+                      color: RiderTheme.onlineGreen,
+                    ),
                   ),
                   _dividerVertical(),
-                  _statItem(
-                    label: 'Rating',
-                    value: '${profile.rating} ★',
-                    icon: Icons.star_rounded,
-                    color: RiderTheme.primary,
+                  Expanded(
+                    child: _statItem(
+                      label: 'Rating',
+                      value: '${profile.rating} ★',
+                      icon: Icons.star_rounded,
+                      color: RiderTheme.primary,
+                    ),
                   ),
                   _dividerVertical(),
-                  _statItem(
-                    label: 'Acceptance',
-                    value: '${profile.completionRate}%',
-                    icon: Icons.bolt_rounded,
-                    color: RiderTheme.primary,
+                  Expanded(
+                    child: _statItem(
+                      label: 'Acceptance',
+                      value: '${profile.completionRate}%',
+                      icon: Icons.bolt_rounded,
+                      color: RiderTheme.primary,
+                    ),
                   ),
                 ],
               ),
@@ -152,24 +164,29 @@ class EarningsSummaryCard extends StatelessWidget {
   }) {
     return Column(
       children: [
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 14, color: color),
-            const SizedBox(width: 4),
-            Text(
-              value,
-              style: const TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w800,
-                color: RiderTheme.textDark,
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 14, color: color),
+              const SizedBox(width: 4),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: RiderTheme.textDark,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
         const SizedBox(height: 2),
         Text(
           label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
           style: const TextStyle(
             fontSize: 11,
             color: RiderTheme.textMuted,

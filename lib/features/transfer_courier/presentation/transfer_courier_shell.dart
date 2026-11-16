@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/services/in_app_notification_service.dart';
 import '../../../core/services/rider_account_service.dart';
 import '../../../core/theme/rider_theme.dart';
 import '../../auth/presentation/rider_login_page.dart';
@@ -31,6 +32,7 @@ class _TransferCourierShellState extends State<TransferCourierShell> {
     TransferCourierService.instance.fetchEarnings();
     TransferCourierService.instance.fetchPayouts();
     TransferCourierService.instance.fetchProfile();
+    InAppNotificationService.instance.fetchNotificationsRemote();
   }
 
   @override
@@ -150,18 +152,82 @@ class _TransferCourierShellState extends State<TransferCourierShell> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Welcome, ${dash?.courierName ?? 'Transfer Courier'}',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 19,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  dash?.companyName ?? 'Logistics Partner',
-                  style: const TextStyle(color: Colors.white70, fontSize: 13),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Welcome, ${dash?.courierName ?? 'Transfer Courier'}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 19,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            dash?.companyName ?? 'Logistics Partner',
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    ValueListenableBuilder<int>(
+                      valueListenable:
+                          InAppNotificationService.instance.unreadCountNotifier,
+                      builder: (context, unread, _) {
+                        return Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            IconButton(
+                              onPressed: () {
+                                InAppNotificationService.instance
+                                    .showNotificationHistory(context);
+                              },
+                              icon: const Icon(
+                                Icons.notifications_outlined,
+                                color: Colors.white,
+                              ),
+                              tooltip: 'Transfer Notifications',
+                            ),
+                            if (unread > 0)
+                              Positioned(
+                                top: 6,
+                                right: 6,
+                                child: IgnorePointer(
+                                  child: Container(
+                                    padding: const EdgeInsets.all(4),
+                                    decoration: const BoxDecoration(
+                                      color: Color(0xFFEF4444),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    constraints: const BoxConstraints(
+                                      minWidth: 16,
+                                      minHeight: 16,
+                                    ),
+                                    child: Text(
+                                      '$unread',
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.w900,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        );
+                      },
+                    ),
+                  ],
                 ),
                 if (dash?.assignedHub != null) ...[
                   const SizedBox(height: 4),
@@ -221,7 +287,7 @@ class _TransferCourierShellState extends State<TransferCourierShell> {
             physics: const NeverScrollableScrollPhysics(),
             crossAxisSpacing: 12,
             mainAxisSpacing: 12,
-            childAspectRatio: 1.5,
+            childAspectRatio: 1.15,
             children: [
               _statCard('Assigned Parcels', '${dash?.totalAssignedParcels ?? 0}',
                   Icons.inventory_2_outlined, RiderTheme.primary),
@@ -263,6 +329,8 @@ class _TransferCourierShellState extends State<TransferCourierShell> {
               ),
               Text(
                 label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   fontSize: 11,
                   color: RiderTheme.textMuted,
@@ -283,27 +351,35 @@ class _TransferCourierShellState extends State<TransferCourierShell> {
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
           child: Row(
             children: [
-              const Text(
-                'My Transfer Trips',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-              ),
-              const Spacer(),
-              ChoiceChip(
-                label: const Text('Active'),
-                selected: _tripFilter == 'active',
-                onSelected: (_) {
-                  setState(() => _tripFilter = 'active');
-                  service.fetchManifests(filter: 'active');
-                },
+              const Expanded(
+                child: Text(
+                  'My Transfer Trips',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                ),
               ),
               const SizedBox(width: 8),
-              ChoiceChip(
-                label: const Text('History'),
-                selected: _tripFilter == 'history',
-                onSelected: (_) {
-                  setState(() => _tripFilter = 'history');
-                  service.fetchManifests(filter: 'history');
-                },
+              Wrap(
+                spacing: 6,
+                children: [
+                  ChoiceChip(
+                    label: const Text('Active'),
+                    selected: _tripFilter == 'active',
+                    onSelected: (_) {
+                      setState(() => _tripFilter = 'active');
+                      service.fetchManifests(filter: 'active');
+                    },
+                  ),
+                  ChoiceChip(
+                    label: const Text('History'),
+                    selected: _tripFilter == 'history',
+                    onSelected: (_) {
+                      setState(() => _tripFilter = 'history');
+                      service.fetchManifests(filter: 'history');
+                    },
+                  ),
+                ],
               ),
             ],
           ),

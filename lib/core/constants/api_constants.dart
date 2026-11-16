@@ -74,4 +74,12 @@ class ApiConstants {
       '/api/mobile/v1/transfer-courier/manifests/$id/arrive';
   static String transferCourierManifestReportIssue(dynamic id) =>
       '/api/mobile/v1/transfer-courier/manifests/$id/report-issue';
+
+  // Rider Parcel Lookup & Shared Notifications
+  static const String riderLookup = '/api/mobile/v1/rider/lookup';
+  static const String notifications = '/api/mobile/v1/notifications';
+  static const String readAllNotifications =
+      '/api/mobile/v1/notifications/read-all';
+  static String readNotification(dynamic id) =>
+      '/api/mobile/v1/notifications/$id/read';
 }

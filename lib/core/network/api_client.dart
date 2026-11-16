@@ -68,12 +68,23 @@ class ApiClient {
   bool get isAuthenticated => _cachedToken != null && _cachedToken!.isNotEmpty;
   bool get hasToken => isAuthenticated;
 
-  Future<void> saveToken(String token, [String? role]) async {
+  Future<void> saveToken(
+    String token, [
+    String? role,
+    bool persist = true,
+  ]) async {
     _cachedToken = token;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_tokenKey, token);
     if (role != null) {
       _cachedRole = role;
+    }
+    final prefs = await SharedPreferences.getInstance();
+    if (!persist) {
+      await prefs.remove(_tokenKey);
+      await prefs.remove(_userRoleKey);
+      return;
+    }
+    await prefs.setString(_tokenKey, token);
+    if (role != null) {
       await prefs.setString(_userRoleKey, role);
     }
   }

@@ -74,19 +74,6 @@ class _ScannerTabViewState extends State<ScannerTabView> {
         _scannedParcel = null;
         _scanErrorMessage = 'Parcel "$cleanCode" was not found.';
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              const Icon(Icons.error_outline_rounded, color: Colors.white, size: 18),
-              const SizedBox(width: 8),
-              Expanded(child: Text('Parcel "$cleanCode" not found.')),
-            ],
-          ),
-          backgroundColor: const Color(0xFFDC2626),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
       return;
     }
 

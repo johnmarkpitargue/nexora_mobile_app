@@ -75,7 +75,10 @@ class OnlineStatusCard extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 4,
+                          crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
                             Text(
                               isOnline ? 'ON DUTY' : 'OFFLINE',
@@ -88,7 +91,6 @@ class OnlineStatusCard extends StatelessWidget {
                                 letterSpacing: 1.1,
                               ),
                             ),
-                            const SizedBox(width: 6),
                             Container(
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 6, vertical: 2),

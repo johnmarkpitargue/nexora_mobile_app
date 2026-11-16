@@ -109,35 +109,6 @@ class _WeeklyChartWidgetState extends State<WeeklyChartWidget>
       case PerformanceTab.thisMonth:
         return EarningsService.instance.monthlyData;
       case PerformanceTab.custom:
-        if (_customRange != null) {
-          return [
-            DayEarnings(
-              dayName: 'Day 1-2',
-              amount: 3200.00,
-              ordersCount: 12,
-              hoursWorked: 8.5,
-              tipsAmount: 140.0,
-              dateLabel: 'Start Period',
-            ),
-            DayEarnings(
-              dayName: 'Day 3-4',
-              amount: 4100.00,
-              ordersCount: 16,
-              hoursWorked: 10.2,
-              tipsAmount: 180.0,
-              dateLabel: 'Mid Period',
-            ),
-            DayEarnings(
-              dayName: 'Day 5-7',
-              amount: 5270.00,
-              ordersCount: 20,
-              hoursWorked: 13.8,
-              tipsAmount: 240.0,
-              dateLabel: 'End Period',
-              isCurrent: true,
-            ),
-          ];
-        }
         return widget.data;
     }
   }
@@ -149,7 +120,7 @@ class _WeeklyChartWidgetState extends State<WeeklyChartWidget>
       case PerformanceTab.thisWeek:
         return 'Past 7 Days Payouts';
       case PerformanceTab.thisMonth:
-        return 'October Payouts';
+        return 'This Month Payouts';
       case PerformanceTab.custom:
         return 'Custom Range Payouts';
     }
@@ -158,11 +129,11 @@ class _WeeklyChartWidgetState extends State<WeeklyChartWidget>
   String _getGrowthBadge() {
     switch (_selectedTab) {
       case PerformanceTab.today:
-        return '+12% vs yesterday';
+        return 'Today';
       case PerformanceTab.thisWeek:
-        return '+18% vs last week';
+        return 'Past 7 Days';
       case PerformanceTab.thisMonth:
-        return '+24% vs last month';
+        return 'Current Month';
       case PerformanceTab.custom:
         return 'Filtered Range';
     }
@@ -196,18 +167,13 @@ class _WeeklyChartWidgetState extends State<WeeklyChartWidget>
         : null;
 
     final displayTrips =
-        _drillDownActive && activeItem != null ? activeItem.ordersCount : (
-            // If Week tab and default overview, exactly match screenshot 48
-            _selectedTab == PerformanceTab.thisWeek ? 48 : totalTrips);
+        _drillDownActive && activeItem != null ? activeItem.ordersCount : totalTrips;
     final displayHours =
-        _drillDownActive && activeItem != null ? '${activeItem.hoursWorked.toStringAsFixed(1)}h' : (
-            _selectedTab == PerformanceTab.thisWeek ? '32.5h' : '${totalHours.toStringAsFixed(1)}h');
+        _drillDownActive && activeItem != null ? '${activeItem.hoursWorked.toStringAsFixed(1)}h' : '${totalHours.toStringAsFixed(1)}h';
     final displayAvg =
-        _drillDownActive && activeItem != null ? '₱${activeItem.avgPerHour.toStringAsFixed(0)}' : (
-            _selectedTab == PerformanceTab.thisWeek ? '₱248' : '₱${avgPerHour.toStringAsFixed(0)}');
+        _drillDownActive && activeItem != null ? '₱${activeItem.avgPerHour.toStringAsFixed(0)}' : '₱${avgPerHour.toStringAsFixed(0)}';
     final displayTips =
-        _drillDownActive && activeItem != null ? '₱${activeItem.tipsAmount.toStringAsFixed(0)}' : (
-            _selectedTab == PerformanceTab.thisWeek ? '₱560' : '₱${totalTips.toStringAsFixed(0)}');
+        _drillDownActive && activeItem != null ? '₱${activeItem.tipsAmount.toStringAsFixed(0)}' : '₱${totalTips.toStringAsFixed(0)}';
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),

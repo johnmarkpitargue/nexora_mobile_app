@@ -74,6 +74,7 @@ class _RiderLoginPageState extends State<RiderLoginPage> {
     final accountResult = await RiderAccountService.instance.loginRemote(
       email: identifier,
       password: password,
+      rememberDevice: _rememberDevice,
     );
 
     if (!mounted) return;
