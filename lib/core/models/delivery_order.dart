@@ -215,7 +215,8 @@ class DeliveryOrder {
       status: status ?? this.status,
       proofPhotoPath: proofPhotoPath ?? this.proofPhotoPath,
       recipientNotes: recipientNotes ?? this.recipientNotes,
-      acceptanceCountdownSec: acceptanceCountdownSec ?? this.acceptanceCountdownSec,
+      acceptanceCountdownSec:
+          acceptanceCountdownSec ?? this.acceptanceCountdownSec,
       customerLat: customerLat ?? this.customerLat,
       customerLng: customerLng ?? this.customerLng,
       merchantLat: merchantLat ?? this.merchantLat,
@@ -238,7 +239,8 @@ class DeliveryOrder {
 
   factory DeliveryOrder.fromApiOffer(Map<String, dynamic> json) {
     final orderObj = json['order'] as Map<String, dynamic>?;
-    final orderId = (json['order_number'] ?? json['order_id'] ?? json['id']).toString();
+    final orderId = (json['order_number'] ?? json['order_id'] ?? json['id'])
+        .toString();
     final codAmount = (json['cod_amount'] as num?)?.toDouble() ?? 0.0;
     final expectedPay = (json['expected_pay'] as num?)?.toDouble() ?? 0.0;
     final expiresIn = (json['expires_in_seconds'] as num?)?.toInt() ?? 60;
@@ -247,22 +249,30 @@ class DeliveryOrder {
         ? ((json['order_id'] ?? orderObj?['id']) as num).toInt()
         : int.tryParse((json['order_id'] ?? orderObj?['id'] ?? '').toString());
 
-    final dropoffLocation = (json['dropoff_location'] ?? 'Buyer Address').toString();
-    final rawLat = (json['customer_lat'] ?? json['delivery_lat'] ?? json['buyer_lat']) as num?;
-    final rawLng = (json['customer_lng'] ?? json['delivery_lng'] ?? json['buyer_lng']) as num?;
-    final resolvedDropoff = (rawLat != null && rawLng != null && rawLat != 0 && rawLng != 0)
+    final dropoffLocation = (json['dropoff_location'] ?? 'Buyer Address')
+        .toString();
+    final rawLat =
+        (json['customer_lat'] ?? json['delivery_lat'] ?? json['buyer_lat'])
+            as num?;
+    final rawLng =
+        (json['customer_lng'] ?? json['delivery_lng'] ?? json['buyer_lng'])
+            as num?;
+    final resolvedDropoff =
+        (rawLat != null && rawLng != null && rawLat != 0 && rawLng != 0)
         ? null
         : LagunaPlacesService.instance.resolveCoordinates(dropoffLocation);
 
     return DeliveryOrder(
       id: orderId,
       customerName: (orderObj?['recipient_name'] ?? 'Buyer').toString(),
-      customerPhone: (orderObj?['recipient_phone'] ?? '+63 917 000 0000').toString(),
+      customerPhone: (orderObj?['recipient_phone'] ?? '+63 917 000 0000')
+          .toString(),
       customerAddress: dropoffLocation,
       customerLat: resolvedDropoff?.latitude ?? rawLat!.toDouble(),
       customerLng: resolvedDropoff?.longitude ?? rawLng!.toDouble(),
       merchantName: 'Merchant Store',
-      merchantAddress: (json['pickup_location'] ?? 'Seller Store, Laguna').toString(),
+      merchantAddress: (json['pickup_location'] ?? 'Seller Store, Laguna')
+          .toString(),
       merchantPhone: '+63 2 8888 1234',
       items: const [
         OrderItemDetail(
@@ -274,7 +284,9 @@ class DeliveryOrder {
       ],
       deliveryFee: expectedPay,
       orderTotal: codAmount,
-      paymentType: (orderObj?['payment_method'] ?? 'COD').toString().toUpperCase(),
+      paymentType: (orderObj?['payment_method'] ?? 'COD')
+          .toString()
+          .toUpperCase(),
       distanceKm: 2.5,
       estimatedMinutes: 15,
       createdAt: DateTime.now(),
@@ -289,7 +301,9 @@ class DeliveryOrder {
 
   factory DeliveryOrder.fromApiOrder(Map<String, dynamic> json) {
     final orderId = (json['order_number'] ?? json['id']).toString();
-    final serverOrderId = json['id'] is num ? (json['id'] as num).toInt() : int.tryParse(json['id'].toString());
+    final serverOrderId = json['id'] is num
+        ? (json['id'] as num).toInt()
+        : int.tryParse(json['id'].toString());
     final itemsList = json['items'] as List<dynamic>? ?? [];
     final items = itemsList.map((it) {
       final m = it as Map<String, dynamic>;
@@ -307,7 +321,9 @@ class DeliveryOrder {
     final orderStatus = (json['order_status'] ?? json['status'])?.toString();
 
     DeliveryStatus status = DeliveryStatus.available;
-    final statusStr = (taskOutcome ?? json['status'] ?? '').toString().toLowerCase();
+    final statusStr = (taskOutcome ?? json['status'] ?? '')
+        .toString()
+        .toLowerCase();
     switch (statusStr) {
       case 'ready_for_pickup':
       case 'assigned':
@@ -336,14 +352,21 @@ class DeliveryOrder {
         break;
     }
 
-    final compensation = (json['compensation_amount'] as num?)?.toDouble() ??
+    final compensation =
+        (json['compensation_amount'] as num?)?.toDouble() ??
         (json['expected_pay'] as num?)?.toDouble() ??
         0.0;
 
-    final dropoffAddress = (json['dropoff_address'] ?? 'Customer Address').toString();
-    final rawLat = (json['customer_lat'] ?? json['delivery_lat'] ?? json['buyer_lat']) as num?;
-    final rawLng = (json['customer_lng'] ?? json['delivery_lng'] ?? json['buyer_lng']) as num?;
-    final resolvedDropoff = (rawLat != null && rawLng != null && rawLat != 0 && rawLng != 0)
+    final dropoffAddress = (json['dropoff_address'] ?? 'Customer Address')
+        .toString();
+    final rawLat =
+        (json['customer_lat'] ?? json['delivery_lat'] ?? json['buyer_lat'])
+            as num?;
+    final rawLng =
+        (json['customer_lng'] ?? json['delivery_lng'] ?? json['buyer_lng'])
+            as num?;
+    final resolvedDropoff =
+        (rawLat != null && rawLng != null && rawLat != 0 && rawLng != 0)
         ? null
         : LagunaPlacesService.instance.resolveCoordinates(dropoffAddress);
 
@@ -355,7 +378,8 @@ class DeliveryOrder {
       customerLat: resolvedDropoff?.latitude ?? rawLat!.toDouble(),
       customerLng: resolvedDropoff?.longitude ?? rawLng!.toDouble(),
       merchantName: (json['seller_name'] ?? 'Merchant Seller').toString(),
-      merchantAddress: (json['pickup_address'] ?? 'Merchant Store, Laguna').toString(),
+      merchantAddress: (json['pickup_address'] ?? 'Merchant Store, Laguna')
+          .toString(),
       merchantPhone: '+63 2 8888 1234',
       items: items.isNotEmpty
           ? items
@@ -372,7 +396,9 @@ class DeliveryOrder {
       paymentType: (json['payment_method'] ?? 'COD').toString().toUpperCase(),
       distanceKm: 2.8,
       estimatedMinutes: 18,
-      createdAt: json['created_at'] != null ? DateTime.tryParse(json['created_at'].toString()) ?? DateTime.now() : DateTime.now(),
+      createdAt: json['created_at'] != null
+          ? DateTime.tryParse(json['created_at'].toString()) ?? DateTime.now()
+          : DateTime.now(),
       status: status,
       serverOrderId: serverOrderId,
       trackingNumber: json['tracking_number']?.toString(),

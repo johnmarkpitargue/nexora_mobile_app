@@ -1,7 +1,9 @@
 import 'dart:math' as math;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+
 import '../../../../core/services/rider_location_service.dart';
 
 /// Modern Real-Time Live Navigation Map for Nexora Rider App.
@@ -39,7 +41,8 @@ class _RiderLiveNavigationMapState extends State<RiderLiveNavigationMap>
   int _tileZoom = 15;
   bool _customZoomSet = false;
   Offset _panOffset = Offset.zero;
-  int _mapStyleIndex = 0; // 0: Modern Street (Voyager), 1: Dark Matter, 2: Satellite
+  int _mapStyleIndex =
+      0; // 0: Modern Street (Voyager), 1: Dark Matter, 2: Satellite
 
   @override
   void initState() {
@@ -80,12 +83,16 @@ class _RiderLiveNavigationMapState extends State<RiderLiveNavigationMap>
       Uri? navUri;
       if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
         // Android Google Maps turn-by-turn navigation intent
-        final googleNavIntent = Uri.parse('google.navigation:q=$lat,$lng&mode=d');
+        final googleNavIntent = Uri.parse(
+          'google.navigation:q=$lat,$lng&mode=d',
+        );
         if (await canLaunchUrl(googleNavIntent)) {
           navUri = googleNavIntent;
         }
       } else if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
-        final googleMapsIos = Uri.parse('comgooglemaps://?daddr=$lat,$lng&directionsmode=driving');
+        final googleMapsIos = Uri.parse(
+          'comgooglemaps://?daddr=$lat,$lng&directionsmode=driving',
+        );
         final appleMapsIos = Uri.parse('maps://?daddr=$lat,$lng&dirflg=d');
         if (await canLaunchUrl(googleMapsIos)) {
           navUri = googleMapsIos;
@@ -94,15 +101,23 @@ class _RiderLiveNavigationMapState extends State<RiderLiveNavigationMap>
         }
       }
 
-      final hasAddress = widget.destinationAddress.trim().isNotEmpty &&
+      final hasAddress =
+          widget.destinationAddress.trim().isNotEmpty &&
           widget.destinationAddress != 'Customer Address' &&
           widget.destinationAddress != 'Buyer Address';
       final destinationQuery = hasAddress ? label : '$lat,$lng';
-      navUri ??= Uri.parse('https://www.google.com/maps/dir/?api=1&destination=$destinationQuery&travelmode=driving');
+      navUri ??= Uri.parse(
+        'https://www.google.com/maps/dir/?api=1&destination=$destinationQuery&travelmode=driving',
+      );
 
-      final launched = await launchUrl(navUri, mode: LaunchMode.externalApplication);
+      final launched = await launchUrl(
+        navUri,
+        mode: LaunchMode.externalApplication,
+      );
       if (!launched) {
-        final fallback = Uri.parse('https://www.google.com/maps/search/?api=1&query=$lat,$lng($label)');
+        final fallback = Uri.parse(
+          'https://www.google.com/maps/search/?api=1&query=$lat,$lng($label)',
+        );
         await launchUrl(fallback, mode: LaunchMode.externalApplication);
       }
     } catch (e) {
@@ -137,7 +152,9 @@ class _RiderLiveNavigationMapState extends State<RiderLiveNavigationMap>
           widget.destinationLng,
         );
 
-        final etaMins = (distKm / (speedKmh > 10 ? speedKmh : 24.0) * 60.0).round().clamp(1, 60);
+        final etaMins = (distKm / (speedKmh > 10 ? speedKmh : 24.0) * 60.0)
+            .round()
+            .clamp(1, 60);
 
         if (!_customZoomSet) {
           if (distKm > 40) {
@@ -182,7 +199,10 @@ class _RiderLiveNavigationMapState extends State<RiderLiveNavigationMap>
             children: [
               // 1. Top Real-Time Speed & Telemetry HUD Header
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
+                ),
                 color: const Color(0xFF0A192F),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -192,18 +212,27 @@ class _RiderLiveNavigationMapState extends State<RiderLiveNavigationMap>
                       child: Row(
                         children: [
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 5,
+                            ),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF0066FF).withValues(alpha: 0.18),
+                              color: const Color(0xFF0066FF)
+                                  .withValues(alpha: 0.18),
                               borderRadius: BorderRadius.circular(10),
                               border: Border.all(
-                                color: const Color(0xFF0066FF).withValues(alpha: 0.6),
+                                color: const Color(0xFF0066FF)
+                                    .withValues(alpha: 0.6),
                                 width: 1.2,
                               ),
                             ),
                             child: Row(
                               children: [
-                                const Icon(Icons.speed_rounded, size: 16, color: Color(0xFF0066FF)),
+                                const Icon(
+                                  Icons.speed_rounded,
+                                  size: 16,
+                                  color: Color(0xFF0066FF),
+                                ),
                                 const SizedBox(width: 6),
                                 Text(
                                   '${speedKmh.round()}',
@@ -244,7 +273,9 @@ class _RiderLiveNavigationMapState extends State<RiderLiveNavigationMap>
                                     const SizedBox(width: 5),
                                     Expanded(
                                       child: Text(
-                                        speedKmh > 1.5 ? 'CRUISING' : 'STATIONARY',
+                                        speedKmh > 1.5
+                                            ? 'CRUISING'
+                                            : 'STATIONARY',
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
                                         style: TextStyle(
@@ -287,11 +318,16 @@ class _RiderLiveNavigationMapState extends State<RiderLiveNavigationMap>
                       },
                       borderRadius: BorderRadius.circular(8),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 5,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.white.withValues(alpha: 0.08),
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.15),
+                          ),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -300,8 +336,8 @@ class _RiderLiveNavigationMapState extends State<RiderLiveNavigationMap>
                               _mapStyleIndex == 0
                                   ? Icons.map_rounded
                                   : (_mapStyleIndex == 1
-                                      ? Icons.nightlight_round
-                                      : Icons.satellite_alt_rounded),
+                                        ? Icons.nightlight_round
+                                        : Icons.satellite_alt_rounded),
                               size: 13,
                               color: const Color(0xFF0066FF),
                             ),
@@ -309,7 +345,9 @@ class _RiderLiveNavigationMapState extends State<RiderLiveNavigationMap>
                             Text(
                               _mapStyleIndex == 0
                                   ? 'Street'
-                                  : (_mapStyleIndex == 1 ? 'Night' : 'Satellite'),
+                                  : (_mapStyleIndex == 1
+                                        ? 'Night'
+                                        : 'Satellite'),
                               style: const TextStyle(
                                 fontSize: 10,
                                 fontWeight: FontWeight.w800,
@@ -326,12 +364,19 @@ class _RiderLiveNavigationMapState extends State<RiderLiveNavigationMap>
 
               // 2. Buyer Pinpoint Destination Banner
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
                 decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                  color: isDark
+                      ? const Color(0xFF0F172A)
+                      : const Color(0xFFF8FAFC),
                   border: Border(
                     bottom: BorderSide(
-                      color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
+                      color: isDark
+                          ? const Color(0xFF1E293B)
+                          : const Color(0xFFE2E8F0),
                     ),
                   ),
                 ),
@@ -343,7 +388,11 @@ class _RiderLiveNavigationMapState extends State<RiderLiveNavigationMap>
                         color: const Color(0xFFEF4444).withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: const Icon(Icons.location_on_rounded, size: 20, color: Color(0xFFEF4444)),
+                      child: const Icon(
+                        Icons.location_on_rounded,
+                        size: 20,
+                        color: Color(0xFFEF4444),
+                      ),
                     ),
                     const SizedBox(width: 10),
                     Expanded(
@@ -358,16 +407,22 @@ class _RiderLiveNavigationMapState extends State<RiderLiveNavigationMap>
                                   style: TextStyle(
                                     fontSize: 12.5,
                                     fontWeight: FontWeight.w900,
-                                    color: isDark ? Colors.white : const Color(0xFF0F172A),
+                                    color: isDark
+                                        ? Colors.white
+                                        : const Color(0xFF0F172A),
                                   ),
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                               const SizedBox(width: 6),
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                                  color: const Color(0xFF10B981)
+                                      .withValues(alpha: 0.15),
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: const Text(
@@ -389,7 +444,9 @@ class _RiderLiveNavigationMapState extends State<RiderLiveNavigationMap>
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               fontSize: 11,
-                              color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF475569),
+                              color: isDark
+                                  ? const Color(0xFF94A3B8)
+                                  : const Color(0xFF475569),
                               fontWeight: FontWeight.w500,
                             ),
                           ),
@@ -399,7 +456,9 @@ class _RiderLiveNavigationMapState extends State<RiderLiveNavigationMap>
                             style: TextStyle(
                               fontSize: 9.5,
                               fontWeight: FontWeight.w700,
-                              color: isDark ? const Color(0xFF0066FF) : const Color(0xFF0066FF),
+                              color: isDark
+                                  ? const Color(0xFF0066FF)
+                                  : const Color(0xFF0066FF),
                               fontFamily: 'monospace',
                             ),
                           ),
@@ -420,10 +479,15 @@ class _RiderLiveNavigationMapState extends State<RiderLiveNavigationMap>
                       final mapHeight = constraints.maxHeight;
 
                       // Mercator projection
-                      final double globalTileX = (centerLng + 180.0) / 360.0 * (1 << z);
+                      final double globalTileX =
+                          (centerLng + 180.0) / 360.0 * (1 << z);
                       final double latRad = centerLat * math.pi / 180.0;
-                      final double globalTileY = (1.0 -
-                              (math.log(math.tan(latRad) + (1.0 / math.cos(latRad))) / math.pi)) /
+                      final double globalTileY =
+                          (1.0 -
+                              (math.log(
+                                    math.tan(latRad) + (1.0 / math.cos(latRad)),
+                                  ) /
+                                  math.pi)) /
                           2.0 *
                           (1 << z);
 
@@ -466,23 +530,25 @@ class _RiderLiveNavigationMapState extends State<RiderLiveNavigationMap>
                                 headers: kIsWeb
                                     ? null
                                     : const {
-                                        'User-Agent':
-                                            'NexoraRiderApp/1.0 (com.nexora.nexora_rider_app)',
+                                        'User-Agent': 'NexoraRiderApp/1.0 (com.nexora.nexora_rider_app)',
                                       },
                                 fit: BoxFit.cover,
                                 gaplessPlayback: true,
-                                errorBuilder: (context, error, stackTrace) => Container(
-                                  color: isDark
-                                      ? const Color(0xFF0F172A)
-                                      : const Color(0xFFF1F5F9),
-                                  child: Center(
-                                    child: Icon(
-                                      Icons.map_outlined,
-                                      size: 20,
-                                      color: isDark ? Colors.white12 : Colors.black12,
+                                errorBuilder: (context, error, stackTrace) =>
+                                    Container(
+                                      color: isDark
+                                          ? const Color(0xFF0F172A)
+                                          : const Color(0xFFF1F5F9),
+                                      child: Center(
+                                        child: Icon(
+                                          Icons.map_outlined,
+                                          size: 20,
+                                          color: isDark
+                                              ? Colors.white12
+                                              : Colors.black12,
+                                        ),
+                                      ),
                                     ),
-                                  ),
-                                ),
                               ),
                             ),
                           );
@@ -499,7 +565,9 @@ class _RiderLiveNavigationMapState extends State<RiderLiveNavigationMap>
                           children: [
                             // Base color
                             Container(
-                              color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9),
+                              color: isDark
+                                  ? const Color(0xFF0F172A)
+                                  : const Color(0xFFF1F5F9),
                             ),
 
                             // Map tiles
@@ -536,10 +604,16 @@ class _RiderLiveNavigationMapState extends State<RiderLiveNavigationMap>
                               top: 12,
                               left: 12,
                               child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 6,
+                                ),
                                 decoration: BoxDecoration(
-                                  color: (isDark ? const Color(0xFF0F172A) : Colors.white)
-                                      .withValues(alpha: 0.95),
+                                  color:
+                                      (isDark
+                                              ? const Color(0xFF0F172A)
+                                              : Colors.white)
+                                          .withValues(alpha: 0.95),
                                   borderRadius: BorderRadius.circular(10),
                                   border: Border.all(
                                     color: isDark
@@ -548,7 +622,9 @@ class _RiderLiveNavigationMapState extends State<RiderLiveNavigationMap>
                                   ),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: Colors.black.withValues(alpha: 0.12),
+                                      color: Colors.black.withValues(
+                                        alpha: 0.12,
+                                      ),
                                       blurRadius: 6,
                                       offset: const Offset(0, 2),
                                     ),
@@ -557,15 +633,20 @@ class _RiderLiveNavigationMapState extends State<RiderLiveNavigationMap>
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    const Icon(Icons.near_me_rounded,
-                                        size: 13, color: Color(0xFF0066FF)),
+                                    const Icon(
+                                      Icons.near_me_rounded,
+                                      size: 13,
+                                      color: Color(0xFF0066FF),
+                                    ),
                                     const SizedBox(width: 6),
                                     Text(
                                       '${distKm.toStringAsFixed(1)} km away • ~$etaMins min ETA',
                                       style: TextStyle(
                                         fontSize: 11,
                                         fontWeight: FontWeight.w800,
-                                        color: isDark ? Colors.white : const Color(0xFF0F172A),
+                                        color: isDark
+                                            ? Colors.white
+                                            : const Color(0xFF0F172A),
                                       ),
                                     ),
                                   ],
@@ -611,11 +692,30 @@ class _RiderLiveNavigationMapState extends State<RiderLiveNavigationMap>
                                     tooltip: 'Recenter on Buyer Pinpoint',
                                     color: const Color(0xFFEF4444),
                                     onTap: () {
-                                      final destTileX = (widget.destinationLng + 180.0) / 360.0 * (1 << z);
-                                      final destLatRad = widget.destinationLat * math.pi / 180.0;
-                                      final destTileY = (1.0 - (math.log(math.tan(destLatRad) + (1.0 / math.cos(destLatRad))) / math.pi)) / 2.0 * (1 << z);
-                                      final deltaX = (destTileX - globalTileX) * 256.0;
-                                      final deltaY = (destTileY - globalTileY) * 256.0;
+                                      final destTileX =
+                                          (widget.destinationLng + 180.0) /
+                                          360.0 *
+                                          (1 << z);
+                                      final destLatRad =
+                                          widget.destinationLat *
+                                          math.pi /
+                                          180.0;
+                                      final destTileY =
+                                          (1.0 -
+                                              (math.log(
+                                                    math.tan(destLatRad) +
+                                                        (1.0 /
+                                                            math.cos(
+                                                              destLatRad,
+                                                            )),
+                                                  ) /
+                                                  math.pi)) /
+                                          2.0 *
+                                          (1 << z);
+                                      final deltaX =
+                                          (destTileX - globalTileX) * 256.0;
+                                      final deltaY =
+                                          (destTileY - globalTileY) * 256.0;
                                       setState(() {
                                         _panOffset = Offset(-deltaX, -deltaY);
                                       });
@@ -655,7 +755,10 @@ class _RiderLiveNavigationMapState extends State<RiderLiveNavigationMap>
                         icon: const Icon(Icons.navigation_rounded, size: 16),
                         label: const Text(
                           'Open Live Turn-by-Turn in Google Maps',
-                          style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800),
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF0066FF),
@@ -741,10 +844,14 @@ class _RiderMapPainter extends CustomPainter {
     final double gx = (lng + 180.0) / 360.0 * (1 << z);
     final double r = lat * math.pi / 180.0;
     final double gy =
-        (1.0 - (math.log(math.tan(r) + (1.0 / math.cos(r))) / math.pi)) / 2.0 * (1 << z);
+        (1.0 - (math.log(math.tan(r) + (1.0 / math.cos(r))) / math.pi)) /
+        2.0 *
+        (1 << z);
 
-    final double px = (size.width / 2) + ((gx - globalTileX) * 256.0) + panOffset.dx;
-    final double py = (size.height / 2) + ((gy - globalTileY) * 256.0) + panOffset.dy;
+    final double px =
+        (size.width / 2) + ((gx - globalTileX) * 256.0) + panOffset.dx;
+    final double py =
+        (size.height / 2) + ((gy - globalTileY) * 256.0) + panOffset.dy;
     return Offset(px, py);
   }
 
@@ -777,10 +884,12 @@ class _RiderMapPainter extends CustomPainter {
     // Moving neon pulses along route
     for (double p = 0.0; p < 1.0; p += 0.25) {
       final t = (progress + p) % 1.0;
-      final px = math.pow(1 - t, 2) * riderPos.dx +
+      final px =
+          math.pow(1 - t, 2) * riderPos.dx +
           2 * (1 - t) * t * midX +
           math.pow(t, 2) * destPos.dx;
-      final py = math.pow(1 - t, 2) * riderPos.dy +
+      final py =
+          math.pow(1 - t, 2) * riderPos.dy +
           2 * (1 - t) * t * midY +
           math.pow(t, 2) * destPos.dy;
 
@@ -844,7 +953,8 @@ class _RiderMapPainter extends CustomPainter {
       const Radius.circular(6),
     );
 
-    final bgPaint = Paint()..color = const Color(0xFF0F172A).withValues(alpha: 0.92);
+    final bgPaint = Paint()
+      ..color = const Color(0xFF0F172A).withValues(alpha: 0.92);
     canvas.drawRRect(pillRect, bgPaint);
 
     final borderPill = Paint()
@@ -855,7 +965,10 @@ class _RiderMapPainter extends CustomPainter {
 
     textPainter.paint(
       canvas,
-      Offset(pos.dx - (textPainter.width / 2), pos.dy - 22 - (textPainter.height / 2)),
+      Offset(
+        pos.dx - (textPainter.width / 2),
+        pos.dy - 22 - (textPainter.height / 2),
+      ),
     );
   }
 

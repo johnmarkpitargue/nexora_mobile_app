@@ -84,4 +84,12 @@ class ApiConstants {
       '/api/mobile/v1/notifications/read-all';
   static String readNotification(dynamic id) =>
       '/api/mobile/v1/notifications/$id/read';
+
+  // Safety & Reports Center
+  static const String safetyReports = '/api/mobile/v1/safety-reports';
+  static String safetyReportDetail(dynamic id) =>
+      '/api/mobile/v1/safety-reports/$id';
+  static const String restrictions = '/api/mobile/v1/restrictions';
+  static String appealRestriction(dynamic id) =>
+      '/api/mobile/v1/restrictions/$id/appeal';
 }
