@@ -15,6 +15,7 @@ import '../../../app/routes/app_routes.dart';
 import '../../../app/theme/nexora_theme.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/utils/guest_auth_guard.dart';
+import '../../../core/widgets/report_issue_sheet.dart';
 import 'account_security_modal.dart';
 import 'widgets/profile_components.dart';
 
@@ -1111,6 +1112,12 @@ class _ProfilePageState extends State<ProfilePage> {
                       title: 'Help center and support',
                       subtitle: 'Ask a question or open a support ticket',
                       onTap: () => Navigator.pushNamed(context, AppRoutes.chat),
+                    ),
+                    ProfileSettingTile(
+                      icon: Icons.shield_outlined,
+                      title: 'Safety & Reports',
+                      subtitle: 'Report an issue or track submitted reports',
+                      onTap: () => _showSafetyAndReportsMenu(context),
                     ),
                   ],
                 ),
@@ -2258,6 +2265,12 @@ class _ProfilePageState extends State<ProfilePage> {
         },
       ),
       _buildListTile(
+        icon: Icons.shield_outlined,
+        title: 'Safety & Reports',
+        subtitle: 'Report an issue or view my safety reports',
+        onTap: () => _showSafetyAndReportsMenu(context),
+      ),
+      _buildListTile(
         icon: Icons.assignment_outlined,
         title: 'Terms & Privacy Policy',
         subtitle: 'User rights, privacy standards',
@@ -2265,6 +2278,58 @@ class _ProfilePageState extends State<ProfilePage> {
         isLast: true,
       ),
     ]);
+  }
+
+  void _showSafetyAndReportsMenu(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text(
+                'Safety & Reports',
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 8),
+              ListTile(
+                leading: const Icon(Icons.flag_outlined, color: Color(0xFFE11D48)),
+                title: const Text('Report an Issue'),
+                subtitle: const Text('Report a seller, product, scam, or abuse'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  showSafetyReportSheet(
+                    context,
+                    defaultCategory: 'other_violation',
+                    defaultTitle: '',
+                  );
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.shield_outlined, color: Color(0xFF0066FF)),
+                title: const Text('My Safety Reports'),
+                subtitle: const Text('Track investigation status and appeals'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const MySafetyReportsScreen(),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildGroupCard(List<Widget> children) {
