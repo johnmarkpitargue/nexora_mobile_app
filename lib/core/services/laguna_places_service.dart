@@ -349,6 +349,63 @@ class LagunaPlacesService {
     if (lower.contains('dasmarinas') || lower.contains('dasmariñas')) {
       return const LagunaPlace(name: 'Dasmariñas City', cityOrMunicipality: 'Dasmariñas', province: 'Cavite', postalCode: '4114', latitude: 14.3294, longitude: 120.9367, type: 'City');
     }
+    if (lower.contains('magallanes')) {
+      return const LagunaPlace(name: 'Magallanes', cityOrMunicipality: 'Magallanes', province: 'Cavite', postalCode: '4113', latitude: 14.1872, longitude: 120.7478, type: 'Municipality');
+    }
+    if (lower.contains('tagaytay')) {
+      return const LagunaPlace(name: 'Tagaytay City', cityOrMunicipality: 'Tagaytay', province: 'Cavite', postalCode: '4120', latitude: 14.1153, longitude: 120.9621, type: 'City');
+    }
+    if (lower.contains('silang')) {
+      return const LagunaPlace(name: 'Silang', cityOrMunicipality: 'Silang', province: 'Cavite', postalCode: '4118', latitude: 14.2306, longitude: 120.9744, type: 'Municipality');
+    }
+    if (lower.contains('trece martires')) {
+      return const LagunaPlace(name: 'Trece Martires City', cityOrMunicipality: 'Trece Martires', province: 'Cavite', postalCode: '4109', latitude: 14.2822, longitude: 120.8675, type: 'City');
+    }
+    if (lower.contains('general trias') || lower.contains('gen. trias')) {
+      return const LagunaPlace(name: 'General Trias City', cityOrMunicipality: 'General Trias', province: 'Cavite', postalCode: '4107', latitude: 14.3860, longitude: 120.8805, type: 'City');
+    }
+    if (lower.contains('tanza')) {
+      return const LagunaPlace(name: 'Tanza', cityOrMunicipality: 'Tanza', province: 'Cavite', postalCode: '4108', latitude: 14.3958, longitude: 120.8531, type: 'Municipality');
+    }
+    if (lower.contains('kawit')) {
+      return const LagunaPlace(name: 'Kawit', cityOrMunicipality: 'Kawit', province: 'Cavite', postalCode: '4104', latitude: 14.4422, longitude: 120.9033, type: 'Municipality');
+    }
+    if (lower.contains('naic')) {
+      return const LagunaPlace(name: 'Naic', cityOrMunicipality: 'Naic', province: 'Cavite', postalCode: '4110', latitude: 14.3197, longitude: 120.7664, type: 'Municipality');
+    }
+    if (lower.contains('indang')) {
+      return const LagunaPlace(name: 'Indang', cityOrMunicipality: 'Indang', province: 'Cavite', postalCode: '4122', latitude: 14.1967, longitude: 120.8764, type: 'Municipality');
+    }
+    if (lower.contains('alfonso')) {
+      return const LagunaPlace(name: 'Alfonso', cityOrMunicipality: 'Alfonso', province: 'Cavite', postalCode: '4123', latitude: 14.1394, longitude: 120.8542, type: 'Municipality');
+    }
+    if (lower.contains('amadeo')) {
+      return const LagunaPlace(name: 'Amadeo', cityOrMunicipality: 'Amadeo', province: 'Cavite', postalCode: '4119', latitude: 14.1708, longitude: 120.9239, type: 'Municipality');
+    }
+    if (lower.contains('carmona')) {
+      return const LagunaPlace(name: 'Carmona City', cityOrMunicipality: 'Carmona', province: 'Cavite', postalCode: '4116', latitude: 14.3133, longitude: 121.0575, type: 'City');
+    }
+    if (lower.contains('general mariano alvarez') || lower.contains('gma')) {
+      return const LagunaPlace(name: 'General Mariano Alvarez', cityOrMunicipality: 'General Mariano Alvarez', province: 'Cavite', postalCode: '4117', latitude: 14.3000, longitude: 121.0036, type: 'Municipality');
+    }
+    if (lower.contains('maragondon')) {
+      return const LagunaPlace(name: 'Maragondon', cityOrMunicipality: 'Maragondon', province: 'Cavite', postalCode: '4112', latitude: 14.2747, longitude: 120.7358, type: 'Municipality');
+    }
+    if (lower.contains('mendez')) {
+      return const LagunaPlace(name: 'Mendez', cityOrMunicipality: 'Mendez', province: 'Cavite', postalCode: '4121', latitude: 14.1292, longitude: 120.9061, type: 'Municipality');
+    }
+    if (lower.contains('noveleta')) {
+      return const LagunaPlace(name: 'Noveleta', cityOrMunicipality: 'Noveleta', province: 'Cavite', postalCode: '4105', latitude: 14.4281, longitude: 120.8806, type: 'Municipality');
+    }
+    if (lower.contains('rosario')) {
+      return const LagunaPlace(name: 'Rosario', cityOrMunicipality: 'Rosario', province: 'Cavite', postalCode: '4106', latitude: 14.4150, longitude: 120.8586, type: 'Municipality');
+    }
+    if (lower.contains('ternate')) {
+      return const LagunaPlace(name: 'Ternate', cityOrMunicipality: 'Ternate', province: 'Cavite', postalCode: '4111', latitude: 14.2875, longitude: 120.7158, type: 'Municipality');
+    }
+    if (lower.contains('cavite city') || lower.contains('cavite')) {
+      return const LagunaPlace(name: 'Cavite City', cityOrMunicipality: 'Cavite City', province: 'Cavite', postalCode: '4100', latitude: 14.4791, longitude: 120.8970, type: 'City');
+    }
     if (lower.contains('antipolo')) {
       return const LagunaPlace(name: 'Antipolo City', cityOrMunicipality: 'Antipolo', province: 'Rizal', postalCode: '1870', latitude: 14.5842, longitude: 121.1763, type: 'City');
     }

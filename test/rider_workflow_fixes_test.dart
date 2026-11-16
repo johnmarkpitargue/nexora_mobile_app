@@ -33,6 +33,20 @@ void main() {
     expect(pickupTask.status, DeliveryStatus.delivered);
   });
 
+  test('DeliveryOrder.fromApiOrder resolves Cavite buyer coordinates instead of Liliw default', () {
+    final caviteOrder = DeliveryOrder.fromApiOrder({
+      'id': 99,
+      'order_number': 'NX-USPKZL2VCK',
+      'status': 'assigned_to_rider',
+      'dropoff_address': '123sd, San Agustin, Magallanes, Cavite',
+      'total': 346.40,
+      'payment_method': 'cod',
+    });
+
+    expect(caviteOrder.customerLat, closeTo(14.1872, 0.001));
+    expect(caviteOrder.customerLng, closeTo(120.7478, 0.001));
+  });
+
   testWidgets('EarningsSummaryCard displays EarningsService todayPay when fetched remotely', (tester) async {
     RiderService.instance.updateProfileFromApi(
       id: '10',

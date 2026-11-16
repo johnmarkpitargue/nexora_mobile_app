@@ -1,3 +1,5 @@
+import '../services/laguna_places_service.dart';
+
 enum DeliveryStatus {
   available,
   accepted,
@@ -245,11 +247,20 @@ class DeliveryOrder {
         ? ((json['order_id'] ?? orderObj?['id']) as num).toInt()
         : int.tryParse((json['order_id'] ?? orderObj?['id'] ?? '').toString());
 
+    final dropoffLocation = (json['dropoff_location'] ?? 'Buyer Address').toString();
+    final rawLat = (json['customer_lat'] ?? json['delivery_lat'] ?? json['buyer_lat']) as num?;
+    final rawLng = (json['customer_lng'] ?? json['delivery_lng'] ?? json['buyer_lng']) as num?;
+    final resolvedDropoff = (rawLat != null && rawLng != null && rawLat != 0 && rawLng != 0)
+        ? null
+        : LagunaPlacesService.instance.resolveCoordinates(dropoffLocation);
+
     return DeliveryOrder(
       id: orderId,
       customerName: (orderObj?['recipient_name'] ?? 'Buyer').toString(),
       customerPhone: (orderObj?['recipient_phone'] ?? '+63 917 000 0000').toString(),
-      customerAddress: (json['dropoff_location'] ?? 'Buyer Address').toString(),
+      customerAddress: dropoffLocation,
+      customerLat: resolvedDropoff?.latitude ?? rawLat!.toDouble(),
+      customerLng: resolvedDropoff?.longitude ?? rawLng!.toDouble(),
       merchantName: 'Merchant Store',
       merchantAddress: (json['pickup_location'] ?? 'Seller Store, Laguna').toString(),
       merchantPhone: '+63 2 8888 1234',
@@ -329,11 +340,20 @@ class DeliveryOrder {
         (json['expected_pay'] as num?)?.toDouble() ??
         0.0;
 
+    final dropoffAddress = (json['dropoff_address'] ?? 'Customer Address').toString();
+    final rawLat = (json['customer_lat'] ?? json['delivery_lat'] ?? json['buyer_lat']) as num?;
+    final rawLng = (json['customer_lng'] ?? json['delivery_lng'] ?? json['buyer_lng']) as num?;
+    final resolvedDropoff = (rawLat != null && rawLng != null && rawLat != 0 && rawLng != 0)
+        ? null
+        : LagunaPlacesService.instance.resolveCoordinates(dropoffAddress);
+
     return DeliveryOrder(
       id: orderId,
       customerName: (json['recipient_name'] ?? 'Buyer').toString(),
       customerPhone: (json['recipient_phone'] ?? '+63 917 000 0000').toString(),
-      customerAddress: (json['dropoff_address'] ?? 'Customer Address').toString(),
+      customerAddress: dropoffAddress,
+      customerLat: resolvedDropoff?.latitude ?? rawLat!.toDouble(),
+      customerLng: resolvedDropoff?.longitude ?? rawLng!.toDouble(),
       merchantName: (json['seller_name'] ?? 'Merchant Seller').toString(),
       merchantAddress: (json['pickup_address'] ?? 'Merchant Store, Laguna').toString(),
       merchantPhone: '+63 2 8888 1234',

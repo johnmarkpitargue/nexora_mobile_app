@@ -94,7 +94,11 @@ class _RiderLiveNavigationMapState extends State<RiderLiveNavigationMap>
         }
       }
 
-      navUri ??= Uri.parse('https://www.google.com/maps/dir/?api=1&destination=$lat,$lng&travelmode=driving');
+      final hasAddress = widget.destinationAddress.trim().isNotEmpty &&
+          widget.destinationAddress != 'Customer Address' &&
+          widget.destinationAddress != 'Buyer Address';
+      final destinationQuery = hasAddress ? label : '$lat,$lng';
+      navUri ??= Uri.parse('https://www.google.com/maps/dir/?api=1&destination=$destinationQuery&travelmode=driving');
 
       final launched = await launchUrl(navUri, mode: LaunchMode.externalApplication);
       if (!launched) {
