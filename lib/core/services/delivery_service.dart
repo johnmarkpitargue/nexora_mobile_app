@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -1040,7 +1041,10 @@ class DeliveryService extends ChangeNotifier {
 
   Future<DeliveryOrder> startDeliveryRemote(String orderId) async {
     if (_isStartingDelivery) {
-      throw ApiException(statusCode: 409, message: 'Start delivery request already in progress.');
+      throw ApiException(
+        statusCode: 409,
+        message: 'Start delivery request already in progress.',
+      );
     }
     _isStartingDelivery = true;
     try {
@@ -1080,6 +1084,8 @@ class DeliveryService extends ChangeNotifier {
     required String orderId,
     required String deliveryOtp,
     required String podFilePath,
+    Uint8List? podBytes,
+    String? podFileName,
     String? notes,
   }) async {
     final clean = orderId.replaceAll('#', '').trim();
@@ -1088,10 +1094,18 @@ class DeliveryService extends ChangeNotifier {
     if (ApiClient.instance.isAuthenticated) {
       final idempotencyKey =
           'complete_${effectiveId}_${DateTime.now().millisecondsSinceEpoch}';
-      final multipartFile = await http.MultipartFile.fromPath(
-        'pod_photo',
-        podFilePath,
-      );
+      final multipartFile = podBytes != null
+          ? http.MultipartFile.fromBytes(
+              'pod_photo',
+              podBytes,
+              filename: (podFileName != null && podFileName.isNotEmpty)
+                  ? podFileName
+                  : 'pod_photo.jpg',
+            )
+          : await http.MultipartFile.fromPath(
+              'pod_photo',
+              podFilePath,
+            );
 
       await ApiClient.instance.multipartPost(
         ApiConstants.completeDelivery(effectiveId),

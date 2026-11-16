@@ -56,11 +56,73 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
   final TextEditingController _handoverCodeController = TextEditingController();
   bool _handoverCodeVerified = false;
   String? _capturedPodPhotoPath;
+  Uint8List? _capturedPodPhotoBytes;
+  String? _capturedPodPhotoName;
   String? _podRecipientNotes;
 
   // Delivery Completion State
   DateTime? _deliveryCompletedTime;
   bool _isStartingDelivery = false;
+
+  Widget _buildPodImageWidget({double? width, double? height}) {
+    Widget fallbackIcon() => Container(
+          width: width,
+          height: height,
+          color: const Color(0xFF0066FF).withValues(alpha: 0.12),
+          child: const Icon(
+            Icons.photo_camera_rounded,
+            color: Color(0xFF0066FF),
+            size: 24,
+          ),
+        );
+
+    if (_capturedPodPhotoBytes != null && _capturedPodPhotoBytes!.isNotEmpty) {
+      return Image.memory(
+        _capturedPodPhotoBytes!,
+        width: width,
+        height: height,
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) => fallbackIcon(),
+      );
+    }
+
+    final path = _capturedPodPhotoPath;
+    if (path == null || path.isEmpty) {
+      return fallbackIcon();
+    }
+
+    if (path.startsWith('http') || path.startsWith('blob:')) {
+      return Image.network(
+        path,
+        width: width,
+        height: height,
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) => fallbackIcon(),
+      );
+    }
+
+    if (path.startsWith('assets')) {
+      return Image.asset(
+        path,
+        width: width,
+        height: height,
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) => fallbackIcon(),
+      );
+    }
+
+    if (!kIsWeb) {
+      return Image.file(
+        File(path),
+        width: width,
+        height: height,
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) => fallbackIcon(),
+      );
+    }
+
+    return fallbackIcon();
+  }
 
   Future<void> _handleStartDeliveryToCustomer(DeliveryOrder order) async {
     if (_isStartingDelivery) return;
@@ -489,11 +551,16 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                           imageQuality: 85,
                         );
                         if (photo != null) {
+                          final bytes = await photo.readAsBytes();
                           setModalState(() {
                             _capturedPodPhotoPath = photo.path;
+                            _capturedPodPhotoBytes = bytes;
+                            _capturedPodPhotoName = photo.name;
                           });
                           setState(() {
                             _capturedPodPhotoPath = photo.path;
+                            _capturedPodPhotoBytes = bytes;
+                            _capturedPodPhotoName = photo.name;
                           });
                           HapticFeedback.mediumImpact();
                         }
@@ -525,10 +592,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                               children: [
                                 ClipRRect(
                                   borderRadius: BorderRadius.circular(14),
-                                  child: Image.file(
-                                    File(_capturedPodPhotoPath!),
-                                    fit: BoxFit.cover,
-                                  ),
+                                  child: _buildPodImageWidget(),
                                 ),
                                 Positioned(
                                   top: 10,
@@ -720,6 +784,8 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                                       orderId: order.id,
                                       deliveryOtp: otp,
                                       podFilePath: _capturedPodPhotoPath!,
+                                      podBytes: _capturedPodPhotoBytes,
+                                      podFileName: _capturedPodPhotoName,
                                       notes: _podRecipientNotes,
                                     );
                                 if (!ctx.mounted || !mounted) return;
@@ -3976,44 +4042,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                       children: [
                         if (_capturedPodPhotoPath != null &&
                             _capturedPodPhotoPath!.isNotEmpty)
-                          (_capturedPodPhotoPath!.startsWith('http') ||
-                                  _capturedPodPhotoPath!.startsWith('assets'))
-                              ? Image.asset(
-                                  _capturedPodPhotoPath!,
-                                  width: 52,
-                                  height: 52,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) =>
-                                      Container(
-                                        width: 52,
-                                        height: 52,
-                                        color: const Color(0xFF0066FF)
-                                            .withValues(alpha: 0.12),
-                                        child: const Icon(
-                                          Icons.photo_camera_rounded,
-                                          color: Color(0xFF0066FF),
-                                          size: 24,
-                                        ),
-                                      ),
-                                )
-                              : Image.file(
-                                  File(_capturedPodPhotoPath!),
-                                  width: 52,
-                                  height: 52,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) =>
-                                      Container(
-                                        width: 52,
-                                        height: 52,
-                                        color: const Color(0xFF0066FF)
-                                            .withValues(alpha: 0.12),
-                                        child: const Icon(
-                                          Icons.photo_camera_rounded,
-                                          color: Color(0xFF0066FF),
-                                          size: 24,
-                                        ),
-                                      ),
-                                )
+                          _buildPodImageWidget(width: 52, height: 52)
                         else
                           Image.asset(
                             'assets/images/pod_concierge.jpg',
@@ -4500,7 +4529,9 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
         onCtaPressed = _nextStage;
       }
     } else if (_currentStage == 2) {
-      btnText = _isStartingDelivery ? 'STARTING DELIVERY...' : 'START DELIVERY TO CUSTOMER';
+      btnText = _isStartingDelivery
+          ? 'STARTING DELIVERY...'
+          : 'START DELIVERY TO CUSTOMER';
       prefixIcon = Icons.local_shipping_rounded;
       suffixIcon = Icons.arrow_forward_rounded;
       subLinkText = '⚠️ Report Dispatch Discrepancy';
