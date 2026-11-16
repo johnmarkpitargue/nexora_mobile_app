@@ -11,6 +11,72 @@ import '../utils/image_url_helper.dart';
 import '../utils/variant_helper.dart';
 import 'buyer_account_service.dart';
 import 'cart_service.dart';
+import 'platform_voucher_service.dart';
+
+class CheckoutSummaryPreview {
+  final List<Map<String, dynamic>> stores;
+  final List<PlatformVoucherModel> availableVouchers;
+  final double totalSubtotal;
+  final double totalShipping;
+  final double platformDiscount;
+  final double shippingDiscount;
+  final double storeDiscount;
+  final double totalDiscount;
+  final List<String> voucherErrors;
+  final double estimatedTotal;
+
+  const CheckoutSummaryPreview({
+    required this.stores,
+    required this.availableVouchers,
+    required this.totalSubtotal,
+    required this.totalShipping,
+    required this.platformDiscount,
+    required this.shippingDiscount,
+    required this.storeDiscount,
+    required this.totalDiscount,
+    required this.voucherErrors,
+    required this.estimatedTotal,
+  });
+
+  factory CheckoutSummaryPreview.fromJson(Map<String, dynamic> json) {
+    double toDouble(dynamic v) =>
+        v is num ? v.toDouble() : double.tryParse(v?.toString() ?? '') ?? 0.0;
+
+    final rawStores = json['stores'] is List
+        ? (json['stores'] as List)
+            .whereType<Map>()
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList()
+        : <Map<String, dynamic>>[];
+
+    final rawVouchers = json['available_vouchers'] is List
+        ? (json['available_vouchers'] as List)
+            .whereType<Map>()
+            .map((e) => PlatformVoucherModel.fromJson(Map<String, dynamic>.from(e)))
+            .toList()
+        : <PlatformVoucherModel>[];
+
+    final rawErrors = json['voucher_errors'] is List
+        ? (json['voucher_errors'] as List)
+            .map((e) => e.toString())
+            .where((e) => e.trim().isNotEmpty)
+            .toList()
+        : <String>[];
+
+    return CheckoutSummaryPreview(
+      stores: rawStores,
+      availableVouchers: rawVouchers,
+      totalSubtotal: toDouble(json['total_subtotal']),
+      totalShipping: toDouble(json['total_shipping']),
+      platformDiscount: toDouble(json['platform_discount']),
+      shippingDiscount: toDouble(json['shipping_discount']),
+      storeDiscount: toDouble(json['store_discount']),
+      totalDiscount: toDouble(json['total_discount']),
+      voucherErrors: rawErrors,
+      estimatedTotal: toDouble(json['estimated_total']),
+    );
+  }
+}
 
 class OrderStatusHistoryEntry {
   final int id;
@@ -40,6 +106,21 @@ class OrderDisputeInfo {
   final String reason;
   final String details;
   final String status;
+  final String sellerStatus;
+  final String returnStage;
+  final String? sellerResponse;
+  final String? returnInstructions;
+  final String? returnTrackingNumber;
+  final String? returnReceivedAt;
+  final String? inspectionCondition;
+  final String? inspectionNotes;
+  final bool? restockApproved;
+  final double? refundAmount;
+  final String? refundMethod;
+  final String? refundReference;
+  final String? refundAuthorizedAt;
+  final String? refundRecordedAt;
+  final String? resolutionNote;
   final List<String> mediaPaths;
   final String createdAt;
 
@@ -48,9 +129,47 @@ class OrderDisputeInfo {
     required this.reason,
     required this.details,
     required this.status,
+    this.sellerStatus = 'pending',
+    this.returnStage = 'requested',
+    this.sellerResponse,
+    this.returnInstructions,
+    this.returnTrackingNumber,
+    this.returnReceivedAt,
+    this.inspectionCondition,
+    this.inspectionNotes,
+    this.restockApproved,
+    this.refundAmount,
+    this.refundMethod,
+    this.refundReference,
+    this.refundAuthorizedAt,
+    this.refundRecordedAt,
+    this.resolutionNote,
     required this.mediaPaths,
     required this.createdAt,
   });
+
+  String get stageLabel {
+    switch (returnStage) {
+      case 'approved_awaiting_return':
+        return 'Approved — Awaiting Return Shipment';
+      case 'in_return_transit':
+        return 'Return Parcel in Transit';
+      case 'received_for_inspection':
+        return 'Received by Seller — Pending Inspection';
+      case 'inspected':
+        return 'Inspected — Refund Pending';
+      case 'refund_authorized':
+        return 'Refund Authorized';
+      case 'refund_recorded':
+        return 'Refund Recorded';
+      case 'rejected':
+        return 'Return Request Rejected';
+      default:
+        return sellerStatus == 'approved'
+            ? 'Approved — Awaiting Return'
+            : (status == 'resolved' ? 'Resolved' : 'Return Requested');
+    }
+  }
 
   factory OrderDisputeInfo.fromJson(Map<String, dynamic> json) {
     final rawMedia = json['media_paths'] as List? ?? const [];
@@ -63,6 +182,23 @@ class OrderDisputeInfo {
       reason: (json['reason'] ?? '').toString().trim(),
       details: (json['details'] ?? '').toString().trim(),
       status: (json['status'] ?? 'open').toString().trim(),
+      sellerStatus: (json['seller_status'] ?? 'pending').toString().trim(),
+      returnStage: (json['return_stage'] ?? 'requested').toString().trim(),
+      sellerResponse: json['seller_response']?.toString(),
+      returnInstructions: json['return_instructions']?.toString(),
+      returnTrackingNumber: json['return_tracking_number']?.toString(),
+      returnReceivedAt: json['return_received_at']?.toString(),
+      inspectionCondition: json['inspection_condition']?.toString(),
+      inspectionNotes: json['inspection_notes']?.toString(),
+      restockApproved: json['restock_approved'] as bool?,
+      refundAmount: json['refund_amount'] != null
+          ? double.tryParse(json['refund_amount'].toString())
+          : null,
+      refundMethod: json['refund_method']?.toString(),
+      refundReference: json['refund_reference']?.toString(),
+      refundAuthorizedAt: json['refund_authorized_at']?.toString(),
+      refundRecordedAt: json['refund_recorded_at']?.toString(),
+      resolutionNote: json['resolution_note']?.toString(),
       mediaPaths: resolvedMedia,
       createdAt: (json['created_at'] ?? '').toString().trim(),
     );
@@ -210,6 +346,7 @@ class OrderItemModel {
   final List<OrderStatusHistoryEntry> statusHistory;
   final OrderDisputeInfo? dispute;
   final OrderReviewInfo? review;
+  final Map<String, dynamic>? trackingSummary;
 
   OrderItemModel({
     this.serverId = 0,
@@ -264,6 +401,7 @@ class OrderItemModel {
     this.statusHistory = const [],
     this.dispute,
     this.review,
+    this.trackingSummary,
   }) : buyerEmail = buyerEmail ?? '',
        orderDateTimeText = orderDateTimeText ?? dateText,
        subtotal = subtotal ?? totalPrice,
@@ -744,6 +882,7 @@ class OrderItemModel {
       statusHistory: statusHistory ?? this.statusHistory,
       dispute: dispute ?? this.dispute,
       review: review ?? this.review,
+      trackingSummary: trackingSummary,
     );
   }
 
@@ -961,6 +1100,9 @@ class OrderItemModel {
       statusHistory: historyList,
       dispute: dispute,
       review: review,
+      trackingSummary: json['tracking_summary'] is Map<String, dynamic>
+          ? Map<String, dynamic>.from(json['tracking_summary'] as Map)
+          : null,
     );
   }
 }
@@ -1252,6 +1394,46 @@ class OrderService extends ChangeNotifier {
     return updated;
   }
 
+  /// Fetch authoritative checkout subtotal, weight-based shipping fee,
+  /// available DB vouchers, and voucher discount breakdown from Laravel.
+  Future<CheckoutSummaryPreview> fetchCheckoutSummaryRemote({
+    List<int>? cartItemIds,
+    int? platformVoucherId,
+    int? shippingVoucherId,
+    int? storeVoucherId,
+  }) async {
+    if (!ApiClient.instance.hasToken) {
+      throw const ApiException(
+        message: 'Please sign in to preview checkout totals.',
+        statusCode: 401,
+      );
+    }
+
+    final res = await ApiClient.instance.get(
+      ApiConstants.checkoutSummary,
+      queryParams: <String, dynamic>{
+        if (cartItemIds != null && cartItemIds.isNotEmpty)
+          'cart_item_ids': cartItemIds.join(','),
+        if (platformVoucherId != null && platformVoucherId > 0)
+          'platform_voucher_id': platformVoucherId.toString(),
+        if (shippingVoucherId != null && shippingVoucherId > 0)
+          'shipping_voucher_id': shippingVoucherId.toString(),
+        if (storeVoucherId != null && storeVoucherId > 0)
+          'store_voucher_id': storeVoucherId.toString(),
+      },
+    );
+
+    final payload = res.data;
+    if (payload is! Map<String, dynamic>) {
+      throw const ApiException(
+        message: 'Unexpected server response when loading checkout summary.',
+        statusCode: 500,
+      );
+    }
+
+    return CheckoutSummaryPreview.fromJson(payload);
+  }
+
   /// Place order on Laravel backend API (`POST /api/mobile/v1/buyer/checkout`).
   Future<List<Map<String, dynamic>>> placeOrderRemote({
     required int addressId,
@@ -1484,6 +1666,38 @@ class OrderService extends ChangeNotifier {
       message: 'Return submitted, but order details were missing.',
       statusCode: 500,
     );
+  }
+
+  /// Buyer submits return shipment tracking number after seller approval.
+  Future<OrderItemModel> submitReturnShipmentRemote(
+    int serverId, {
+    required String returnTrackingNumber,
+  }) async {
+    if (!ApiClient.instance.hasToken) {
+      throw const ApiException(
+        message: 'Please sign in to submit return shipment tracking.',
+        statusCode: 401,
+      );
+    }
+    final res = await ApiClient.instance.post(
+      ApiConstants.returnShipment(serverId),
+      body: {'return_tracking_number': returnTrackingNumber.trim()},
+    );
+    final rawData = res.data;
+    final orderMap = (rawData is Map && rawData['order'] is Map<String, dynamic>)
+        ? rawData['order'] as Map<String, dynamic>
+        : (rawData is Map<String, dynamic> ? rawData : null);
+    if (orderMap != null) {
+      final updated = OrderItemModel.fromApiJson(orderMap);
+      _upsertOrder(updated);
+      notifyListeners();
+      unawaited(fetchOrdersRemote());
+      return updated;
+    }
+    await fetchOrdersRemote();
+    final refetched = findOrderByServerId(serverId);
+    if (refetched != null) return refetched;
+    return await fetchOrderDetailRemote(serverId);
   }
 
   /// Submit or edit product review via Laravel backend API.

@@ -1052,6 +1052,39 @@ class _OrdersPageState extends State<OrdersPage>
                       );
                     }
 
+                    // 2b. Submit Return Tracking (after seller approval)
+                    if (order.dispute != null &&
+                        order.dispute!.returnStage == 'approved_awaiting_return' &&
+                        order.serverId > 0) {
+                      buttons.add(
+                        ElevatedButton.icon(
+                          onPressed: () =>
+                              OrderActionDialogs.showReturnShipmentDialog(
+                                context,
+                                order,
+                              ),
+                          icon: const Icon(Icons.local_shipping_outlined, size: 14),
+                          label: const Text(
+                            'Submit Return Tracking',
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: theme.colorScheme.primary,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 11,
+                              vertical: 7,
+                            ),
+                            minimumSize: const Size(0, 32),
+                          ),
+                        ),
+                      );
+                    }
+
                     // 3. Order Received (Primary action for receipt confirmation)
                     if (canConfirmReceipt) {
                       buttons.add(

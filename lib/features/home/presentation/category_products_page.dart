@@ -29,11 +29,11 @@ class _CategoryProductsPageState extends State<CategoryProductsPage> {
   void initState() {
     super.initState();
     ShopService.instance.addListener(_onServiceUpdate);
-    if (ShopService.instance.products.isEmpty) {
-      ShopService.instance.loadCatalogRemote(
-        category: widget.category == 'All' ? null : widget.category,
-      ).catchError((_) => <ProductModel>[]);
-    }
+    ShopService.instance
+        .loadCatalogRemote(
+          category: widget.category == 'All' ? null : widget.category,
+        )
+        .catchError((_) => <ProductModel>[]);
   }
 
   void _onServiceUpdate() {
@@ -55,9 +55,7 @@ class _CategoryProductsPageState extends State<CategoryProductsPage> {
   }
 
   List<ProductModel> get _filteredProducts {
-    final all = ShopService.instance.products.isNotEmpty
-        ? ShopService.instance.products.where((p) => p.isActive).toList()
-        : ShopService.allAppProducts.where((p) => p.isActive).toList();
+    final all = ShopService.instance.products.where((p) => p.isActive).toList();
     final catLower = widget.category.toLowerCase().trim();
 
     List<ProductModel> matching;

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -48,9 +49,11 @@ class ApiClient {
 
   static const String _tokenKey = 'nexora_auth_token';
   static const String _userRoleKey = 'nexora_auth_role';
+  static const Duration requestTimeout = Duration(seconds: 30);
 
   String? _cachedToken;
   http.Client _client = http.Client();
+  VoidCallback? onUnauthorized;
 
   /// Visible for testing to inject custom mock client
   void setMockClient(http.Client client) {
@@ -136,6 +139,24 @@ class ApiClient {
     return headers;
   }
 
+  Future<T> _runNetwork<T>(Future<T> Function() fn) async {
+    try {
+      return await fn().timeout(requestTimeout);
+    } on ApiException {
+      rethrow;
+    } on TimeoutException {
+      throw const ApiException(
+        message: 'Request timed out. Please check your connection and try again.',
+        statusCode: 0,
+      );
+    } catch (e) {
+      throw const ApiException(
+        message: 'Unable to reach Nexora servers. Please check your internet connection.',
+        statusCode: 0,
+      );
+    }
+  }
+
   Future<ApiResponse<dynamic>> get(
     String path, {
     Map<String, dynamic>? queryParams,
@@ -144,13 +165,15 @@ class ApiClient {
   }) async {
     final uri = _buildUri(path, queryParams);
     final sw = Stopwatch()..start();
-    final response = await _client.get(
-      uri,
-      headers: _buildHeaders(extraHeaders: headers ?? extraHeaders),
+    final response = await _runNetwork(
+      () => _client.get(
+        uri,
+        headers: _buildHeaders(extraHeaders: headers ?? extraHeaders),
+      ),
     );
     sw.stop();
     _logRequest('GET', uri, response.statusCode, sw.elapsedMilliseconds);
-    return _handleResponse(response);
+    return _handleResponse(response, uri.path);
   }
 
   Future<ApiResponse<dynamic>> post(
@@ -176,17 +199,19 @@ class ApiClient {
     Map<String, String>? headers,
   }) async {
     final sw = Stopwatch()..start();
-    final response = await _client.post(
-      uri,
-      headers: _buildHeaders(
-        idempotencyKey: idempotencyKey,
-        extraHeaders: headers,
+    final response = await _runNetwork(
+      () => _client.post(
+        uri,
+        headers: _buildHeaders(
+          idempotencyKey: idempotencyKey,
+          extraHeaders: headers,
+        ),
+        body: body != null ? jsonEncode(body) : null,
       ),
-      body: body != null ? jsonEncode(body) : null,
     );
     sw.stop();
     _logRequest('POST', uri, response.statusCode, sw.elapsedMilliseconds);
-    return _handleResponse(response);
+    return _handleResponse(response, uri.path);
   }
 
   Future<ApiResponse<dynamic>> put(
@@ -197,14 +222,16 @@ class ApiClient {
   }) async {
     final uri = _buildUri(path);
     final sw = Stopwatch()..start();
-    final response = await _client.put(
-      uri,
-      headers: _buildHeaders(extraHeaders: headers ?? extraHeaders),
-      body: body != null ? jsonEncode(body) : null,
+    final response = await _runNetwork(
+      () => _client.put(
+        uri,
+        headers: _buildHeaders(extraHeaders: headers ?? extraHeaders),
+        body: body != null ? jsonEncode(body) : null,
+      ),
     );
     sw.stop();
     _logRequest('PUT', uri, response.statusCode, sw.elapsedMilliseconds);
-    return _handleResponse(response);
+    return _handleResponse(response, uri.path);
   }
 
   Future<ApiResponse<dynamic>> patch(
@@ -215,14 +242,16 @@ class ApiClient {
   }) async {
     final uri = _buildUri(path);
     final sw = Stopwatch()..start();
-    final response = await _client.patch(
-      uri,
-      headers: _buildHeaders(extraHeaders: headers ?? extraHeaders),
-      body: body != null ? jsonEncode(body) : null,
+    final response = await _runNetwork(
+      () => _client.patch(
+        uri,
+        headers: _buildHeaders(extraHeaders: headers ?? extraHeaders),
+        body: body != null ? jsonEncode(body) : null,
+      ),
     );
     sw.stop();
     _logRequest('PATCH', uri, response.statusCode, sw.elapsedMilliseconds);
-    return _handleResponse(response);
+    return _handleResponse(response, uri.path);
   }
 
   Future<ApiResponse<dynamic>> delete(
@@ -233,14 +262,16 @@ class ApiClient {
   }) async {
     final uri = _buildUri(path);
     final sw = Stopwatch()..start();
-    final response = await _client.delete(
-      uri,
-      headers: _buildHeaders(extraHeaders: headers ?? extraHeaders),
-      body: body != null ? jsonEncode(body) : null,
+    final response = await _runNetwork(
+      () => _client.delete(
+        uri,
+        headers: _buildHeaders(extraHeaders: headers ?? extraHeaders),
+        body: body != null ? jsonEncode(body) : null,
+      ),
     );
     sw.stop();
     _logRequest('DELETE', uri, response.statusCode, sw.elapsedMilliseconds);
-    return _handleResponse(response);
+    return _handleResponse(response, uri.path);
   }
 
   Future<ApiResponse<dynamic>> multipart(
@@ -266,14 +297,20 @@ class ApiClient {
     }
 
     final sw = Stopwatch()..start();
-    final streamedResponse = await _client.send(request);
-    final response = await http.Response.fromStream(streamedResponse);
+    final response = await _runNetwork(() async {
+      final streamedResponse = await _client.send(request);
+      return http.Response.fromStream(streamedResponse);
+    });
     sw.stop();
     _logRequest(method.toUpperCase(), uri, response.statusCode, sw.elapsedMilliseconds);
-    return _handleResponse(response);
+    return _handleResponse(response, uri.path);
   }
 
-  ApiResponse<dynamic> _handleResponse(http.Response response) {
+  ApiResponse<dynamic> _handleResponse(http.Response response, [String requestPath = '']) {
+    if (response.statusCode == 401 && !requestPath.contains('/auth/')) {
+      clearToken();
+      onUnauthorized?.call();
+    }
     dynamic decoded;
     try {
       decoded = response.body.isNotEmpty ? jsonDecode(response.body) : null;

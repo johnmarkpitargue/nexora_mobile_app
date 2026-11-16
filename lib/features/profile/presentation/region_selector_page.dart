@@ -63,6 +63,11 @@ class _RegionSelectorPageState extends State<RegionSelectorPage> {
   String? _selectedBarangay;
   String? _selectedBarangayCode;
 
+  bool _isLoadingLocations = false;
+  List<PsgcLocationItem> _remoteProvinces = [];
+  List<PsgcLocationItem> _remoteCities = [];
+  List<PsgcLocationItem> _remoteBarangays = [];
+
   @override
   void initState() {
     super.initState();
@@ -81,6 +86,25 @@ class _RegionSelectorPageState extends State<RegionSelectorPage> {
     }
     if (_selectedBarangay != null && _selectedCityCode != null) {
       _selectedBarangayCode = PsgcLocationService.resolveBarangayCode(_selectedBarangay!, _selectedCityCode!);
+    }
+    _bootstrapPsgcLocations();
+  }
+
+  Future<void> _bootstrapPsgcLocations() async {
+    setState(() => _isLoadingLocations = true);
+    try {
+      final provinces = await PsgcLocationService.instance.getProvinces();
+      if (!mounted) return;
+      _remoteProvinces = provinces;
+      if (_selectedProvinceCode != null && _selectedProvinceCode!.isNotEmpty) {
+        _remoteCities = await PsgcLocationService.instance.getCities(_selectedProvinceCode!);
+      }
+      if (!mounted) return;
+      if (_selectedCityCode != null && _selectedCityCode!.isNotEmpty) {
+        _remoteBarangays = await PsgcLocationService.instance.getBarangays(_selectedCityCode!);
+      }
+    } finally {
+      if (mounted) setState(() => _isLoadingLocations = false);
     }
   }
 
@@ -129,18 +153,36 @@ class _RegionSelectorPageState extends State<RegionSelectorPage> {
   List<String> get _currentItems {
     switch (_currentStep) {
       case 0:
-        return PhLocationHierarchy.regions;
+        final apiRegions = _remoteProvinces
+            .map((p) => p.regionName?.trim() ?? '')
+            .where((r) => r.isNotEmpty)
+            .toSet()
+            .toList();
+        return apiRegions.isNotEmpty ? apiRegions : PhLocationHierarchy.regions;
       case 1:
-        return PhLocationHierarchy.getProvinces(_selectedRegion!);
+        final apiProvs = _remoteProvinces
+            .where((p) =>
+                (p.regionName ?? '').toLowerCase() ==
+                (_selectedRegion ?? '').toLowerCase())
+            .map((p) => p.name)
+            .toList();
+        return apiProvs.isNotEmpty
+            ? apiProvs
+            : PhLocationHierarchy.getProvinces(_selectedRegion!);
       case 2:
+        if (_remoteCities.isNotEmpty) {
+          return _remoteCities.map((c) => c.name).toList();
+        }
         return PhLocationHierarchy.getCities(_selectedRegion!, _selectedProvince!);
       case 3:
       default:
-        final list = PhLocationHierarchy.getBarangays(
-          _selectedRegion!,
-          _selectedProvince!,
-          _selectedCity!,
-        );
+        final list = _remoteBarangays.isNotEmpty
+            ? _remoteBarangays.map((b) => b.name).toList()
+            : PhLocationHierarchy.getBarangays(
+                _selectedRegion!,
+                _selectedProvince!,
+                _selectedCity!,
+              );
         return List<String>.from(list)..sort();
     }
   }
@@ -154,10 +196,10 @@ class _RegionSelectorPageState extends State<RegionSelectorPage> {
     return grouped;
   }
 
-  void _onItemSelected(String item) {
-    setState(() {
-      switch (_currentStep) {
-        case 0:
+  Future<void> _onItemSelected(String item) async {
+    switch (_currentStep) {
+      case 0:
+        setState(() {
           _selectedRegion = item;
           _selectedRegionCode = PsgcLocationService.resolveRegionCode(item);
           _selectedProvince = null;
@@ -166,28 +208,73 @@ class _RegionSelectorPageState extends State<RegionSelectorPage> {
           _selectedCityCode = null;
           _selectedBarangay = null;
           _selectedBarangayCode = null;
-          break;
-        case 1:
+          _remoteCities = [];
+          _remoteBarangays = [];
+        });
+        break;
+      case 1:
+        final matchedProv = _remoteProvinces
+            .where((p) => p.name.toLowerCase() == item.toLowerCase())
+            .firstOrNull;
+        final provCode = matchedProv?.code.isNotEmpty == true
+            ? matchedProv!.code
+            : PsgcLocationService.resolveProvinceCode(item);
+        setState(() {
           _selectedProvince = item;
-          _selectedProvinceCode = PsgcLocationService.resolveProvinceCode(item);
+          _selectedProvinceCode = provCode;
           _selectedCity = null;
           _selectedCityCode = null;
           _selectedBarangay = null;
           _selectedBarangayCode = null;
-          break;
-        case 2:
+          _remoteCities = [];
+          _remoteBarangays = [];
+          _isLoadingLocations = true;
+        });
+        final cities = await PsgcLocationService.instance.getCities(provCode);
+        if (!mounted) return;
+        setState(() {
+          _remoteCities = cities;
+          _isLoadingLocations = false;
+        });
+        break;
+      case 2:
+        final matchedCity = _remoteCities
+            .where((c) => c.name.toLowerCase() == item.toLowerCase())
+            .firstOrNull;
+        final cityCode = matchedCity?.code.isNotEmpty == true
+            ? matchedCity!.code
+            : PsgcLocationService.resolveCityCode(item, _selectedProvinceCode);
+        setState(() {
           _selectedCity = item;
-          _selectedCityCode = PsgcLocationService.resolveCityCode(item, _selectedProvinceCode);
+          _selectedCityCode = cityCode;
           _selectedBarangay = null;
           _selectedBarangayCode = null;
-          break;
-        case 3:
+          _remoteBarangays = [];
+          _isLoadingLocations = true;
+        });
+        final brgys = await PsgcLocationService.instance.getBarangays(cityCode);
+        if (!mounted) return;
+        setState(() {
+          _remoteBarangays = brgys;
+          _isLoadingLocations = false;
+        });
+        break;
+      case 3:
+        final matchedBrgy = _remoteBarangays
+            .where((b) => b.name.toLowerCase() == item.toLowerCase())
+            .firstOrNull;
+        setState(() {
           _selectedBarangay = item;
-          _selectedBarangayCode = PsgcLocationService.resolveBarangayCode(item, _selectedCityCode ?? '043426000');
-          _finishSelection();
-          break;
-      }
-    });
+          _selectedBarangayCode = matchedBrgy?.code.isNotEmpty == true
+              ? matchedBrgy!.code
+              : PsgcLocationService.resolveBarangayCode(
+                  item,
+                  _selectedCityCode ?? '043426000',
+                );
+        });
+        _finishSelection();
+        break;
+    }
   }
 
   void _finishSelection() {
@@ -460,7 +547,7 @@ class _RegionSelectorPageState extends State<RegionSelectorPage> {
               title: _selectedBarangay!,
               isCurrent: true,
               isLastActive: true,
-              onTap: () {},
+              onTap: _finishSelection,
             ),
         ],
       ),
@@ -552,6 +639,9 @@ class _RegionSelectorPageState extends State<RegionSelectorPage> {
   }
 
   Widget _buildItemsList() {
+    if (_isLoadingLocations && _currentItems.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
     final items = _currentItems;
     final grouped = _groupAlphabetically(items);
     final sortedKeys = grouped.keys.toList()..sort();

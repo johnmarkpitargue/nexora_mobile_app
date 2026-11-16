@@ -57,9 +57,10 @@ class _LoginPromptSheet extends StatelessWidget {
         top: 20,
         bottom: MediaQuery.of(context).viewInsets.bottom + 28,
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
           // Drag handle
           Container(
             width: 44,
@@ -130,37 +131,49 @@ class _LoginPromptSheet extends StatelessWidget {
 
           // Trust Badges Pill Row
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
               color: const Color(0xFFF8FAFC),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: const Color(0xFFE2E8F0)),
             ),
-            child: const Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+            child: const Wrap(
+              alignment: WrapAlignment.center,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8,
+              runSpacing: 4,
               children: [
-                Icon(Icons.shield_outlined, size: 15, color: Color(0xFF059669)),
-                SizedBox(width: 5),
-                Text(
-                  '100% Authentic',
-                  style: TextStyle(
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF334155),
-                  ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.shield_outlined, size: 15, color: Color(0xFF059669)),
+                    SizedBox(width: 5),
+                    Text(
+                      '100% Authentic',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF334155),
+                      ),
+                    ),
+                  ],
                 ),
-                SizedBox(width: 10),
                 Text('•', style: TextStyle(color: Color(0xFFCBD5E1))),
-                SizedBox(width: 10),
-                Icon(Icons.local_shipping_outlined, size: 15, color: Color(0xFF0284C7)),
-                SizedBox(width: 5),
-                Text(
-                  'Doorstep Delivery',
-                  style: TextStyle(
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF334155),
-                  ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.local_shipping_outlined, size: 15, color: Color(0xFF0284C7)),
+                    SizedBox(width: 5),
+                    Text(
+                      'Doorstep Delivery',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF334155),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -202,12 +215,15 @@ class _LoginPromptSheet extends StatelessWidget {
               child: const Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(
-                    'Sign In to Account',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 15.5,
-                      fontWeight: FontWeight.w800,
+                  Flexible(
+                    child: Text(
+                      'Sign In to Account',
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 15.5,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                   ),
                   SizedBox(width: 6),
@@ -258,6 +274,7 @@ class _LoginPromptSheet extends StatelessWidget {
             ),
           ),
         ],
+      ),
       ),
     );
   }

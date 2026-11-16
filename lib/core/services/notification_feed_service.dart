@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 
 import '../../app/routes/app_routes.dart';
+import '../constants/api_constants.dart';
+import '../network/api_client.dart';
 import 'chat_service.dart';
-import 'order_service.dart';
 
 class NotificationEntryModel {
   final String id;
-  final String type; // 'Orders', 'Messages', 'Promos', 'System'
+  final String type; // 'Orders', 'Messages', 'System'
   final IconData icon;
   final String title;
   final String message;
@@ -56,62 +57,125 @@ class NotificationEntryModel {
   }
 }
 
-/// Centralized notification feed service powering the Notifications inbox,
-/// unread bell badges, and notification preference test triggers.
+/// Real database-backed notification feed service consuming `/api/mobile/v1/notifications`.
+/// Returns an empty list cleanly when the backend has zero notifications.
 class NotificationFeedService extends ChangeNotifier {
   static final NotificationFeedService instance =
       NotificationFeedService._internal();
 
-  NotificationFeedService._internal() {
-    _initDefaultFeed();
-  }
+  NotificationFeedService._internal();
 
   final List<NotificationEntryModel> _feed = [];
+  bool _isLoading = false;
+  String? _errorMessage;
+  int _remoteUnreadCount = 0;
 
-  List<NotificationEntryModel> get notifications =>
-      List.unmodifiable(_feed);
+  bool get isLoading => _isLoading;
+  String? get errorMessage => _errorMessage;
+  List<NotificationEntryModel> get notifications => List.unmodifiable(_feed);
 
-  int get unreadCount => _feed.where((n) => !n.isRead).length;
-
-  void _initDefaultFeed() {
-    _feed.addAll([
-      NotificationEntryModel(
-        id: 'notif_welcome_promo',
-        type: 'Promos',
-        icon: Icons.local_offer_rounded,
-        title: 'Welcome to Nexora! ₱100 Off Voucher',
-        message:
-            'Use voucher code NEXORA100 on checkout to enjoy ₱100 off your order. Valid on all stores.',
-        time: 'Just now',
-        route: AppRoutes.home,
-        isRead: false,
-      ),
-      NotificationEntryModel(
-        id: 'notif_courier_tracking',
-        type: 'Orders',
-        icon: Icons.two_wheeler_rounded,
-        title: 'Real-Time Courier & GPS Dispatch Active',
-        message:
-            'Door-to-door courier tracking is active for your deliveries. You will receive live alerts when riders are en route.',
-        time: 'Today',
-        route: AppRoutes.orders,
-        isRead: false,
-      ),
-      NotificationEntryModel(
-        id: 'notif_security_buyer',
-        type: 'System',
-        icon: Icons.verified_user_rounded,
-        title: 'Nexora Buyer Protection Guarantee',
-        message:
-            'All orders placed on Nexora are safeguarded with 100% verified merchant authentications and free 7-day returns.',
-        time: 'Yesterday',
-        route: AppRoutes.home,
-        isRead: true,
-      ),
-    ]);
+  int get unreadCount {
+    if (!ApiClient.instance.hasToken) return 0;
+    final localUnread = _feed.where((n) => !n.isRead).length;
+    return _remoteUnreadCount > 0 ? _remoteUnreadCount : localUnread;
   }
 
-  /// Adds a new notification to the top of the feed and notifies listeners.
+  Future<void> fetchNotificationsRemote() async {
+    if (!ApiClient.instance.hasToken) {
+      _feed.clear();
+      _remoteUnreadCount = 0;
+      _errorMessage = null;
+      notifyListeners();
+      return;
+    }
+
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final res = await ApiClient.instance.get(ApiConstants.notifications);
+      final data = res['data'];
+      if (data is Map<String, dynamic>) {
+        final rawList = data['notifications'] as List? ?? [];
+        _remoteUnreadCount =
+            int.tryParse((data['unread_count'] ?? 0).toString()) ?? 0;
+
+        _feed
+          ..clear()
+          ..addAll(rawList.whereType<Map<String, dynamic>>().map((item) {
+            final rawType = (item['type'] ?? '').toString().toLowerCase();
+            final isOrder =
+                rawType.contains('order') || item['order_id'] != null;
+            final categoryType = isOrder ? 'Orders' : 'System';
+
+            return NotificationEntryModel(
+              id: item['id'].toString(),
+              type: categoryType,
+              icon: isOrder
+                  ? Icons.local_shipping_outlined
+                  : Icons.notifications_outlined,
+              title: item['title']?.toString() ?? 'Nexora Update',
+              message: item['message']?.toString() ?? '',
+              time: item['created_human']?.toString() ?? 'Recently',
+              route: isOrder ? AppRoutes.orders : AppRoutes.notifications,
+              routeArgs: item['order_id'] != null
+                  ? {'orderId': item['order_id'].toString()}
+                  : null,
+              isRead: item['is_read'] == true,
+              createdAt:
+                  DateTime.tryParse(item['created_at']?.toString() ?? '') ??
+                      DateTime.now(),
+            );
+          }));
+      }
+    } on ApiException catch (e) {
+      _errorMessage = e.message;
+    } catch (_) {
+      _errorMessage = 'Unable to load notifications right now.';
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> markAsRead(String id) async {
+    final idx = _feed.indexWhere((n) => n.id == id);
+    if (idx != -1 && !_feed[idx].isRead) {
+      _feed[idx].isRead = true;
+      if (_remoteUnreadCount > 0) _remoteUnreadCount--;
+      notifyListeners();
+    }
+
+    if (ApiClient.instance.hasToken && !id.startsWith('local_')) {
+      try {
+        final res = await ApiClient.instance
+            .post(ApiConstants.readNotification(id));
+        final data = res['data'];
+        if (data is Map<String, dynamic> && data['unread_count'] != null) {
+          _remoteUnreadCount =
+              int.tryParse(data['unread_count'].toString()) ?? 0;
+          notifyListeners();
+        }
+      } catch (_) {}
+    }
+  }
+
+  Future<void> markAllAsRead() async {
+    for (final n in _feed) {
+      n.isRead = true;
+    }
+    _remoteUnreadCount = 0;
+    ChatService.instance.markAllAsRead();
+    notifyListeners();
+
+    if (ApiClient.instance.hasToken) {
+      try {
+        await ApiClient.instance.post(ApiConstants.readAllNotifications);
+      } catch (_) {}
+    }
+  }
+
   void addNotification({
     required String title,
     required String message,
@@ -121,99 +185,37 @@ class NotificationFeedService extends ChangeNotifier {
     dynamic routeArgs,
     String? time,
   }) {
-    final entry = NotificationEntryModel(
-      id: 'notif_${DateTime.now().millisecondsSinceEpoch}',
-      type: type,
-      icon: icon,
-      title: title,
-      message: message,
-      time: time ?? 'Just now',
-      route: route,
-      routeArgs: routeArgs,
-      isRead: false,
+    _feed.insert(
+      0,
+      NotificationEntryModel(
+        id: 'local_${DateTime.now().millisecondsSinceEpoch}',
+        type: type,
+        icon: icon,
+        title: title,
+        message: message,
+        time: time ?? 'Just now',
+        route: route,
+        routeArgs: routeArgs,
+        isRead: false,
+      ),
     );
-
-    _feed.insert(0, entry);
+    _remoteUnreadCount++;
     notifyListeners();
   }
 
-  /// Marks a specific notification as read.
-  void markAsRead(String id) {
-    final idx = _feed.indexWhere((n) => n.id == id);
-    if (idx != -1 && !_feed[idx].isRead) {
-      _feed[idx].isRead = true;
-      notifyListeners();
-    }
-  }
-
-  /// Marks all notifications as read.
-  void markAllAsRead() {
-    bool changed = false;
-    for (final n in _feed) {
-      if (!n.isRead) {
-        n.isRead = true;
-        changed = true;
-      }
-    }
-    ChatService.instance.markAllAsRead();
-    if (changed) {
-      notifyListeners();
-    }
-  }
-
-  /// Clears a single notification.
   void removeNotification(String id) {
     _feed.removeWhere((n) => n.id == id);
     notifyListeners();
   }
 
-  /// Aggregates both stored feed items, live orders, and live messages into a unified list.
+  void clear() {
+    _feed.clear();
+    _remoteUnreadCount = 0;
+    _errorMessage = null;
+    notifyListeners();
+  }
+
   List<NotificationEntryModel> getCombinedEntries() {
-    final List<NotificationEntryModel> combined = List.from(_feed);
-
-    // Dynamic active orders
-    for (final order in OrderService.instance.activeOrders) {
-      if (!combined.any((n) => n.id == 'order_${order.orderId}')) {
-        combined.insert(
-          0,
-          NotificationEntryModel(
-            id: 'order_${order.orderId}',
-            type: 'Orders',
-            icon: Icons.local_shipping_outlined,
-            title: 'Order ${order.statusText}',
-            message:
-                'Order ${order.orderId} is currently ${order.statusText.toLowerCase()} (${order.etaText}). Tap for live tracking.',
-            time: order.dateText,
-            route: AppRoutes.orders,
-            routeArgs: {'orderId': order.orderId},
-            isRead: false,
-          ),
-        );
-      }
-    }
-
-    // Dynamic unread chats
-    for (final conv in ChatService.instance.conversations) {
-      if (conv.unread > 0 &&
-          !combined.any((n) => n.id == 'chat_${conv.id}')) {
-        combined.insert(
-          0,
-          NotificationEntryModel(
-            id: 'chat_${conv.id}',
-            type: 'Messages',
-            icon: Icons.chat_bubble_outline_rounded,
-            title: conv.title,
-            message: conv.subtitle,
-            time: conv.time,
-            route: AppRoutes.chat,
-            routeArgs: {'conversationId': conv.id},
-            isRead: false,
-          ),
-        );
-      }
-    }
-
-    return combined;
+    return List<NotificationEntryModel>.unmodifiable(_feed);
   }
 }
-

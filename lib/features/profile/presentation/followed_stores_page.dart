@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../app/routes/app_routes.dart';
 import '../../../../core/models/shop_models.dart';
+import '../../../../core/network/api_client.dart';
 import '../../../../core/services/shop_service.dart';
 
 class FollowedStoresPage extends StatefulWidget {
@@ -13,6 +14,16 @@ class FollowedStoresPage extends StatefulWidget {
 class _FollowedStoresPageState extends State<FollowedStoresPage> {
   final TextEditingController _searchController = TextEditingController();
   String _filterText = '';
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (ApiClient.instance.hasToken) {
+        ShopService.instance.fetchFollowedStoresRemote().catchError((_) => <ShopModel>[]);
+      }
+    });
+  }
 
   @override
   void dispose() {
@@ -355,7 +366,9 @@ class _FollowedStoresPageState extends State<FollowedStoresPage> {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        '${shop.followers} Followers • ${shop.categoryGroupTitle}',
+                        shop.followers.toLowerCase().contains('follower')
+                            ? '${shop.followers} • ${shop.categoryGroupTitle}'
+                            : '${shop.followers} Followers • ${shop.categoryGroupTitle}',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
@@ -393,8 +406,18 @@ class _FollowedStoresPageState extends State<FollowedStoresPage> {
                             borderRadius: BorderRadius.circular(8),
                           ),
                         ),
-                        onPressed: () {
-                          shopService.toggleFollow(shop.id);
+                        onPressed: () async {
+                          try {
+                            await shopService.toggleFollowRemote(shop.id);
+                          } catch (_) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Unable to update store follow status.'),
+                                ),
+                              );
+                            }
+                          }
                         },
                         child: Text(
                           isFollowed ? 'Following' : '+ Follow',

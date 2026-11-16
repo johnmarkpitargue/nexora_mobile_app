@@ -13,6 +13,7 @@ import 'package:nexora_flutter_app/core/services/supabase_auth_service.dart';
 
 import '../../../app/routes/app_routes.dart';
 import '../../../app/theme/nexora_theme.dart';
+import '../../../core/network/api_client.dart';
 import '../../../core/utils/guest_auth_guard.dart';
 import 'account_security_modal.dart';
 import 'widgets/profile_components.dart';
@@ -89,6 +90,30 @@ class _ProfilePageState extends State<ProfilePage> {
             );
           }
           return;
+        }
+
+        if (ApiClient.instance.hasToken) {
+          final remoteRes = await BuyerAccountService.instance.updateProfileRemote(
+            firstName:
+                session?.firstName ??
+                ProfileService.instance.name.split(' ').first,
+            lastName:
+                session?.lastName ??
+                (ProfileService.instance.name.split(' ').length > 1
+                    ? ProfileService.instance.name.split(' ').sublist(1).join(' ')
+                    : 'User'),
+            avatarBytes: bytes,
+            avatarFilename: name,
+          );
+          if (!remoteRes.success && mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(remoteRes.message),
+                backgroundColor: Colors.redAccent,
+              ),
+            );
+            return;
+          }
         }
 
         ProfileService.instance.updateAvatarBytes(bytes);
@@ -658,7 +683,9 @@ class _ProfilePageState extends State<ProfilePage> {
                       borderRadius: BorderRadius.circular(24),
                     ),
                     child: ElevatedButton(
-                      onPressed: () {
+                      onPressed: () async {
+                        final messenger = ScaffoldMessenger.of(context);
+                        final sheetNavigator = Navigator.of(sheetContext);
                         setSheetState(() => sheetError = null);
 
                         final cleanPhone = phoneCtrl.text.trim();
@@ -679,6 +706,18 @@ class _ProfilePageState extends State<ProfilePage> {
                           return;
                         }
 
+                        if (ApiClient.instance.hasToken) {
+                          final remoteRes = await BuyerAccountService.instance.updateProfileRemote(
+                            firstName: firstNameCtrl.text.trim(),
+                            lastName: lastNameCtrl.text.trim(),
+                            phone: cleanPhone,
+                          );
+                          if (!remoteRes.success) {
+                            setSheetState(() => sheetError = remoteRes.message);
+                            return;
+                          }
+                        }
+
                         BuyerAccountService.instance.currentBuyerSession?.mobileNumber = cleanPhone;
 
                         final rawUsername = usernameCtrl.text.trim();
@@ -693,9 +732,10 @@ class _ProfilePageState extends State<ProfilePage> {
                           phone: cleanPhone,
                           address: addressCtrl.text,
                         );
-                        if (mounted) setState(() {});
-                        Navigator.pop(sheetContext);
-                        ScaffoldMessenger.of(context).showSnackBar(
+                        if (!mounted) return;
+                        setState(() {});
+                        sheetNavigator.pop();
+                        messenger.showSnackBar(
                           const SnackBar(
                             content: Row(
                               children: [
@@ -900,23 +940,23 @@ class _ProfilePageState extends State<ProfilePage> {
             ProfileShortcutGrid(
               items: [
                 ProfileShortcutData(
-                  icon: Icons.payments_outlined,
-                  label: 'To Pay',
-                  onTap: () => _openOrderFilter(context, 1),
-                ),
-                ProfileShortcutData(
                   icon: Icons.inventory_2_outlined,
                   label: 'To Ship',
-                  onTap: () => _openOrderFilter(context, 2),
+                  onTap: () => _openOrderFilter(context, 1),
                 ),
                 ProfileShortcutData(
                   icon: Icons.local_shipping_outlined,
                   label: 'To Receive',
-                  onTap: () => _openOrderFilter(context, 3),
+                  onTap: () => _openOrderFilter(context, 2),
                 ),
                 ProfileShortcutData(
                   icon: Icons.rate_review_outlined,
-                  label: 'Review',
+                  label: 'Completed',
+                  onTap: () => _openOrderFilter(context, 3),
+                ),
+                ProfileShortcutData(
+                  icon: Icons.assignment_return_outlined,
+                  label: 'Return/Refund',
                   onTap: () => _openOrderFilter(context, 4),
                 ),
               ],
@@ -1602,7 +1642,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   Navigator.pushReplacementNamed(
                     context,
                     AppRoutes.orders,
-                    arguments: {'initialIndex': 2},
+                    arguments: {'initialIndex': 1},
                   );
                 },
                 isHighlighted: false,
@@ -1631,7 +1671,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   Navigator.pushReplacementNamed(
                     context,
                     AppRoutes.orders,
-                    arguments: {'initialIndex': 3},
+                    arguments: {'initialIndex': 2},
                   );
                 },
                 isHighlighted:
@@ -1649,11 +1689,11 @@ class _ProfilePageState extends State<ProfilePage> {
                 'Completed',
                 Icons.rate_review_outlined,
                 isLoggedIn
-                    ? OrderService.instance.activeOrders
+                    ? OrderService.instance.pastOrders
                           .where(
                             (o) =>
-                                o.statusText.toLowerCase() == 'completed' ||
-                                o.statusText.toLowerCase() == 'delivered',
+                                o.rawStatus == 'delivered' ||
+                                o.rawStatus == 'completed',
                           )
                           .length
                     : 0,
@@ -1665,7 +1705,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   Navigator.pushReplacementNamed(
                     context,
                     AppRoutes.orders,
-                    arguments: {'initialIndex': 4},
+                    arguments: {'initialIndex': 3},
                   );
                 },
                 isHighlighted: false,

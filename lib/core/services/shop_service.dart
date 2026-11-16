@@ -118,7 +118,7 @@ class ShopService extends ChangeNotifier {
 
   double getProductAverageRating(
     String productIdOrTitle, [
-    double defaultRating = 4.9,
+    double defaultRating = 0.0,
   ]) {
     final revs = getReviewsForProduct(productIdOrTitle);
     if (revs.isEmpty) return defaultRating;
@@ -137,7 +137,7 @@ class ShopService extends ChangeNotifier {
   Map<int, double> getProductRatingBreakdown(String productIdOrTitle) {
     final revs = getReviewsForProduct(productIdOrTitle);
     if (revs.isEmpty) {
-      return const {5: 0.85, 4: 0.12, 3: 0.03, 2: 0.0, 1: 0.0};
+      return const {5: 0.0, 4: 0.0, 3: 0.0, 2: 0.0, 1: 0.0};
     }
     final counts = <int, int>{5: 0, 4: 0, 3: 0, 2: 0, 1: 0};
     for (final r in revs) {
@@ -155,14 +155,185 @@ class ShopService extends ChangeNotifier {
   }
 
   List<ProductModel> _remoteProducts = [];
+  List<ProductModel> _remoteFlashSales = [];
+  List<ProductModel> _remoteRecommended = [];
+  List<ProductModel> _remoteNewArrivals = [];
+  List<ShopModel> _remoteFeaturedStores = [];
+  List<ShopModel> _remoteFollowedStores = [];
+  bool _hasActiveFlashSales = false;
   bool _isLoadingCatalog = false;
   bool get isLoadingCatalog => _isLoadingCatalog;
 
   List<ProductModel> get products => _remoteProducts;
+  List<ProductModel> get flashSales => List.unmodifiable(_remoteFlashSales);
+  List<ProductModel> get recommendedProducts => List.unmodifiable(_remoteRecommended);
+  List<ProductModel> get newArrivals => List.unmodifiable(_remoteNewArrivals);
+  List<ShopModel> get featuredStores => List.unmodifiable(_remoteFeaturedStores);
+  List<ShopModel> get remoteFollowedStores => List.unmodifiable(_remoteFollowedStores);
+  bool get hasActiveFlashSales => _hasActiveFlashSales;
   List<AppCategoryModel> _remoteCategories = [];
   List<AppCategoryModel> get categories => _remoteCategories;
   String? _catalogError;
   String? get catalogError => _catalogError;
+
+  /// Fetch Buyer Home database feed (`categories`, real `flash_sales`,
+  /// `recommended`, `new_arrivals`, `featured_stores`).
+  Future<void> fetchHomeRemote() async {
+    try {
+      final res = await ApiClient.instance.get(ApiConstants.buyerHome);
+      final data = res['data'];
+      if (data is Map<String, dynamic>) {
+        final rawCats = data['categories'] as List? ?? [];
+        _remoteCategories = rawCats
+            .whereType<Map<String, dynamic>>()
+            .map(AppCategoryModel.fromJson)
+            .toList();
+
+        List<ProductModel> parseProducts(dynamic raw) {
+          if (raw is! List) return const [];
+          return raw
+              .whereType<Map<String, dynamic>>()
+              .map(ProductModel.fromApiJson)
+              .toList();
+        }
+
+        _remoteFlashSales = parseProducts(data['flash_sales']);
+        _hasActiveFlashSales =
+            data['has_active_flash_sales'] == true || _remoteFlashSales.isNotEmpty;
+        _remoteRecommended = parseProducts(data['recommended']);
+        _remoteNewArrivals = parseProducts(data['new_arrivals']);
+
+        final rawStores = data['featured_stores'] as List? ?? [];
+        _remoteFeaturedStores = rawStores.whereType<Map<String, dynamic>>().map((d) {
+          final storeName = d['name']?.toString() ?? 'Seller Store';
+          final count = int.tryParse((d['followers_count'] ?? 0).toString()) ?? 0;
+          return ShopModel(
+            id: d['id'].toString(),
+            name: storeName,
+            initials: storeName.isNotEmpty ? storeName[0].toUpperCase() : 'S',
+            avatarUrl: d['avatar_url']?.toString(),
+            badge: (d['products_count'] ?? 0) > 0 ? 'VERIFIED SELLER' : 'SELLER',
+            isFollowing: d['is_following'] == true,
+            followers: count == 1 ? '1 Follower' : '$count Followers',
+            categoryGroupTitle: d['category']?.toString() ?? 'Retail',
+            products: const [],
+            vouchers: const [],
+            categories: const [],
+            isVacationMode: d['is_vacation_mode'] == true,
+          );
+        }).toList();
+
+        if (_remoteRecommended.isNotEmpty) {
+          _remoteProducts = List.from(_remoteRecommended);
+        } else if (_remoteNewArrivals.isNotEmpty) {
+          _remoteProducts = List.from(_remoteNewArrivals);
+        }
+        _catalogError = null;
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('fetchHomeRemote error: $e');
+      rethrow;
+    }
+  }
+
+  /// Fetch paginated product reviews and exact DB star breakdown from Laravel.
+  Future<Map<String, dynamic>> fetchProductReviewsRemote(
+    String productId, {
+    int page = 1,
+    int? rating,
+  }) async {
+    final query = <String, dynamic>{'page': page};
+    if (rating != null && rating >= 1 && rating <= 5) {
+      query['rating'] = rating;
+    }
+    final res = await ApiClient.instance.get(
+      ApiConstants.productReviews(productId),
+      queryParams: query,
+    );
+    final data = res['data'];
+    if (data is Map<String, dynamic>) {
+      final rawReviews = data['reviews'] as List? ?? [];
+      final parsed = rawReviews.whereType<Map<String, dynamic>>().map((r) {
+        final buyerName = r['buyer_name']?.toString() ?? 'Verified Buyer';
+        return ProductReviewModel(
+          id: r['id'].toString(),
+          userName: buyerName,
+          initials: buyerName.isNotEmpty ? buyerName[0].toUpperCase() : 'B',
+          avatarColor: const Color(0xFF1F3A8A),
+          rating: double.tryParse((r['rating'] ?? 0).toString()) ?? 0.0,
+          date: r['created_at']?.toString() ?? '',
+          variantName: '',
+          comment: r['comment']?.toString() ?? '',
+          reviewImages: (r['photos'] as List?)?.map((e) => e.toString()).toList() ?? const [],
+          helpfulCount: 0,
+          hasLiked: false,
+        );
+      }).toList();
+      _customProductReviews[_normalizeProductKey(productId)] = parsed;
+
+      final rawBreakdown = data['breakdown'] as Map<String, dynamic>? ?? {};
+      final breakdown = <int, double>{5: 0, 4: 0, 3: 0, 2: 0, 1: 0};
+      for (final s in [5, 4, 3, 2, 1]) {
+        final row = rawBreakdown['$s'];
+        if (row is Map<String, dynamic>) {
+          breakdown[s] = double.tryParse((row['ratio'] ?? 0).toString()) ?? 0.0;
+        }
+      }
+
+      notifyListeners();
+      return {
+        'average_rating': double.tryParse((data['average_rating'] ?? 0).toString()) ?? 0.0,
+        'reviews_count': int.tryParse((data['reviews_count'] ?? 0).toString()) ?? 0,
+        'breakdown': breakdown,
+        'reviews': parsed,
+        'pagination': data['pagination'],
+      };
+    }
+    return const {
+      'average_rating': 0.0,
+      'reviews_count': 0,
+      'breakdown': {5: 0.0, 4: 0.0, 3: 0.0, 2: 0.0, 1: 0.0},
+      'reviews': <ProductReviewModel>[],
+    };
+  }
+
+  /// Fetch real followed stores for the authenticated buyer.
+  Future<List<ShopModel>> fetchFollowedStoresRemote() async {
+    if (!ApiClient.instance.hasToken) {
+      _remoteFollowedStores = [];
+      notifyListeners();
+      return const [];
+    }
+    final res = await ApiClient.instance.get(ApiConstants.followedStores);
+    final raw = res['data'];
+    final List list = raw is List
+        ? raw
+        : (raw is Map && raw['data'] is List ? raw['data'] : []);
+    final followed = list.whereType<Map<String, dynamic>>().map((d) {
+      final storeName = d['name']?.toString() ?? 'Seller Store';
+      final count = int.tryParse((d['followers_count'] ?? 0).toString()) ?? 0;
+      return ShopModel(
+        id: d['id'].toString(),
+        name: storeName,
+        initials: storeName.isNotEmpty ? storeName[0].toUpperCase() : 'S',
+        avatarUrl: d['avatar_url']?.toString(),
+        badge: 'FOLLOWING',
+        isFollowing: true,
+        followers: count == 1 ? '1 Follower' : '$count Followers',
+        categoryGroupTitle: d['category']?.toString() ?? 'Retail',
+        products: const [],
+        vouchers: const [],
+        categories: const [],
+        isVacationMode: d['is_vacation_mode'] == true,
+      );
+    }).toList();
+
+    _remoteFollowedStores = followed;
+    _userFollowedShopIds[_currentUserKey] = followed.map((s) => s.id).toSet();
+    notifyListeners();
+    return _remoteFollowedStores;
+  }
 
   /// Fetch categories list dynamically from Laravel backend
   Future<List<AppCategoryModel>> fetchCategoriesRemote() async {
@@ -221,6 +392,14 @@ class ShopService extends ChangeNotifier {
       }
       if (params.maxPrice != null) {
         queryParams['max_price'] = params.maxPrice.toString();
+      }
+      if (params.minRating != null && params.minRating! > 0) {
+        queryParams['min_rating'] = params.minRating.toString();
+      }
+      if (params.location != null &&
+          params.location!.trim().isNotEmpty &&
+          params.location != 'All') {
+        queryParams['location'] = params.location!.trim();
       }
       if (params.sortBy.isNotEmpty) queryParams['sort'] = params.sortBy;
 

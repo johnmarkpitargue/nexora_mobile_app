@@ -12,7 +12,13 @@ class ApiConstants {
   static const String verifyEmailOtp = '/api/mobile/v1/auth/buyer/email/verify';
   static const String resendEmailOtp = '/api/mobile/v1/auth/buyer/email/resend';
   static const String me = '/api/mobile/v1/auth/me';
+  static const String authPassword = '/api/mobile/v1/auth/password';
   static const String logout = '/api/mobile/v1/auth/logout';
+
+  // Notifications
+  static const String notifications = '/api/mobile/v1/notifications';
+  static const String readAllNotifications = '/api/mobile/v1/notifications/read-all';
+  static String readNotification(dynamic id) => '/api/mobile/v1/notifications/$id/read';
 
   // Buyer Endpoints
   static const String buyerAccount = '/api/mobile/v1/buyer/account';
@@ -34,11 +40,13 @@ class ApiConstants {
   static String barangays(dynamic cityCode) => '/api/locations/cities/$cityCode/barangays';
 
   // Catalog & Product
+  static const String buyerHome = '/api/mobile/v1/buyer/home';
   static const String catalog = '/api/mobile/v1/buyer/catalog';
   static const String buyerCatalog = catalog;
   static const String categories = '/api/mobile/v1/buyer/categories';
   static String productDetail(dynamic id) => '/api/mobile/v1/buyer/products/$id';
   static String buyerProduct(dynamic id) => productDetail(id);
+  static String productReviews(dynamic id) => '/api/mobile/v1/buyer/products/$id/reviews';
   static String storeDetail(dynamic id) => '/api/mobile/v1/buyer/stores/$id';
   static String buyerStore(dynamic id) => storeDetail(id);
 
@@ -84,6 +92,8 @@ class ApiConstants {
   static String buyerOrderConfirmReceipt(dynamic id) => confirmReceipt(id);
   static String returnOrder(dynamic id) => '/api/mobile/v1/buyer/orders/$id/return';
   static String buyerOrderReturn(dynamic id) => returnOrder(id);
+  static String returnShipment(dynamic id) => '/api/mobile/v1/buyer/orders/$id/return-shipment';
+  static const String buyerReturns = '/api/mobile/v1/buyer/returns';
   static String reviewOrder(dynamic id) => '/api/mobile/v1/buyer/orders/$id/review';
   static String buyerOrderReview(dynamic id) => reviewOrder(id);
 

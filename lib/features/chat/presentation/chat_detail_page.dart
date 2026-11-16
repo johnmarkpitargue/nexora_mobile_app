@@ -77,12 +77,9 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
         ? widget.orderId!.replaceAll('#', '').trim()
         : (widget.orderRef.isNotEmpty ? widget.orderRef.replaceAll('#', '').trim() : '');
 
-    final rawTitle = widget.title
+    _effectiveTitle = widget.title
         .replaceAll(RegExp(r'\s*\((Courier|Rider)\)', caseSensitive: false), '')
         .trim();
-    _effectiveTitle = rawTitle.contains('Mark Ronald')
-        ? rawTitle.replaceAll('Mark Ronald', 'Pedro Jose Garcia')
-        : rawTitle;
 
     final isCourierKeyword = widget.avatarIcon == Icons.two_wheeler_rounded ||
         widget.subtitle.toLowerCase().contains('courier') ||
@@ -91,13 +88,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
         widget.subtitle.toLowerCase().contains('delivery') ||
         widget.title.toLowerCase().contains('courier') ||
         widget.title.toLowerCase().contains('rider') ||
-        widget.title.toLowerCase().contains('pedro') ||
-        widget.title.toLowerCase().contains('mark') ||
         (widget.conversationId != null && widget.conversationId!.startsWith('courier_'));
-
-    if (_effectiveOrderId.isEmpty && isCourierKeyword) {
-      _effectiveOrderId = 'NX-8942-ORD';
-    }
 
     _isCourierChat = _effectiveOrderId.isNotEmpty || isCourierKeyword;
 
@@ -151,8 +142,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
       final cleanId = OrderChatService.instance.normalizeOrderId((msg['orderId'] ?? '').toString());
       final currentClean = OrderChatService.instance.normalizeOrderId(_effectiveOrderId);
       if (cleanId != currentClean) {
-        final rawSender = (msg['senderName'] ?? 'Pedro Jose Garcia').toString();
-        final sender = rawSender.contains('Mark') ? 'Pedro Jose Garcia' : rawSender;
+        final sender = (msg['senderName'] ?? 'Assigned Courier').toString();
         InAppNotificationService.instance.showNotification(
           senderName: sender,
           message: (msg['text'] ?? '').toString(),
@@ -239,25 +229,19 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
               ),
               const SizedBox(height: 14),
               if (activeOrders.isEmpty)
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: const CircleAvatar(
-                    backgroundColor: Color(0xFF0066FF),
-                    child: Icon(Icons.two_wheeler_rounded, color: Colors.white),
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 16),
+                  child: Text(
+                    'No active delivery orders available to chat with.',
+                    style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
                   ),
-                  title: const Text('Default Courier (#NX-8942-ORD)'),
-                  subtitle: const Text('Pedro Jose Garcia • Active on route'),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    _switchToOrder('NX-8942-ORD', 'Pedro Jose Garcia');
-                  },
                 )
               else
                 ...activeOrders.map((o) {
                   final isCurrent = OrderChatService.instance.normalizeOrderId(o.orderId) ==
                       OrderChatService.instance.normalizeOrderId(_effectiveOrderId);
                   final unread = OrderChatService.instance.getUnreadCount(o.orderId);
-                  final name = o.courierName.isNotEmpty ? o.courierName : 'Pedro Jose Garcia';
+                  final name = o.courierName.isNotEmpty ? o.courierName : 'Assigned Courier';
                   return ListTile(
                     contentPadding: EdgeInsets.zero,
                     leading: CircleAvatar(
@@ -472,7 +456,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
         await OrderChatService.instance.sendMessage(
           _effectiveOrderId,
           textToSend,
-          customerName: 'Alex Rivera',
+          customerName: null,
           attachmentData: base64Str,
           attachmentName: fileName,
           attachmentSize: fileSize,
@@ -615,7 +599,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
     setState(() {
       _messages.add(userMessage);
       _messageController.clear();
-      _isSimulatedTyping = true;
+      _isSimulatedTyping = false;
     });
 
     if (widget.conversationId != null) {
@@ -623,42 +607,6 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
     }
 
     _scrollToBottom();
-
-    // Simulate auto reply from support / store
-    Future.delayed(const Duration(milliseconds: 1200), () {
-      if (!mounted) return;
-
-      String autoReplyText =
-          'Hello! Thanks for messaging ${widget.title}. We have received your message and will assist you shortly.';
-      if (widget.title.contains('AI Support') || widget.title.contains('Support')) {
-        autoReplyText =
-            'Thank you for reaching out to Nexora Support! Your query has been logged.';
-      } else if (widget.title.contains('Official Store') ||
-          widget.title.contains('Store') ||
-          widget.title.contains('Studios')) {
-        autoReplyText =
-            'Hello! Thanks for contacting ${widget.title}. All items include verified warranty. How may we assist you today?';
-      }
-
-      setState(() {
-        _isSimulatedTyping = false;
-        _messages.add({
-          'sender': 'other',
-          'text': autoReplyText,
-          'time': _getCurrentTime(),
-        });
-      });
-
-      if (widget.conversationId != null) {
-        ChatService.instance.receiveIncomingMessage(
-          conversationId: widget.conversationId!,
-          text: autoReplyText,
-          senderName: widget.title,
-        );
-      }
-
-      _scrollToBottom();
-    });
   }
 
   void _scrollToBottom({bool animate = true}) {
@@ -789,21 +737,13 @@ class _ChatDetailPageState extends State<ChatDetailPage> with WidgetsBindingObse
           ],
         ),
         actions: [
-          if (_isCourierChat)
+          if (_isCourierChat) ...[
             IconButton(
               icon: const Icon(Icons.swap_horiz_rounded, color: Color(0xFF0075FF)),
               tooltip: 'Switch Order',
               onPressed: _showOrderSwitchModal,
             ),
-          IconButton(
-            icon: const Icon(Icons.call_rounded, color: Color(0xFF0075FF), size: 20),
-            tooltip: 'Call Courier',
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Calling $_cleanTitle (+63 917 123 4567)...')),
-              );
-            },
-          ),
+          ],
           const SizedBox(width: 4),
         ],
       ),

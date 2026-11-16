@@ -2,9 +2,14 @@ import 'package:flutter/material.dart';
 
 import '../../../app/routes/app_routes.dart';
 
+import '../../../core/models/shop_models.dart';
 import '../../../core/services/buyer_account_service.dart';
+import '../../../core/services/cart_service.dart';
+import '../../../core/services/notification_feed_service.dart';
+import '../../../core/services/shop_service.dart';
 import '../../../core/services/supabase_auth_service.dart';
 import '../../../core/services/profile_service.dart';
+import '../../../core/services/wishlist_service.dart';
 import '../../../core/widgets/google_logo_icon.dart';
 
 class LoginPage extends StatefulWidget {
@@ -70,6 +75,13 @@ class _LoginPageState extends State<LoginPage> {
             phone: result.buyer!.mobileNumber,
           );
         }
+        // Hydrate buyer state from Laravel immediately after login
+        CartService.instance.loadCartRemote().catchError((_) {});
+        WishlistService.instance.refreshWishlistRemote().catchError((_) {});
+        NotificationFeedService.instance.fetchNotificationsRemote().catchError((_) {});
+        ShopService.instance
+            .fetchFollowedStoresRemote()
+            .catchError((_) => const <ShopModel>[]);
         _navigateToHomeOrPop();
       } else {
         // If account is unverified, offer direct navigation to OTP verification

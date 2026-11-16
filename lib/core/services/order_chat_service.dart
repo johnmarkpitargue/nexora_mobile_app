@@ -40,8 +40,7 @@ class OrderChatService extends ChangeNotifier {
             if (sender == 'customer' || sender == 'user') return;
 
             final text = (payload['text'] ?? '').toString();
-            final rawSenderName = (payload['sender_name'] ?? payload['senderName'] ?? 'Pedro Jose Garcia').toString();
-            final senderName = rawSenderName.contains('Mark') ? 'Pedro Jose Garcia' : rawSenderName;
+            final senderName = (payload['sender_name'] ?? payload['senderName'] ?? 'Courier').toString();
             final timeStr = _getCurrentTime();
             final nowIso = (payload['timestamp'] ?? DateTime.now().toIso8601String()).toString();
 
@@ -261,8 +260,7 @@ class OrderChatService extends ChangeNotifier {
             // Ignore messages sent by ourselves
             if (sender == 'customer' || sender == 'user') return;
 
-            final rawSenderName = (payload['sender_name'] ?? payload['senderName'] ?? 'Pedro Jose Garcia').toString();
-            final senderName = rawSenderName.contains('Mark') ? 'Pedro Jose Garcia' : rawSenderName;
+            final senderName = (payload['sender_name'] ?? payload['senderName'] ?? 'Courier').toString();
             final text = (payload['text'] ?? '').toString();
             final nowIso = (payload['timestamp'] ?? DateTime.now().toIso8601String()).toString();
             final timeStr = payload['timestamp'] != null
@@ -406,7 +404,7 @@ class OrderChatService extends ChangeNotifier {
     final trimmed = text.trim();
     if (trimmed.isEmpty && (attachmentData == null || attachmentData.isEmpty)) return;
 
-    final effectiveCustomerName = (customerName != null && customerName.isNotEmpty && customerName != 'Alex Rivera')
+    final effectiveCustomerName = (customerName != null && customerName.isNotEmpty)
         ? customerName
         : _currentBuyerName;
     final clean = normalizeOrderId(orderId);
@@ -816,8 +814,7 @@ class OrderChatService extends ChangeNotifier {
                 final isCustomerSender = sender == 'customer' || sender == 'user';
                 final isMe = isCustomerSender;
 
-                final rawSenderName = (rMsg['sender_name'] ?? rMsg['senderName'] ?? (isMe ? 'Alex Rivera' : 'Pedro Jose Garcia')).toString();
-                final senderName = rawSenderName.contains('Mark') ? 'Pedro Jose Garcia' : rawSenderName;
+                final senderName = (rMsg['sender_name'] ?? rMsg['senderName'] ?? (isMe ? _currentBuyerName : 'Courier')).toString();
                 final nowIso = (rMsg['timestamp'] ?? DateTime.now().toIso8601String()).toString();
                 final timeStr = rMsg['timestamp'] != null
                     ? _formatIsoToTime(rMsg['timestamp'].toString())
@@ -892,7 +889,7 @@ class OrderChatService extends ChangeNotifier {
                 'id': id,
                 'orderId': clean,
                 'sender': isMe ? 'user' : 'other',
-                'senderName': (r['sender_name'] ?? (isMe ? 'Alex Rivera' : 'Pedro Jose Garcia')).toString(),
+                'senderName': (r['sender_name'] ?? (isMe ? _currentBuyerName : 'Courier')).toString(),
                 'text': (r['text'] ?? '').toString(),
                 'time': _formatIsoToTime(r['timestamp'].toString()),
                 'timestamp': r['timestamp'].toString(),
@@ -1154,8 +1151,7 @@ class OrderChatService extends ChangeNotifier {
         if (!exists) {
           final sender = (map['sender'] ?? '').toString().toLowerCase();
           final isMe = sender == 'customer' || sender == 'user';
-          final rawSenderName = (map['sender_name'] ?? map['senderName'] ?? (isMe ? 'Alex Rivera' : 'Pedro Jose Garcia')).toString();
-          final senderName = rawSenderName.contains('Mark') && !isMe ? 'Pedro Jose Garcia' : rawSenderName;
+          final senderName = (map['sender_name'] ?? map['senderName'] ?? (isMe ? _currentBuyerName : 'Courier')).toString();
           final timeStr = map['timestamp'] != null
               ? _formatIsoToTime(map['timestamp'].toString())
               : _getCurrentTime();
@@ -1187,8 +1183,7 @@ class OrderChatService extends ChangeNotifier {
 
   void _showTopNotification(Map<String, dynamic> msg) {
     try {
-      final rawSenderName = (msg['senderName'] ?? 'Pedro Jose Garcia').toString();
-      final senderName = rawSenderName.contains('Mark') ? 'Pedro Jose Garcia' : rawSenderName;
+      final senderName = (msg['senderName'] ?? 'Courier').toString();
       final text = (msg['text'] ?? '').toString();
       final orderId = (msg['orderId'] ?? '').toString();
 

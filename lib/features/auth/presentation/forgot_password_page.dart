@@ -368,12 +368,33 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Enter your registered email or mobile number to receive a 6-digit verification code.',
+            'Enter your registered email to reset your password, or visit the Nexora web portal (/forgot-password) for online account recovery.',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 13.5,
               color: Color(0xFF64748B),
               height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 14),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFEFF6FF),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFBFDBFE)),
+            ),
+            child: const Row(
+              children: [
+                Icon(Icons.info_outline_rounded, size: 18, color: Color(0xFF1F3A8A)),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'If you cannot sign in on mobile, please complete password reset on the Nexora Market web portal or contact support.',
+                    style: TextStyle(fontSize: 12, color: Color(0xFF1E3A8A)),
+                  ),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 24),
@@ -405,7 +426,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                 TextFormField(
                   controller: _emailController,
                   decoration: _buildInputDecoration(
-                    hint: 'e.g. alex.rivera@nexora.io',
+                    hint: 'e.g. name@example.com',
                     prefixIcon: Icons.email_outlined,
                   ),
                   validator: (val) {

@@ -11,7 +11,6 @@ import 'package:nexora_flutter_app/core/services/shop_service.dart';
 import 'package:nexora_flutter_app/core/services/wishlist_service.dart';
 import 'package:nexora_flutter_app/core/utils/guest_auth_guard.dart';
 import 'package:nexora_flutter_app/core/utils/variant_helper.dart';
-import 'package:nexora_flutter_app/core/widgets/add_to_cart_bottom_sheet.dart';
 import 'package:nexora_flutter_app/core/widgets/added_to_cart_hud.dart';
 import 'package:nexora_flutter_app/features/chat/presentation/chat_detail_page.dart';
 import 'package:nexora_flutter_app/features/home/presentation/widgets/product_card.dart';
@@ -248,17 +247,20 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
     return _productArg?.imageUrl ?? '';
   }
 
-  Future<void> _handleAddToCart() async {
+  Future<VariantSelectionResult?> _prepareValidatedSelection({
+    required String authTitle,
+    required String authMessage,
+  }) async {
     if (_productArg == null ||
         _productArg!.isActive == false ||
         _productArg!.isDeleted == true) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('This product is no longer available'),
-          backgroundColor: Colors.redAccent,
+          backgroundColor: Color(0xFFDC2626),
         ),
       );
-      return;
+      return null;
     }
 
     if (_productArg!.isOnVacation == true) {
@@ -269,36 +271,133 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
           backgroundColor: Color(0xFFEA580C),
         ),
       );
-      return;
+      return null;
+    }
+
+    if (!_areAllVariantsSelected) {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please select a variation'),
+          backgroundColor: Color(0xFFDC2626),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return null;
+    }
+
+    if (!BuyerAccountService.instance.isLoggedIn ||
+        !ApiClient.instance.hasToken) {
+      final loggedIn = await GuestAuthGuard.requireLogin(
+        context,
+        title: authTitle,
+        message: authMessage,
+      );
+      if (!loggedIn || !mounted) return null;
+    }
+
+    final qError = _validateQuantityInput(_quantityController.text);
+    if (qError != null) {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(qError),
+          backgroundColor: const Color(0xFFDC2626),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+      return null;
+    }
+    _quantity = int.parse(_quantityController.text.trim());
+
+    final limit = _productArg!.perBuyerLimit;
+    if (limit != null) {
+      final pid = _productArg!.id.isNotEmpty ? _productArg!.id : _productTitle;
+      final purchasedCount = CartService.instance.getPurchasedCount(pid);
+      final inCartCount = CartService.instance.items
+          .where((i) =>
+              i.productId == _productArg!.id || i.title == _productTitle)
+          .fold(0, (sum, i) => sum + i.quantity);
+      if (purchasedCount + inCartCount + _quantity > limit) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                'Per-buyer purchase limit of $limit items reached for this product.'),
+            backgroundColor: const Color(0xFFDC2626),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+        return null;
+      }
+    }
+
+    return VariantHelper.buildSelection(
+      groups: _variantGroups,
+      selectedIndices: _selectedVariantGroupIndices,
+    );
+  }
+
+  Future<void> _handleAddToCart() async {
+    final selection = await _prepareValidatedSelection(
+      authTitle: 'Sign In to Add to Cart',
+      authMessage:
+          'Please sign in or create an account to save items to your cart.',
+    );
+    if (selection == null || !mounted) return;
+
+    final selectedImage = _resolvedImageForSelection(selection);
+    final payload = Map<String, dynamic>.from(selection.payload ?? const {});
+    if (selectedImage.isNotEmpty && !payload.containsKey('image')) {
+      payload['image'] = selectedImage;
     }
 
     setState(() => _isAddingToCart = true);
     try {
-      final productToOrder = _productArg ??
-          ProductModel(
-            id: _requestedProductId ?? '',
-            title: _productTitle,
-            imageUrl: _productImages.isNotEmpty ? _productImages.first : '',
-            category: _productArg?.category ?? 'Electronics',
-            price: '₱${_effectivePrice.toStringAsFixed(0)}',
-            originalPrice: _productOriginalPrice != null
-                ? '₱${_productOriginalPrice!.toStringAsFixed(0)}'
-                : null,
-            rating: _productArg?.rating ?? 5.0,
-            soldCount: _productArg?.soldCount ?? '0 sold',
-            shippingTag: _productArg?.shippingTag ?? 'Standard Delivery',
-            isMall: _productArg?.isMall ?? false,
-            variantGroups: _variantGroups,
-          );
-
-      await AddToCartBottomSheet.show(
-        context,
-        product: productToOrder,
-        initialQuantity: _quantity,
-        initialSelectedIndices: _selectedVariantGroupIndices,
-        onAdded: () {
-          if (mounted) setState(() {});
-        },
+      final parsedId = int.tryParse(_productArg!.id.toString());
+      if (parsedId == null) {
+        throw const ApiException(
+          statusCode: 422,
+          message: 'Product cannot be added right now.',
+        );
+      }
+      await CartService.instance.addItemRemote(
+        productId: parsedId,
+        quantity: _quantity,
+        variant: payload.isNotEmpty ? payload : null,
+      );
+      if (!mounted) return;
+      AddedToCartHUD.show(context);
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Added ${_quantity}x $_productTitle to cart'),
+          duration: const Duration(seconds: 2),
+          action: SnackBarAction(
+            label: 'Cart',
+            onPressed: () => Navigator.pushNamed(context, AppRoutes.cart),
+          ),
+        ),
+      );
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.message),
+          backgroundColor: const Color(0xFFDC2626),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceFirst('Exception: ', '')),
+          backgroundColor: const Color(0xFFDC2626),
+          duration: const Duration(seconds: 3),
+        ),
       );
     } finally {
       if (mounted) {
@@ -308,93 +407,14 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
   }
 
   Future<void> _handleBuyNow() async {
-    if (_productArg == null ||
-        _productArg!.isActive == false ||
-        _productArg!.isDeleted == true) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('This product is no longer available'),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
-      return;
-    }
-
-    if (_productArg!.isOnVacation == true) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-              'Seller is on vacation. Purchasing is temporarily unavailable.'),
-          backgroundColor: Color(0xFFEA580C),
-        ),
-      );
-      return;
-    }
-
-    if (!_areAllVariantsSelected) {
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please select a variation'),
-          backgroundColor: Colors.redAccent,
-          duration: Duration(seconds: 2),
-        ),
-      );
-      return;
-    }
-
-    if (!BuyerAccountService.instance.isLoggedIn ||
-        !ApiClient.instance.hasToken) {
-      final loggedIn = await GuestAuthGuard.requireLogin(
-        context,
-        title: 'Sign In to Buy Now',
-        message:
-            'Please sign in or create an account to proceed with your order and secure delivery.',
-      );
-      if (!loggedIn || !mounted) return;
-    }
-
-    final qError = _validateQuantityInput(_quantityController.text);
-    if (qError != null) {
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(qError),
-          backgroundColor: Colors.redAccent,
-          duration: const Duration(seconds: 2),
-        ),
-      );
-      return;
-    }
-    _quantity = int.parse(_quantityController.text.trim());
-
-    final limit = _productArg!.perBuyerLimit;
-    if (limit != null) {
-      final pid =
-          _productArg!.id.isNotEmpty ? _productArg!.id : _productTitle;
-      final purchasedCount = CartService.instance.getPurchasedCount(pid);
-      final inCartCount = CartService.instance.items
-          .where((i) => i.productId == _productArg!.id || i.title == _productTitle)
-          .fold(0, (sum, i) => sum + i.quantity);
-      if (purchasedCount + inCartCount + _quantity > limit) {
-        ScaffoldMessenger.of(context).hideCurrentSnackBar();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-                'Per-buyer purchase limit of $limit items reached for this product.'),
-            backgroundColor: const Color(0xFFEF4444),
-            duration: const Duration(seconds: 2),
-          ),
-        );
-        return;
-      }
-    }
-
-    final selection = VariantHelper.buildSelection(
-      groups: _variantGroups,
-      selectedIndices: _selectedVariantGroupIndices,
+    final selection = await _prepareValidatedSelection(
+      authTitle: 'Sign In to Buy Now',
+      authMessage:
+          'Please sign in or create an account to proceed with your order and secure delivery.',
     );
+    if (selection == null || !mounted) return;
 
+    final selectedImage = _resolvedImageForSelection(selection);
     CartService.instance.buyNow(
       productId: _productArg!.id,
       sellerId: int.tryParse(_productArg!.shopId),
@@ -403,7 +423,7 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
       variant: selection.displaySummary,
       price: _effectivePrice,
       originalPrice: _productOriginalPrice,
-      imageUrl: _resolvedImageForSelection(selection),
+      imageUrl: selectedImage,
       storeName: _productArg!.shopName,
       storeBadge: _productArg!.shopBadge,
       quantity: _quantity,
@@ -482,6 +502,7 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                       : const Color(0xFF0F172A),
                 ),
                 onPressed: () {
+                  if (_productArg == null) return;
                   WishlistService.instance.toggleWishlist(_productArg!);
                   ScaffoldMessenger.of(context).hideCurrentSnackBar();
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -516,15 +537,13 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
           ),
         ],
       ),
-      body: Stack(
-        children: [
-          SingleChildScrollView(
-            physics: const BouncingScrollPhysics(),
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 820),
-                child: Column(
+      body: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 820),
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const SizedBox(height: 6),
@@ -706,26 +725,21 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                 const SizedBox(height: 24),
 
                 _buildReviewsSection(),
-                const SizedBox(height: 110),
+                const SizedBox(height: 24),
               ],
             ),
           ),
         ),
       ),
-      Align(
-        alignment: Alignment.bottomCenter,
-        child: Container(
-          width: double.infinity,
-          color: Colors.white,
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 820),
-              child: _buildBottomActionDock(),
-            ),
+      bottomNavigationBar: Material(
+        color: Theme.of(context).colorScheme.surfaceContainerLowest,
+        child: Center(
+          heightFactor: 1.0,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 820),
+            child: _buildBottomActionDock(),
           ),
         ),
-      ),
-        ],
       ),
     );
   }
@@ -766,11 +780,12 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                     setState(() => _selectedImageIndex = idx);
                   },
                   itemBuilder: (context, index) {
-                    return GestureDetector(
-                      onTap: () => _openZoomImageViewer(context, index),
-                      child: InteractiveViewer(
-                        minScale: 1.0,
-                        maxScale: 4.0,
+                    return InteractiveViewer(
+                      minScale: 1.0,
+                      maxScale: 4.0,
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () => _openZoomImageViewer(context, index),
                         child: Image.network(
                           _productImages[index],
                           fit: BoxFit.cover,
@@ -1858,7 +1873,15 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
             ),
             InkWell(
               onTap: () {
-                setState(() => _selectedReviewFilter = 'All');
+                if (_productArg != null) {
+                  Navigator.pushNamed(
+                    context,
+                    AppRoutes.productReviews,
+                    arguments: _productArg,
+                  );
+                } else {
+                  setState(() => _selectedReviewFilter = 'All');
+                }
               },
               child: const Text(
                 'View All',

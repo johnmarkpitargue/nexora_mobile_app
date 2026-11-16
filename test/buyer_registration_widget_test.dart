@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nexora_flutter_app/core/services/buyer_account_service.dart';
 import 'package:nexora_flutter_app/features/auth/presentation/register_page.dart';
-import 'package:nexora_flutter_app/core/widgets/google_logo_icon.dart';
 
 void main() {
   setUp(() {
@@ -36,9 +35,8 @@ void main() {
     expect(find.byIcon(Icons.apple), findsNothing);
     expect(find.text('Apple'), findsNothing);
 
-    // Verify authentic Google button exists
-    expect(find.byType(GoogleLogoIcon), findsOneWidget);
-    expect(find.text('Continue with Google'), findsOneWidget);
+    // Verify unsupported Google OAuth button is hidden/removed
+    expect(find.text('Continue with Google'), findsNothing);
 
     // Verify Register Button
     expect(find.widgetWithText(ElevatedButton, 'Create Account'), findsOneWidget);

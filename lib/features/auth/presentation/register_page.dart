@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../app/routes/app_routes.dart';
 import '../../../core/services/buyer_account_service.dart';
-import '../../../core/services/supabase_auth_service.dart';
 import '../../../core/services/external_notification_service.dart';
-import '../../../core/widgets/google_logo_icon.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -293,35 +291,6 @@ class _RegisterPageState extends State<RegisterPage> {
           backgroundColor: const Color(0xFFEF4444),
           behavior: SnackBarBehavior.floating,
         ),
-      );
-    }
-  }
-
-  // Handle Google Social Sign-up (authentic Google login)
-  void _handleGoogleSignUp() async {
-    setState(() {
-      _isLoading = true;
-    });
-
-    final success = await SupabaseAuthService.instance.signInWithGoogle();
-
-    if (!mounted) return;
-    setState(() {
-      _isLoading = false;
-    });
-
-    if (success) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Signed up with Google successfully!'),
-          backgroundColor: Color(0xFF0066FF),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      Navigator.pushNamedAndRemoveUntil(
-        context,
-        AppRoutes.home,
-        (route) => false,
       );
     }
   }
@@ -1210,68 +1179,7 @@ class _RegisterPageState extends State<RegisterPage> {
                   ),
                   const SizedBox(height: 20),
 
-                  // Google Sign Up (Hidden: web backend does not support mobile Google OAuth)
-                  Opacity(
-                    opacity: 0.0,
-                    child: IgnorePointer(
-                      child: Column(
-                      children: [
-                        // Or Continue With Divider
-                        Row(
-                          children: [
-                            Expanded(child: Divider(color: Colors.grey.shade300)),
-                            const Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 14),
-                              child: Text(
-                                'OR CONTINUE WITH',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                  color: Color(0xFF94A3B8),
-                                  letterSpacing: 0.5,
-                                ),
-                              ),
-                            ),
-                            Expanded(child: Divider(color: Colors.grey.shade300)),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-
-                        // Google Sign In Button (Apple / iCloud removed per user request!)
-                        SizedBox(
-                          width: double.infinity,
-                          height: 48,
-                          child: OutlinedButton(
-                            onPressed: _isLoading ? null : _handleGoogleSignUp,
-                            style: OutlinedButton.styleFrom(
-                              backgroundColor: Colors.white,
-                              side: BorderSide(color: Colors.grey.shade300),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                            ),
-                            child: const Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                GoogleLogoIcon(size: 20),
-                                SizedBox(width: 10),
-                                Text(
-                                  'Continue with Google',
-                                  style: TextStyle(
-                                    color: Color(0xFF0F172A),
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 14,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 24),
+                  const SizedBox(height: 16),
 
                   // Already have an account? Sign In
                   Row(

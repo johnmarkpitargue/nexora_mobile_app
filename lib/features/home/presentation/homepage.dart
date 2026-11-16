@@ -34,6 +34,7 @@ class _NexoraHomePageState extends State<NexoraHomePage>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    ShopService.instance.fetchHomeRemote().catchError((_) {});
     _updateOrdersPolling();
   }
 
@@ -63,9 +64,12 @@ class _NexoraHomePageState extends State<NexoraHomePage>
   Widget _buildHomeTab() {
     return RefreshIndicator(
       onRefresh: () async {
-        await ShopService.instance.loadCatalogRemote(
-          category: _selectedCategory,
-        );
+        await Future.wait([
+          ShopService.instance.fetchHomeRemote().catchError((_) {}),
+          ShopService.instance.loadCatalogRemote(
+            category: _selectedCategory,
+          ),
+        ]);
       },
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(
@@ -77,10 +81,10 @@ class _NexoraHomePageState extends State<NexoraHomePage>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Top Banners & Promo Action Pills Section
+                // Real promotional hero rail (hidden when zero products/flash sales exist)
                 const PromoBannersSection(),
 
-                // Dynamic Categories Section
+                // Database-backed Categories Section
                 CategorySection(
                   selectedCategory: _selectedCategory,
                   onCategorySelected: (categorySlug) {
@@ -93,16 +97,131 @@ class _NexoraHomePageState extends State<NexoraHomePage>
                   },
                 ),
 
+                // Real Store Highlights when backend returns verified active stores
+                AnimatedBuilder(
+                  animation: ShopService.instance,
+                  builder: (context, _) {
+                    final stores = ShopService.instance.featuredStores;
+                    if (stores.isEmpty || _selectedCategory != null) {
+                      return const SizedBox.shrink();
+                    }
+                    final scheme = Theme.of(context).colorScheme;
+                    return Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Verified Stores',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                              color: scheme.onSurface,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          SizedBox(
+                            height: 76,
+                            child: ListView.separated(
+                              scrollDirection: Axis.horizontal,
+                              itemCount: stores.length,
+                              separatorBuilder: (_, _) =>
+                                  const SizedBox(width: 10),
+                              itemBuilder: (context, idx) {
+                                final store = stores[idx];
+                                return InkWell(
+                                  borderRadius: BorderRadius.circular(14),
+                                  onTap: () => Navigator.pushNamed(
+                                    context,
+                                    '/shop',
+                                    arguments: store,
+                                  ),
+                                  child: Container(
+                                    width: 196,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 10,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: scheme.surfaceContainerLowest,
+                                      borderRadius: BorderRadius.circular(14),
+                                      border: Border.all(
+                                        color: scheme.outlineVariant,
+                                      ),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        CircleAvatar(
+                                          radius: 20,
+                                          backgroundColor:
+                                              scheme.primaryContainer,
+                                          backgroundImage:
+                                              (store.avatarUrl ?? '').isNotEmpty
+                                                  ? NetworkImage(store.avatarUrl!)
+                                                  : null,
+                                          child: (store.avatarUrl ?? '').isEmpty
+                                              ? Text(
+                                                  store.initials,
+                                                  style: TextStyle(
+                                                    fontWeight: FontWeight.w800,
+                                                    color: scheme.primary,
+                                                  ),
+                                                )
+                                              : null,
+                                        ),
+                                        const SizedBox(width: 10),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            children: [
+                                              Text(
+                                                store.name,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: TextStyle(
+                                                  fontSize: 13,
+                                                  fontWeight: FontWeight.w700,
+                                                  color: scheme.onSurface,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 2),
+                                              Text(
+                                                store.followers,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: TextStyle(
+                                                  fontSize: 11,
+                                                  color:
+                                                      scheme.onSurfaceVariant,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+
                 // DAILY DISCOVER Product Grid dynamically filtered by Category
                 DailyDiscoverSection(
                   selectedCategory: _selectedCategory,
-                  onLoadMore: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('All recommendations loaded'),
-                        duration: Duration(seconds: 1),
-                      ),
-                    );
+                  onClearFilter: () {
+                    setState(() => _selectedCategory = null);
+                    ShopService.instance
+                        .loadCatalogRemote(category: null)
+                        .catchError((_) => <ProductModel>[]);
                   },
                 ),
 

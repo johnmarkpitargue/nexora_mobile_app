@@ -691,5 +691,129 @@ class OrderActionDialogs {
     }
     return result;
   }
+
+  /// Opens dialog for buyer to submit return parcel tracking number after seller approval.
+  static Future<OrderItemModel?> showReturnShipmentDialog(
+    BuildContext context,
+    OrderItemModel order,
+  ) async {
+    final trackingController = TextEditingController();
+    String? errorMessage;
+    bool isSubmitting = false;
+
+    final result = await showDialog<OrderItemModel?>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogCtx) {
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: const Text(
+                'Submit Return Tracking',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (order.dispute?.returnInstructions?.isNotEmpty == true) ...[
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEFF6FF),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFBFDBFE)),
+                      ),
+                      child: Text(
+                        order.dispute!.returnInstructions!,
+                        style: const TextStyle(fontSize: 12, color: Color(0xFF1E3A8A)),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                  ],
+                  const Text(
+                    'Enter the courier tracking number for your return parcel:',
+                    style: TextStyle(fontSize: 13),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: trackingController,
+                    textCapitalization: TextCapitalization.characters,
+                    decoration: InputDecoration(
+                      hintText: 'e.g. NX-RET-102938',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      isDense: true,
+                    ),
+                  ),
+                  if (errorMessage != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      errorMessage!,
+                      style: const TextStyle(color: Color(0xFFDC2626), fontSize: 12),
+                    ),
+                  ],
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isSubmitting ? null : () => Navigator.pop(dialogCtx, null),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: isSubmitting
+                      ? null
+                      : () async {
+                          final tn = trackingController.text.trim();
+                          if (tn.length < 3) {
+                            setDialogState(() {
+                              errorMessage = 'Please enter a valid tracking number.';
+                            });
+                            return;
+                          }
+                          setDialogState(() {
+                            isSubmitting = true;
+                            errorMessage = null;
+                          });
+                          try {
+                            final updated = await OrderService.instance
+                                .submitReturnShipmentRemote(
+                              order.serverId,
+                              returnTrackingNumber: tn,
+                            );
+                            if (dialogCtx.mounted) Navigator.pop(dialogCtx, updated);
+                          } catch (e) {
+                            setDialogState(() {
+                              isSubmitting = false;
+                              errorMessage = e is ApiException
+                                  ? e.message
+                                  : 'Unable to submit return tracking.';
+                            });
+                          }
+                        },
+                  child: isSubmitting
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Submit Tracking'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    trackingController.dispose();
+
+    if (result != null && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Return tracking number submitted!')),
+      );
+    }
+    return result;
+  }
 }
 

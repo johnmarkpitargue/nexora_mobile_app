@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../app/routes/app_routes.dart';
+import '../../../app/theme/nexora_theme.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/services/order_service.dart';
+import '../../../core/utils/image_url_helper.dart';
+import '../../../core/widgets/nexora_widgets.dart';
 import 'widgets/order_action_dialogs.dart';
 
 class ShippedOrderDetailsPage extends StatefulWidget {
@@ -156,19 +159,22 @@ class _ShippedOrderDetailsPageState extends State<ShippedOrderDetailsPage> {
   Widget build(BuildContext context) {
     final order = _currentOrder;
 
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F8FC),
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: cs.surfaceContainerLowest,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF0F172A)),
+          icon: Icon(Icons.arrow_back, color: cs.onSurface),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
+        title: Text(
           'Order Tracking & Details',
           style: TextStyle(
-            color: Color(0xFF0F172A),
+            color: cs.onSurface,
             fontSize: 17,
             fontWeight: FontWeight.w700,
           ),
@@ -176,7 +182,7 @@ class _ShippedOrderDetailsPageState extends State<ShippedOrderDetailsPage> {
         actions: [
           if (order != null && order.serverId > 0)
             IconButton(
-              icon: const Icon(Icons.refresh, color: Color(0xFF0F172A)),
+              icon: Icon(Icons.refresh, color: cs.onSurface),
               tooltip: 'Refresh Status',
               onPressed: _loadOrderDetail,
             ),
@@ -201,7 +207,8 @@ class _ShippedOrderDetailsPageState extends State<ShippedOrderDetailsPage> {
                         _buildLogisticsHubCard(order),
                         _buildDeliveryInfoCard(order),
                         _buildProductsCard(order),
-                        if (order.dispute != null) _buildDisputeCard(order.dispute!),
+                        if (order.dispute != null)
+                          _buildDisputeCard(order, order.dispute!),
                         if (order.review != null) _buildReviewCard(order.review!),
                         _buildPaymentAndOrderDetailsCard(order),
                         const SizedBox(height: 24),
@@ -699,7 +706,10 @@ class _ShippedOrderDetailsPageState extends State<ShippedOrderDetailsPage> {
             ],
           ),
           const SizedBox(height: 14),
-          _buildTimelineActivityList(order.resolvedStatusHistory),
+          if (order.trackingSummary != null)
+            TrackingTimeline(trackingSummary: order.trackingSummary!)
+          else
+            _buildTimelineActivityList(order.resolvedStatusHistory),
         ],
       ),
     );
@@ -907,7 +917,7 @@ class _ShippedOrderDetailsPageState extends State<ShippedOrderDetailsPage> {
                       color: const Color(0xFFF1F5F9),
                       child: item.imageUrl.isNotEmpty
                           ? Image.network(
-                              item.imageUrl,
+                              ImageUrlHelper.resolve(item.imageUrl),
                               fit: BoxFit.cover,
                               errorBuilder: (_, _, _) => const Icon(
                                 Icons.inventory_2_outlined,
@@ -958,43 +968,84 @@ class _ShippedOrderDetailsPageState extends State<ShippedOrderDetailsPage> {
     );
   }
 
-  Widget _buildDisputeCard(OrderDisputeInfo dispute) {
+  Widget _buildDisputeCard(OrderItemModel order, OrderDisputeInfo dispute) {
+    final cs = Theme.of(context).colorScheme;
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFFFDF4FF),
+        color: cs.surfaceContainerLowest,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFF0ABFC)),
+        border: Border.all(color: NexoraTheme.primary.withValues(alpha: 0.35)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'Return / Refund Request',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF701A75)),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE879F9).withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(6),
-                ),
+              const Expanded(
                 child: Text(
-                  dispute.status.toUpperCase(),
-                  style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.w800, color: Color(0xFF701A75)),
+                  'Return / Refund Request',
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
                 ),
+              ),
+              NexoraStatusBadge(
+                label: dispute.stageLabel,
+                color: dispute.returnStage == 'rejected'
+                    ? NexoraTheme.error
+                    : dispute.returnStage == 'refund_recorded'
+                        ? NexoraTheme.success
+                        : NexoraTheme.accent,
               ),
             ],
           ),
           const SizedBox(height: 6),
-          Text('Reason: ${dispute.reason}', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: Color(0xFF4A044E))),
-          const SizedBox(height: 3),
-          Text(dispute.details, style: const TextStyle(fontSize: 11.5, color: Color(0xFF581C87))),
+          Text(
+            'Reason: ${dispute.reason}',
+            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: cs.onSurface),
+          ),
+          if (dispute.details.isNotEmpty) ...[
+            const SizedBox(height: 3),
+            Text(dispute.details, style: TextStyle(fontSize: 11.5, color: cs.onSurfaceVariant)),
+          ],
+          if (dispute.sellerResponse?.isNotEmpty == true) ...[
+            const SizedBox(height: 6),
+            Text('Seller Response: ${dispute.sellerResponse}', style: TextStyle(fontSize: 11.5, color: cs.onSurface)),
+          ],
+          if (dispute.returnInstructions?.isNotEmpty == true) ...[
+            const SizedBox(height: 4),
+            Text('Return Instructions: ${dispute.returnInstructions}', style: TextStyle(fontSize: 11.5, color: cs.onSurfaceVariant)),
+          ],
+          if (dispute.returnTrackingNumber?.isNotEmpty == true) ...[
+            const SizedBox(height: 4),
+            Text('Return Tracking #: ${dispute.returnTrackingNumber}', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: cs.primary)),
+          ],
+          if (dispute.inspectionCondition?.isNotEmpty == true) ...[
+            const SizedBox(height: 4),
+            Text(
+              'Inspection: ${dispute.inspectionCondition}${dispute.inspectionNotes?.isNotEmpty == true ? ' — ${dispute.inspectionNotes}' : ''}',
+              style: TextStyle(fontSize: 11.5, color: cs.onSurface),
+            ),
+          ],
+          if (dispute.refundAmount != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              'Refund: ₱${dispute.refundAmount!.toStringAsFixed(2)}${dispute.refundMethod?.isNotEmpty == true ? ' via ${dispute.refundMethod}' : ''}${dispute.refundReference?.isNotEmpty == true ? ' (Ref: ${dispute.refundReference})' : ''}',
+              style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: NexoraTheme.success),
+            ),
+          ],
+          if (dispute.returnStage == 'approved_awaiting_return' && order.serverId > 0) ...[
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () => OrderActionDialogs.showReturnShipmentDialog(context, order),
+                icon: const Icon(Icons.local_shipping_outlined, size: 15),
+                label: const Text('Submit Return Tracking'),
+              ),
+            ),
+          ],
           if (dispute.mediaPaths.isNotEmpty) ...[
             const SizedBox(height: 8),
             Wrap(
@@ -1006,9 +1057,9 @@ class _ShippedOrderDetailsPageState extends State<ShippedOrderDetailsPage> {
                   child: Container(
                     width: 50,
                     height: 50,
-                    color: Colors.white,
+                    color: cs.surfaceContainerHigh,
                     child: Image.network(
-                      url,
+                      ImageUrlHelper.resolve(url),
                       fit: BoxFit.cover,
                       errorBuilder: (_, _, _) => const Icon(Icons.broken_image, size: 20),
                     ),

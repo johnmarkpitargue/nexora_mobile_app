@@ -57,8 +57,8 @@ class _NotificationPreferencesPageState extends State<NotificationPreferencesPag
           _countdownSeconds = 0;
           // Send external phone push notification
           ExternalNotificationService.show(
-            title: '📦 Nexora Courier Alert',
-            body: 'Your package is out for delivery with Rider Pedro Jose Garcia! Tap to view live tracking.',
+            title: 'Nexora Delivery Alert',
+            body: 'Sample delivery update preview from Nexora Express Logistics.',
           );
           InAppNotificationService.instance.showNotification(
             senderName: 'Nexora Courier Alert',

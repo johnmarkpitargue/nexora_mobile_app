@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'profile_service.dart';
 import 'wishlist_service.dart';
@@ -1443,31 +1444,168 @@ class BuyerAccountService extends ChangeNotifier {
   String? get pendingNewEmail => _pendingNewEmail;
   String? get pendingNewPhone => _pendingNewPhone;
 
-  /// Update profile remotely on Laravel backend
+  /// Update profile (and optional avatar image) remotely on Laravel backend
   Future<BuyerOpResult> updateProfileRemote({
     required String firstName,
     required String lastName,
     String? phone,
     String? sex,
     String? birthday,
+    Uint8List? avatarBytes,
+    String? avatarFilename,
   }) async {
     try {
-      final res = await ApiClient.instance.put(
-        ApiConstants.updateProfile,
-        body: {
-          'first_name': firstName.trim(),
-          'last_name': lastName.trim(),
-          if (phone != null && phone.isNotEmpty) 'contact_number': phone.trim(),
-          if (sex != null && sex.isNotEmpty) 'sex': sex,
-          if (birthday != null && birthday.isNotEmpty) 'birthday': birthday,
-        },
-      );
+      dynamic res;
+      if (avatarBytes != null && avatarBytes.isNotEmpty) {
+        final safeName = (avatarFilename != null && avatarFilename.isNotEmpty)
+            ? avatarFilename
+            : 'avatar.jpg';
+        res = await ApiClient.instance.multipart(
+          'POST',
+          ApiConstants.updateProfile,
+          fields: {
+            '_method': 'PUT',
+            'first_name': firstName.trim(),
+            'last_name': lastName.trim(),
+            if (phone != null && phone.isNotEmpty) 'contact_number': phone.trim(),
+            if (sex != null && sex.isNotEmpty) 'sex': sex,
+            if (birthday != null && birthday.isNotEmpty) 'birthday': birthday,
+          },
+          files: [
+            http.MultipartFile.fromBytes(
+              'avatar',
+              avatarBytes,
+              filename: safeName,
+            ),
+          ],
+        );
+      } else {
+        res = await ApiClient.instance.put(
+          ApiConstants.updateProfile,
+          body: {
+            'first_name': firstName.trim(),
+            'last_name': lastName.trim(),
+            if (phone != null && phone.isNotEmpty) 'contact_number': phone.trim(),
+            if (sex != null && sex.isNotEmpty) 'sex': sex,
+            if (birthday != null && birthday.isNotEmpty) 'birthday': birthday,
+          },
+        );
+      }
       await syncRemoteUser();
-      return BuyerOpResult.ok(message: res['message'] as String? ?? 'Profile updated successfully');
+      final msg = res is ApiResponse
+          ? (res.message.isNotEmpty
+              ? res.message
+              : 'Profile updated successfully')
+          : ((res is Map ? res['message'] as String? : null) ??
+              'Profile updated successfully');
+      return BuyerOpResult.ok(message: msg);
     } on ApiException catch (e) {
-      return BuyerOpResult.fail(e.message, fieldErrors: e.errors?.map((k, v) => MapEntry(k, v.toString())));
+      return BuyerOpResult.fail(
+        e.message,
+        fieldErrors: e.errors?.map((k, v) => MapEntry(k, v.toString())),
+      );
     } catch (e) {
       return BuyerOpResult.fail('Failed to update profile: $e');
+    }
+  }
+
+  /// Request Email Change OTP from Laravel backend
+  Future<BuyerOpResult> requestChangeEmailRemote({required String newEmail}) async {
+    final clean = newEmail.trim().toLowerCase();
+    if (!BuyerValidationRules.emailRegex.hasMatch(clean)) {
+      return BuyerOpResult.fail('Please enter a valid email address.');
+    }
+    if (!ApiClient.instance.hasToken) {
+      return requestChangeEmail(newEmail: clean);
+    }
+    try {
+      final res = await ApiClient.instance.post(
+        ApiConstants.requestEmailOtp,
+        body: {'new_email': clean},
+      );
+      return BuyerOpResult.ok(
+        message: res['message'] as String? ?? 'Verification OTP sent to $clean.',
+      );
+    } on ApiException catch (e) {
+      return BuyerOpResult.fail(e.message);
+    } catch (_) {
+      return BuyerOpResult.fail('Unable to send email OTP right now.');
+    }
+  }
+
+  /// Verify Email Change OTP with Laravel backend
+  Future<BuyerOpResult> verifyChangeEmailOtpRemote({required String otp}) async {
+    final cleanOtp = otp.trim();
+    if (cleanOtp.length != 6) {
+      return BuyerOpResult.fail('Please enter the 6-digit verification code.');
+    }
+    if (!ApiClient.instance.hasToken) {
+      return verifyChangeEmailOtp(otp: cleanOtp);
+    }
+    try {
+      final res = await ApiClient.instance.post(
+        ApiConstants.verifyEmailChangeOtp,
+        body: {'otp': cleanOtp},
+      );
+      await syncRemoteUser();
+      return BuyerOpResult.ok(
+        message: res['message'] as String? ?? 'Email updated successfully.',
+      );
+    } on ApiException catch (e) {
+      return BuyerOpResult.fail(e.message);
+    } catch (_) {
+      return BuyerOpResult.fail('Unable to verify OTP right now.');
+    }
+  }
+
+  /// Request Phone Change OTP from Laravel backend
+  Future<BuyerOpResult> requestChangePhoneRemote({required String newPhone}) async {
+    final normalized = BuyerValidationRules.normalizePhone(newPhone.trim());
+    if (!BuyerValidationRules.phoneRegex.hasMatch(normalized)) {
+      return BuyerOpResult.fail(
+        'Mobile number must be 11 digits starting with 09.',
+      );
+    }
+    if (!ApiClient.instance.hasToken) {
+      return requestChangePhone(newPhone: normalized);
+    }
+    try {
+      final res = await ApiClient.instance.post(
+        ApiConstants.requestPhoneOtp,
+        body: {'new_phone': normalized},
+      );
+      return BuyerOpResult.ok(
+        message: res['message'] as String? ?? 'Verification OTP sent to $normalized.',
+      );
+    } on ApiException catch (e) {
+      return BuyerOpResult.fail(e.message);
+    } catch (_) {
+      return BuyerOpResult.fail('Unable to send mobile OTP right now.');
+    }
+  }
+
+  /// Verify Phone Change OTP with Laravel backend
+  Future<BuyerOpResult> verifyChangePhoneOtpRemote({required String otp}) async {
+    final cleanOtp = otp.trim();
+    if (cleanOtp.length != 6) {
+      return BuyerOpResult.fail('Please enter the 6-digit verification code.');
+    }
+    if (!ApiClient.instance.hasToken) {
+      return verifyChangePhoneOtp(otp: cleanOtp);
+    }
+    try {
+      final res = await ApiClient.instance.post(
+        ApiConstants.verifyPhoneChangeOtp,
+        body: {'otp': cleanOtp},
+      );
+      await syncRemoteUser();
+      return BuyerOpResult.ok(
+        message: res['message'] as String? ?? 'Mobile number updated successfully.',
+      );
+    } on ApiException catch (e) {
+      return BuyerOpResult.fail(e.message);
+    } catch (_) {
+      return BuyerOpResult.fail('Unable to verify OTP right now.');
     }
   }
 

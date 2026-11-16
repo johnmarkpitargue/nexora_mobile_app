@@ -9,10 +9,12 @@ class DailyDiscoverSection extends StatefulWidget {
     super.key,
     this.selectedCategory,
     this.onLoadMore,
+    this.onClearFilter,
   });
 
   final String? selectedCategory;
   final VoidCallback? onLoadMore;
+  final VoidCallback? onClearFilter;
 
   static List<ProductModel> get allProducts => ShopService.instance.products;
 
@@ -107,9 +109,13 @@ class _DailyDiscoverSectionState extends State<DailyDiscoverSection> {
               if (selectedCategory != null)
                 TextButton(
                   onPressed: () {
-                    ShopService.instance
-                        .loadCatalogRemote(category: null)
-                        .catchError((_) => <ProductModel>[]);
+                    if (widget.onClearFilter != null) {
+                      widget.onClearFilter!();
+                    } else {
+                      ShopService.instance
+                          .loadCatalogRemote(category: null)
+                          .catchError((_) => <ProductModel>[]);
+                    }
                   },
                   child: Text(
                     'Clear filter',

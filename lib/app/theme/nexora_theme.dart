@@ -2,11 +2,18 @@ import 'package:flutter/material.dart';
 
 /// Design tokens and Material 3 theme configuration for Nexora
 class NexoraTheme {
-  // Brand Colors from Redesigned Screenshot (Electric Blue, Cyan & Dark Navy)
-  static const Color primary = Color(0xFF0066FF);
-  static const Color primaryContainer = Color(0xFFEAF1FF);
+  // Modern Philippine E-Commerce Palette (Deep Navy Primary, Nexora Blue Accent, Light Canvas)
+  static const Color primary = Color(0xFF1F3A8A);
+  static const Color accent = Color(0xFF2563EB);
+  static const Color primaryContainer = Color(0xFFE0ECFF);
   static const Color onPrimary = Color(0xFFFFFFFF);
-  static const Color onPrimaryContainer = Color(0xFF124EBB);
+  static const Color onPrimaryContainer = Color(0xFF1E3A8A);
+
+  /// Semantic status colors
+  static const Color success = Color(0xFF16A34A);
+  static const Color successContainer = Color(0xFFDCFCE7);
+  static const Color warning = Color(0xFFF59E0B);
+  static const Color warningContainer = Color(0xFFFEF3C7);
 
   /// Unified price color for product cards, lists, cart, and orders.
   static const Color price = Color(0xFF0F172A);
@@ -16,31 +23,31 @@ class NexoraTheme {
       ? const Color(0xFF38BDF8)
       : price;
 
-  static const Color secondary = Color(0xFF00D2FF);
-  static const Color secondaryContainer = Color(0xFFE7F9FC);
-  static const Color onSecondaryContainer = Color(0xFF087C94);
+  static const Color secondary = Color(0xFF2563EB);
+  static const Color secondaryContainer = Color(0xFFEFF6FF);
+  static const Color onSecondaryContainer = Color(0xFF1D4ED8);
 
-  static const Color darkNavy = Color(0xFF050B28);
+  static const Color darkNavy = Color(0xFF0F172A);
 
-  static const Color tertiary = Color(0xFFE11D48);
-  static const Color tertiaryContainer = Color(0xFFFFE4E6);
-  static const Color onTertiaryContainer = Color(0xFFBE123C);
+  static const Color tertiary = Color(0xFFDC2626);
+  static const Color tertiaryContainer = Color(0xFFFEE2E2);
+  static const Color onTertiaryContainer = Color(0xFFB91C1C);
 
-  static const Color surface = Color(0xFFF5F7FA);
-  static const Color surfaceDim = Color(0xFFE2E7EF);
-  static const Color surfaceBright = Color(0xFFF9FAFC);
+  static const Color surface = Color(0xFFF8FAFC);
+  static const Color surfaceDim = Color(0xFFE2E8F0);
+  static const Color surfaceBright = Color(0xFFFFFFFF);
   static const Color surfaceContainerLowest = Color(0xFFFFFFFF);
-  static const Color surfaceContainerLow = Color(0xFFF8F9FB);
-  static const Color surfaceContainer = Color(0xFFEDF1F6);
-  static const Color surfaceContainerHigh = Color(0xFFE2E7EF);
-  static const Color surfaceContainerHighest = Color(0xFFD5DCE8);
+  static const Color surfaceContainerLow = Color(0xFFF8FAFC);
+  static const Color surfaceContainer = Color(0xFFF1F5F9);
+  static const Color surfaceContainerHigh = Color(0xFFE2E8F0);
+  static const Color surfaceContainerHighest = Color(0xFFCBD5E1);
 
   static const Color onSurface = Color(0xFF0F172A);
   static const Color onSurfaceVariant = Color(0xFF64748B);
-  static const Color outline = Color(0xFFC7D0DE);
-  static const Color outlineVariant = Color(0xFFDCE2EA);
-  static const Color error = Color(0xFFE11D48);
-  static const Color errorContainer = Color(0xFFFFDAD6);
+  static const Color outline = Color(0xFFCBD5E1);
+  static const Color outlineVariant = Color(0xFFE2E8F0);
+  static const Color error = Color(0xFFDC2626);
+  static const Color errorContainer = Color(0xFFFEE2E2);
 
   // Dark theme stays neutral and ink-like so brand blue keeps its meaning.
   static const Color darkCanvas = Color(0xFF060914);
@@ -55,9 +62,9 @@ class NexoraTheme {
   static const Color darkOutline = Color(0xFF46536B);
   static const Color darkOutlineVariant = Color(0xFF28344A);
 
-  /// Global reactive theme mode notifier defaulted to Dark Mode for the aesthetic request.
+  /// Default to clean light shopping surface (#F8FAFC background, #FFFFFF cards).
   static final ValueNotifier<ThemeMode> themeModeNotifier =
-      ValueNotifier<ThemeMode>(ThemeMode.dark);
+      ValueNotifier<ThemeMode>(ThemeMode.light);
 
   /// Snappy, smooth animation parameters for seamless theme transitions without lag or frame drops.
   static const Duration themeAnimationDuration = Duration(milliseconds: 200);

@@ -124,11 +124,14 @@ class _AccountSecurityBottomSheetState extends State<AccountSecurityBottomSheet>
     );
   }
 
-  void _handleRequestEmailChange() {
+  Future<void> _handleRequestEmailChange() async {
     setState(() => _emailError = null);
     final email = _newEmailCtrl.text.trim();
 
-    final result = BuyerAccountService.instance.requestChangeEmail(newEmail: email);
+    final result = await BuyerAccountService.instance.requestChangeEmailRemote(
+      newEmail: email,
+    );
+    if (!mounted) return;
     if (!result.success) {
       setState(() => _emailError = result.message);
       return;
@@ -138,11 +141,14 @@ class _AccountSecurityBottomSheetState extends State<AccountSecurityBottomSheet>
     setState(() => _currentView = SecurityView.verifyEmailOtp);
   }
 
-  void _handleVerifyEmailOtp() {
+  Future<void> _handleVerifyEmailOtp() async {
     setState(() => _emailError = null);
     final otp = _emailOtpCtrl.text.trim();
 
-    final result = BuyerAccountService.instance.verifyChangeEmailOtp(otp: otp);
+    final result = await BuyerAccountService.instance.verifyChangeEmailOtpRemote(
+      otp: otp,
+    );
+    if (!mounted) return;
     if (!result.success) {
       setState(() => _emailError = result.message);
       return;
@@ -152,23 +158,19 @@ class _AccountSecurityBottomSheetState extends State<AccountSecurityBottomSheet>
     Navigator.pop(context);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.check_circle, color: Colors.white),
-            const SizedBox(width: 8),
-            Text('Email updated to ${_newEmailCtrl.text.trim()}!'),
-          ],
-        ),
-        backgroundColor: const Color(0xFF0066FF),
+        content: Text('Email updated to ${_newEmailCtrl.text.trim()}'),
       ),
     );
   }
 
-  void _handleRequestPhoneChange() {
+  Future<void> _handleRequestPhoneChange() async {
     setState(() => _phoneError = null);
     final phone = _newPhoneCtrl.text.trim();
 
-    final result = BuyerAccountService.instance.requestChangePhone(newPhone: phone);
+    final result = await BuyerAccountService.instance.requestChangePhoneRemote(
+      newPhone: phone,
+    );
+    if (!mounted) return;
     if (!result.success) {
       setState(() => _phoneError = result.message);
       return;
@@ -178,11 +180,14 @@ class _AccountSecurityBottomSheetState extends State<AccountSecurityBottomSheet>
     setState(() => _currentView = SecurityView.verifyPhoneOtp);
   }
 
-  void _handleVerifyPhoneOtp() {
+  Future<void> _handleVerifyPhoneOtp() async {
     setState(() => _phoneError = null);
     final otp = _phoneOtpCtrl.text.trim();
 
-    final result = BuyerAccountService.instance.verifyChangePhoneOtp(otp: otp);
+    final result = await BuyerAccountService.instance.verifyChangePhoneOtpRemote(
+      otp: otp,
+    );
+    if (!mounted) return;
     if (!result.success) {
       setState(() => _phoneError = result.message);
       return;
@@ -193,14 +198,7 @@ class _AccountSecurityBottomSheetState extends State<AccountSecurityBottomSheet>
     Navigator.pop(context);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.check_circle, color: Colors.white),
-            const SizedBox(width: 8),
-            Text('Mobile number updated to $normalized!'),
-          ],
-        ),
-        backgroundColor: const Color(0xFF0066FF),
+        content: Text('Mobile number updated to $normalized'),
       ),
     );
   }
@@ -426,7 +424,7 @@ class _AccountSecurityBottomSheetState extends State<AccountSecurityBottomSheet>
           controller: _currentPasswordCtrl,
           obscureText: _obscureCurrent,
           decoration: _inputDecoration(
-            hint: 'Enter current password (Mamimili@2026)',
+            hint: 'Enter current password',
             suffixIcon: IconButton(
               icon: Icon(_obscureCurrent ? Icons.visibility_off : Icons.visibility, size: 18),
               onPressed: () => setState(() => _obscureCurrent = !_obscureCurrent),
@@ -576,7 +574,7 @@ class _AccountSecurityBottomSheetState extends State<AccountSecurityBottomSheet>
           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
           textAlign: TextAlign.center,
           style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, letterSpacing: 8),
-          decoration: _inputDecoration(hint: '123456'),
+          decoration: _inputDecoration(hint: '000000'),
         ),
         const SizedBox(height: 12),
 
@@ -595,8 +593,8 @@ class _AccountSecurityBottomSheetState extends State<AccountSecurityBottomSheet>
               ),
             ),
             Text(
-              'QA Test Code: 123456',
-              style: TextStyle(fontSize: 11, color: Colors.grey.shade500, fontStyle: FontStyle.italic),
+              'Check your email inbox',
+              style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
             ),
           ],
         ),
@@ -712,7 +710,7 @@ class _AccountSecurityBottomSheetState extends State<AccountSecurityBottomSheet>
           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
           textAlign: TextAlign.center,
           style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, letterSpacing: 8),
-          decoration: _inputDecoration(hint: '123456'),
+          decoration: _inputDecoration(hint: '000000'),
         ),
         const SizedBox(height: 12),
 
@@ -731,8 +729,8 @@ class _AccountSecurityBottomSheetState extends State<AccountSecurityBottomSheet>
               ),
             ),
             Text(
-              'QA Test Code: 123456',
-              style: TextStyle(fontSize: 11, color: Colors.grey.shade500, fontStyle: FontStyle.italic),
+              'Check your messages for the OTP',
+              style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
             ),
           ],
         ),

@@ -4,6 +4,7 @@ import '../../../core/network/api_client.dart';
 import '../../../core/services/cart_service.dart';
 import '../../../core/services/wishlist_service.dart';
 import '../../../core/utils/guest_auth_guard.dart';
+import '../../../core/utils/image_url_helper.dart';
 import '../../../core/widgets/add_to_cart_bottom_sheet.dart';
 import '../../../core/widgets/added_to_cart_hud.dart';
 import '../../home/presentation/widgets/product_card.dart';
@@ -37,30 +38,33 @@ class _WishlistPageState extends State<WishlistPage> {
 
         final categories = ['All', ...{...allItems.map((p) => p.category)}];
 
+        final theme = Theme.of(context);
+        final cs = theme.colorScheme;
+
         return Scaffold(
-          backgroundColor: const Color(0xFFF8FAFC),
+          backgroundColor: theme.scaffoldBackgroundColor,
           appBar: AppBar(
-            backgroundColor: Colors.white,
+            backgroundColor: cs.surfaceContainerLowest,
             elevation: 0,
             leading: IconButton(
-              icon: const Icon(Icons.arrow_back_ios_new, color: Color(0xFF0F172A), size: 18),
+              icon: Icon(Icons.arrow_back_ios_new, color: cs.onSurface, size: 18),
               onPressed: () => Navigator.pop(context),
             ),
             title: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'My Wishlist',
                   style: TextStyle(
-                    color: Color(0xFF0F172A),
+                    color: cs.onSurface,
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
                 Text(
                   '${allItems.length} ${allItems.length == 1 ? "item" : "items"} saved',
-                  style: const TextStyle(
-                    color: Color(0xFF64748B),
+                  style: TextStyle(
+                    color: cs.onSurfaceVariant,
                     fontSize: 11.5,
                     fontWeight: FontWeight.w500,
                   ),
@@ -69,7 +73,7 @@ class _WishlistPageState extends State<WishlistPage> {
             ),
             actions: [
               IconButton(
-                icon: const Icon(Icons.shopping_cart_outlined, color: Color(0xFF0F172A), size: 22),
+                icon: Icon(Icons.shopping_cart_outlined, color: cs.onSurface, size: 22),
                 onPressed: () => Navigator.pushNamed(context, AppRoutes.cart),
               ),
               const SizedBox(width: 4),
@@ -212,17 +216,13 @@ class _WishlistPageState extends State<WishlistPage> {
   }
 
   Widget _buildWishlistItemCard(BuildContext context, ProductModel product) {
+    final cs = Theme.of(context).colorScheme;
+    final resolvedImg = ImageUrlHelper.resolve(product.imageUrl);
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cs.surfaceContainerLowest,
         borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
-          ),
-        ],
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.5)),
       ),
       child: Material(
         color: Colors.transparent,
@@ -241,18 +241,25 @@ class _WishlistPageState extends State<WishlistPage> {
                   borderRadius: BorderRadius.circular(10),
                   child: Stack(
                     children: [
-                      Image.network(
-                        product.imageUrl,
-                        width: 90,
-                        height: 90,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) => Container(
-                          width: 90,
-                          height: 90,
-                          color: const Color(0xFFF1F5F9),
-                          child: const Icon(Icons.image_not_supported, color: Color(0xFF94A3B8)),
-                        ),
-                      ),
+                      resolvedImg.isEmpty
+                          ? Container(
+                              width: 90,
+                              height: 90,
+                              color: cs.surfaceContainerHigh,
+                              child: Icon(Icons.image_not_supported, color: cs.onSurfaceVariant),
+                            )
+                          : Image.network(
+                              resolvedImg,
+                              width: 90,
+                              height: 90,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, _, _) => Container(
+                                width: 90,
+                                height: 90,
+                                color: cs.surfaceContainerHigh,
+                                child: Icon(Icons.image_not_supported, color: cs.onSurfaceVariant),
+                              ),
+                            ),
                       if (product.isMall)
                         Positioned(
                           top: 4,
@@ -301,14 +308,28 @@ class _WishlistPageState extends State<WishlistPage> {
                           ),
                           const SizedBox(width: 6),
                           GestureDetector(
-                            onTap: () {
-                              WishlistService.instance.removeFromWishlist(product.title);
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Removed from Wishlist'),
-                                  duration: Duration(seconds: 1),
-                                ),
-                              );
+                            onTap: () async {
+                              try {
+                                await WishlistService.instance.toggleWishlist(product);
+                                if (!context.mounted) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Removed from Wishlist'),
+                                    duration: Duration(seconds: 1),
+                                  ),
+                                );
+                              } catch (e) {
+                                if (!context.mounted) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      e is ApiException
+                                          ? e.message
+                                          : 'Could not update wishlist.',
+                                    ),
+                                  ),
+                                );
+                              }
                             },
                             child: const Padding(
                               padding: EdgeInsets.all(2),

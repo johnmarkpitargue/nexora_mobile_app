@@ -15,39 +15,6 @@ class PromoBannersSection extends StatefulWidget {
 }
 
 class _PromoBannersSectionState extends State<PromoBannersSection> {
-  static const List<_HeroSlideData> _fallbackCampaigns = [
-    _HeroSlideData(
-      title: 'SoundMax Pro 18',
-      releaseNote: 'New this week',
-      description: 'Spatial audio, ANC, and zero-latency listening.',
-      searchQuery: 'SoundMax Pro 18',
-      imageUrl:
-          'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=1200&q=88',
-      fallbackIcon: Icons.headphones_rounded,
-      gradient: [NexoraTheme.darkNavy, Color(0xFF0C4A6E)],
-    ),
-    _HeroSlideData(
-      title: 'AuraFit Ultra 2',
-      releaseNote: 'Limited stock',
-      description: 'A vivid AMOLED display with a 14-day battery.',
-      searchQuery: 'AuraFit Ultra 2',
-      imageUrl:
-          'https://images.unsplash.com/photo-1579586337278-3befd40fd17a?auto=format&fit=crop&w=1200&q=88',
-      fallbackIcon: Icons.watch_rounded,
-      gradient: [Color(0xFF071631), Color(0xFF0B4D99)],
-    ),
-    _HeroSlideData(
-      title: 'Apex Pro Keyboards',
-      releaseNote: 'Special edition',
-      description: 'Responsive switches and focused desk-ready lighting.',
-      searchQuery: 'Apex Pro Keyboards',
-      imageUrl:
-          'https://images.unsplash.com/photo-1587829741301-dc798b83add3?auto=format&fit=crop&w=1200&q=88',
-      fallbackIcon: Icons.keyboard_rounded,
-      gradient: [Color(0xFF0A1028), Color(0xFF123B68)],
-    ),
-  ];
-
   late final PageController _pageController;
   Timer? _autoSlideTimer;
   int _currentPage = 0;
@@ -90,37 +57,43 @@ class _PromoBannersSectionState extends State<PromoBannersSection> {
   }
 
   List<_HeroSlideData> _getSlides() {
-    final liveProducts = ShopService.instance.products;
-    if (liveProducts.isNotEmpty) {
-      final topFour = liveProducts.take(4).toList();
-      const gradients = [
-        [Color(0xFF050B28), Color(0xFF0C2454), Color(0xFF0284C7)],
-        [Color(0xFF071631), Color(0xFF0B4D99), Color(0xFF0066FF)],
-        [Color(0xFF0A1028), Color(0xFF1E293B), Color(0xFF0EA5E9)],
-        [Color(0xFF06152B), Color(0xFF0C4A6E), Color(0xFF38BDF8)],
-      ];
+    // Only display genuine active flash sales (if any exist) or real catalog items.
+    // Never invent fake promotions or products.
+    final flash = ShopService.instance.flashSales;
+    final source = flash.isNotEmpty
+        ? flash.take(4).toList()
+        : ShopService.instance.products.take(4).toList();
 
-      return List.generate(topFour.length, (i) {
-        final prod = topFour[i];
-        final badge = prod.isMall
-            ? 'Nexora Mall'
-            : (prod.shopName.isNotEmpty ? prod.shopName : 'Featured');
-        final discountDesc = prod.discountTag != null
-            ? '${prod.discountTag} OFF • Only ${prod.price}'
-            : 'Available now for ${prod.price}';
-
-        return _HeroSlideData(
-          title: prod.title,
-          releaseNote: badge,
-          description: discountDesc,
-          imageUrl: prod.imageUrl,
-          fallbackIcon: Icons.shopping_bag_outlined,
-          gradient: gradients[i % gradients.length],
-          product: prod,
-        );
-      });
+    if (source.isEmpty) {
+      return const [];
     }
-    return _fallbackCampaigns;
+
+    const gradients = [
+      [Color(0xFF1F3A8A), Color(0xFF1E40AF), Color(0xFF2563EB)],
+      [Color(0xFF0F172A), Color(0xFF1E3A8A), Color(0xFF2563EB)],
+      [Color(0xFF172554), Color(0xFF1D4ED8), Color(0xFF3B82F6)],
+      [Color(0xFF0F172A), Color(0xFF1F3A8A), Color(0xFF0EA5E9)],
+    ];
+
+    return List.generate(source.length, (i) {
+      final prod = source[i];
+      final badge = prod.isFlashSale
+          ? 'Flash Deal'
+          : (prod.shopName.isNotEmpty ? prod.shopName : 'Featured Product');
+      final discountDesc = prod.isFlashSale && prod.discountTag != null
+          ? '${prod.discountTag} OFF • ${prod.price}'
+          : 'Available now • ${prod.price}';
+
+      return _HeroSlideData(
+        title: prod.title,
+        releaseNote: badge,
+        description: discountDesc,
+        imageUrl: prod.imageUrl,
+        fallbackIcon: Icons.shopping_bag_outlined,
+        gradient: gradients[i % gradients.length],
+        product: prod,
+      );
+    });
   }
 
   void _openSlide(_HeroSlideData slide) {
@@ -129,12 +102,6 @@ class _PromoBannersSectionState extends State<PromoBannersSection> {
         context,
         AppRoutes.productDetails,
         arguments: slide.product,
-      );
-    } else if (slide.searchQuery != null) {
-      Navigator.pushNamed(
-        context,
-        AppRoutes.search,
-        arguments: slide.searchQuery,
       );
     }
   }
@@ -155,6 +122,9 @@ class _PromoBannersSectionState extends State<PromoBannersSection> {
       animation: ShopService.instance,
       builder: (context, _) {
         final slides = _getSlides();
+        if (slides.isEmpty) {
+          return const SizedBox.shrink();
+        }
         return Column(
           children: [
             LayoutBuilder(
@@ -223,7 +193,6 @@ class _HeroSlideData {
     required this.title,
     required this.releaseNote,
     required this.description,
-    this.searchQuery,
     required this.imageUrl,
     required this.fallbackIcon,
     required this.gradient,
@@ -233,7 +202,6 @@ class _HeroSlideData {
   final String title;
   final String releaseNote;
   final String description;
-  final String? searchQuery;
   final String imageUrl;
   final IconData fallbackIcon;
   final List<Color> gradient;

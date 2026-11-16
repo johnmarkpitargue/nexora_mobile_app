@@ -1,16 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:nexora_flutter_app/app/routes/app_routes.dart';
-import 'package:nexora_flutter_app/core/services/cart_service.dart';
-import 'package:nexora_flutter_app/core/services/order_service.dart';
-import 'package:nexora_flutter_app/core/services/address_service.dart';
-import 'package:nexora_flutter_app/core/services/profile_service.dart';
-import 'package:nexora_flutter_app/core/services/buyer_account_service.dart';
-import 'package:nexora_flutter_app/core/services/payment_method_service.dart';
-import 'package:nexora_flutter_app/core/services/external_notification_service.dart';
-import 'package:nexora_flutter_app/core/services/shop_service.dart';
-import 'package:nexora_flutter_app/core/models/shop_models.dart';
-import 'package:nexora_flutter_app/core/utils/guest_auth_guard.dart';
+import 'package:nexora_flutter_app/app/theme/nexora_theme.dart';
+import 'package:nexora_flutter_app/core/constants/api_constants.dart';
 import 'package:nexora_flutter_app/core/network/api_client.dart';
+import 'package:nexora_flutter_app/core/services/address_service.dart';
+import 'package:nexora_flutter_app/core/services/buyer_account_service.dart';
+import 'package:nexora_flutter_app/core/services/cart_service.dart';
+import 'package:nexora_flutter_app/core/services/external_notification_service.dart';
+import 'package:nexora_flutter_app/core/services/order_service.dart';
+import 'package:nexora_flutter_app/core/services/platform_voucher_service.dart';
+import 'package:nexora_flutter_app/core/services/profile_service.dart';
+import 'package:nexora_flutter_app/core/utils/guest_auth_guard.dart';
+import 'package:nexora_flutter_app/core/utils/image_url_helper.dart';
+import 'package:nexora_flutter_app/core/widgets/nexora_widgets.dart';
 import 'package:nexora_flutter_app/features/profile/presentation/new_address_page.dart';
 import 'widgets/shipping_option_modal.dart';
 
@@ -22,51 +24,56 @@ class CheckoutPage extends StatefulWidget {
 }
 
 class _CheckoutPageState extends State<CheckoutPage> {
-  int _selectedPaymentIndex = 0;
   String? _currentAttemptIdempotencyKey;
-
-  List<Map<String, dynamic>> get _paymentOptions {
-    // The web backend only supports Cash on Delivery (COD). Non-web options are hidden per Rule B3 & Rule 4.
-    return [
-      {
-        'id': 'cod',
-        'name': 'Cash on Delivery',
-        'shortName': 'Cash on Delivery',
-        'desc': 'Pay in cash upon doorstep delivery',
-        'icon': Icons.payments_outlined,
-        'color': const Color(0xFF00B4D8),
-        'tag': 'Supported',
-        'isLinked': true,
-      },
-    ];
-  }
-
-  bool _merchandiseProtection = true;
   bool _isPlacingOrder = false;
+  bool _isLoadingSummary = false;
+  String? _summaryError;
 
-  // Voucher & Message for Seller State
-  ShopVoucherModel? _appliedVoucher;
-  double _voucherDiscount = 0.0;
-  String _sellerMessage = '';
+  // Authoritative server checkout summary
+  CheckoutSummaryPreview? _serverSummary;
+  List<PlatformVoucherModel> _availableVouchers = [];
 
-  // Dynamic Shipping Option State
-  String _selectedShippingType = 'door_to_door';
-  String _selectedShippingName = 'Standard Local';
-  String _estimatedArrivalDate = '8 - 9 Oct';
-  double _selectedShippingFee = 0.0;
-  String? _selectedPickupLocation;
+  // Selected DB vouchers by scope
+  PlatformVoucherModel? _selectedStoreVoucher;
+  PlatformVoucherModel? _selectedPlatformVoucher;
+  PlatformVoucherModel? _selectedShippingVoucher;
+
+  // Optional note per store (UI preview for checkout session)
+  final Map<String, String> _sellerMessages = {};
 
   final CartService _cartService = CartService.instance;
   final OrderService _orderService = OrderService.instance;
+  final PlatformVoucherService _voucherService = PlatformVoucherService.instance;
 
-  // Persisted snapshot of items being checked out
   List<CartItemModel> _checkoutItems = [];
+
+  bool get _isDirectBuy => _cartService.directBuyItem != null;
 
   @override
   void initState() {
     super.initState();
-    _syncDefaultPaymentSelection();
-    PaymentMethodService.instance.addListener(_onPaymentServiceChanged);
+    _initCheckoutItems();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      if (!BuyerAccountService.instance.isLoggedIn) {
+        final authenticated = await GuestAuthGuard.requireLogin(
+          context,
+          title: 'Sign In Required for Checkout',
+          message:
+              'Please sign in or create an account to finalize your order, compute shipping fees, and track your delivery.',
+        );
+        if (!mounted) return;
+        if (!authenticated) {
+          if (Navigator.canPop(context)) Navigator.pop(context);
+          return;
+        }
+      }
+      await _loadCheckoutPreview();
+    });
+  }
+
+  void _initCheckoutItems() {
     if (_cartService.directBuyItem != null) {
       _checkoutItems = [_cartService.directBuyItem!.copyWith()];
     } else {
@@ -77,137 +84,255 @@ class _CheckoutPageState extends State<CheckoutPage> {
         _checkoutItems = [_cartService.items.first.copyWith(isChecked: true)];
       }
     }
+  }
 
-    // Require login if in guest mode
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!BuyerAccountService.instance.isLoggedIn && mounted) {
-        GuestAuthGuard.requireLogin(
-          context,
-          title: 'Sign In Required for Checkout',
-          message: 'Please sign in or create an account to finalize your order, apply shipping details, and track your package.',
-        ).then((authenticated) {
-          if (!authenticated && mounted) {
-            Navigator.pop(context);
-          } else if (mounted) {
-            _syncDefaultPaymentSelection();
-          }
+  List<int> get _serverCartItemIds {
+    if (_isDirectBuy) return const [];
+    return _checkoutItems
+        .map((e) => int.tryParse(e.id) ?? 0)
+        .where((id) => id > 0)
+        .toList();
+  }
+
+  Future<void> _loadCheckoutPreview() async {
+    if (!ApiClient.instance.hasToken) return;
+    if (_checkoutItems.isEmpty) return;
+
+    setState(() {
+      _isLoadingSummary = true;
+      _summaryError = null;
+    });
+
+    try {
+      final pId = int.tryParse(_selectedPlatformVoucher?.id ?? '');
+      final sId = int.tryParse(_selectedShippingVoucher?.id ?? '');
+      final stId = int.tryParse(_selectedStoreVoucher?.id ?? '');
+
+      if (!_isDirectBuy && _serverCartItemIds.isNotEmpty) {
+        final preview = await _orderService.fetchCheckoutSummaryRemote(
+          cartItemIds: _serverCartItemIds,
+          platformVoucherId: pId,
+          shippingVoucherId: sId,
+          storeVoucherId: stId,
+        );
+        if (!mounted) return;
+        setState(() {
+          _serverSummary = preview;
+          _availableVouchers = preview.availableVouchers;
+          _isLoadingSummary = false;
+        });
+      } else {
+        // Direct Buy item isn't in DB cart until order placement; fetch real DB vouchers
+        final vouchers = await _voucherService.fetchVouchersRemote();
+        if (!mounted) return;
+        setState(() {
+          _availableVouchers = vouchers;
+          _isLoadingSummary = false;
         });
       }
-    });
-  }
-
-  @override
-  void dispose() {
-    PaymentMethodService.instance.removeListener(_onPaymentServiceChanged);
-    super.dispose();
-  }
-
-  void _onPaymentServiceChanged() {
-    if (mounted) {
+    } catch (e) {
+      if (!mounted) return;
       setState(() {
-        _syncDefaultPaymentSelection();
+        _isLoadingSummary = false;
+        _summaryError = e is ApiException ? e.message : 'Unable to refresh checkout summary.';
       });
     }
   }
 
-  void _syncDefaultPaymentSelection() {
-    final defaultMethod = PaymentMethodService.instance.defaultMethod;
-    final opts = _paymentOptions;
-    if (defaultMethod.type == PaymentType.gcash && defaultMethod.isLinked) {
-      final idx = opts.indexWhere((o) => o['id'] == 'gcash');
-      if (idx != -1) _selectedPaymentIndex = idx;
-    } else if (defaultMethod.type == PaymentType.card && defaultMethod.isLinked) {
-      final idx = opts.indexWhere((o) => o['id'] == defaultMethod.id);
-      if (idx != -1) _selectedPaymentIndex = idx;
-    } else {
-      _selectedPaymentIndex = 0; // Cash on Delivery
-    }
-  }
-
-  double get _merchandiseSubtotal {
-    if (_checkoutItems.isNotEmpty) {
-      final total = _checkoutItems.fold<double>(
-        0.0,
-        (sum, item) => sum + ((item.originalPrice ?? item.price) * item.quantity),
-      );
-      if (total > 0) return total;
-    }
-    final checked = _cartService.items.where((i) => i.isChecked);
-    if (checked.isEmpty) return 490.0;
-    return _cartService.originalSubtotal > 0 ? _cartService.originalSubtotal : 490.0;
+  double get _merchandiseOriginalSubtotal {
+    return _checkoutItems.fold<double>(
+      0.0,
+      (sum, item) => sum + ((item.originalPrice ?? item.price) * item.quantity),
+    );
   }
 
   double get _effectiveSubtotal {
-    if (_checkoutItems.isNotEmpty) {
-      final total = _checkoutItems.fold<double>(
-        0.0,
-        (sum, item) => sum + (item.price * item.quantity),
-      );
-      if (total > 0) return total;
+    if (_serverSummary != null && _serverSummary!.totalSubtotal > 0) {
+      return _serverSummary!.totalSubtotal;
     }
-    return _cartService.subtotal;
+    return _checkoutItems.fold<double>(
+      0.0,
+      (sum, item) => sum + (item.price * item.quantity),
+    );
   }
 
   double get _itemDiscount {
-    final diff = _merchandiseSubtotal - _effectiveSubtotal;
+    final diff = _merchandiseOriginalSubtotal - _effectiveSubtotal;
     return diff > 0 ? diff : 0.0;
   }
 
-  double get _shippingSubtotal => _selectedShippingFee > 0 ? 75.0 : 34.0;
-  double get _shippingDiscount => _selectedShippingFee > 0 ? 30.0 : 34.0;
+  double get _shippingSubtotal => _serverSummary?.totalShipping ?? 0.0;
+
+  double _previewVoucherDiscount(PlatformVoucherModel? v, double baseAmount) {
+    if (v == null || baseAmount <= 0) return 0.0;
+    if (baseAmount < v.minSpend) return 0.0;
+    final raw = v.isPercentage ? baseAmount * v.discountAmount : v.discountAmount;
+    return raw > baseAmount ? baseAmount : raw;
+  }
+
+  double get _platformDiscount {
+    if (_serverSummary != null) return _serverSummary!.platformDiscount;
+    return _previewVoucherDiscount(_selectedPlatformVoucher, _effectiveSubtotal);
+  }
+
+  double get _storeDiscount {
+    if (_serverSummary != null) return _serverSummary!.storeDiscount;
+    return _previewVoucherDiscount(_selectedStoreVoucher, _effectiveSubtotal);
+  }
+
+  double get _shippingDiscount {
+    if (_serverSummary != null) return _serverSummary!.shippingDiscount;
+    return _previewVoucherDiscount(_selectedShippingVoucher, _shippingSubtotal);
+  }
+
+  double get _totalVoucherDiscount => _platformDiscount + _storeDiscount + _shippingDiscount;
 
   double get _finalTotal {
-    final baseProductTotal = _merchandiseSubtotal - _itemDiscount - _voucherDiscount;
-    final actualShippingPaid = _selectedShippingFee;
-    final protection = _merchandiseProtection ? 12.0 : 0.0;
-    final total = (baseProductTotal > 0 ? baseProductTotal : 0.0) + actualShippingPaid + protection;
+    if (_serverSummary != null) return _serverSummary!.estimatedTotal;
+    final total = _effectiveSubtotal + _shippingSubtotal - _totalVoucherDiscount;
     return total < 0 ? 0.0 : total;
   }
 
-  double get _totalSaved => _itemDiscount + _shippingDiscount + _voucherDiscount;
+  double get _totalSaved => _itemDiscount + _totalVoucherDiscount;
+
+  int get _totalItemCount => _checkoutItems.fold<int>(0, (sum, e) => sum + e.quantity);
+
+  String _formatPeso(double amount) {
+    return amount % 1 == 0
+        ? '₱${amount.toStringAsFixed(0)}'
+        : '₱${amount.toStringAsFixed(2)}';
+  }
+
+  String _formatVoucherBenefit(PlatformVoucherModel v) {
+    if (v.isFreeShipping && v.discountAmount <= 0) {
+      return 'Free Shipping';
+    }
+    if (v.isPercentage) {
+      return '${(v.discountAmount * 100).toStringAsFixed(0)}% OFF';
+    }
+    return '₱${v.discountAmount.toStringAsFixed(0)} OFF';
+  }
 
   Future<void> _openShippingOptionModal() async {
-    final result = await showModalBottomSheet<ShippingOptionResult>(
+    await showModalBottomSheet<ShippingOptionResult>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => ShippingOptionModal(
+      builder: (_) => ShippingOptionModal(
         initialSelection: ShippingOptionResult(
-          methodType: _selectedShippingType,
-          optionName: _selectedShippingName,
-          estimatedDate: _estimatedArrivalDate,
-          shippingFee: _selectedShippingFee,
-          pickupLocation: _selectedPickupLocation,
+          methodType: 'door_to_door',
+          optionName: 'Standard Door-to-Door',
+          estimatedDate: _serverSummary != null
+              ? 'Weight-based rate'
+              : 'Calculated by parcel weight at confirmation',
+          shippingFee: _shippingSubtotal,
         ),
       ),
     );
-
-    if (result != null) {
-      setState(() {
-        _selectedShippingType = result.methodType;
-        _selectedShippingName = result.optionName;
-        _estimatedArrivalDate = result.estimatedDate;
-        _selectedShippingFee = result.shippingFee;
-        _selectedPickupLocation = result.pickupLocation;
-      });
-    }
   }
 
-  ShopModel _resolveShop(String storeName) {
-    final lower = storeName.toLowerCase().trim();
-    for (final s in ShopService.instance.allShops) {
-      if (s.name.toLowerCase().contains(lower) || lower.contains(s.name.toLowerCase())) {
-        return s;
+  Future<void> _claimAndSelectVoucher(
+    PlatformVoucherModel voucher, {
+    required String targetScope,
+  }) async {
+    if (ApiClient.instance.hasToken &&
+        !voucher.isClaimed &&
+        int.tryParse(voucher.id) != null) {
+      try {
+        await ApiClient.instance.post(ApiConstants.buyerVoucherClaim(voucher.id));
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e is ApiException ? e.message : 'Unable to claim voucher.'),
+          ),
+        );
+        return;
       }
     }
-    return ShopService.nexoraOfficialStore;
+
+    setState(() {
+      if (targetScope == 'shipping' || voucher.scope == 'shipping') {
+        _selectedShippingVoucher = voucher;
+      } else if (targetScope == 'store' ||
+          voucher.scope == 'store' ||
+          voucher.scope == 'seller') {
+        _selectedStoreVoucher = voucher;
+      } else {
+        _selectedPlatformVoucher = voucher;
+      }
+    });
+
+    await _loadCheckoutPreview();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Applied voucher ${voucher.code}: ${_formatVoucherBenefit(voucher)}'),
+        backgroundColor: NexoraTheme.primary,
+      ),
+    );
   }
 
-  Future<void> _openShopVoucherModal(String storeName) async {
-    final shop = _resolveShop(storeName);
-    final storeVouchers = shop.vouchers;
-    final promoCodeController = TextEditingController();
-    String? promoError;
+  Future<void> _openStoreVoucherModal(String storeName, int? sellerId) async {
+    final storeVouchers = _availableVouchers.where((v) {
+      final s = v.scope.toLowerCase();
+      final isStoreScope = s == 'store' || s == 'seller';
+      if (!isStoreScope) return false;
+      if (sellerId != null && v.sellerId != null) {
+        return v.sellerId == sellerId.toString();
+      }
+      return true;
+    }).toList();
+
+    await _showVoucherPickerSheet(
+      title: 'Shop Vouchers',
+      subtitle: storeName,
+      vouchers: storeVouchers,
+      selectedVoucher: _selectedStoreVoucher,
+      targetScope: 'store',
+      emptyMessage: 'No active store vouchers available from $storeName.',
+      onRemove: () async {
+        setState(() => _selectedStoreVoucher = null);
+        await _loadCheckoutPreview();
+      },
+    );
+  }
+
+  Future<void> _openPlatformVoucherModal() async {
+    final platformAndShipping = _availableVouchers.where((v) {
+      final s = v.scope.toLowerCase();
+      return s == 'platform' || s == 'shipping';
+    }).toList();
+
+    await _showVoucherPickerSheet(
+      title: 'Platform & Shipping Vouchers',
+      subtitle: 'Apply official Nexora vouchers to your order',
+      vouchers: platformAndShipping,
+      selectedVoucher: _selectedPlatformVoucher ?? _selectedShippingVoucher,
+      targetScope: 'platform',
+      emptyMessage: 'No platform or shipping vouchers available right now.',
+      onRemove: () async {
+        setState(() {
+          _selectedPlatformVoucher = null;
+          _selectedShippingVoucher = null;
+        });
+        await _loadCheckoutPreview();
+      },
+    );
+  }
+
+  Future<void> _showVoucherPickerSheet({
+    required String title,
+    required String subtitle,
+    required List<PlatformVoucherModel> vouchers,
+    required PlatformVoucherModel? selectedVoucher,
+    required String targetScope,
+    required String emptyMessage,
+    required Future<void> Function() onRemove,
+  }) async {
+    final codeController = TextEditingController();
+    String? codeError;
+    bool isSubmitting = false;
 
     await showModalBottomSheet<void>(
       context: context,
@@ -215,6 +340,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
       backgroundColor: Colors.transparent,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setModalState) {
+          final theme = Theme.of(ctx);
+          final cs = theme.colorScheme;
           return Container(
             padding: EdgeInsets.only(
               bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
@@ -222,9 +349,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
               left: 16,
               right: 16,
             ),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+            decoration: BoxDecoration(
+              color: cs.surfaceContainerLowest,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
             ),
             child: SingleChildScrollView(
               child: Column(
@@ -236,7 +363,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                       width: 40,
                       height: 4,
                       decoration: BoxDecoration(
-                        color: Colors.grey.shade300,
+                        color: cs.outlineVariant,
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),
@@ -249,87 +376,55 @@ class _CheckoutPageState extends State<CheckoutPage> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
-                              'Shop Vouchers',
+                            Text(
+                              title,
                               style: TextStyle(
                                 fontSize: 17,
-                                fontWeight: FontWeight.w900,
-                                color: Color(0xFF0F172A),
+                                fontWeight: FontWeight.w800,
+                                color: cs.onSurface,
                               ),
                             ),
                             Text(
-                              shop.name,
+                              subtitle,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 12,
-                                color: Color(0xFF64748B),
-                                fontWeight: FontWeight.w500,
+                                color: cs.onSurfaceVariant,
                               ),
                             ),
                           ],
                         ),
                       ),
-                      if (_appliedVoucher != null)
+                      if (selectedVoucher != null)
                         TextButton(
-                          onPressed: () {
-                            setState(() {
-                              _appliedVoucher = null;
-                              _voucherDiscount = 0.0;
-                            });
+                          onPressed: () async {
                             Navigator.pop(ctx);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Voucher removed')),
-                            );
+                            await onRemove();
                           },
                           child: const Text(
                             'Remove',
                             style: TextStyle(
-                              color: Colors.red,
+                              color: NexoraTheme.error,
                               fontWeight: FontWeight.w700,
-                              fontSize: 12.5,
                             ),
                           ),
                         ),
                     ],
                   ),
                   const SizedBox(height: 14),
-
-                  // Promo Code Input Box
                   Row(
                     children: [
                       Expanded(
-                        child: Container(
-                          height: 44,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF8FAFC),
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                              color: promoError != null ? Colors.red : const Color(0xFFE2E8F0),
-                            ),
-                          ),
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          child: TextField(
-                            controller: promoCodeController,
-                            textCapitalization: TextCapitalization.characters,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 1,
-                            ),
-                            decoration: const InputDecoration(
-                              hintText: 'Enter Voucher / Promo Code',
-                              hintStyle: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.normal,
-                                color: Color(0xFF94A3B8),
-                                letterSpacing: 0,
-                              ),
-                              filled: false,
-                              fillColor: Colors.transparent,
-                              border: InputBorder.none,
-                              isDense: true,
-                              contentPadding: EdgeInsets.symmetric(vertical: 12),
+                        child: TextField(
+                          controller: codeController,
+                          textCapitalization: TextCapitalization.characters,
+                          decoration: InputDecoration(
+                            hintText: 'Enter voucher code',
+                            isDense: true,
+                            errorText: codeError,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
                             ),
                           ),
                         ),
@@ -338,176 +433,148 @@ class _CheckoutPageState extends State<CheckoutPage> {
                       SizedBox(
                         height: 44,
                         child: ElevatedButton(
-                          onPressed: () {
-                            final code = promoCodeController.text.trim().toUpperCase();
-                            if (code.isEmpty) return;
+                          onPressed: isSubmitting
+                              ? null
+                              : () async {
+                                  final code = codeController.text.trim().toUpperCase();
+                                  if (code.isEmpty) return;
 
-                            ShopVoucherModel? matchedVoucher;
-                            if (code == 'NEXORA100' || code == 'STUDIO100' || code == 'NL100') {
-                              matchedVoucher = const ShopVoucherModel(
-                                id: 'promo_100',
-                                discountTitle: '₱100 OFF',
-                                tag: 'Promo Code',
-                                minSpend: 'Min. spend ₱0',
-                                expiry: 'Exp: 31.12.2026',
-                                buttonColor: Color(0xFF0066FF),
-                                discountAmount: 100,
-                              );
-                            } else if (code == 'NEXORA10' || code == 'VIP10') {
-                              matchedVoucher = const ShopVoucherModel(
-                                id: 'promo_10pct',
-                                discountTitle: '10% OFF',
-                                tag: 'Promo VIP',
-                                minSpend: 'Min. spend ₱0',
-                                expiry: 'Exp: 31.12.2026',
-                                buttonColor: Color(0xFF0066FF),
-                                discountAmount: 0.10,
-                                isPercentage: true,
-                              );
-                            } else if (code == 'NEXORA50' || code == 'WELCOME50') {
-                              matchedVoucher = const ShopVoucherModel(
-                                id: 'promo_50',
-                                discountTitle: '₱50 OFF',
-                                tag: 'Welcome',
-                                minSpend: 'Min. spend ₱0',
-                                expiry: 'Exp: 31.12.2026',
-                                buttonColor: Color(0xFF0066FF),
-                                discountAmount: 50,
-                              );
-                            } else {
-                              setModalState(() {
-                                promoError = 'Invalid code. Try NEXORA100 or select a voucher below.';
-                              });
-                              return;
-                            }
+                                  setModalState(() {
+                                    isSubmitting = true;
+                                    codeError = null;
+                                  });
 
-                            _applyVoucherModel(matchedVoucher);
-                            Navigator.pop(ctx);
-                          },
+                                  final match = _availableVouchers.where(
+                                    (v) => v.code.toUpperCase() == code,
+                                  );
+                                  if (match.isEmpty) {
+                                    setModalState(() {
+                                      isSubmitting = false;
+                                      codeError =
+                                          'Voucher code not found or not eligible for this order.';
+                                    });
+                                    return;
+                                  }
+
+                                  final picked = match.first;
+                                  Navigator.pop(ctx);
+                                  await _claimAndSelectVoucher(
+                                    picked,
+                                    targetScope: picked.scope,
+                                  );
+                                },
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF0066FF),
+                            backgroundColor: cs.primary,
                             foregroundColor: Colors.white,
                             elevation: 0,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(10),
                             ),
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
                           ),
-                          child: const Text('Apply', style: TextStyle(fontWeight: FontWeight.bold)),
+                          child: const Text('Apply'),
                         ),
                       ),
                     ],
                   ),
-                  if (promoError != null) ...[
-                    const SizedBox(height: 6),
-                    Text(
-                      promoError!,
-                      style: const TextStyle(fontSize: 11, color: Colors.red, fontWeight: FontWeight.w600),
-                    ),
-                  ],
-                  const SizedBox(height: 18),
-
-                  const Text(
-                    'Available Store Vouchers',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFF0F172A),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-
-                  if (storeVouchers.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 20),
+                  const SizedBox(height: 16),
+                  if (vouchers.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 20),
                       child: Center(
                         child: Text(
-                          'No specific store vouchers available for this shop right now.',
-                          style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                          emptyMessage,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            color: cs.onSurfaceVariant,
+                          ),
                         ),
                       ),
                     )
                   else
-                    ...storeVouchers.map((v) {
-                      final isSelected = _appliedVoucher?.id == v.id;
+                    ...vouchers.map((v) {
+                      final isSelected =
+                          _selectedPlatformVoucher?.id == v.id ||
+                          _selectedShippingVoucher?.id == v.id ||
+                          _selectedStoreVoucher?.id == v.id;
                       return Container(
                         margin: const EdgeInsets.only(bottom: 10),
                         decoration: BoxDecoration(
-                          color: isSelected ? const Color(0xFFEFF6FF) : Colors.white,
+                          color: isSelected
+                              ? cs.primary.withValues(alpha: 0.08)
+                              : theme.scaffoldBackgroundColor,
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                            color: isSelected ? const Color(0xFF0066FF) : const Color(0xFFE2E8F0),
+                            color: isSelected ? cs.primary : cs.outlineVariant,
                             width: isSelected ? 1.5 : 1.0,
                           ),
                         ),
                         child: ListTile(
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-                          onTap: () {
-                            _applyVoucherModel(v);
+                          onTap: () async {
                             Navigator.pop(ctx);
+                            await _claimAndSelectVoucher(
+                              v,
+                              targetScope: v.scope,
+                            );
                           },
                           leading: Container(
-                            width: 44,
-                            height: 44,
+                            width: 42,
+                            height: 42,
                             decoration: BoxDecoration(
-                              color: const Color(0xFF0066FF).withValues(alpha: 0.1),
+                              color: cs.primary.withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(10),
                             ),
-                            child: const Icon(Icons.confirmation_num_outlined, color: Color(0xFF0066FF), size: 22),
+                            child: Icon(
+                              v.scope == 'shipping'
+                                  ? Icons.local_shipping_outlined
+                                  : Icons.confirmation_num_outlined,
+                              color: cs.primary,
+                              size: 20,
+                            ),
                           ),
                           title: Row(
                             children: [
-                              Text(
-                                v.discountTitle,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: 15,
-                                  color: Color(0xFF0F172A),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFE0F2FE),
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
+                              Expanded(
                                 child: Text(
-                                  v.tag,
-                                  style: const TextStyle(
-                                    fontSize: 9.5,
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFF0284C7),
+                                  '${_formatVoucherBenefit(v)} (${v.code})',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 13.5,
+                                    color: cs.onSurface,
                                   ),
                                 ),
+                              ),
+                              const SizedBox(width: 6),
+                              NexoraStatusBadge(
+                                label: v.scope.toUpperCase(),
+                                color: v.scope == 'shipping'
+                                    ? NexoraTheme.accent
+                                    : cs.primary,
                               ),
                             ],
                           ),
                           subtitle: Text(
-                            '${v.minSpend} • ${v.expiry}',
-                            style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                            'Min. spend ₱${v.minSpend.toStringAsFixed(0)} • Exp: ${v.expiry}',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: cs.onSurfaceVariant,
+                            ),
                           ),
                           trailing: isSelected
-                              ? const Icon(Icons.check_circle_rounded, color: Color(0xFF0066FF), size: 22)
-                              : ElevatedButton(
-                                  onPressed: () {
-                                    _applyVoucherModel(v);
-                                    Navigator.pop(ctx);
-                                  },
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF0066FF),
-                                    foregroundColor: Colors.white,
-                                    elevation: 0,
-                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                    visualDensity: VisualDensity.compact,
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ? Icon(Icons.check_circle_rounded, color: cs.primary)
+                              : Text(
+                                  'Use',
+                                  style: TextStyle(
+                                    color: cs.primary,
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 12,
                                   ),
-                                  child: const Text('Apply', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
                                 ),
                         ),
                       );
                     }),
-                  const SizedBox(height: 10),
                 ],
               ),
             ),
@@ -517,32 +584,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
     );
   }
 
-  void _applyVoucherModel(ShopVoucherModel voucher) {
-    double discount = 0.0;
-    if (voucher.isPercentage) {
-      discount = _effectiveSubtotal * voucher.discountAmount;
-    } else {
-      discount = voucher.discountAmount;
-    }
-    if (discount > _effectiveSubtotal) {
-      discount = _effectiveSubtotal;
-    }
-    setState(() {
-      _appliedVoucher = voucher;
-      _voucherDiscount = discount;
-    });
-    ShopService.instance.claimVoucher(voucher.id);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('🎉 Applied voucher: ${voucher.discountTitle}! Saved ₱${discount.toStringAsFixed(0)}'),
-        backgroundColor: const Color(0xFF0066FF),
-      ),
-    );
-  }
-
   Future<void> _openSellerMessageModal(String storeName) async {
-    final controller = TextEditingController(text: _sellerMessage);
-    final quickNotes = [
+    final current = _sellerMessages[storeName] ?? '';
+    final controller = TextEditingController(text: current);
+    const quickNotes = [
       'Fragile - handle with care',
       'Please call upon arrival',
       'Double bubble wrap packaging',
@@ -556,6 +601,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
       backgroundColor: Colors.transparent,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setModalState) {
+          final cs = Theme.of(ctx).colorScheme;
           return Container(
             padding: EdgeInsets.only(
               bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
@@ -563,26 +609,15 @@ class _CheckoutPageState extends State<CheckoutPage> {
               left: 16,
               right: 16,
             ),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+            decoration: BoxDecoration(
+              color: cs.surfaceContainerLowest,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
             ),
             child: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Center(
-                    child: Container(
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade300,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -590,115 +625,94 @@ class _CheckoutPageState extends State<CheckoutPage> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
+                            Text(
                               'Message for Seller',
                               style: TextStyle(
                                 fontSize: 17,
                                 fontWeight: FontWeight.w900,
-                                color: Color(0xFF0F172A),
+                                color: cs.onSurface,
                               ),
                             ),
                             Text(
-                              'Special note for $storeName',
+                              storeName,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 12,
-                                color: Color(0xFF64748B),
+                                color: cs.onSurfaceVariant,
                               ),
                             ),
                           ],
                         ),
                       ),
-                      if (_sellerMessage.isNotEmpty)
+                      if (current.isNotEmpty)
                         TextButton(
                           onPressed: () {
-                            setState(() {
-                              _sellerMessage = '';
-                            });
+                            setState(() => _sellerMessages.remove(storeName));
                             Navigator.pop(ctx);
                           },
-                          child: const Text('Clear', style: TextStyle(color: Colors.red)),
+                          child: const Text(
+                            'Clear',
+                            style: TextStyle(color: NexoraTheme.error),
+                          ),
                         ),
                     ],
                   ),
-                  const SizedBox(height: 14),
-
+                  const SizedBox(height: 12),
                   TextField(
                     controller: controller,
                     maxLines: 3,
                     maxLength: 200,
-                    style: const TextStyle(fontSize: 13, color: Color(0xFF0F172A)),
                     decoration: InputDecoration(
-                      hintText: 'e.g. Please ensure bubble wrapping, fragile goods inside.',
-                      hintStyle: const TextStyle(fontSize: 12.5, color: Color(0xFF94A3B8)),
-                      filled: true,
-                      fillColor: const Color(0xFFF8FAFC),
+                      hintText: 'Leave packaging or delivery instructions...',
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: Color(0xFF0066FF), width: 1.5),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 10),
-
-                  const Text(
-                    'Quick Notes',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
-                  ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 8),
                   Wrap(
                     spacing: 8,
                     runSpacing: 6,
                     children: quickNotes.map((note) {
                       return ActionChip(
-                        label: Text(
-                          note,
-                          style: const TextStyle(fontSize: 11, color: Color(0xFF334155)),
-                        ),
-                        backgroundColor: const Color(0xFFF1F5F9),
+                        label: Text(note, style: const TextStyle(fontSize: 11)),
                         onPressed: () {
                           setModalState(() {
-                            if (controller.text.isEmpty) {
-                              controller.text = note;
-                            } else {
-                              controller.text = '${controller.text}, $note';
-                            }
+                            controller.text = controller.text.isEmpty
+                                ? note
+                                : '${controller.text}, $note';
                           });
                         },
                       );
                     }).toList(),
                   ),
                   const SizedBox(height: 16),
-
                   SizedBox(
                     width: double.infinity,
                     height: 44,
                     child: ElevatedButton(
                       onPressed: () {
                         setState(() {
-                          _sellerMessage = controller.text.trim();
+                          final trimmed = controller.text.trim();
+                          if (trimmed.isEmpty) {
+                            _sellerMessages.remove(storeName);
+                          } else {
+                            _sellerMessages[storeName] = trimmed;
+                          }
                         });
                         Navigator.pop(ctx);
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF0066FF),
+                        backgroundColor: cs.primary,
                         foregroundColor: Colors.white,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                       ),
-                      child: const Text('Save Message', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                      child: const Text('Save Message'),
                     ),
                   ),
-                  const SizedBox(height: 10),
                 ],
               ),
             ),
@@ -708,185 +722,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
     );
   }
 
-  void _openPaymentMethodModal() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (ctx) {
-        final options = _paymentOptions;
-        return Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'Select Payment Method',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF0F172A),
-                ),
-              ),
-              const SizedBox(height: 4),
-              const Text(
-                'Select your preferred payment method for this order.',
-                style: TextStyle(
-                  fontSize: 12.5,
-                  color: Color(0xFF64748B),
-                ),
-              ),
-              const SizedBox(height: 16),
-              ...List.generate(options.length, (idx) {
-                final opt = options[idx];
-                final isSelected = _selectedPaymentIndex == idx;
-                final Color optColor = opt['color'] as Color;
+  Future<void> _handlePlaceOrder() async {
+    if (_checkoutItems.isEmpty) return;
 
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 10),
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? optColor.withValues(alpha: 0.06)
-                        : Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: isSelected ? optColor : const Color(0xFFE2E8F0),
-                      width: isSelected ? 1.5 : 1.0,
-                    ),
-                  ),
-                  child: ListTile(
-                    onTap: () async {
-                      final isLinked = opt['isLinked'] == true;
-                      if (!isLinked) {
-                        Navigator.pop(ctx);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Please link your GCash account first to use GCash at checkout.'),
-                            backgroundColor: Color(0xFF005CE6),
-                          ),
-                        );
-                        await Navigator.pushNamed(context, AppRoutes.paymentMethods);
-                        if (mounted) {
-                          setState(() {
-                            final gcashLinked = PaymentMethodService.instance.gcashMethod?.isLinked == true;
-                            if (gcashLinked) {
-                              _selectedPaymentIndex = idx;
-                            }
-                          });
-                        }
-                        return;
-                      }
-                      setState(() {
-                        _selectedPaymentIndex = idx;
-                      });
-                      Navigator.pop(ctx);
-                    },
-                    leading: Container(
-                      width: 38,
-                      height: 38,
-                      decoration: BoxDecoration(
-                        color: optColor.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Icon(opt['icon'] as IconData, color: optColor, size: 20),
-                    ),
-                    title: Row(
-                      children: [
-                        Text(
-                          opt['shortName'] as String,
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13.5,
-                            color: isSelected ? optColor : const Color(0xFF0F172A),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
-                          decoration: BoxDecoration(
-                            color: (opt['isLinked'] == true)
-                                ? optColor.withValues(alpha: 0.12)
-                                : const Color(0xFFFEF3C7),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            opt['tag'] as String,
-                            style: TextStyle(
-                              fontSize: 9.5,
-                              fontWeight: FontWeight.bold,
-                              color: (opt['isLinked'] == true) ? optColor : const Color(0xFFD97706),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    subtitle: Text(
-                      opt['desc'] as String,
-                      style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
-                    ),
-                    trailing: (opt['isLinked'] != true)
-                        ? Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF005CE6),
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                            child: const Text(
-                              'Link Account',
-                              style: TextStyle(color: Colors.white, fontSize: 10.5, fontWeight: FontWeight.bold),
-                            ),
-                          )
-                        : (isSelected
-                            ? Icon(Icons.check_circle, color: optColor, size: 22)
-                            : const Icon(Icons.radio_button_off, color: Color(0xFFCBD5E1), size: 20)),
-                  ),
-                );
-              }),
-              const SizedBox(height: 6),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF8FAFC),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
-                ),
-                child: const Row(
-                  children: [
-                    Icon(Icons.shield_outlined, size: 16, color: Color(0xFF0066FF)),
-                    SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'All payments processed via Nexora Guaranteed 256-bit encryption. Bangko Sentral ng Pilipinas compliant.',
-                        style: TextStyle(fontSize: 11, color: Color(0xFF64748B), height: 1.3),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  void _handlePlaceOrder() async {
     if (!BuyerAccountService.instance.isLoggedIn) {
       final authenticated = await GuestAuthGuard.requireLogin(
         context,
@@ -902,36 +740,26 @@ class _CheckoutPageState extends State<CheckoutPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Please add or select a delivery address before placing your order.'),
-          backgroundColor: Colors.redAccent,
+          backgroundColor: NexoraTheme.error,
         ),
       );
-      Navigator.push(
+      await Navigator.push(
         context,
-        MaterialPageRoute(builder: (context) => const NewAddressPage()),
+        MaterialPageRoute(builder: (_) => const NewAddressPage()),
       );
       return;
     }
 
-    setState(() {
-      _isPlacingOrder = true;
-    });
+    setState(() => _isPlacingOrder = true);
 
     _currentAttemptIdempotencyKey ??=
         'chk_${DateTime.now().millisecondsSinceEpoch}_${DateTime.now().microsecondsSinceEpoch % 10000}';
 
     String orderId = '';
-    String selectedPayment = 'Cash on Delivery';
 
     try {
-      final options = _paymentOptions;
-      final safeIndex = (_selectedPaymentIndex >= 0 && _selectedPaymentIndex < options.length)
-          ? _selectedPaymentIndex
-          : 0;
-      selectedPayment = (options[safeIndex]['name'] ?? 'Cash on Delivery').toString();
-
       List<int>? cartItemIds;
-      // If Buy Now direct item, add to remote cart first and checkout ONLY that item (B2)
-      if (_cartService.directBuyItem != null) {
+      if (_isDirectBuy) {
         final dItem = _cartService.directBuyItem!;
         final pId = int.tryParse(dItem.productId ?? '') ?? 0;
         if (pId <= 0) {
@@ -943,7 +771,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
         final createdCartItemId = await _cartService.addItemRemote(
           productId: pId,
           quantity: dItem.quantity,
-          variant: dItem.variantData is Map<String, dynamic> ? dItem.variantData : null,
+          variant: dItem.variantData is Map<String, dynamic>
+              ? dItem.variantData as Map<String, dynamic>
+              : null,
         );
         if (createdCartItemId == null || createdCartItemId <= 0) {
           throw const ApiException(
@@ -952,14 +782,18 @@ class _CheckoutPageState extends State<CheckoutPage> {
           );
         }
         cartItemIds = [createdCartItemId];
+      } else if (_serverCartItemIds.isNotEmpty) {
+        cartItemIds = _serverCartItemIds;
       }
 
-      // Hit Laravel POST /api/mobile/v1/buyer/checkout
       final orders = await _orderService.placeOrderRemote(
         addressId: addrId,
         paymentMethod: 'cod',
         idempotencyKey: _currentAttemptIdempotencyKey,
         cartItemIds: cartItemIds,
+        platformVoucherId: int.tryParse(_selectedPlatformVoucher?.id ?? ''),
+        shippingVoucherId: int.tryParse(_selectedShippingVoucher?.id ?? ''),
+        storeVoucherId: int.tryParse(_selectedStoreVoucher?.id ?? ''),
       );
 
       if (orders.isEmpty) {
@@ -972,25 +806,16 @@ class _CheckoutPageState extends State<CheckoutPage> {
       final firstOrd = orders[0];
       orderId = (firstOrd['order_number'] ?? '#${firstOrd['id']}').toString();
 
-      // Reset idempotency key on success and synchronize state from server
       _currentAttemptIdempotencyKey = null;
       _cartService.clearDirectBuy();
       await _cartService.loadCartRemote();
       await _orderService.fetchOrdersRemote();
-
-    } catch (e, st) {
-      debugPrint('⚠️ Checkout error: $e\n$st');
+    } catch (e) {
       if (!mounted) return;
-      setState(() {
-        _isPlacingOrder = false;
-      });
-
-      String userMsg = e.toString();
-      if (e is ApiException) {
-        userMsg = e.message;
-      } else if (userMsg.startsWith('Exception: ')) {
-        userMsg = userMsg.substring(11);
-      }
+      setState(() => _isPlacingOrder = false);
+      final userMsg = e is ApiException
+          ? e.message
+          : e.toString().replaceFirst('Exception: ', '');
 
       showDialog(
         context: context,
@@ -998,7 +823,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: const Row(
             children: [
-              Icon(Icons.error_outline, color: Color(0xFFDC2626)),
+              Icon(Icons.error_outline, color: NexoraTheme.error),
               SizedBox(width: 8),
               Text('Checkout Failed', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
             ],
@@ -1014,10 +839,6 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 Navigator.pop(ctx);
                 _handlePlaceOrder();
               },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF0066FF),
-                foregroundColor: Colors.white,
-              ),
               child: const Text('Retry'),
             ),
           ],
@@ -1027,14 +848,12 @@ class _CheckoutPageState extends State<CheckoutPage> {
     }
 
     if (!mounted) return;
-    setState(() {
-      _isPlacingOrder = false;
-    });
+    setState(() => _isPlacingOrder = false);
 
     try {
       ExternalNotificationService.show(
-        title: '📦 Nexora Order Placed ($selectedPayment)',
-        body: 'Order $orderId has been placed. You will receive real-time courier updates here!',
+        title: 'Nexora Order Placed (Cash on Delivery)',
+        body: 'Order $orderId has been placed. Track live delivery status in My Orders.',
       );
     } catch (_) {}
 
@@ -1051,32 +870,32 @@ class _CheckoutPageState extends State<CheckoutPage> {
               Container(
                 width: 64,
                 height: 64,
-                decoration: const BoxDecoration(
-                  color: Color(0xFFE0F7FA),
+                decoration: BoxDecoration(
+                  color: NexoraTheme.success.withValues(alpha: 0.14),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
                   Icons.check_circle_rounded,
-                  color: Color(0xFF00B4D8),
+                  color: NexoraTheme.success,
                   size: 40,
                 ),
               ),
               const SizedBox(height: 16),
-              const Text(
+              Text(
                 'Order Placed Successfully!',
                 style: TextStyle(
-                  fontSize: 20,
+                  fontSize: 19,
                   fontWeight: FontWeight.w900,
-                  color: Color(0xFF0F172A),
+                  color: Theme.of(dialogContext).colorScheme.onSurface,
                 ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 8),
               Text(
-                'Order $orderId has been placed ($_selectedShippingName • Est. $_estimatedArrivalDate). Track your delivery real-time in My Orders.',
-                style: const TextStyle(
+                'Order $orderId has been placed via Cash on Delivery. Track real-time updates in My Orders.',
+                style: TextStyle(
                   fontSize: 13,
-                  color: Color(0xFF64748B),
+                  color: Theme.of(dialogContext).colorScheme.onSurfaceVariant,
                   height: 1.4,
                 ),
                 textAlign: TextAlign.center,
@@ -1094,20 +913,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
                       arguments: {'initialTab': 'to_ship', 'initialIndex': 1},
                     );
                   },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF00D2FF),
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(22),
-                    ),
-                  ),
                   child: const Text(
                     'View Order Status',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w900,
-                      fontSize: 14,
-                    ),
+                    style: TextStyle(fontWeight: FontWeight.w800),
                   ),
                 ),
               ),
@@ -1120,13 +928,16 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F8FC),
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0.5,
+        backgroundColor: cs.surfaceContainerLowest,
+        elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF0F172A)),
+          icon: Icon(Icons.arrow_back, color: cs.onSurface),
           onPressed: () {
             if (Navigator.canPop(context)) {
               Navigator.pop(context);
@@ -1135,101 +946,122 @@ class _CheckoutPageState extends State<CheckoutPage> {
             }
           },
         ),
-        title: const Text(
+        title: Text(
           'Checkout',
           style: TextStyle(
-            color: Color(0xFF0F172A),
+            color: cs.onSurface,
             fontWeight: FontWeight.w800,
             fontSize: 18,
           ),
         ),
-        centerTitle: false,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.help_outline, color: Color(0xFF64748B)),
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Nexora Checkout Help & Buyer Protection')),
-              );
-            },
-          ),
-        ],
-      ),
-      body: Stack(
-        children: [
-          SingleChildScrollView(
-            physics: const BouncingScrollPhysics(),
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 820),
-                child: Column(
-                  children: [
-                    const SizedBox(height: 10),
-
-                    // 1. Delivery Address Card
-                    _buildAddressCard(),
-
-                    const SizedBox(height: 10),
-
-                    // 2. Store & Item Card Group
-                    _buildStoreAndItemCard(),
-
-                    const SizedBox(height: 10),
-
-                    // 3. Shipping Option Card (Clickable to change delivery option!)
-                    _buildShippingOptionCard(),
-
-                    const SizedBox(height: 10),
-
-                    // 4. Platform Vouchers Card
-                    _buildVoucherCard(),
-
-                    const SizedBox(height: 10),
-
-                    // 5. Payment Methods Card
-                    _buildPaymentMethodsCard(),
-
-                    const SizedBox(height: 10),
-
-                    // 6. Payment Details Summary Breakdown
-                    _buildPaymentDetailsCard(),
-
-                    // Clearance spacing for bottom dock
-                    const SizedBox(height: 110),
-                  ],
+          if (_isLoadingSummary)
+            const Padding(
+              padding: EdgeInsets.only(right: 16),
+              child: Center(
+                child: SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
                 ),
               ),
             ),
-          ),
-
-          // Bottom Fixed Action Bar
-          Align(
-            alignment: Alignment.bottomCenter,
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 820),
-                child: _buildBottomCheckoutDock(),
-              ),
-            ),
-          ),
         ],
       ),
+      body: _checkoutItems.isEmpty
+          ? NexoraEmptyState(
+              icon: Icons.shopping_bag_outlined,
+              title: 'No items selected for checkout',
+              message: 'Select items in your cart or pick a product to proceed.',
+              actionLabel: 'Browse Products',
+              onAction: () => Navigator.pushReplacementNamed(context, AppRoutes.home),
+            )
+          : Stack(
+              children: [
+                RefreshIndicator(
+                  onRefresh: _loadCheckoutPreview,
+                  child: SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(
+                      parent: BouncingScrollPhysics(),
+                    ),
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 820),
+                        child: Column(
+                          children: [
+                            const SizedBox(height: 10),
+                            if (_summaryError != null)
+                              Container(
+                                margin: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: NexoraTheme.warning.withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: NexoraTheme.warning.withValues(alpha: 0.4),
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.info_outline,
+                                      size: 18,
+                                      color: NexoraTheme.warning,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        _summaryError!,
+                                        style: TextStyle(fontSize: 12, color: cs.onSurface),
+                                      ),
+                                    ),
+                                    TextButton(
+                                      onPressed: _loadCheckoutPreview,
+                                      child: const Text('Retry'),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            _buildAddressCard(context),
+                            const SizedBox(height: 10),
+                            ..._buildGroupedStoreCards(context),
+                            const SizedBox(height: 10),
+                            _buildShippingOptionCard(context),
+                            const SizedBox(height: 10),
+                            _buildVoucherCard(context),
+                            const SizedBox(height: 10),
+                            _buildPaymentMethodsCard(context),
+                            const SizedBox(height: 10),
+                            _buildPaymentDetailsCard(context),
+                            const SizedBox(height: 110),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                Align(
+                  alignment: Alignment.bottomCenter,
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 820),
+                      child: _buildBottomCheckoutDock(context),
+                    ),
+                  ),
+                ),
+              ],
+            ),
     );
   }
 
-  Widget _buildAddressCard() {
+  Widget _buildAddressCard(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cs.surfaceContainerLowest,
         borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.5)),
       ),
       clipBehavior: Clip.antiAlias,
       child: Material(
@@ -1239,7 +1071,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
             if (AddressService.instance.addresses.isEmpty) {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => const NewAddressPage()),
+                MaterialPageRoute(builder: (_) => const NewAddressPage()),
               );
             } else {
               Navigator.pushNamed(context, AppRoutes.myAddresses);
@@ -1252,356 +1084,236 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Padding(
-                      padding: EdgeInsets.only(top: 2),
-                      child: Icon(Icons.location_on, color: Color(0xFF00B4D8), size: 18),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Icon(Icons.location_on, color: cs.primary, size: 18),
                     ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: AnimatedBuilder(
-                    animation: Listenable.merge([ProfileService.instance, AddressService.instance]),
-                    builder: (context, _) {
-                      final defaultAddr = AddressService.instance.defaultAddress;
-                      final profile = ProfileService.instance;
-                      final addressStr = defaultAddr?.fullAddress ?? profile.address;
-                      final name = defaultAddr?.fullName ?? (profile.name.isNotEmpty ? profile.name : 'Recipient');
-                      final phone = defaultAddr?.phone ?? profile.phone;
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: AnimatedBuilder(
+                        animation: Listenable.merge(
+                          [ProfileService.instance, AddressService.instance],
+                        ),
+                        builder: (context, _) {
+                          final defaultAddr = AddressService.instance.defaultAddress;
+                          final profile = ProfileService.instance;
+                          final addressStr = defaultAddr?.fullAddress ?? profile.address;
+                          final name = defaultAddr?.fullName ??
+                              (profile.name.isNotEmpty ? profile.name : 'Recipient');
+                          final phone = defaultAddr?.phone ?? profile.phone;
 
-                      if (addressStr.trim().isEmpty) {
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: const [
-                            Row(
+                          if (addressStr.trim().isEmpty) {
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Icon(Icons.add_circle_outline, color: Color(0xFF00B4D8), size: 16),
-                                SizedBox(width: 6),
-                                Text(
-                                  'Add Delivery Address',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: 13.5,
-                                    color: Color(0xFF00B4D8),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            SizedBox(height: 3),
-                            Text(
-                              'Tap to set your delivery address for this order',
-                              style: TextStyle(
-                                fontSize: 11.5,
-                                color: Color(0xFF64748B),
-                              ),
-                            ),
-                          ],
-                        );
-                      }
-
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          RichText(
-                            text: TextSpan(
-                              children: [
-                                TextSpan(
-                                  text: '$name ',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: 13.5,
-                                    color: Color(0xFF0F172A),
-                                  ),
-                                ),
-                                if (phone.isNotEmpty)
-                                  TextSpan(
-                                    text: phone,
-                                    style: const TextStyle(
-                                      fontSize: 11.5,
-                                      color: Color(0xFF64748B),
+                                Row(
+                                  children: [
+                                    Icon(Icons.add_circle_outline,
+                                        color: cs.primary, size: 16),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      'Add Delivery Address',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 13.5,
+                                        color: cs.primary,
+                                      ),
                                     ),
+                                  ],
+                                ),
+                                const SizedBox(height: 3),
+                                Text(
+                                  'Tap to set your delivery address for this order',
+                                  style: TextStyle(
+                                    fontSize: 11.5,
+                                    color: cs.onSurfaceVariant,
                                   ),
+                                ),
                               ],
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            addressStr,
-                            style: const TextStyle(
-                              fontSize: 11.5,
-                              color: Color(0xFF475569),
-                              height: 1.3,
-                            ),
-                          ),
-                        ],
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(width: 6),
-                const Icon(Icons.chevron_right, size: 18, color: Color(0xFF94A3B8)),
-              ],
-            ),
-          ),
+                            );
+                          }
 
-          // Dashed Cyan/Blue Segment Ribbon at bottom of Address Card
-          SizedBox(
-            height: 4,
-            child: Row(
-              children: List.generate(15, (index) {
-                return Expanded(
-                  child: Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 2),
-                    color: index % 2 == 0 ? const Color(0xFF00D2FF) : const Color(0xFF0066FF),
-                  ),
-                );
-              }),
-            ),
-          ),
-        ],
-      ),
-    ),
-  ),
-);
-}
-
-  Widget _buildStoreAndItemCard() {
-    final itemsToDisplay = _checkoutItems.isNotEmpty
-        ? _checkoutItems
-        : _cartService.items.where((i) => i.isChecked).toList();
-
-    final storeBadge = itemsToDisplay.isNotEmpty && itemsToDisplay.first.storeBadge.isNotEmpty
-        ? itemsToDisplay.first.storeBadge
-        : 'MALL';
-    final storeName = itemsToDisplay.isNotEmpty && itemsToDisplay.first.storeName.isNotEmpty
-        ? itemsToDisplay.first.storeName
-        : 'Nexora Official Store';
-
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 10),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Store Header
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF0066FF),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  storeBadge,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 9,
-                    fontWeight: FontWeight.w900,
-                  ),
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              RichText(
+                                text: TextSpan(
+                                  children: [
+                                    TextSpan(
+                                      text: '$name ',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 13.5,
+                                        color: cs.onSurface,
+                                      ),
+                                    ),
+                                    if (phone.isNotEmpty)
+                                      TextSpan(
+                                        text: phone,
+                                        style: TextStyle(
+                                          fontSize: 11.5,
+                                          color: cs.onSurfaceVariant,
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                addressStr,
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  color: cs.onSurfaceVariant,
+                                  height: 1.3,
+                                ),
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Icon(Icons.chevron_right, size: 18, color: cs.onSurfaceVariant),
+                  ],
                 ),
               ),
-              const SizedBox(width: 6),
-              Flexible(
-                child: Text(
-                  storeName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 13.5,
-                    color: Color(0xFF0F172A),
-                  ),
+              SizedBox(
+                height: 3,
+                child: Row(
+                  children: List.generate(15, (index) {
+                    return Expanded(
+                      child: Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 2),
+                        color: index % 2 == 0 ? NexoraTheme.primary : NexoraTheme.accent,
+                      ),
+                    );
+                  }),
                 ),
               ),
-              const SizedBox(width: 2),
-              const Icon(Icons.chevron_right, size: 16, color: Color(0xFF94A3B8)),
             ],
           ),
-
-          const SizedBox(height: 12),
-
-          // Items List
-          if (itemsToDisplay.isEmpty)
-            _buildItemRow(
-              imageUrl:
-                  'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?auto=format&fit=crop&w=300&q=80',
-              title: 'Nexora StreamMic D20 Professional Condenser Microphone',
-              variant: 'Tight Cardioid Solo',
-              price: '₱299',
-              originalPrice: '₱490',
-              qty: 1,
-            )
-          else
-            ...itemsToDisplay.map((item) {
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: _buildItemRow(
-                  imageUrl: item.imageUrl,
-                  title: item.title,
-                  variant: item.variant,
-                  price: '₱${item.price.toStringAsFixed(0)}',
-                  originalPrice: item.originalPrice != null
-                      ? '₱${item.originalPrice!.toStringAsFixed(0)}'
-                      : null,
-                  qty: item.quantity,
-                ),
-              );
-            }),
-
-          const SizedBox(height: 10),
-
-          // Merchandise Protection Checkbox Box
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF8FAFC),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      _merchandiseProtection = !_merchandiseProtection;
-                    });
-                  },
-                  child: Container(
-                    width: 18,
-                    height: 18,
-                    margin: const EdgeInsets.only(top: 2),
-                    decoration: BoxDecoration(
-                      color: _merchandiseProtection ? const Color(0xFF00D2FF) : Colors.transparent,
-                      borderRadius: BorderRadius.circular(4),
-                      border: _merchandiseProtection
-                          ? null
-                          : Border.all(color: const Color(0xFFCBD5E1), width: 1.5),
-                    ),
-                    child: _merchandiseProtection
-                        ? const Icon(Icons.check, size: 13, color: Colors.white)
-                        : null,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Merchandise Protection',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w700,
-                              fontSize: 12,
-                              color: Color(0xFF0F172A),
-                            ),
-                          ),
-                          Text(
-                            '₱12 x 1',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: Color(0xFF64748B),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 2),
-                      RichText(
-                        text: const TextSpan(
-                          style: TextStyle(fontSize: 10.5, color: Color(0xFF64748B), height: 1.3),
-                          children: [
-                            TextSpan(
-                              text:
-                                  'Protect your items from total loss due to accidental damage and liquid damage where the original item is beyond repair. ',
-                            ),
-                            TextSpan(
-                              text: 'Learn more >',
-                              style: TextStyle(
-                                color: Color(0xFF0066FF),
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 12),
-
-          // Action Rows: Shop Voucher, Message for Seller, E-receipt
-          _buildActionRow(
-            label: 'Shop Voucher',
-            value: _appliedVoucher != null
-                ? '-₱${_voucherDiscount.toStringAsFixed(0)} (${_appliedVoucher!.discountTitle}) >'
-                : 'Select or enter code >',
-            valueColor: _appliedVoucher != null ? const Color(0xFF0066FF) : const Color(0xFF94A3B8),
-            onTap: () => _openShopVoucherModal(storeName),
-          ),
-          const Divider(height: 16, color: Color(0xFFF1F5F9)),
-          _buildActionRow(
-            label: 'Message for Seller',
-            value: _sellerMessage.isNotEmpty ? '$_sellerMessage >' : 'Please leave a message >',
-            valueColor: _sellerMessage.isNotEmpty ? const Color(0xFF0F172A) : const Color(0xFF94A3B8),
-            onTap: () => _openSellerMessageModal(storeName),
-          ),
-          const Divider(height: 16, color: Color(0xFFF1F5F9)),
-          _buildActionRow(
-            label: 'E-receipt ⓘ',
-            value: 'Request Now >',
-            valueColor: const Color(0xFF94A3B8),
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('E-receipt will be sent to your registered email upon order completion.')),
-              );
-            },
-          ),
-        ],
+        ),
       ),
     );
   }
 
-  Widget _buildItemRow({
-    required String imageUrl,
-    required String title,
-    required String variant,
-    required String price,
-    String? originalPrice,
-    required int qty,
-  }) {
+  List<Widget> _buildGroupedStoreCards(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final Map<String, List<CartItemModel>> grouped = {};
+    for (final item in _checkoutItems) {
+      final key = item.storeName.isNotEmpty ? item.storeName : 'Store';
+      grouped.putIfAbsent(key, () => []).add(item);
+    }
+
+    return grouped.entries.map((entry) {
+      final storeName = entry.key;
+      final items = entry.value;
+      final sellerId = items.first.sellerId;
+      final badge = items.first.storeBadge;
+      final sellerMsg = _sellerMessages[storeName] ?? '';
+
+      return Container(
+        margin: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: cs.surfaceContainerLowest,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.5)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                if (badge.isNotEmpty) ...[
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: cs.primary,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      badge,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                ],
+                Expanded(
+                  child: Text(
+                    storeName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 13.5,
+                      color: cs.onSurface,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            ...items.map((item) => Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: _buildItemRow(context, item),
+                )),
+            const Divider(height: 16),
+            _buildActionRow(
+              context,
+              label: 'Shop Voucher',
+              value: _selectedStoreVoucher != null
+                  ? '${_formatVoucherBenefit(_selectedStoreVoucher!)} (${_selectedStoreVoucher!.code}) >'
+                  : 'Select or enter code >',
+              valueColor:
+                  _selectedStoreVoucher != null ? cs.primary : cs.onSurfaceVariant,
+              onTap: () => _openStoreVoucherModal(storeName, sellerId),
+            ),
+            const Divider(height: 16),
+            _buildActionRow(
+              context,
+              label: 'Message for Seller',
+              value: sellerMsg.isNotEmpty ? '$sellerMsg >' : 'Please leave a message >',
+              valueColor: sellerMsg.isNotEmpty ? cs.onSurface : cs.onSurfaceVariant,
+              onTap: () => _openSellerMessageModal(storeName),
+            ),
+          ],
+        ),
+      );
+    }).toList();
+  }
+
+  Widget _buildItemRow(BuildContext context, CartItemModel item) {
+    final cs = Theme.of(context).colorScheme;
+    final resolvedUrl = ImageUrlHelper.resolve(item.imageUrl);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         ClipRRect(
           borderRadius: BorderRadius.circular(8),
-          child: Image.network(
-            imageUrl,
-            width: 72,
-            height: 72,
-            fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) => Container(
-              width: 72,
-              height: 72,
-              color: const Color(0xFFE2E8F0),
-              child: const Icon(Icons.image, color: Colors.grey),
-            ),
-          ),
+          child: resolvedUrl.isEmpty
+              ? Container(
+                  width: 72,
+                  height: 72,
+                  color: cs.surfaceContainerHigh,
+                  child: Icon(Icons.image_outlined, color: cs.onSurfaceVariant),
+                )
+              : Image.network(
+                  resolvedUrl,
+                  width: 72,
+                  height: 72,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, _, _) => Container(
+                    width: 72,
+                    height: 72,
+                    color: cs.surfaceContainerHigh,
+                    child: Icon(Icons.image_outlined, color: cs.onSurfaceVariant),
+                  ),
+                ),
         ),
         const SizedBox(width: 10),
         Expanded(
@@ -1609,87 +1321,87 @@ class _CheckoutPageState extends State<CheckoutPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                title,
+                item.title,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: TextStyle(
                   fontWeight: FontWeight.w700,
-                  fontSize: 12,
-                  color: Color(0xFF0F172A),
+                  fontSize: 12.5,
+                  color: cs.onSurface,
                   height: 1.25,
                 ),
               ),
-              const SizedBox(height: 4),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF1F5F9),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  variant,
-                  style: const TextStyle(
-                    fontSize: 10.5,
-                    color: Color(0xFF64748B),
+              if (item.variant.trim().isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: cs.surfaceContainerHigh,
+                    borderRadius: BorderRadius.circular(4),
                   ),
-                ),
-              ),
-              const SizedBox(height: 6),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.baseline,
-                textBaseline: TextBaseline.alphabetic,
-                children: [
-                  Text(
-                    price,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w900,
-                      fontSize: 14.5,
-                      color: Color(0xFF0F172A),
+                  child: Text(
+                    item.variant,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      color: cs.onSurfaceVariant,
                     ),
                   ),
-                  if (originalPrice != null) ...[
-                    const SizedBox(width: 4),
+                ),
+              ],
+              const SizedBox(height: 6),
+              Wrap(
+                spacing: 6,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Text(
+                    _formatPeso(item.price),
+                    style: TextStyle(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 14.5,
+                      color: NexoraTheme.priceColor(context),
+                    ),
+                  ),
+                  if (item.originalPrice != null && item.originalPrice! > item.price)
                     Text(
-                      originalPrice,
-                      style: const TextStyle(
-                        fontSize: 10,
-                        color: Color(0xFF94A3B8),
+                      _formatPeso(item.originalPrice!),
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        color: cs.onSurfaceVariant,
                         decoration: TextDecoration.lineThrough,
                       ),
                     ),
-                  ],
                 ],
               ),
             ],
           ),
         ),
+        const SizedBox(width: 8),
         Text(
-          'x$qty',
-          style: const TextStyle(
-            fontSize: 11,
-            color: Color(0xFF94A3B8),
+          'x${item.quantity}',
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            color: cs.onSurfaceVariant,
           ),
         ),
       ],
     );
   }
 
-  Widget _buildShippingOptionCard() {
-    final isFree = _selectedShippingFee == 0.0;
+  Widget _buildShippingOptionCard(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final hasServerFee = _serverSummary != null;
+    final feeText = hasServerFee ? _formatPeso(_shippingSubtotal) : 'Weight-based';
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 10),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cs.surfaceContainerLowest,
         borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.5)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1697,21 +1409,21 @@ class _CheckoutPageState extends State<CheckoutPage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 'Shipping Option',
                 style: TextStyle(
                   fontWeight: FontWeight.w800,
                   fontSize: 13.5,
-                  color: Color(0xFF0F172A),
+                  color: cs.onSurface,
                 ),
               ),
-              GestureDetector(
+              InkWell(
                 onTap: _openShippingOptionModal,
-                child: const Text(
-                  'View All >',
+                child: Text(
+                  'Details >',
                   style: TextStyle(
                     fontSize: 11.5,
-                    color: Color(0xFF0066FF),
+                    color: cs.primary,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -1719,136 +1431,71 @@ class _CheckoutPageState extends State<CheckoutPage> {
             ],
           ),
           const SizedBox(height: 10),
-
-          // Selected Shipping Option Box (Clickable!)
-          GestureDetector(
+          InkWell(
             onTap: _openShippingOptionModal,
+            borderRadius: BorderRadius.circular(8),
             child: Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: const Color(0xFFE0F7FA).withValues(alpha: 0.4),
+                color: cs.primary.withValues(alpha: 0.06),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFF00D2FF), width: 1.2),
+                border: Border.all(color: cs.primary.withValues(alpha: 0.4)),
               ),
               child: Row(
                 children: [
-                  Container(
-                    width: 16,
-                    height: 16,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFF00D2FF),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.check, size: 11, color: Colors.white),
-                  ),
-                  const SizedBox(width: 8),
+                  Icon(Icons.local_shipping_outlined, color: cs.primary, size: 18),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          _estimatedArrivalDate,
-                          style: const TextStyle(
+                          'Standard Door-to-Door',
+                          style: TextStyle(
                             fontWeight: FontWeight.w800,
-                            fontSize: 13,
-                            color: Color(0xFF0F172A),
+                            fontSize: 12.5,
+                            color: cs.onSurface,
                           ),
                         ),
                         Text(
-                          _selectedShippingName,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          hasServerFee
+                              ? 'Calculated from parcel weight per store'
+                              : 'Weight-based shipping calculated at confirmation',
+                          style: TextStyle(
                             fontSize: 11,
-                            color: Color(0xFF64748B),
+                            color: cs.onSurfaceVariant,
                           ),
                         ),
                       ],
                     ),
                   ),
-                  Row(
-                    children: [
-                      if (isFree) ...[
-                        const Text(
-                          '₱34',
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: Color(0xFF94A3B8),
-                            decoration: TextDecoration.lineThrough,
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFE0F7FA),
-                            borderRadius: BorderRadius.circular(4),
-                            border: Border.all(color: const Color(0xFF00B4D8), width: 0.8),
-                          ),
-                          child: const Row(
-                            children: [
-                              Text(
-                                'Free ',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF00B4D8),
-                                ),
-                              ),
-                              Icon(Icons.local_shipping, size: 11, color: Color(0xFF00B4D8)),
-                            ],
-                          ),
-                        ),
-                      ] else ...[
-                        Text(
-                          '₱${_selectedShippingFee.toStringAsFixed(0)}',
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w900,
-                            color: Color(0xFF0F172A),
-                          ),
-                        ),
-                      ],
-                    ],
+                  const SizedBox(width: 8),
+                  Text(
+                    feeText,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w900,
+                      color: cs.onSurface,
+                    ),
                   ),
                 ],
               ),
             ),
           ),
-
-          const SizedBox(height: 8),
-          const Row(
-            children: [
-              Icon(Icons.access_time_filled, size: 14, color: Color(0xFF00B4D8)),
-              SizedBox(width: 4),
-              Text(
-                'Get up to ₱40 if order arrives late',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: Color(0xFF64748B),
-                ),
-              ),
-            ],
-          ),
-
-          const Divider(height: 16, color: Color(0xFFF1F5F9)),
-
+          const Divider(height: 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'Total 1 Item(s)',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Color(0xFF64748B),
-                ),
+              Text(
+                'Total $_totalItemCount Item(s)',
+                style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
               ),
               Text(
-                '₱${_finalTotal.toStringAsFixed(0)}',
-                style: const TextStyle(
+                _formatPeso(_finalTotal),
+                style: TextStyle(
                   fontWeight: FontWeight.w900,
                   fontSize: 14.5,
-                  color: Color(0xFF0F172A),
+                  color: cs.onSurface,
                 ),
               ),
             ],
@@ -1858,134 +1505,98 @@ class _CheckoutPageState extends State<CheckoutPage> {
     );
   }
 
-  Widget _buildVoucherCard() {
+  Widget _buildVoucherCard(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final List<String> appliedLabels = [
+      if (_selectedPlatformVoucher != null)
+        '${_selectedPlatformVoucher!.code} (${_formatVoucherBenefit(_selectedPlatformVoucher!)})',
+      if (_selectedShippingVoucher != null)
+        '${_selectedShippingVoucher!.code} (${_formatVoucherBenefit(_selectedShippingVoucher!)})',
+    ];
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 10),
-      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cs.surfaceContainerLowest,
         borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.5)),
       ),
-      child: Row(
-        children: [
-          const Icon(Icons.card_giftcard, size: 18, color: Color(0xFF00D2FF)),
-          const SizedBox(width: 8),
-          const Text(
-            'Platform Vouchers',
-            style: TextStyle(
-              fontWeight: FontWeight.w700,
-              fontSize: 13,
-              color: Color(0xFF0F172A),
-            ),
-          ),
-          const Spacer(),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(
-              color: const Color(0xFFE0F7FA),
-              borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: const Color(0xFF00B4D8), width: 0.8),
-            ),
-            child: const Row(
-              children: [
-                Text(
-                  'Free Shipping Discount',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF00B4D8),
+      child: InkWell(
+        onTap: _openPlatformVoucherModal,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            children: [
+              Icon(Icons.confirmation_num_outlined, size: 18, color: cs.primary),
+              const SizedBox(width: 8),
+              Text(
+                'Platform Vouchers',
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                  color: cs.onSurface,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: Text(
+                    appliedLabels.isNotEmpty
+                        ? appliedLabels.join(' • ')
+                        : (_availableVouchers.isNotEmpty
+                            ? 'Select voucher (${_availableVouchers.length})'
+                            : 'Select voucher'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w700,
+                      color: appliedLabels.isNotEmpty
+                          ? cs.primary
+                          : cs.onSurfaceVariant,
+                    ),
                   ),
                 ),
-                SizedBox(width: 2),
-                Icon(Icons.chevron_right, size: 12, color: Color(0xFF00B4D8)),
-              ],
-            ),
+              ),
+              const SizedBox(width: 4),
+              Icon(Icons.chevron_right, size: 16, color: cs.onSurfaceVariant),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
 
-  Widget _buildPaymentMethodsCard() {
-    final options = _paymentOptions;
-    final selectedOption = options[_selectedPaymentIndex.clamp(0, options.length - 1)];
-    final Color optColor = selectedOption['color'] as Color;
-
+  Widget _buildPaymentMethodsCard(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 10),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cs.surfaceContainerLowest,
         borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.5)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'Payment Method',
-                style: TextStyle(
-                  fontWeight: FontWeight.w800,
-                  fontSize: 13.5,
-                  color: Color(0xFF0F172A),
-                ),
-              ),
-              InkWell(
-                onTap: _openPaymentMethodModal,
-                borderRadius: BorderRadius.circular(4),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: optColor.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: optColor.withValues(alpha: 0.3)),
-                  ),
-                  child: Row(
-                    children: [
-                      Text(
-                        'Change',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: optColor,
-                        ),
-                      ),
-                      const SizedBox(width: 3),
-                      Icon(Icons.chevron_right, size: 14, color: optColor),
-                    ],
-                  ),
-                ),
-              ),
-            ],
+          Text(
+            'Payment Method',
+            style: TextStyle(
+              fontWeight: FontWeight.w800,
+              fontSize: 13.5,
+              color: cs.onSurface,
+            ),
           ),
-          const SizedBox(height: 12),
-
-          // Selected Payment Method Display Card
+          const SizedBox(height: 10),
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: optColor.withValues(alpha: 0.06),
+              color: cs.primary.withValues(alpha: 0.06),
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: optColor.withValues(alpha: 0.4),
-                width: 1.2,
-              ),
+              border: Border.all(color: cs.primary.withValues(alpha: 0.4)),
             ),
             child: Row(
               children: [
@@ -1993,76 +1604,36 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   width: 38,
                   height: 38,
                   decoration: BoxDecoration(
-                    color: optColor.withValues(alpha: 0.14),
+                    color: cs.primary.withValues(alpha: 0.14),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(
-                    selectedOption['icon'] as IconData,
-                    color: optColor,
-                    size: 20,
-                  ),
+                  child: Icon(Icons.payments_outlined, color: cs.primary, size: 20),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        children: [
-                          Text(
-                            selectedOption['name'] as String,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w700,
-                              fontSize: 13,
-                              color: Color(0xFF0F172A),
-                            ),
-                          ),
-                        ],
+                      Text(
+                        'Cash on Delivery',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                          color: cs.onSurface,
+                        ),
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        selectedOption['desc'] as String,
-                        style: const TextStyle(
+                        'Pay in cash to your assigned Nexora rider upon doorstep delivery.',
+                        style: TextStyle(
                           fontSize: 11,
-                          color: Color(0xFF64748B),
+                          color: cs.onSurfaceVariant,
                         ),
                       ),
                     ],
                   ),
                 ),
-                Icon(
-                  Icons.check_circle_rounded,
-                  color: optColor,
-                  size: 20,
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 10),
-
-          // Informative helper banner
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF8FAFC),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.shield_outlined, size: 15, color: optColor),
-                const SizedBox(width: 8),
-                const Expanded(
-                  child: Text(
-                    'All payments protected by Nexora Buyer Guarantee and 256-bit encrypted checkout.',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Color(0xFF64748B),
-                      height: 1.3,
-                    ),
-                  ),
-                ),
+                Icon(Icons.check_circle_rounded, color: cs.primary, size: 20),
               ],
             ),
           ),
@@ -2071,71 +1642,113 @@ class _CheckoutPageState extends State<CheckoutPage> {
     );
   }
 
-  Widget _buildPaymentDetailsCard() {
+  Widget _buildPaymentDetailsCard(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final voucherErrors = _serverSummary?.voucherErrors ?? const <String>[];
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 10),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cs.surfaceContainerLowest,
         borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.5)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Payment Details',
             style: TextStyle(
               fontWeight: FontWeight.w800,
               fontSize: 13.5,
-              color: Color(0xFF0F172A),
+              color: cs.onSurface,
             ),
           ),
           const SizedBox(height: 10),
-
-          _buildDetailRow('Merchandise Subtotal', '₱${_merchandiseSubtotal.toStringAsFixed(0)}'),
+          _buildDetailRow(
+            context,
+            'Merchandise Subtotal',
+            _formatPeso(_merchandiseOriginalSubtotal),
+          ),
           const SizedBox(height: 6),
-          _buildDetailRow('Shipping Subtotal', '₱${_shippingSubtotal.toStringAsFixed(0)}'),
-          const SizedBox(height: 6),
-          _buildDetailRow('Item Discount', '-₱${_itemDiscount.toStringAsFixed(0)}',
-              valueColor: const Color(0xFF0F172A)),
-          const SizedBox(height: 6),
-          _buildDetailRow('Shipping Discount Subtotal', '-₱${_shippingDiscount.toStringAsFixed(0)}',
-              valueColor: const Color(0xFF0F172A)),
-          if (_voucherDiscount > 0) ...[
+          _buildDetailRow(
+            context,
+            'Shipping Fee',
+            _serverSummary != null ? _formatPeso(_shippingSubtotal) : 'Weight-based',
+          ),
+          if (_itemDiscount > 0) ...[
             const SizedBox(height: 6),
             _buildDetailRow(
-              'Shop Voucher Discount',
-              '-₱${_voucherDiscount.toStringAsFixed(0)}',
-              valueColor: const Color(0xFF0F172A),
+              context,
+              'Item Discount',
+              '-${_formatPeso(_itemDiscount)}',
+              valueColor: NexoraTheme.success,
             ),
           ],
-
+          if (_platformDiscount > 0) ...[
+            const SizedBox(height: 6),
+            _buildDetailRow(
+              context,
+              'Platform Voucher',
+              '-${_formatPeso(_platformDiscount)}',
+              valueColor: NexoraTheme.success,
+            ),
+          ],
+          if (_storeDiscount > 0) ...[
+            const SizedBox(height: 6),
+            _buildDetailRow(
+              context,
+              'Store Voucher',
+              '-${_formatPeso(_storeDiscount)}',
+              valueColor: NexoraTheme.success,
+            ),
+          ],
+          if (_shippingDiscount > 0) ...[
+            const SizedBox(height: 6),
+            _buildDetailRow(
+              context,
+              'Shipping Discount',
+              '-${_formatPeso(_shippingDiscount)}',
+              valueColor: NexoraTheme.success,
+            ),
+          ],
+          if (voucherErrors.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: NexoraTheme.warning.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                voucherErrors.join('\n'),
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: NexoraTheme.warning,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 12),
-
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 'Total Payment',
                 style: TextStyle(
                   fontWeight: FontWeight.w800,
                   fontSize: 13.5,
-                  color: Color(0xFF0F172A),
+                  color: cs.onSurface,
                 ),
               ),
               Text(
-                '₱${_finalTotal.toStringAsFixed(0)}',
-                style: const TextStyle(
+                _formatPeso(_finalTotal),
+                style: TextStyle(
                   fontWeight: FontWeight.w900,
                   fontSize: 17,
-                  color: Color(0xFF0F172A),
+                  color: NexoraTheme.priceColor(context),
                 ),
               ),
             ],
@@ -2145,50 +1758,46 @@ class _CheckoutPageState extends State<CheckoutPage> {
     );
   }
 
-  Widget _buildDetailRow(String label, String value, {Color? valueColor}) {
+  Widget _buildDetailRow(
+    BuildContext context,
+    String label,
+    String value, {
+    Color? valueColor,
+  }) {
+    final cs = Theme.of(context).colorScheme;
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 11.5,
-            color: Color(0xFF64748B),
-          ),
-        ),
+        Text(label, style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
         Text(
           value,
           style: TextStyle(
-            fontSize: 11.5,
+            fontSize: 12,
             fontWeight: FontWeight.w600,
-            color: valueColor ?? const Color(0xFF0F172A),
+            color: valueColor ?? cs.onSurface,
           ),
         ),
       ],
     );
   }
 
-  Widget _buildActionRow({
+  Widget _buildActionRow(
+    BuildContext context, {
     required String label,
     required String value,
     required Color valueColor,
     VoidCallback? onTap,
   }) {
+    final cs = Theme.of(context).colorScheme;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(6),
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 2),
+        padding: const EdgeInsets.symmetric(vertical: 4),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 12,
-                color: Color(0xFF0F172A),
-              ),
-            ),
+            Text(label, style: TextStyle(fontSize: 12.5, color: cs.onSurface)),
             const SizedBox(width: 8),
             Flexible(
               child: Text(
@@ -2197,7 +1806,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontSize: 11.5,
+                  fontSize: 12,
                   fontWeight: FontWeight.w600,
                   color: valueColor,
                 ),
@@ -2209,14 +1818,16 @@ class _CheckoutPageState extends State<CheckoutPage> {
     );
   }
 
-  Widget _buildBottomCheckoutDock() {
+  Widget _buildBottomCheckoutDock(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: cs.surfaceContainerLowest,
+        border: Border(top: BorderSide(color: cs.outlineVariant)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
+            color: Colors.black.withValues(alpha: 0.06),
             blurRadius: 10,
             offset: const Offset(0, -3),
           ),
@@ -2227,54 +1838,57 @@ class _CheckoutPageState extends State<CheckoutPage> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.baseline,
-                  textBaseline: TextBaseline.alphabetic,
-                  children: [
-                    const Text(
-                      'Total: ',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Color(0xFF64748B),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.baseline,
+                    textBaseline: TextBaseline.alphabetic,
+                    children: [
+                      Text(
+                        'Total: ',
+                        style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
                       ),
-                    ),
-                    Text(
-                      '₱${_finalTotal.toStringAsFixed(0)}',
-                      style: const TextStyle(
-                        fontSize: 19,
-                        fontWeight: FontWeight.w900,
-                        color: Color(0xFF0F172A),
+                      Flexible(
+                        child: Text(
+                          _formatPeso(_finalTotal),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w900,
+                            color: NexoraTheme.priceColor(context),
+                          ),
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-                Text(
-                  'Saved ₱${_totalSaved.toStringAsFixed(0)}',
-                  style: const TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF00B4D8),
+                    ],
                   ),
-                ),
-              ],
+                  if (_totalSaved > 0)
+                    Text(
+                      'Saved ${_formatPeso(_totalSaved)}',
+                      style: const TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.bold,
+                        color: NexoraTheme.success,
+                      ),
+                    ),
+                ],
+              ),
             ),
-
-            // Vibrant Place Order Blue Button
+            const SizedBox(width: 12),
             SizedBox(
               height: 44,
               child: ElevatedButton(
                 onPressed: _isPlacingOrder ? null : _handlePlaceOrder,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF0066FF),
+                  backgroundColor: cs.primary,
                   foregroundColor: Colors.white,
                   elevation: 0,
-                  padding: const EdgeInsets.symmetric(horizontal: 32),
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(6),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                 ),
                 child: _isPlacingOrder
@@ -2289,7 +1903,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                     : const Text(
                         'Place Order',
                         style: TextStyle(
-                          fontWeight: FontWeight.w900,
+                          fontWeight: FontWeight.w800,
                           fontSize: 14,
                         ),
                       ),

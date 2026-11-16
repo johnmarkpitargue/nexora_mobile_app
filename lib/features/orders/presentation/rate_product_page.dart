@@ -71,16 +71,15 @@ class _RateProductPageState extends State<RateProductPage> {
     'Highly Recommended',
   ];
 
-  String _productTitle = 'Nexora StreamMic D20 Professional Condenser Microphone';
-  String _productVariant = 'Tight Cardioid Solo';
-  String _productImage =
-      'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?auto=format&fit=crop&w=150&q=80';
+  String _productTitle = '';
+  String _productVariant = '';
+  String _productImage = '';
 
   OrderItemModel? _resolvedOrder;
   // ignore: unused_field
-  String _courierName = 'Pedro Jose Garcia';
+  String _courierName = '';
   // ignore: unused_field
-  String _orderId = '#NX-8942-ORD';
+  String _orderId = '';
   bool _initializedArgs = false;
 
   @override
@@ -537,20 +536,29 @@ class _RateProductPageState extends State<RateProductPage> {
             children: [
               ClipRRect(
                 borderRadius: BorderRadius.circular(8),
-                child: Image.network(
-                  _productImage,
-                  width: 52,
-                  height: 52,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => Container(
-                    width: 52,
-                    height: 52,
-                    color: isDark
-                        ? theme.colorScheme.surfaceContainer
-                        : const Color(0xFFF1F5F9),
-                    child: Icon(Icons.image, color: theme.colorScheme.onSurfaceVariant),
-                  ),
-                ),
+                child: _productImage.isNotEmpty
+                    ? Image.network(
+                        _productImage,
+                        width: 52,
+                        height: 52,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) => Container(
+                          width: 52,
+                          height: 52,
+                          color: isDark
+                              ? theme.colorScheme.surfaceContainer
+                              : const Color(0xFFF1F5F9),
+                          child: Icon(Icons.image, color: theme.colorScheme.onSurfaceVariant),
+                        ),
+                      )
+                    : Container(
+                        width: 52,
+                        height: 52,
+                        color: isDark
+                            ? theme.colorScheme.surfaceContainer
+                            : const Color(0xFFF1F5F9),
+                        child: Icon(Icons.inventory_2_outlined, color: theme.colorScheme.onSurfaceVariant),
+                      ),
               ),
               const SizedBox(width: 12),
               Expanded(

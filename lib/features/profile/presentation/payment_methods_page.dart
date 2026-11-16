@@ -59,7 +59,7 @@ class _PaymentMethodsPageState extends State<PaymentMethodsPage> {
                       SizedBox(width: 10),
                       Expanded(
                         child: Text(
-                          'Nexora 256-bit SSL encrypted checkout. GCash payments are authorized securely via Bangko Sentral ng Pilipinas (BSP) standards.',
+                          'Checkout currently processes Cash on Delivery (COD) orders. Saved e-wallet preferences are stored on this device.',
                           style: TextStyle(
                             fontSize: 11.5,
                             color: Color(0xFF1E3A8A),

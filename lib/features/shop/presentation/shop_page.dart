@@ -1,6 +1,4 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
-import '../../../app/routes/app_routes.dart';
 import '../../../core/models/shop_models.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/services/buyer_account_service.dart';
@@ -35,12 +33,10 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
   late AnimationController _chatAnimController;
   late Animation<double> _chatScaleAnim;
 
-  // Flash deals countdown timer (04 : 35 : 57)
-  late Timer _countdownTimer;
-  int _secondsLeft = 4 * 3600 + 35 * 60 + 57;
-
   // Active filter for "Products" tab
   String _selectedProductFilter = 'Popular';
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
 
   // Hover state map for Category cards
   final Map<String, bool> _categoryHoverStates = {};
@@ -53,6 +49,13 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
     super.initState();
     _shop = widget.initialShop ??
         _shopService.getShopById(widget.shopId ?? '1');
+    if (widget.initialShop == null && int.tryParse(_shop.id) != null) {
+      _shopService.fetchStoreRemote(_shop.id).then((fetched) {
+        if (fetched != null && mounted) {
+          setState(() => _shop = fetched);
+        }
+      }).catchError((_) {});
+    }
 
     _tabController = TabController(length: 3, vsync: this);
 
@@ -81,17 +84,6 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
       parent: _chatAnimController,
       curve: Curves.easeOutBack,
     );
-
-    // Countdown ticker
-    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (mounted) {
-        setState(() {
-          if (_secondsLeft > 0) {
-            _secondsLeft--;
-          }
-        });
-      }
-    });
 
     _shopService.addListener(_onServiceUpdate);
   }
@@ -126,16 +118,10 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
     _tabController.dispose();
     _followAnimController.dispose();
     _chatAnimController.dispose();
-    _countdownTimer.cancel();
+    _searchController.dispose();
     _shopService.removeListener(_onServiceUpdate);
     super.dispose();
   }
-
-  String _formatTwoDigits(int n) => n.toString().padLeft(2, '0');
-
-  String get _hoursStr => _formatTwoDigits(_secondsLeft ~/ 3600);
-  String get _minutesStr => _formatTwoDigits((_secondsLeft % 3600) ~/ 60);
-  String get _secondsStr => _formatTwoDigits(_secondsLeft % 60);
 
   void _handleFollowTap() async {
     await _followAnimController.reverse();
@@ -233,13 +219,20 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
 
   void _handleClaimVoucher(ShopVoucherModel voucher) async {
     if (_shopService.isVoucherClaimed(voucher.id)) return;
+    if (!ApiClient.instance.hasToken) {
+      final ok = await GuestAuthGuard.requireLogin(
+        context,
+        title: 'Sign in to claim voucher',
+        message: 'Sign in to save store vouchers to your account.',
+      );
+      if (!ok || !mounted) return;
+    }
 
     setState(() {
       _claimingVouchers.add(voucher.id);
     });
 
-    await Future.delayed(const Duration(milliseconds: 350));
-    _shopService.claimVoucher(voucher.id);
+    final ok = await _shopService.claimVoucherRemote(voucher.id);
 
     if (!mounted) return;
     setState(() {
@@ -249,45 +242,30 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.check_circle, color: Color(0xFF10B981), size: 20),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    '🎉 Voucher Claimed! (${voucher.discountTitle})',
-                    style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
-                  ),
-                  Text(
-                    'Saved to your account • ${voucher.minSpend}',
-                    style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
-                  ),
-                ],
-              ),
-            ),
-          ],
+        content: Text(
+          ok
+              ? 'Voucher Claimed (${voucher.discountTitle})'
+              : 'Could not claim voucher right now.',
         ),
-        backgroundColor: const Color(0xFF050B28),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        duration: const Duration(seconds: 3),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final products = _shop.products.isNotEmpty
+    final allProducts = _shop.products.isNotEmpty
         ? _shop.products
         : _shopService.getProductsByShop(_shop.id);
+    final products = _searchQuery.trim().isEmpty
+        ? allProducts
+        : allProducts
+            .where((p) =>
+                p.title.toLowerCase().contains(_searchQuery.trim().toLowerCase()))
+            .toList();
     final isFollowing = _shopService.isFollowing(_shop.id);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: NestedScrollView(
         headerSliverBuilder: (context, innerBoxIsScrolled) {
           return [
@@ -373,24 +351,44 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
                   height: 38,
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.12),
+                    color: Colors.white.withValues(alpha: 0.14),
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.15),
+                      color: Colors.white.withValues(alpha: 0.18),
                       width: 1,
                     ),
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.search, color: Colors.white.withValues(alpha: 0.7), size: 18),
+                      Icon(Icons.search, color: Colors.white.withValues(alpha: 0.8), size: 18),
                       const SizedBox(width: 8),
-                      Text(
-                        'Search in Nexora...',
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.7),
-                          fontSize: 13,
+                      Expanded(
+                        child: TextField(
+                          controller: _searchController,
+                          onChanged: (v) => setState(() => _searchQuery = v),
+                          style: const TextStyle(color: Colors.white, fontSize: 13),
+                          decoration: InputDecoration(
+                            hintText: 'Search in ${_shop.name}...',
+                            hintStyle: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.7),
+                              fontSize: 12.5,
+                            ),
+                            isDense: true,
+                            filled: false,
+                            fillColor: Colors.transparent,
+                            border: InputBorder.none,
+                            contentPadding: EdgeInsets.zero,
+                          ),
                         ),
                       ),
+                      if (_searchQuery.isNotEmpty)
+                        InkWell(
+                          onTap: () {
+                            _searchController.clear();
+                            setState(() => _searchQuery = '');
+                          },
+                          child: const Icon(Icons.close, color: Colors.white70, size: 16),
+                        ),
                     ],
                   ),
                 ),
@@ -406,10 +404,6 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
                     ),
                   );
                 },
-              ),
-              IconButton(
-                icon: const Icon(Icons.more_vert, color: Colors.white, size: 21),
-                onPressed: () {},
               ),
             ],
           ),
@@ -667,110 +661,28 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
       children: [
-        // VOUCHERS CAROUSEL / ROW
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          physics: const BouncingScrollPhysics(),
-          child: Row(
-            children: _shop.vouchers.map((voucher) {
-              return Padding(
-                padding: const EdgeInsets.only(right: 12),
-                child: _buildVoucherTicketCard(voucher),
-              );
-            }).toList(),
+        if (_shop.vouchers.isNotEmpty) ...[
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            child: Row(
+              children: _shop.vouchers.map((voucher) {
+                return Padding(
+                  padding: const EdgeInsets.only(right: 12),
+                  child: _buildVoucherTicketCard(voucher),
+                );
+              }).toList(),
+            ),
           ),
-        ),
-        const SizedBox(height: 22),
+          const SizedBox(height: 22),
+        ],
 
-        // MALL FLASH DEALS HEADER
-        Row(
-          children: [
-            Container(
-              width: 8,
-              height: 8,
-              decoration: const BoxDecoration(
-                color: Color(0xFF0066FF),
-                shape: BoxShape.circle,
-              ),
-            ),
-            const SizedBox(width: 6),
-            const Text(
-              'MALL FLASH DEALS',
-              style: TextStyle(
-                fontWeight: FontWeight.w900,
-                fontSize: 14.5,
-                color: Color(0xFF0F172A),
-                letterSpacing: 0.3,
-              ),
-            ),
-            const SizedBox(width: 8),
-
-            // Countdown timer boxes: [04] : [35] : [57]
-            _buildTimerBadge(_hoursStr),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 3),
-              child: Text(':', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13)),
-            ),
-            _buildTimerBadge(_minutesStr),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 3),
-              child: Text(':', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13)),
-            ),
-            _buildTimerBadge(_secondsStr),
-
-            const Spacer(),
-            InkWell(
-              onTap: () {
-                _tabController.animateTo(1);
-              },
-              child: const Row(
-                children: [
-                  Text(
-                    'See More',
-                    style: TextStyle(
-                      color: Color(0xFF0066FF),
-                      fontWeight: FontWeight.w700,
-                      fontSize: 12.5,
-                    ),
-                  ),
-                  Icon(Icons.chevron_right, size: 16, color: Color(0xFF0066FF)),
-                ],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-
-        // FLASH DEALS CARDS ROW (StreamMic D20, Voice Master Amp)
-        Row(
-          children: [
-            if (products.isNotEmpty)
-              Expanded(
-                child: _buildFlashDealProductCard(
-                  products[0],
-                  discountBadge: '-48%',
-                  progressValue: 0.72,
-                ),
-              ),
-            const SizedBox(width: 12),
-            if (products.length > 1)
-              Expanded(
-                child: _buildFlashDealProductCard(
-                  products[1],
-                  discountBadge: '-54%',
-                  progressValue: 0.85,
-                ),
-              ),
-          ],
-        ),
-        const SizedBox(height: 24),
-
-        // POPULAR PRODUCTS HEADER
+        // STORE PRODUCTS HEADER
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             const Text(
-              'POPULAR PRODUCTS',
+              'STORE PRODUCTS',
               style: TextStyle(
                 fontWeight: FontWeight.w900,
                 fontSize: 15,
@@ -778,7 +690,7 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
               ),
             ),
             Text(
-              '${products.length * 15 + 4} Items',
+              '${products.length} ${products.length == 1 ? 'Item' : 'Items'}',
               style: const TextStyle(
                 fontWeight: FontWeight.w700,
                 fontSize: 12,
@@ -789,7 +701,7 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
         ),
         const SizedBox(height: 12),
 
-        // 2-COLUMN POPULAR PRODUCTS GRID
+        // 2-COLUMN STORE PRODUCTS GRID
         _buildProductGrid(products),
         const SizedBox(height: 20),
       ],
@@ -871,7 +783,7 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
               ),
             ),
             Text(
-              '${products.length * 15 + 4} ITEMS',
+              '${products.length} ITEMS',
               style: const TextStyle(
                 fontWeight: FontWeight.w800,
                 fontSize: 11,
@@ -1173,162 +1085,6 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
   }
 
   // =========================================================================
-  // COMPONENT: TIMER BADGE (For Flash Deals)
-  // =========================================================================
-  Widget _buildTimerBadge(String text) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-      decoration: BoxDecoration(
-        color: const Color(0xFF0F172A),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Text(
-        text,
-        style: const TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.w900,
-          fontSize: 11,
-          fontFamily: 'monospace',
-        ),
-      ),
-    );
-  }
-
-  // =========================================================================
-  // COMPONENT: FLASH DEAL PRODUCT CARD
-  // =========================================================================
-  Widget _buildFlashDealProductCard(
-    ProductModel product, {
-    required String discountBadge,
-    required double progressValue,
-  }) {
-    return GestureDetector(
-      onTap: () {
-        Navigator.pushNamed(context, AppRoutes.productDetails, arguments: product);
-      },
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.03),
-              blurRadius: 8,
-              offset: const Offset(0, 3),
-            ),
-          ],
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Image with discount badge
-            Stack(
-              children: [
-                SizedBox(
-                  height: 125,
-                  width: double.infinity,
-                  child: Image.network(
-                    product.imageUrl,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => Container(
-                      color: const Color(0xFFF1F5F9),
-                      child: const Icon(Icons.mic, color: Color(0xFF94A3B8)),
-                    ),
-                  ),
-                ),
-                Positioned(
-                  top: 8,
-                  right: 8,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF0066FF),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      discountBadge,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w900,
-                        fontSize: 10,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-
-            // Content
-            Padding(
-              padding: const EdgeInsets.all(10),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    product.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 12.5,
-                      color: Color(0xFF0F172A),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Text(
-                        product.price,
-                        style: const TextStyle(
-                          color: Color(0xFF0F172A),
-                          fontWeight: FontWeight.w900,
-                          fontSize: 13.5,
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      if (product.originalPrice != null)
-                        Text(
-                          product.originalPrice!,
-                          style: const TextStyle(
-                            decoration: TextDecoration.lineThrough,
-                            color: Color(0xFF94A3B8),
-                            fontSize: 10.5,
-                          ),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-
-                  // Cyan progress bar
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(4),
-                    child: LinearProgressIndicator(
-                      value: progressValue,
-                      backgroundColor: const Color(0xFFE2E8F0),
-                      valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF0066FF)),
-                      minHeight: 6,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    'SELLING FAST',
-                    style: TextStyle(
-                      fontSize: 9,
-                      fontWeight: FontWeight.w900,
-                      color: Color(0xFF64748B),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // =========================================================================
   // COMPONENT: CATEGORY CARD (With Smooth Hover Animation)
   // =========================================================================
   Widget _buildCategoryCollectionCard(ShopCategoryModel cat) {
@@ -1464,7 +1220,7 @@ class _ShopPageState extends State<ShopPage> with TickerProviderStateMixin {
         crossAxisCount: 2,
         crossAxisSpacing: 10,
         mainAxisSpacing: 12,
-        childAspectRatio: 0.53,
+        childAspectRatio: 0.56,
       ),
       itemBuilder: (context, index) {
         final p = products[index];

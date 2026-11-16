@@ -1,9 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../app/routes/app_routes.dart';
+import '../../../core/network/api_client.dart';
 import '../../../core/services/buyer_account_service.dart';
-import '../../../core/services/supabase_auth_service.dart';
-import '../../../core/services/profile_service.dart';
 
 class SplashPage extends StatefulWidget {
   const SplashPage({super.key});
@@ -37,19 +36,9 @@ class _SplashPageState extends State<SplashPage> {
     _navigated = true;
     _timer?.cancel();
 
-    // Check both local buyer session and active Supabase session
-    final supabaseUser = SupabaseAuthService.instance.currentUser;
-    if (supabaseUser != null && !BuyerAccountService.instance.isLoggedIn) {
-      final email = supabaseUser.email ?? '';
-      final metadata = supabaseUser.userMetadata ?? {};
-      final name = (metadata['full_name'] ?? metadata['name'] ?? email.split('@').first).toString();
-      BuyerAccountService.instance.establishGoogleSession(name: name, email: email);
-      ProfileService.instance.updateProfile(name: name, email: email, phone: '');
-    }
-
-    final isLoggedIn = BuyerAccountService.instance.isLoggedIn ||
-        SupabaseAuthService.instance.isAuthenticated;
-    final targetRoute = isLoggedIn ? AppRoutes.home : AppRoutes.landing;
+    final hasValidSession =
+        BuyerAccountService.instance.isLoggedIn && ApiClient.instance.hasToken;
+    final targetRoute = hasValidSession ? AppRoutes.home : AppRoutes.landing;
 
     Navigator.pushReplacementNamed(context, targetRoute);
   }
