@@ -52,6 +52,7 @@ class FloatingNavDock extends StatelessWidget {
       top: false,
       minimum: const EdgeInsets.fromLTRB(12, 0, 12, 8),
       child: Center(
+        heightFactor: 1.0,
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 520),
           child: DecoratedBox(
@@ -98,9 +99,7 @@ class FloatingNavDock extends StatelessWidget {
                         badgeColor: index == 3
                             ? theme.colorScheme.tertiary
                             : theme.colorScheme.secondary,
-                        badgeForegroundColor: index == 3
-                            ? Colors.white
-                            : NexoraTheme.darkNavy,
+                        badgeForegroundColor: Colors.white,
                         motionDuration: motionDuration,
                         onTap: () => onTap(index),
                       ),

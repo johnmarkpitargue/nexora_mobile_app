@@ -169,6 +169,9 @@ void main() {
     testWidgets('Home, Checkout, Orders, Notifications & Profile fit cleanly across phone and tablet widths', (tester) async {
       for (final viewport in viewports) {
         await pumpAtSize(tester, viewport, const NexoraHomePage());
+        final dockBox = tester.getRect(find.byKey(const ValueKey('nav-item-0')));
+        expect(dockBox.bottom, greaterThan(viewport.height - 100));
+        expect(find.text('Recommended for you'), findsOneWidget);
         await pumpAtSize(tester, viewport, const CheckoutPage());
         await pumpAtSize(tester, viewport, const OrdersPage());
         await pumpAtSize(tester, viewport, const NotificationsPage());
