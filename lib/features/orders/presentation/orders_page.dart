@@ -140,7 +140,7 @@ class _OrdersPageState extends State<OrdersPage>
               style: TextStyle(
                 color: theme.colorScheme.onSurface,
                 fontSize: 18,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w800,
               ),
             ),
             actions: [

@@ -266,26 +266,6 @@ class _CartPageState extends State<CartPage> {
                     ),
                   ),
                 ),
-              IconButton(
-                icon: Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: isDark
-                        ? theme.colorScheme.surfaceContainer
-                        : const Color(0xFF050B28),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.chat_bubble_outline_rounded,
-                    color: isDark ? theme.colorScheme.onSurface : Colors.white,
-                    size: 16,
-                  ),
-                ),
-                onPressed: () {
-                  Navigator.pushNamed(context, AppRoutes.chat);
-                },
-              ),
               const SizedBox(width: 8),
             ],
           ),
@@ -335,11 +315,9 @@ class _CartPageState extends State<CartPage> {
               if (hasSession && _cartService.items.isNotEmpty)
                 Align(
                   alignment: Alignment.bottomCenter,
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 820),
-                      child: _buildBottomDock(theme, isDark),
-                    ),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 820),
+                    child: _buildBottomDock(theme, isDark),
                   ),
                 ),
             ],
@@ -350,29 +328,33 @@ class _CartPageState extends State<CartPage> {
   }
 
   Widget _buildSignInPrompt(BuildContext context) {
+    final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 60),
       child: Column(
         children: [
-          const Icon(
+          Icon(
             Icons.lock_outline_rounded,
             size: 56,
-            color: Color(0xFF94A3B8),
+            color: theme.colorScheme.onSurfaceVariant,
           ),
           const SizedBox(height: 12),
-          const Text(
+          Text(
             'Sign in to view your cart',
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF0F172A),
+              color: theme.colorScheme.onSurface,
             ),
           ),
           const SizedBox(height: 6),
-          const Text(
+          Text(
             'Your cart stays synced with your Nexora account across devices.',
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 12.5, color: Color(0xFF64748B)),
+            style: TextStyle(
+              fontSize: 12.5,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
           ),
           const SizedBox(height: 16),
           ElevatedButton(
@@ -383,7 +365,7 @@ class _CartPageState extends State<CartPage> {
               }
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF0066FF),
+              backgroundColor: theme.colorScheme.primary,
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
@@ -397,13 +379,19 @@ class _CartPageState extends State<CartPage> {
   }
 
   Widget _buildErrorBanner(String error) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFFFEF2F2),
+        color: isDark
+            ? const Color(0xFF7F1D1D).withValues(alpha: 0.25)
+            : const Color(0xFFFEF2F2),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFFECACA)),
+        border: Border.all(
+          color: isDark ? const Color(0xFF991B1B) : const Color(0xFFFECACA),
+        ),
       ),
       child: Row(
         children: [
@@ -412,8 +400,8 @@ class _CartPageState extends State<CartPage> {
           Expanded(
             child: Text(
               error,
-              style: const TextStyle(
-                color: Color(0xFF991B1B),
+              style: TextStyle(
+                color: isDark ? const Color(0xFFFECACA) : const Color(0xFF991B1B),
                 fontSize: 12.5,
                 fontWeight: FontWeight.w600,
               ),
@@ -432,30 +420,31 @@ class _CartPageState extends State<CartPage> {
   }
 
   Widget _buildEmptyCartView(BuildContext context) {
+    final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 60),
       child: Column(
         children: [
-          const Icon(
+          Icon(
             Icons.shopping_bag_outlined,
             size: 64,
-            color: Color(0xFFCBD5E1),
+            color: theme.colorScheme.onSurfaceVariant,
           ),
           const SizedBox(height: 12),
-          const Text(
+          Text(
             'Your Shopping Cart is Empty',
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF0F172A),
+              color: theme.colorScheme.onSurface,
             ),
           ),
           const SizedBox(height: 6),
-          const Text(
+          Text(
             'Explore products and add them to your cart!',
             style: TextStyle(
               fontSize: 12,
-              color: Color(0xFF64748B),
+              color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
           const SizedBox(height: 16),
@@ -464,7 +453,7 @@ class _CartPageState extends State<CartPage> {
               Navigator.pushReplacementNamed(context, AppRoutes.home);
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF0066FF),
+              backgroundColor: theme.colorScheme.primary,
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
@@ -1000,6 +989,8 @@ class _CartPageState extends State<CartPage> {
     required bool isChecked,
     required VoidCallback onTap,
   }) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
@@ -1008,10 +999,17 @@ class _CartPageState extends State<CartPage> {
         height: 22,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: isChecked ? const Color(0xFF0284C7) : const Color(0xFFE2E8F0),
+          color: isChecked
+              ? theme.colorScheme.primary
+              : (isDark ? theme.colorScheme.surfaceContainer : Colors.transparent),
           border: isChecked
               ? null
-              : Border.all(color: const Color(0xFFCBD5E1), width: 1.5),
+              : Border.all(
+                  color: isDark
+                      ? theme.colorScheme.outline
+                      : const Color(0xFFCBD5E1),
+                  width: 1.5,
+                ),
         ),
         child: isChecked
             ? const Icon(
