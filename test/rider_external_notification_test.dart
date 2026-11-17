@@ -11,44 +11,52 @@ void main() {
       InAppNotificationService.instance.clearHistory();
     });
 
-    test('ExternalNotificationService methods execute without errors', () async {
-      expect(ExternalNotificationService.isPermissionGranted, isNotNull);
-      ExternalNotificationService.playChime();
-      ExternalNotificationService.vibrate();
-      ExternalNotificationService.sendTestNotification();
+    test(
+      'ExternalNotificationService methods execute without errors',
+      () async {
+        expect(ExternalNotificationService.isPermissionGranted, isNotNull);
+        ExternalNotificationService.playChime();
+        ExternalNotificationService.vibrate();
+        ExternalNotificationService.sendTestNotification();
 
-      final res = await ExternalNotificationService.requestPermissionAsync();
-      expect(res, isA<bool>());
-    });
+        final res = await ExternalNotificationService.requestPermissionAsync();
+        expect(res, isA<bool>());
+      },
+    );
 
-    test('InAppNotificationService records history and updates unread count', () {
-      expect(InAppNotificationService.instance.history.isEmpty, isTrue);
-      expect(InAppNotificationService.instance.unreadCountNotifier.value, 0);
+    test(
+      'InAppNotificationService records history and updates unread count',
+      () {
+        expect(InAppNotificationService.instance.history.isEmpty, isTrue);
+        expect(InAppNotificationService.instance.unreadCountNotifier.value, 0);
 
-      InAppNotificationService.instance.showNotification(
-        senderName: 'Alex Rivera',
-        message: 'Please leave the package at unit door',
-        orderId: 'NX-9988',
-      );
+        InAppNotificationService.instance.showNotification(
+          senderName: 'Alex Rivera',
+          message: 'Please leave the package at unit door',
+          orderId: 'NX-9988',
+        );
 
-      expect(InAppNotificationService.instance.history.length, 1);
-      expect(InAppNotificationService.instance.unreadCountNotifier.value, 1);
+        expect(InAppNotificationService.instance.history.length, 1);
+        expect(InAppNotificationService.instance.unreadCountNotifier.value, 1);
 
-      final item = InAppNotificationService.instance.history.first;
-      expect(item.orderId, 'NX-9988');
-      expect(item.title, contains('Customer Alex Rivera'));
-      expect(item.message, 'Please leave the package at unit door');
-      expect(item.timeAgo, 'Just now');
+        final item = InAppNotificationService.instance.history.first;
+        expect(item.orderId, 'NX-9988');
+        expect(item.title, contains('Customer Alex Rivera'));
+        expect(item.message, 'Please leave the package at unit door');
+        expect(item.timeAgo, 'Just now');
 
-      InAppNotificationService.instance.markAllAsRead();
-      expect(item.isRead, isTrue);
-      expect(InAppNotificationService.instance.unreadCountNotifier.value, 0);
+        InAppNotificationService.instance.markAllAsRead();
+        expect(item.isRead, isTrue);
+        expect(InAppNotificationService.instance.unreadCountNotifier.value, 0);
 
-      InAppNotificationService.instance.clearHistory();
-      expect(InAppNotificationService.instance.history.isEmpty, isTrue);
-    });
+        InAppNotificationService.instance.clearHistory();
+        expect(InAppNotificationService.instance.history.isEmpty, isTrue);
+      },
+    );
 
-    testWidgets('Notification history sheet renders and displays controls', (tester) async {
+    testWidgets('Notification page renders alerts and permission status', (
+      tester,
+    ) async {
       InAppNotificationService.instance.showNotification(
         senderName: 'New Delivery Dispatch',
         message: 'Order #NX-1002 is ready for pickup at Central Hub',
@@ -61,28 +69,26 @@ void main() {
             body: Builder(
               builder: (context) => ElevatedButton(
                 onPressed: () {
-                  InAppNotificationService.instance.showNotificationHistory(context);
+                  InAppNotificationService.instance.showNotificationHistory(
+                    context,
+                  );
                 },
-                child: const Text('Open Sheet'),
+                child: const Text('Open Notifications'),
               ),
             ),
           ),
         ),
       );
 
-      await tester.tap(find.text('Open Sheet'));
+      await tester.tap(find.text('Open Notifications'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Dispatch & Order Alerts'), findsOneWidget);
-      expect(find.textContaining('Phone Push Alerts'), findsOneWidget);
-      expect(find.text('Test Sound & Vibrate'), findsOneWidget);
-      expect(find.text('Order #NX-1002 is ready for pickup at Central Hub'), findsOneWidget);
-
-      // Tap Test Sound & Vibrate
-      await tester.tap(find.text('Test Sound & Vibrate'));
-      await tester.pumpAndSettle();
-
-      expect(find.textContaining('Sent test alert to phone lock screen'), findsOneWidget);
+      expect(find.text('Notifications'), findsOneWidget);
+      expect(find.text('Phone alerts are on'), findsOneWidget);
+      expect(
+        find.text('Order #NX-1002 is ready for pickup at Central Hub'),
+        findsOneWidget,
+      );
     });
   });
 }

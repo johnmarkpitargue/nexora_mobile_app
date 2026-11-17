@@ -514,7 +514,7 @@ class _RiderLoginPageState extends State<RiderLoginPage> {
               ),
               const SizedBox(height: 18),
 
-              // 5. Checkbox Row: Remember Device + Auto-login 30d
+              // 5. Remember Device
               Row(
                 children: [
                   SizedBox(
@@ -540,26 +540,6 @@ class _RiderLoginPageState extends State<RiderLoginPage> {
                         fontSize: 12.5,
                         fontWeight: FontWeight.w700,
                         color: Color(0xFF1E293B),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF0F9FF),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: const Color(0xFFE0F2FE)),
-                    ),
-                    child: const Text(
-                      'Auto-login 30d',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFF0066FF),
                       ),
                     ),
                   ),
@@ -645,60 +625,6 @@ class _RiderLoginPageState extends State<RiderLoginPage> {
   Widget _buildSecurityFooter() {
     return Column(
       children: [
-        Center(
-          child: RichText(
-            textAlign: TextAlign.center,
-            text: const TextSpan(
-              text: 'Need help? Call Pasig Hub Dispatch ',
-              style: TextStyle(
-                fontSize: 11,
-                color: Color(0xFF64748B),
-                fontWeight: FontWeight.w500,
-              ),
-              children: [
-                TextSpan(
-                  text: '📞 (02) 8888–RIDE',
-                  style: TextStyle(
-                    color: Color(0xFF0066FF),
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 10),
-
-        Center(
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF0F9FF),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: const Color(0xFFE0F2FE)),
-            ),
-            child: const Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text('🔒', style: TextStyle(fontSize: 12)),
-                SizedBox(width: 6),
-                Flexible(
-                  child: Text(
-                    'Nexora Fleet Access • 256–Bit SSL Encrypted',
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFF0066FF),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 8),
-
         Center(
           child: RichText(
             textAlign: TextAlign.center,

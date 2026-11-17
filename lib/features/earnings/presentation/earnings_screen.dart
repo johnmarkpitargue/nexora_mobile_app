@@ -1,6 +1,8 @@
 import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+
 import '../../../core/models/earning_record.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/services/earnings_service.dart';
@@ -48,7 +50,8 @@ class _EarningsScreenState extends State<EarningsScreen> {
     final selectedOrderIds = <int>{};
     for (final c in openCollections) {
       final status = (c['status'] ?? '').toString();
-      final avail = (c['available_to_submit_amount'] as num?)?.toDouble() ??
+      final avail =
+          (c['available_to_submit_amount'] as num?)?.toDouble() ??
           (c['remaining_balance'] as num?)?.toDouble() ??
           (c['outstanding_amount'] as num?)?.toDouble() ??
           0.0;
@@ -80,7 +83,8 @@ class _EarningsScreenState extends State<EarningsScreen> {
       for (final c in openCollections) {
         final oid = (c['order_id'] as num?)?.toInt();
         if (oid != null && selectedOrderIds.contains(oid)) {
-          total += (c['available_to_submit_amount'] as num?)?.toDouble() ??
+          total +=
+              (c['available_to_submit_amount'] as num?)?.toDouble() ??
               (c['remaining_balance'] as num?)?.toDouble() ??
               (c['outstanding_amount'] as num?)?.toDouble() ??
               (c['actual_collected_amount'] as num?)?.toDouble() ??
@@ -112,10 +116,10 @@ class _EarningsScreenState extends State<EarningsScreen> {
               constraints: BoxConstraints(
                 maxHeight: MediaQuery.of(modalCtx).size.height * 0.9,
               ),
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
               decoration: const BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
               ),
               child: SingleChildScrollView(
                 child: Column(
@@ -138,9 +142,9 @@ class _EarningsScreenState extends State<EarningsScreen> {
                       children: [
                         const Expanded(
                           child: Text(
-                            'Submit COD Cash Remittance',
+                            'Remit collected cash',
                             style: TextStyle(
-                              fontSize: 17,
+                              fontSize: 20,
                               fontWeight: FontWeight.w900,
                               color: Color(0xFF0F172A),
                             ),
@@ -153,7 +157,7 @@ class _EarningsScreenState extends State<EarningsScreen> {
                       ],
                     ),
                     Text(
-                      'On hand: ₱${held.toStringAsFixed(2)} • Pending verification: ₱${service.codPendingVerificationAmount.toStringAsFixed(2)}',
+                      '₱${held.toStringAsFixed(2)} on hand  •  ₱${service.codPendingVerificationAmount.toStringAsFixed(2)} pending',
                       style: const TextStyle(
                         fontSize: 12,
                         color: Color(0xFF64748B),
@@ -163,14 +167,16 @@ class _EarningsScreenState extends State<EarningsScreen> {
                     Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFFFFBEB),
+                        color: const Color(0xFFFFF7E6),
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: const Color(0xFFFDE68A)),
                       ),
                       child: const Row(
                         children: [
-                          Icon(Icons.info_outline_rounded,
-                              size: 16, color: Color(0xFFB45309)),
+                          Icon(
+                            Icons.info_outline_rounded,
+                            size: 16,
+                            color: Color(0xFFB45309),
+                          ),
                           SizedBox(width: 8),
                           Expanded(
                             child: Text(
@@ -198,8 +204,8 @@ class _EarningsScreenState extends State<EarningsScreen> {
                         final oid = (c['order_id'] as num?)?.toInt() ?? 0;
                         final orderNumber =
                             c['order_number']?.toString() ?? 'Order #$oid';
-                        final remaining = (c['available_to_submit_amount']
-                                    as num?)
+                        final remaining =
+                            (c['available_to_submit_amount'] as num?)
                                 ?.toDouble() ??
                             (c['remaining_balance'] as num?)?.toDouble() ??
                             (c['outstanding_amount'] as num?)?.toDouble() ??
@@ -208,10 +214,12 @@ class _EarningsScreenState extends State<EarningsScreen> {
                             (c['collected_amount'] as num?)?.toDouble() ??
                             0.0;
                         final reserved =
-                            (c['pending_reserved_amount'] as num?)?.toDouble() ??
-                                0.0;
+                            (c['pending_reserved_amount'] as num?)
+                                ?.toDouble() ??
+                            0.0;
                         final status = (c['status'] ?? '').toString();
-                        final locked = status == 'remittance_pending' ||
+                        final locked =
+                            status == 'remittance_pending' ||
                             (remaining <= 0 && reserved > 0);
                         final checked = selectedOrderIds.contains(oid);
 
@@ -278,19 +286,40 @@ class _EarningsScreenState extends State<EarningsScreen> {
                             selected: paymentMethod == m[0],
                             onSelected: (_) =>
                                 setModalState(() => paymentMethod = m[0]),
+                            selectedColor: const Color(0xFFE8F0FF),
+                            backgroundColor: const Color(0xFFF4F7FA),
+                            side: BorderSide(
+                              color: paymentMethod == m[0]
+                                  ? const Color(0xFF075FED)
+                                  : Colors.transparent,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            labelStyle: TextStyle(
+                              color: paymentMethod == m[0]
+                                  ? const Color(0xFF075FED)
+                                  : const Color(0xFF334155),
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                       ],
                     ),
                     const SizedBox(height: 12),
                     TextField(
                       controller: amountController,
-                      keyboardType:
-                          const TextInputType.numberWithOptions(decimal: true),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
                       decoration: const InputDecoration(
                         labelText: 'Amount Remitted',
                         prefixText: '₱ ',
-                        border: OutlineInputBorder(),
-                        isDense: true,
+                        filled: true,
+                        fillColor: Color(0xFFF4F7FA),
+                        border: OutlineInputBorder(
+                          borderSide: BorderSide.none,
+                          borderRadius: BorderRadius.all(Radius.circular(12)),
+                        ),
                       ),
                     ),
                     if (isNonCash) ...[
@@ -301,8 +330,12 @@ class _EarningsScreenState extends State<EarningsScreen> {
                           labelText:
                               '${paymentMethod.toUpperCase()} Reference Number *',
                           hintText: 'e.g. GCASH-883920194',
-                          border: const OutlineInputBorder(),
-                          isDense: true,
+                          filled: true,
+                          fillColor: const Color(0xFFF4F7FA),
+                          border: const OutlineInputBorder(
+                            borderSide: BorderSide.none,
+                            borderRadius: BorderRadius.all(Radius.circular(12)),
+                          ),
                         ),
                       ),
                       const SizedBox(height: 10),
@@ -315,7 +348,9 @@ class _EarningsScreenState extends State<EarningsScreen> {
                               imageQuality: 85,
                             );
                             if (picked != null) {
-                              setModalState(() => pickedProofPath = picked.path);
+                              setModalState(
+                                () => pickedProofPath = picked.path,
+                              );
                             }
                           } catch (_) {
                             if (context.mounted) {
@@ -343,8 +378,12 @@ class _EarningsScreenState extends State<EarningsScreen> {
                       controller: notesController,
                       decoration: const InputDecoration(
                         labelText: 'Notes / Hub Counter Info (Optional)',
-                        border: OutlineInputBorder(),
-                        isDense: true,
+                        filled: true,
+                        fillColor: Color(0xFFF4F7FA),
+                        border: OutlineInputBorder(
+                          borderSide: BorderSide.none,
+                          borderRadius: BorderRadius.all(Radius.circular(12)),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -355,29 +394,32 @@ class _EarningsScreenState extends State<EarningsScreen> {
                         onPressed: isSubmitting
                             ? null
                             : () async {
-                                final amount = double.tryParse(
-                                        amountController.text.trim()) ??
+                                final amount =
+                                    double.tryParse(
+                                      amountController.text.trim(),
+                                    ) ??
                                     0.0;
                                 setModalState(() => isSubmitting = true);
                                 try {
                                   final created = await EarningsService.instance
                                       .submitRemittanceRemote(
-                                    amount: amount,
-                                    paymentMethod: paymentMethod,
-                                    externalReference: refController.text,
-                                    transferDate: DateTime.now(),
-                                    orderIds: selectedOrderIds.isNotEmpty
-                                        ? selectedOrderIds.toList()
-                                        : null,
-                                    proofFilePath: pickedProofPath,
-                                    notes: notesController.text,
-                                  );
+                                        amount: amount,
+                                        paymentMethod: paymentMethod,
+                                        externalReference: refController.text,
+                                        transferDate: DateTime.now(),
+                                        orderIds: selectedOrderIds.isNotEmpty
+                                            ? selectedOrderIds.toList()
+                                            : null,
+                                        proofFilePath: pickedProofPath,
+                                        notes: notesController.text,
+                                      );
 
                                   if (!context.mounted) return;
                                   Navigator.pop(sheetCtx);
                                   final remitNo =
-                                      created?['remittance_number']?.toString() ??
-                                          'SUBMITTED';
+                                      created?['remittance_number']
+                                          ?.toString() ??
+                                      'SUBMITTED';
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
                                       content: Text(
@@ -392,8 +434,9 @@ class _EarningsScreenState extends State<EarningsScreen> {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
                                         content: Text(e.message),
-                                        backgroundColor:
-                                            const Color(0xFFEF4444),
+                                        backgroundColor: const Color(
+                                          0xFFEF4444,
+                                        ),
                                       ),
                                     );
                                   }
@@ -428,8 +471,8 @@ class _EarningsScreenState extends State<EarningsScreen> {
                                 ),
                               )
                             : const Text(
-                                'SUBMIT FOR LOGISTICS VERIFICATION',
-                                style: TextStyle(fontWeight: FontWeight.w900),
+                                'Submit for verification',
+                                style: TextStyle(fontWeight: FontWeight.w800),
                               ),
                       ),
                     ),
@@ -449,9 +492,11 @@ class _EarningsScreenState extends State<EarningsScreen> {
     if (_selectedTxnFilter == 'All') return all;
     if (_selectedTxnFilter == 'Deliveries & Pickups') {
       return all
-          .where((t) =>
-              t.type == TransactionType.deliveryFee ||
-              t.type == TransactionType.tip)
+          .where(
+            (t) =>
+                t.type == TransactionType.deliveryFee ||
+                t.type == TransactionType.tip,
+          )
           .toList();
     }
     if (_selectedTxnFilter == 'Incentives & Quests') {
@@ -547,11 +592,14 @@ class _EarningsScreenState extends State<EarningsScreen> {
             ),
             actions: [
               IconButton(
-                icon: const Icon(Icons.notifications_none_rounded,
-                    color: Color(0xFF0F172A)),
+                icon: const Icon(
+                  Icons.notifications_none_rounded,
+                  color: Color(0xFF0F172A),
+                ),
                 onPressed: () {
-                  InAppNotificationService.instance
-                      .showNotificationHistory(context);
+                  InAppNotificationService.instance.showNotificationHistory(
+                    context,
+                  );
                 },
               ),
             ],
@@ -572,7 +620,11 @@ class _EarningsScreenState extends State<EarningsScreen> {
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.error_outline, color: Color(0xFFB91C1C), size: 20),
+                        const Icon(
+                          Icons.error_outline,
+                          color: Color(0xFFB91C1C),
+                          size: 20,
+                        ),
                         const SizedBox(width: 10),
                         Expanded(
                           child: Text(
@@ -756,7 +808,10 @@ class _EarningsScreenState extends State<EarningsScreen> {
                       const SizedBox(height: 6),
                       const Text(
                         'Buyer COD cash collected on delivery (never combined with your earnings).',
-                        style: TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          color: Color(0xFF64748B),
+                        ),
                       ),
                       const SizedBox(height: 10),
                       Row(
@@ -799,7 +854,8 @@ class _EarningsScreenState extends State<EarningsScreen> {
                       SizedBox(
                         width: double.infinity,
                         child: OutlinedButton.icon(
-                          onPressed: service.codHeldBalance > 0 ||
+                          onPressed:
+                              service.codHeldBalance > 0 ||
                                   service.openCodCollections.isNotEmpty
                               ? () => _openCodRemitModal(context)
                               : null,
@@ -828,7 +884,8 @@ class _EarningsScreenState extends State<EarningsScreen> {
                     final method = (r['payment_method'] ?? 'physical_cash')
                         .toString()
                         .replaceAll('_', ' ');
-                    final shortage = (r['shortage_amount'] as num?)?.toDouble() ?? 0.0;
+                    final shortage =
+                        (r['shortage_amount'] as num?)?.toDouble() ?? 0.0;
                     final reason = r['discrepancy_reason']?.toString() ?? '';
 
                     return Container(
@@ -975,7 +1032,9 @@ class _EarningsScreenState extends State<EarningsScreen> {
                         'Earned Compensation Ledger',
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                            fontSize: 14, fontWeight: FontWeight.w900),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w900,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -1011,8 +1070,10 @@ class _EarningsScreenState extends State<EarningsScreen> {
                     child: const Center(
                       child: Text(
                         'No recorded earnings transactions yet.',
-                        style:
-                            TextStyle(fontSize: 12.5, color: Color(0xFF64748B)),
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          color: Color(0xFF64748B),
+                        ),
                       ),
                     ),
                   )

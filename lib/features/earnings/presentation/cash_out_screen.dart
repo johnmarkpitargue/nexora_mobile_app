@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../../core/network/api_client.dart';
 import '../../../core/services/earnings_service.dart';
 import '../../../core/services/rider_account_service.dart';
@@ -8,10 +9,7 @@ import '../../transfer_courier/services/transfer_courier_service.dart';
 class CashOutScreen extends StatefulWidget {
   final bool isTransferCourier;
 
-  const CashOutScreen({
-    super.key,
-    this.isTransferCourier = false,
-  });
+  const CashOutScreen({super.key, this.isTransferCourier = false});
 
   @override
   State<CashOutScreen> createState() => _CashOutScreenState();
@@ -70,8 +68,7 @@ class _CashOutScreenState extends State<CashOutScreen> {
   void initState() {
     super.initState();
     final session = RiderAccountService.instance.activeRiderSession;
-    final defaultName =
-        session?.fullName ?? RiderService.instance.profile.name;
+    final defaultName = session?.fullName ?? RiderService.instance.profile.name;
     final defaultPhone =
         session?.mobileNumber ?? RiderService.instance.profile.phone;
 
@@ -121,7 +118,9 @@ class _CashOutScreenState extends State<CashOutScreen> {
       return;
     }
     if (accountName.isEmpty || accountNumber.isEmpty) {
-      _showError('Please enter your registered account holder name and account/mobile number.');
+      _showError(
+        'Please enter your registered account holder name and account/mobile number.',
+      );
       return;
     }
 
@@ -152,7 +151,9 @@ class _CashOutScreenState extends State<CashOutScreen> {
       if (mounted) _showError(e.message);
     } catch (_) {
       if (mounted) {
-        _showError('Unable to submit payout request right now. Please try again.');
+        _showError(
+          'Unable to submit payout request right now. Please try again.',
+        );
       }
     } finally {
       if (mounted) setState(() => _isProcessing = false);
@@ -161,10 +162,7 @@ class _CashOutScreenState extends State<CashOutScreen> {
 
   void _showError(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(msg),
-        backgroundColor: const Color(0xFFEF4444),
-      ),
+      SnackBar(content: Text(msg), backgroundColor: const Color(0xFFEF4444)),
     );
   }
 
@@ -230,7 +228,10 @@ class _CashOutScreenState extends State<CashOutScreen> {
                     const SizedBox(height: 6),
                     _summaryRow('Amount', '₱${amount.toStringAsFixed(2)}'),
                     const SizedBox(height: 6),
-                    _summaryRow('Method', _payoutMethod.replaceAll('_', ' ').toUpperCase()),
+                    _summaryRow(
+                      'Method',
+                      _payoutMethod.replaceAll('_', ' ').toUpperCase(),
+                    ),
                     const SizedBox(height: 6),
                     _summaryRow('Status', status),
                   ],
@@ -292,16 +293,16 @@ class _CashOutScreenState extends State<CashOutScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final activeMethod =
-        _methods.firstWhere((m) => m['key'] == _payoutMethod);
-    final canSubmit = !_isProcessing &&
+    final activeMethod = _methods.firstWhere((m) => m['key'] == _payoutMethod);
+    final canSubmit =
+        !_isProcessing &&
         _currentAmount >= 100.0 &&
         _currentAmount <= _availableBalance + 0.001 &&
         _accountNameController.text.trim().isNotEmpty &&
         _accountNumberController.text.trim().isNotEmpty;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
@@ -320,38 +321,36 @@ class _CashOutScreenState extends State<CashOutScreen> {
         ),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF0B192C), Color(0xFF0F172A)],
-                ),
-                borderRadius: BorderRadius.circular(20),
+                color: const Color(0xFFEEF4FF),
+                borderRadius: BorderRadius.circular(16),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'AVAILABLE FOR PAYOUT',
+                    'Available for payout',
                     style: TextStyle(
-                      fontSize: 11,
+                      fontSize: 12,
                       fontWeight: FontWeight.w800,
-                      color: Color(0xFF94A3B8),
-                      letterSpacing: 0.7,
+                      color: Color(0xFF526077),
                     ),
                   ),
                   const SizedBox(height: 6),
                   Text(
                     '₱${_availableBalance.toStringAsFixed(2)}',
                     style: const TextStyle(
-                      fontSize: 30,
+                      fontSize: 32,
                       fontWeight: FontWeight.w900,
-                      color: Colors.white,
+                      color: Color(0xFF0F172A),
+                      letterSpacing: -0.8,
                     ),
                   ),
                   if (_pendingPayout > 0) ...[
@@ -360,7 +359,7 @@ class _CashOutScreenState extends State<CashOutScreen> {
                       '₱${_pendingPayout.toStringAsFixed(2)} reserved in pending payout requests',
                       style: const TextStyle(
                         fontSize: 12,
-                        color: Color(0xFFFBBF24),
+                        color: Color(0xFFB45309),
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -372,21 +371,23 @@ class _CashOutScreenState extends State<CashOutScreen> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: const Color(0xFFEFF6FF),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color(0xFFBFDBFE)),
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(12),
               ),
               child: const Row(
                 children: [
-                  Icon(Icons.verified_user_outlined,
-                      size: 18, color: Color(0xFF1D4ED8)),
+                  Icon(
+                    Icons.verified_user_outlined,
+                    size: 18,
+                    color: Color(0xFF1D4ED8),
+                  ),
                   SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       'Courier earnings payout is completely separate from Buyer COD cash. Logistics Finance verifies payout reference numbers before marking paid.',
                       style: TextStyle(
                         fontSize: 11.5,
-                        color: Color(0xFF1E3A8A),
+                        color: Color(0xFF475569),
                         height: 1.35,
                       ),
                     ),
@@ -406,21 +407,40 @@ class _CashOutScreenState extends State<CashOutScreen> {
               children: _methods.map((m) {
                 final selected = m['key'] == _payoutMethod;
                 return ChoiceChip(
+                  avatar: Icon(
+                    m['icon'] as IconData,
+                    size: 17,
+                    color: selected
+                        ? const Color(0xFF075FED)
+                        : const Color(0xFF64748B),
+                  ),
                   label: Text(m['label'] as String),
                   selected: selected,
                   onSelected: (_) =>
                       setState(() => _payoutMethod = m['key'] as String),
+                  selectedColor: const Color(0xFFE8F0FF),
+                  backgroundColor: const Color(0xFFF8FAFC),
+                  side: BorderSide(
+                    color: selected
+                        ? const Color(0xFF075FED)
+                        : const Color(0xFFE2E8F0),
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  labelStyle: TextStyle(
+                    color: selected
+                        ? const Color(0xFF075FED)
+                        : const Color(0xFF334155),
+                    fontWeight: FontWeight.w700,
+                  ),
                 );
               }).toList(),
             ),
             const SizedBox(height: 16),
             Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
-              ),
+              padding: EdgeInsets.zero,
+              decoration: const BoxDecoration(color: Colors.white),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -434,8 +454,12 @@ class _CashOutScreenState extends State<CashOutScreen> {
                     onChanged: (_) => setState(() {}),
                     decoration: const InputDecoration(
                       labelText: 'Account Holder Name',
-                      border: OutlineInputBorder(),
-                      isDense: true,
+                      filled: true,
+                      fillColor: Color(0xFFF4F7FA),
+                      border: OutlineInputBorder(
+                        borderSide: BorderSide.none,
+                        borderRadius: BorderRadius.all(Radius.circular(12)),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -445,8 +469,12 @@ class _CashOutScreenState extends State<CashOutScreen> {
                     decoration: InputDecoration(
                       labelText: 'Account / Mobile Number',
                       hintText: activeMethod['hint'] as String,
-                      border: const OutlineInputBorder(),
-                      isDense: true,
+                      filled: true,
+                      fillColor: const Color(0xFFF4F7FA),
+                      border: const OutlineInputBorder(
+                        borderSide: BorderSide.none,
+                        borderRadius: BorderRadius.all(Radius.circular(12)),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -454,8 +482,12 @@ class _CashOutScreenState extends State<CashOutScreen> {
                     controller: _notesController,
                     decoration: const InputDecoration(
                       labelText: 'Notes for Finance (Optional)',
-                      border: OutlineInputBorder(),
-                      isDense: true,
+                      filled: true,
+                      fillColor: Color(0xFFF4F7FA),
+                      border: OutlineInputBorder(
+                        borderSide: BorderSide.none,
+                        borderRadius: BorderRadius.all(Radius.circular(12)),
+                      ),
                     ),
                   ),
                 ],
@@ -463,12 +495,8 @@ class _CashOutScreenState extends State<CashOutScreen> {
             ),
             const SizedBox(height: 16),
             Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
-              ),
+              padding: EdgeInsets.zero,
+              decoration: const BoxDecoration(color: Colors.white),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -478,7 +506,9 @@ class _CashOutScreenState extends State<CashOutScreen> {
                       Text(
                         'Payout Amount',
                         style: TextStyle(
-                            fontSize: 13, fontWeight: FontWeight.w900),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w900,
+                        ),
                       ),
                       Text(
                         'Min. ₱100.00',
@@ -493,15 +523,21 @@ class _CashOutScreenState extends State<CashOutScreen> {
                   const SizedBox(height: 10),
                   TextField(
                     controller: _amountController,
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
                     style: const TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.w900,
                     ),
                     decoration: const InputDecoration(
                       prefixText: '₱ ',
-                      border: OutlineInputBorder(),
+                      filled: true,
+                      fillColor: Color(0xFFF4F7FA),
+                      border: OutlineInputBorder(
+                        borderSide: BorderSide.none,
+                        borderRadius: BorderRadius.all(Radius.circular(12)),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 10),
@@ -513,6 +549,13 @@ class _CashOutScreenState extends State<CashOutScreen> {
                             onPressed: _availableBalance >= preset
                                 ? () => _setAmount(preset)
                                 : null,
+                            style: OutlinedButton.styleFrom(
+                              side: const BorderSide(color: Color(0xFFE2E8F0)),
+                              foregroundColor: const Color(0xFF334155),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
                             child: Text('₱${preset.toInt()}'),
                           ),
                         ),
@@ -523,7 +566,15 @@ class _CashOutScreenState extends State<CashOutScreen> {
                           onPressed: _availableBalance >= 100
                               ? () => _setAmount(_availableBalance)
                               : null,
-                          child: const Text('MAX'),
+                          style: ElevatedButton.styleFrom(
+                            elevation: 0,
+                            backgroundColor: const Color(0xFFE8F0FF),
+                            foregroundColor: const Color(0xFF075FED),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: const Text('Max'),
                         ),
                       ),
                     ],
@@ -554,8 +605,8 @@ class _CashOutScreenState extends State<CashOutScreen> {
                         ),
                       )
                     : Text(
-                        'SUBMIT PAYOUT REQUEST (₱${_currentAmount.toStringAsFixed(2)})',
-                        style: const TextStyle(fontWeight: FontWeight.w900),
+                        'Submit payout  •  ₱${_currentAmount.toStringAsFixed(2)}',
+                        style: const TextStyle(fontWeight: FontWeight.w800),
                       ),
               ),
             ),

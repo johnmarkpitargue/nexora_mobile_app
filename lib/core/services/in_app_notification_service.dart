@@ -85,14 +85,17 @@ class InAppNotificationService {
         final payload = map['data'] is Map
             ? Map<String, dynamic>.from(map['data'] as Map)
             : <String, dynamic>{};
-        final title = map['title']?.toString() ??
+        final title =
+            map['title']?.toString() ??
             payload['title']?.toString() ??
             'Nexora Notification';
-        final message = map['message']?.toString() ??
+        final message =
+            map['message']?.toString() ??
             map['body']?.toString() ??
             payload['message']?.toString() ??
             '';
-        final orderId = map['order_id']?.toString() ??
+        final orderId =
+            map['order_id']?.toString() ??
             payload['tracking_number']?.toString() ??
             payload['order_number']?.toString() ??
             payload['order_id']?.toString() ??
@@ -103,7 +106,8 @@ class InAppNotificationService {
 
         fetched.add(
           RiderNotificationItem(
-            id: map['id']?.toString() ??
+            id:
+                map['id']?.toString() ??
                 'srv_${parsedTime.millisecondsSinceEpoch}_${fetched.length}',
             title: title,
             message: message,
@@ -117,7 +121,9 @@ class InAppNotificationService {
       if (fetched.isEmpty && _history.isNotEmpty) return;
 
       final fetchedIds = fetched.map((e) => e.id).toSet();
-      final localOnly = _history.where((e) => !fetchedIds.contains(e.id)).toList();
+      final localOnly = _history
+          .where((e) => !fetchedIds.contains(e.id))
+          .toList();
       _history
         ..clear()
         ..addAll(fetched)
@@ -282,14 +288,313 @@ class InAppNotificationService {
     _currentEntry = null;
   }
 
-  /// Displays the full Nexora Notification History Bottom Sheet
+  /// Opens the full rider notification page.
   void showNotificationHistory(BuildContext context) {
     markAllAsReadRemote();
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => const _NotificationHistorySheet(),
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const ModernRiderNotificationsPage()),
+    );
+  }
+}
+
+class ModernRiderNotificationsPage extends StatefulWidget {
+  const ModernRiderNotificationsPage({super.key});
+
+  @override
+  State<ModernRiderNotificationsPage> createState() =>
+      _ModernRiderNotificationsPageState();
+}
+
+class _ModernRiderNotificationsPageState
+    extends State<ModernRiderNotificationsPage> {
+  bool _isPermissionGranted = ExternalNotificationService.isPermissionGranted;
+  bool _isRequestingPermission = false;
+
+  Future<void> _requestPermission() async {
+    setState(() => _isRequestingPermission = true);
+    final granted = await ExternalNotificationService.requestPermissionAsync();
+    if (!mounted) return;
+    setState(() {
+      _isPermissionGranted = granted;
+      _isRequestingPermission = false;
+    });
+    if (granted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Phone notifications enabled.')),
+      );
+    }
+  }
+
+  void _clearNotifications() {
+    setState(InAppNotificationService.instance.clearHistory);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        leading: IconButton(
+          tooltip: 'Back',
+          onPressed: () => Navigator.pop(context),
+          icon: const Icon(Icons.arrow_back_rounded),
+        ),
+        title: const Text(
+          'Notifications',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w900,
+            color: Color(0xFF0F172A),
+          ),
+        ),
+        actions: [
+          if (InAppNotificationService.instance.history.isNotEmpty)
+            TextButton(
+              onPressed: _clearNotifications,
+              child: const Text('Clear all'),
+            ),
+          const SizedBox(width: 8),
+        ],
+      ),
+      body: SafeArea(
+        top: false,
+        child: ValueListenableBuilder<int>(
+          valueListenable:
+              InAppNotificationService.instance.unreadCountNotifier,
+          builder: (context, _, _) {
+            final notifications = InAppNotificationService.instance.history;
+            return Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _isPermissionGranted
+                          ? const Color(0xFFF1F5F9)
+                          : const Color(0xFFEEF4FF),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          _isPermissionGranted
+                              ? Icons.notifications_active_outlined
+                              : Icons.notifications_none_rounded,
+                          color: _isPermissionGranted
+                              ? const Color(0xFF475569)
+                              : const Color(0xFF075FED),
+                          size: 21,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _isPermissionGranted
+                                    ? 'Phone alerts are on'
+                                    : 'Enable phone alerts',
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w800,
+                                  color: Color(0xFF0F172A),
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                _isPermissionGranted
+                                    ? 'New dispatch updates can reach you outside the app.'
+                                    : 'Get dispatch updates when the app is in the background.',
+                                style: const TextStyle(
+                                  fontSize: 11.5,
+                                  height: 1.35,
+                                  color: Color(0xFF64748B),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (!_isPermissionGranted)
+                          TextButton(
+                            onPressed: _isRequestingPermission
+                                ? null
+                                : _requestPermission,
+                            child: _isRequestingPermission
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Text('Enable'),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+                const Divider(height: 1, color: Color(0xFFE8EDF3)),
+                Expanded(
+                  child: notifications.isEmpty
+                      ? const _ModernNotificationsEmptyState()
+                      : ListView.separated(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          itemCount: notifications.length,
+                          separatorBuilder: (_, _) => const Divider(
+                            height: 1,
+                            indent: 72,
+                            endIndent: 20,
+                            color: Color(0xFFE8EDF3),
+                          ),
+                          itemBuilder: (context, index) {
+                            final notification = notifications[index];
+                            return InkWell(
+                              onTap: () {
+                                notification.isRead = true;
+                                notification.onAction?.call();
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  20,
+                                  14,
+                                  20,
+                                  14,
+                                ),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Container(
+                                      width: 40,
+                                      height: 40,
+                                      decoration: BoxDecoration(
+                                        color: notification.accentColor
+                                            .withValues(alpha: 0.1),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Icon(
+                                        notification.icon,
+                                        color: notification.accentColor,
+                                        size: 19,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Expanded(
+                                                child: Text(
+                                                  notification.title,
+                                                  style: const TextStyle(
+                                                    fontSize: 13.5,
+                                                    fontWeight: FontWeight.w800,
+                                                    color: Color(0xFF0F172A),
+                                                  ),
+                                                ),
+                                              ),
+                                              const SizedBox(width: 10),
+                                              Text(
+                                                notification.timeAgo,
+                                                style: const TextStyle(
+                                                  fontSize: 11,
+                                                  color: Color(0xFF94A3B8),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            notification.message,
+                                            style: const TextStyle(
+                                              fontSize: 12.5,
+                                              height: 1.4,
+                                              color: Color(0xFF526077),
+                                            ),
+                                          ),
+                                          if (notification
+                                              .orderId
+                                              .isNotEmpty) ...[
+                                            const SizedBox(height: 6),
+                                            Text(
+                                              notification.orderId,
+                                              style: const TextStyle(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w700,
+                                                color: Color(0xFF075FED),
+                                              ),
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _ModernNotificationsEmptyState extends StatelessWidget {
+  const _ModernNotificationsEmptyState();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 44),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.notifications_none_rounded,
+              size: 42,
+              color: Color(0xFF94A3B8),
+            ),
+            const SizedBox(height: 18),
+            const Text(
+              'You’re all caught up',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w900,
+                color: Color(0xFF0F172A),
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Dispatch updates, delivery changes, and customer messages will appear here.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13,
+                height: 1.45,
+                color: Color(0xFF64748B),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -577,8 +882,22 @@ class _TopNotificationBannerState extends State<_TopNotificationBanner>
 }
 
 /// Nexora Notification History Bottom Sheet
+class RiderNotificationsPage extends StatelessWidget {
+  const RiderNotificationsPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      backgroundColor: Color(0xFF050B28),
+      body: _NotificationHistorySheet(isPage: true),
+    );
+  }
+}
+
 class _NotificationHistorySheet extends StatefulWidget {
-  const _NotificationHistorySheet();
+  final bool isPage;
+
+  const _NotificationHistorySheet({this.isPage = false});
 
   @override
   State<_NotificationHistorySheet> createState() =>
@@ -621,37 +940,45 @@ class _NotificationHistorySheetState extends State<_NotificationHistorySheet> {
     final history = InAppNotificationService.instance.history;
 
     return Container(
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.85,
-      ),
-      decoration: const BoxDecoration(
-        color: Color(0xFF050B28),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black54,
-            blurRadius: 24,
-            offset: Offset(0, -6),
-          ),
-        ],
+      constraints: widget.isPage
+          ? null
+          : BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.85,
+            ),
+      decoration: BoxDecoration(
+        color: const Color(0xFF050B28),
+        borderRadius: widget.isPage
+            ? BorderRadius.zero
+            : const BorderRadius.vertical(top: Radius.circular(24)),
+        boxShadow: widget.isPage
+            ? null
+            : const [
+                BoxShadow(
+                  color: Colors.black54,
+                  blurRadius: 24,
+                  offset: Offset(0, -6),
+                ),
+              ],
       ),
       child: SafeArea(
-        top: false,
+        top: widget.isPage,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Drag handle
-            Center(
-              child: Container(
-                margin: const EdgeInsets.only(top: 10, bottom: 12),
-                width: 44,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1E293B),
-                  borderRadius: BorderRadius.circular(2),
+            if (widget.isPage)
+              const SizedBox(height: 12)
+            else
+              Center(
+                child: Container(
+                  margin: const EdgeInsets.only(top: 10, bottom: 12),
+                  width: 44,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1E293B),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
               ),
-            ),
 
             // Sheet Header
             Padding(

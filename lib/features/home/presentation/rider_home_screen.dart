@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../../core/theme/rider_theme.dart';
 import '../../../core/models/delivery_order.dart';
 import '../../../core/network/api_client.dart';
@@ -9,7 +10,6 @@ import '../../delivery/presentation/active_delivery_screen.dart';
 import 'widgets/online_status_card.dart';
 import 'widgets/earnings_summary_card.dart';
 import 'widgets/available_order_card.dart';
-import '../../delivery/presentation/rider_live_orders_screen.dart';
 import '../../../core/services/chat_service.dart';
 import '../../../core/models/chat_message.dart';
 import '../../../core/services/in_app_notification_service.dart';
@@ -21,10 +21,7 @@ import '../../courier/services/shift_duty_coordinator.dart';
 class RiderHomeScreen extends StatefulWidget {
   final Function(int tabIndex) onNavigateTab;
 
-  const RiderHomeScreen({
-    super.key,
-    required this.onNavigateTab,
-  });
+  const RiderHomeScreen({super.key, required this.onNavigateTab});
 
   @override
   State<RiderHomeScreen> createState() => _RiderHomeScreenState();
@@ -48,7 +45,8 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
 
   void _subscribeChat() {
     final activeOrder = DeliveryService.instance.activeOrder;
-    final orderId = activeOrder?.id ??
+    final orderId =
+        activeOrder?.id ??
         (DeliveryService.instance.availableOrders.isNotEmpty
             ? DeliveryService.instance.availableOrders.first.id
             : '');
@@ -111,9 +109,13 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Center(
-                    child: Text('N',
-                        style: TextStyle(
-                            color: Colors.white, fontWeight: FontWeight.w900)),
+                    child: Text(
+                      'N',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -178,17 +180,23 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
                 alignment: Alignment.center,
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.chat_bubble_outline_rounded, color: Color(0xFF0066FF)),
+                    icon: const Icon(
+                      Icons.chat_bubble_outline_rounded,
+                      color: Color(0xFF0066FF),
+                    ),
                     tooltip: 'In-App Messages',
                     onPressed: () {
-                      final targetOrder = activeOrder ??
+                      final targetOrder =
+                          activeOrder ??
                           (DeliveryService.instance.availableOrders.isNotEmpty
                               ? DeliveryService.instance.availableOrders.first
                               : null);
                       if (targetOrder == null) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text('Accept a dispatch order to message the customer.'),
+                            content: Text(
+                              'Accept a dispatch order to message the customer.',
+                            ),
                           ),
                         );
                         return;
@@ -215,7 +223,10 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
                             color: Color(0xFFEF4444),
                             shape: BoxShape.circle,
                           ),
-                          constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                          constraints: const BoxConstraints(
+                            minWidth: 16,
+                            minHeight: 16,
+                          ),
                           child: Text(
                             '$unread',
                             style: const TextStyle(
@@ -234,7 +245,8 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
           ),
           // Nexora Notification Bell & Center
           ValueListenableBuilder<int>(
-            valueListenable: InAppNotificationService.instance.unreadCountNotifier,
+            valueListenable:
+                InAppNotificationService.instance.unreadCountNotifier,
             builder: (context, unread, _) {
               return Tooltip(
                 message: 'Dispatch & Order Alerts',
@@ -243,7 +255,9 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
                   child: InkWell(
                     borderRadius: BorderRadius.circular(22),
                     onTap: () {
-                      InAppNotificationService.instance.showNotificationHistory(context);
+                      InAppNotificationService.instance.showNotificationHistory(
+                        context,
+                      );
                     },
                     child: SizedBox(
                       width: 44,
@@ -267,7 +281,10 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
                                     color: Color(0xFF0066FF),
                                     shape: BoxShape.circle,
                                   ),
-                                  constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                                  constraints: const BoxConstraints(
+                                    minWidth: 16,
+                                    minHeight: 16,
+                                  ),
                                   child: Text(
                                     '$unread',
                                     style: const TextStyle(
@@ -285,16 +302,6 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
                     ),
                   ),
                 ),
-              );
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.radar_rounded, color: Color(0xFF0066FF)),
-            tooltip: 'Live Incoming Orders',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const RiderLiveOrdersScreen()),
               );
             },
           ),
@@ -322,7 +329,9 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
               await Future.wait([
                 safe(() => RiderService.instance.fetchProfileRemote()),
                 safe(() => EarningsService.instance.fetchEarningsRemote()),
-                safe(() => DeliveryService.instance.fetchActiveDeliveriesRemote()),
+                safe(
+                  () => DeliveryService.instance.fetchActiveDeliveriesRemote(),
+                ),
                 safe(() => DeliveryService.instance.refreshAvailableOrders()),
               ]);
             },
@@ -330,341 +339,382 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
               physics: const AlwaysScrollableScrollPhysics(
                 parent: BouncingScrollPhysics(),
               ),
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // 1. Shift Toggle Card
-                const OnlineStatusCard(),
-                const SizedBox(height: 14),
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 1. Shift Toggle Card
+                  const OnlineStatusCard(),
+                  const SizedBox(height: 14),
 
-                // 2. Active Trip Floating Banner (if ongoing delivery)
-                if (activeOrder != null) ...[
-                  InkWell(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (ctx) =>
-                              ActiveDeliveryScreen(order: activeOrder),
-                        ),
-                      );
-                    },
-                    borderRadius: BorderRadius.circular(20),
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF0052CC), RiderTheme.primary],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: [
-                          BoxShadow(
-                            color: RiderTheme.primary.withValues(alpha: 0.35),
-                            blurRadius: 14,
-                            offset: const Offset(0, 6),
+                  // 2. Active Trip Floating Banner (if ongoing delivery)
+                  if (activeOrder != null) ...[
+                    InkWell(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (ctx) =>
+                                ActiveDeliveryScreen(order: activeOrder),
                           ),
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 8, vertical: 3),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.2),
-                                  borderRadius: BorderRadius.circular(8),
+                        );
+                      },
+                      borderRadius: BorderRadius.circular(20),
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF0052CC), RiderTheme.primary],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: [
+                            BoxShadow(
+                              color: RiderTheme.primary.withValues(alpha: 0.35),
+                              blurRadius: 14,
+                              offset: const Offset(0, 6),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 3,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.2),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Row(
+                                    children: [
+                                      Icon(
+                                        Icons.directions_bike_rounded,
+                                        size: 13,
+                                        color: Colors.white,
+                                      ),
+                                      SizedBox(width: 4),
+                                      Text(
+                                        'TRIP IN PROGRESS',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w900,
+                                          letterSpacing: 0.8,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                                child: const Row(
+                                Text(
+                                  DeliveryService.instance.activeOrderStage == 1
+                                      ? 'At Store / Picking Up'
+                                      : DeliveryService
+                                                .instance
+                                                .activeOrderStage ==
+                                            2
+                                      ? 'Pickup Verified'
+                                      : DeliveryService
+                                                .instance
+                                                .activeOrderStage ==
+                                            3
+                                      ? 'In Transit to Customer'
+                                      : activeOrder.status.label,
+                                  style: const TextStyle(
+                                    color: RiderTheme.secondary,
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              activeOrder.customerName,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              activeOrder.customerAddress,
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.85),
+                                fontSize: 12,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'Payout: ₱${activeOrder.riderEarnings.toStringAsFixed(2)}',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                Row(
                                   children: [
-                                    Icon(Icons.directions_bike_rounded,
-                                        size: 13, color: Colors.white),
-                                    SizedBox(width: 4),
-                                    Text(
-                                      'TRIP IN PROGRESS',
+                                    const Text(
+                                      'Open Trip Dashboard',
                                       style: TextStyle(
                                         color: Colors.white,
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w900,
-                                        letterSpacing: 0.8,
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Icon(
+                                      Icons.arrow_forward_rounded,
+                                      size: 16,
+                                      color: Colors.white.withValues(
+                                        alpha: 0.9,
                                       ),
                                     ),
                                   ],
                                 ),
-                              ),
-                              Text(
-                                DeliveryService.instance.activeOrderStage == 1
-                                    ? 'At Store / Picking Up'
-                                    : DeliveryService.instance.activeOrderStage == 2
-                                        ? 'Pickup Verified'
-                                        : DeliveryService.instance.activeOrderStage == 3
-                                            ? 'In Transit to Customer'
-                                            : activeOrder.status.label,
-                                style: const TextStyle(
-                                  color: RiderTheme.secondary,
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ],
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                  ],
+
+                  // 3. Earnings Summary Card
+                  EarningsSummaryCard(
+                    onSeeWallet: () => widget.onNavigateTab(
+                      3,
+                    ), // Switch to wallet/earnings tab
+                  ),
+                  const SizedBox(height: 14),
+
+                  // 4. Spacing before available requests
+                  const SizedBox(height: 6),
+
+                  // 5. Available Orders Header
+                  Row(
+                    children: [
+                      const Flexible(
+                        child: Text(
+                          'Available Dispatch Requests',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w900,
+                            color: RiderTheme.textDark,
                           ),
-                          const SizedBox(height: 10),
-                          Text(
-                            activeOrder.customerName,
+                        ),
+                      ),
+                      if (availableOrders.isNotEmpty) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: RiderTheme.primary,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            '${availableOrders.length}',
                             style: const TextStyle(
                               color: Colors.white,
-                              fontSize: 16,
+                              fontSize: 11,
                               fontWeight: FontWeight.w900,
                             ),
                           ),
-                          const SizedBox(height: 2),
-                          Text(
-                            activeOrder.customerAddress,
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.85),
-                              fontSize: 12,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+
+                  // 6. Available Orders List or Offline Notice
+                  if (!isOnline)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: RiderTheme.cardBorder),
+                      ),
+                      child: Column(
+                        children: [
+                          Icon(
+                            Icons.power_settings_new_rounded,
+                            size: 44,
+                            color: Colors.grey.shade400,
                           ),
-                          const SizedBox(height: 12),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                'Payout: ₱${activeOrder.riderEarnings.toStringAsFixed(2)}',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: 14,
-                                ),
-                              ),
-                              Row(
-                                children: [
-                                  const Text(
-                                    'Open Trip Dashboard',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w800,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Icon(Icons.arrow_forward_rounded,
-                                      size: 16, color: Colors.white.withValues(alpha: 0.9)),
-                                ],
-                              ),
-                            ],
+                          const SizedBox(height: 10),
+                          const Text(
+                            'You are currently Offline',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w900,
+                              color: RiderTheme.textDark,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          const Text(
+                            'Switch your duty toggle to Online to begin receiving delivery dispatches in your assigned hub.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: RiderTheme.textMuted,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          ElevatedButton(
+                            onPressed: () {
+                              ShiftDutyCoordinator.handleRiderToggleDuty(
+                                context,
+                              );
+                            },
+                            child: const Text('Go Online Now'),
                           ),
                         ],
                       ),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                ],
-
-                // 3. Earnings Summary Card
-                EarningsSummaryCard(
-                  onSeeWallet: () => widget.onNavigateTab(3), // Switch to wallet/earnings tab
-                ),
-                const SizedBox(height: 14),
-
-                // 4. Spacing before available requests
-                const SizedBox(height: 6),
-
-                // 5. Available Orders Header
-                Row(
-                  children: [
-                    const Flexible(
-                      child: Text(
-                        'Available Dispatch Requests',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w900,
-                          color: RiderTheme.textDark,
-                        ),
+                    )
+                  else if (availableOrders.isEmpty)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(28),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: RiderTheme.cardBorder),
                       ),
-                    ),
-                    if (availableOrders.isNotEmpty) ...[
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: RiderTheme.primary,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Text(
-                          '${availableOrders.length}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w900,
+                      child: Column(
+                        children: [
+                          const Icon(
+                            Icons.two_wheeler_rounded,
+                            size: 44,
+                            color: RiderTheme.primary,
                           ),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-                const SizedBox(height: 10),
-
-                // 6. Available Orders List or Offline Notice
-                if (!isOnline)
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: RiderTheme.cardBorder),
-                    ),
-                    child: Column(
-                      children: [
-                        Icon(Icons.power_settings_new_rounded,
-                            size: 44, color: Colors.grey.shade400),
-                        const SizedBox(height: 10),
-                        const Text(
-                          'You are currently Offline',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w900,
-                            color: RiderTheme.textDark,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        const Text(
-                          'Switch your duty toggle to Online to begin receiving delivery dispatches in your assigned hub.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: RiderTheme.textMuted,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        ElevatedButton(
-                          onPressed: () {
-                            ShiftDutyCoordinator.handleRiderToggleDuty(context);
-                          },
-                          child: const Text('Go Online Now'),
-                        ),
-                      ],
-                    ),
-                  )
-                else if (availableOrders.isEmpty)
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(28),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: RiderTheme.cardBorder),
-                    ),
-                    child: Column(
-                      children: [
-                        const Icon(Icons.two_wheeler_rounded,
-                            size: 44, color: RiderTheme.primary),
-                        const SizedBox(height: 10),
-                        const Text(
-                          'Searching for Nearby Orders...',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w900,
-                            color: RiderTheme.textDark,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        const Text(
-                          'You are on priority dispatch. New orders will appear here automatically.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: RiderTheme.textMuted,
-                          ),
-                        ),
-                      ],
-                    ),
-                  )
-                else
-                  ...availableOrders.map((order) {
-                    return AvailableOrderCard(
-                      key: ValueKey('order_${order.id}'),
-                      order: order,
-                      onAccept: () async {
-                        final currentActive = DeliveryService.instance.activeOrder;
-                        if (currentActive != null) {
-                          InAppNotificationService.instance.showNotification(
-                            senderName: 'Active Delivery in Progress',
-                            message: 'You already have an active trip for ${currentActive.customerName}. Tap the banner above to continue it.',
-                            orderId: currentActive.id,
-                            icon: Icons.two_wheeler_rounded,
-                            accentColor: const Color(0xFF0066FF),
-                          );
-                          return;
-                        }
-
-                        try {
-                          final effectiveOfferId = order.offerId ?? order.id;
-                          await DeliveryService.instance.acceptOrderRemote(order.id, offerId: effectiveOfferId);
-                          if (!context.mounted) return;
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Accepted Order ${order.id}! Heading to store.'),
-                              backgroundColor: RiderTheme.onlineGreen,
+                          const SizedBox(height: 10),
+                          const Text(
+                            'Searching for Nearby Orders...',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w900,
+                              color: RiderTheme.textDark,
                             ),
-                          );
-                          // Open Active Delivery Screen
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (ctx) => ActiveDeliveryScreen(
-                                order: DeliveryService.instance.activeOrder ??
-                                    order.copyWith(status: DeliveryStatus.accepted),
+                          ),
+                          const SizedBox(height: 4),
+                          const Text(
+                            'You are on priority dispatch. New orders will appear here automatically.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: RiderTheme.textMuted,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    ...availableOrders.map((order) {
+                      return AvailableOrderCard(
+                        key: ValueKey('order_${order.id}'),
+                        order: order,
+                        onAccept: () async {
+                          final currentActive =
+                              DeliveryService.instance.activeOrder;
+                          if (currentActive != null) {
+                            InAppNotificationService.instance.showNotification(
+                              senderName: 'Active Delivery in Progress',
+                              message:
+                                  'You already have an active trip for ${currentActive.customerName}. Tap the banner above to continue it.',
+                              orderId: currentActive.id,
+                              icon: Icons.two_wheeler_rounded,
+                              accentColor: const Color(0xFF0066FF),
+                            );
+                            return;
+                          }
+
+                          try {
+                            final effectiveOfferId = order.offerId ?? order.id;
+                            await DeliveryService.instance.acceptOrderRemote(
+                              order.id,
+                              offerId: effectiveOfferId,
+                            );
+                            if (!context.mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  'Accepted Order ${order.id}! Heading to store.',
+                                ),
+                                backgroundColor: RiderTheme.onlineGreen,
                               ),
-                            ),
-                          );
-                        } on ApiException catch (e) {
-                          if (!context.mounted) return;
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(e.message),
-                              backgroundColor: RiderTheme.errorRed,
-                            ),
-                          );
-                        } catch (e) {
-                          if (!context.mounted) return;
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Failed to accept order: $e'),
-                              backgroundColor: RiderTheme.errorRed,
-                            ),
-                          );
-                        }
-                      },
-                      onDecline: () async {
-                        try {
-                          final effectiveOfferId = order.offerId ?? order.id;
-                          await DeliveryService.instance.declineOrderRemote(order.id, offerId: effectiveOfferId);
-                          if (!context.mounted) return;
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Order ${order.id} declined.'),
-                            ),
-                          );
-                        } catch (_) {}
-                      },
-                    );
-                  }),
-                const SizedBox(height: 24),
-              ],
-            ),
+                            );
+                            // Open Active Delivery Screen
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (ctx) => ActiveDeliveryScreen(
+                                  order:
+                                      DeliveryService.instance.activeOrder ??
+                                      order.copyWith(
+                                        status: DeliveryStatus.accepted,
+                                      ),
+                                ),
+                              ),
+                            );
+                          } on ApiException catch (e) {
+                            if (!context.mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(e.message),
+                                backgroundColor: RiderTheme.errorRed,
+                              ),
+                            );
+                          } catch (e) {
+                            if (!context.mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Failed to accept order: $e'),
+                                backgroundColor: RiderTheme.errorRed,
+                              ),
+                            );
+                          }
+                        },
+                        onDecline: () async {
+                          try {
+                            final effectiveOfferId = order.offerId ?? order.id;
+                            await DeliveryService.instance.declineOrderRemote(
+                              order.id,
+                              offerId: effectiveOfferId,
+                            );
+                            if (!context.mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Order ${order.id} declined.'),
+                              ),
+                            );
+                          } catch (_) {}
+                        },
+                      );
+                    }),
+                  const SizedBox(height: 24),
+                ],
+              ),
             ),
           );
         },
