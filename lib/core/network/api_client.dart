@@ -47,6 +47,9 @@ class ApiClient {
 
   static const String _tokenKey = 'nexora_rider_auth_token';
   static const String _userRoleKey = 'nexora_rider_role';
+  static const String _rememberedIdentifierKey =
+      'nexora_rider_remembered_identifier';
+  static const String _rememberDevicePrefKey = 'nexora_rider_remember_device';
 
   String? _cachedToken;
   String? _cachedRole;
@@ -95,6 +98,28 @@ class ApiClient {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_tokenKey);
     await prefs.remove(_userRoleKey);
+  }
+
+  Future<void> saveRememberedIdentifier(
+    String? identifier,
+    bool rememberDevice,
+  ) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_rememberDevicePrefKey, rememberDevice);
+    if (rememberDevice && identifier != null && identifier.trim().isNotEmpty) {
+      await prefs.setString(_rememberedIdentifierKey, identifier.trim());
+    } else if (!rememberDevice) {
+      await prefs.remove(_rememberedIdentifierKey);
+    }
+  }
+
+  Future<({String? identifier, bool rememberDevice})>
+  loadRememberedCredentials() async {
+    final prefs = await SharedPreferences.getInstance();
+    return (
+      identifier: prefs.getString(_rememberedIdentifierKey),
+      rememberDevice: prefs.getBool(_rememberDevicePrefKey) ?? true,
+    );
   }
 
   Uri _buildUri(String path, [Map<String, dynamic>? queryParams]) {

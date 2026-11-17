@@ -798,7 +798,11 @@ class RiderAccountService extends ChangeNotifier {
     try {
       final res = await ApiClient.instance.post(
         ApiConstants.riderLogin,
-        body: {'email': email.trim(), 'password': password},
+        body: {
+          'email': email.trim(),
+          'password': password,
+          'remember': rememberDevice,
+        },
       );
 
       final userData = res.data['user'] as Map<String, dynamic>?;
@@ -813,6 +817,10 @@ class RiderAccountService extends ChangeNotifier {
       if (token != null) {
         await ApiClient.instance.saveToken(token, role, rememberDevice);
       }
+      await ApiClient.instance.saveRememberedIdentifier(
+        email.trim(),
+        rememberDevice,
+      );
 
       final rider = RiderAccountRecord(
         id:
@@ -864,6 +872,87 @@ class RiderAccountService extends ChangeNotifier {
       final firstErr = e.errors?.values.firstOrNull;
       final msg = firstErr is List ? firstErr.first.toString() : e.message;
       return RiderOpResult.fail(msg);
+    } catch (_) {
+      return RiderOpResult.fail(
+        'Unable to connect to the server. Please check your internet connection.',
+      );
+    }
+  }
+
+  /// Request 6-digit password reset OTP for Rider / Transfer Courier
+  Future<RiderOpResult> requestPasswordResetRemote({
+    required String identifier,
+  }) async {
+    try {
+      final res = await ApiClient.instance.post(
+        ApiConstants.forgotPassword,
+        body: {'identifier': identifier.trim(), 'scope': 'rider'},
+      );
+      return RiderOpResult.ok(
+        message: res.message.isNotEmpty
+            ? res.message
+            : 'A 6-digit password reset code has been sent to your email.',
+      );
+    } on ApiException catch (e) {
+      return RiderOpResult.fail(e.message);
+    } catch (_) {
+      return RiderOpResult.fail(
+        'Unable to connect to the server. Please check your internet connection.',
+      );
+    }
+  }
+
+  /// Verify 6-digit password reset OTP for Rider / Transfer Courier
+  Future<RiderOpResult> verifyPasswordResetOtpRemote({
+    required String identifier,
+    required String otp,
+  }) async {
+    try {
+      final res = await ApiClient.instance.post(
+        ApiConstants.verifyResetOtp,
+        body: {
+          'identifier': identifier.trim(),
+          'otp': otp.trim(),
+          'scope': 'rider',
+        },
+      );
+      return RiderOpResult.ok(
+        message: res.message.isNotEmpty ? res.message : 'Reset code verified.',
+      );
+    } on ApiException catch (e) {
+      return RiderOpResult.fail(e.message);
+    } catch (_) {
+      return RiderOpResult.fail(
+        'Unable to connect to the server. Please check your internet connection.',
+      );
+    }
+  }
+
+  /// Reset password using verified 6-digit OTP for Rider / Transfer Courier
+  Future<RiderOpResult> resetPasswordWithOtpRemote({
+    required String identifier,
+    required String otp,
+    required String newPassword,
+    required String confirmPassword,
+  }) async {
+    try {
+      final res = await ApiClient.instance.post(
+        ApiConstants.resetPassword,
+        body: {
+          'identifier': identifier.trim(),
+          'otp': otp.trim(),
+          'password': newPassword,
+          'password_confirmation': confirmPassword,
+          'scope': 'rider',
+        },
+      );
+      return RiderOpResult.ok(
+        message: res.message.isNotEmpty
+            ? res.message
+            : 'Password updated successfully.',
+      );
+    } on ApiException catch (e) {
+      return RiderOpResult.fail(e.message);
     } catch (_) {
       return RiderOpResult.fail(
         'Unable to connect to the server. Please check your internet connection.',

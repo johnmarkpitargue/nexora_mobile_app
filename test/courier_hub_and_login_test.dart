@@ -226,7 +226,7 @@ void main() {
       expect(RiderAccountService.instance.currentUserRole, equals('courier'));
     });
 
-    testWidgets('RiderLoginPage has no hardcoded credentials and shows unavailable forgot-password message', (tester) async {
+    testWidgets('RiderLoginPage has no hardcoded credentials and opens self-service forgot-password flow', (tester) async {
       await tester.binding.setSurfaceSize(const Size(430, 932));
       await tester.pumpWidget(
         const MaterialApp(
@@ -243,7 +243,8 @@ void main() {
         await tester.ensureVisible(forgotBtn.first);
         await tester.tap(forgotBtn.first);
         await tester.pumpAndSettle();
-        expect(find.text('Password Reset Unavailable'), findsOneWidget);
+        expect(find.text('Account Recovery'), findsOneWidget);
+        expect(find.text('Send 6-Digit Reset Code'), findsOneWidget);
       }
     });
 

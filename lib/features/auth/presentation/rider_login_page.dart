@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/network/api_client.dart';
 import '../../../core/services/rider_account_service.dart';
 import '../../shell/presentation/rider_shell.dart';
 import '../../transfer_courier/presentation/transfer_courier_shell.dart';
+import 'rider_forgot_password_page.dart';
 
 class RiderLoginPage extends StatefulWidget {
   final String? initialEmail;
@@ -33,6 +35,20 @@ class _RiderLoginPageState extends State<RiderLoginPage> {
       text: widget.initialEmail ?? '',
     );
     _passwordController = TextEditingController();
+    _loadRememberedIdentifier();
+  }
+
+  Future<void> _loadRememberedIdentifier() async {
+    final saved = await ApiClient.instance.loadRememberedCredentials();
+    if (!mounted) return;
+    setState(() {
+      _rememberDevice = saved.rememberDevice;
+      if (saved.identifier != null &&
+          saved.identifier!.isNotEmpty &&
+          _identifierController.text.isEmpty) {
+        _identifierController.text = saved.identifier!;
+      }
+    });
   }
 
   @override
@@ -131,44 +147,12 @@ class _RiderLoginPageState extends State<RiderLoginPage> {
   }
 
   void _showForgotPasswordOrPinDialog() {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Row(
-          children: [
-            Icon(Icons.lock_reset_rounded, color: Color(0xFF0066FF), size: 24),
-            SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                'Password Reset Unavailable',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
-              ),
-            ),
-          ],
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => RiderForgotPasswordPage(
+          initialEmail: _identifierController.text.trim(),
         ),
-        content: const Text(
-          'Self-service password reset is not available in the mobile app.\n\nPlease contact your logistics company administrator or use the Nexora web portal to reset your password.',
-          style: TextStyle(
-            fontSize: 13,
-            height: 1.45,
-            color: Color(0xFF475569),
-          ),
-        ),
-        actions: [
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF0066FF),
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            child: const Text('OK'),
-          ),
-        ],
       ),
     );
   }

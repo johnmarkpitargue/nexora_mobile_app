@@ -11,6 +11,9 @@ class ApiConstants {
   static String riderActivate(String token) =>
       '/api/mobile/v1/auth/rider/activate/$token';
   static const String me = '/api/mobile/v1/auth/me';
+  static const String forgotPassword = '/api/mobile/v1/auth/forgot-password';
+  static const String verifyResetOtp = '/api/mobile/v1/auth/verify-reset-otp';
+  static const String resetPassword = '/api/mobile/v1/auth/reset-password';
   static const String logout = '/api/mobile/v1/auth/logout';
 
   // Rider Operations
