@@ -931,18 +931,27 @@ class BuyerAccountService extends ChangeNotifier {
   Future<BuyerOpResult> loginRemote({
     required String emailOrPhone,
     required String password,
+    bool rememberMe = true,
   }) async {
     try {
       final response = await ApiClient.instance.post(
         ApiConstants.buyerLogin,
-        body: {'email': emailOrPhone.trim(), 'password': password},
+        body: {
+          'email': emailOrPhone.trim(),
+          'password': password,
+          'remember': rememberMe,
+        },
       );
 
       final data = response['data'] as Map<String, dynamic>? ?? {};
       final token = data['token'] as String?;
       if (token != null) {
-        await ApiClient.instance.saveToken(token);
+        await ApiClient.instance.saveToken(token, 'buyer', rememberMe);
       }
+      await ApiClient.instance.saveRememberedIdentifier(
+        emailOrPhone.trim(),
+        rememberMe,
+      );
 
       final userData = data['user'] as Map<String, dynamic>? ?? {};
       final firstName = userData['first_name'] as String? ?? '';
@@ -1016,6 +1025,82 @@ class BuyerAccountService extends ChangeNotifier {
         _currentUnverifiedBuyer = unverifiedBuyer;
         return BuyerOpResult.fail(e.message, buyer: unverifiedBuyer);
       }
+      return BuyerOpResult.fail(e.message);
+    } catch (e) {
+      return BuyerOpResult.fail(e.toString());
+    }
+  }
+
+  /// Request 6-digit password reset OTP from Laravel API
+  Future<BuyerOpResult> requestPasswordResetRemote({
+    required String emailOrPhone,
+  }) async {
+    try {
+      final res = await ApiClient.instance.post(
+        ApiConstants.forgotPassword,
+        body: {
+          'identifier': emailOrPhone.trim(),
+          'scope': 'buyer',
+        },
+      );
+      return BuyerOpResult.ok(
+        message: res['message']?.toString() ??
+            'A 6-digit password reset code has been sent to your email.',
+      );
+    } on ApiException catch (e) {
+      return BuyerOpResult.fail(e.message);
+    } catch (e) {
+      return BuyerOpResult.fail(e.toString());
+    }
+  }
+
+  /// Verify 6-digit password reset OTP via Laravel API
+  Future<BuyerOpResult> verifyPasswordResetOtpRemote({
+    required String emailOrPhone,
+    required String inputOtp,
+  }) async {
+    try {
+      final res = await ApiClient.instance.post(
+        ApiConstants.verifyResetOtp,
+        body: {
+          'identifier': emailOrPhone.trim(),
+          'otp': inputOtp.trim(),
+          'scope': 'buyer',
+        },
+      );
+      return BuyerOpResult.ok(
+        message: res['message']?.toString() ?? 'Reset code verified.',
+      );
+    } on ApiException catch (e) {
+      return BuyerOpResult.fail(e.message);
+    } catch (e) {
+      return BuyerOpResult.fail(e.toString());
+    }
+  }
+
+  /// Reset password using verified 6-digit OTP via Laravel API
+  Future<BuyerOpResult> resetPasswordWithOtpRemote({
+    required String emailOrPhone,
+    required String otp,
+    required String newPassword,
+    required String confirmPassword,
+  }) async {
+    try {
+      final res = await ApiClient.instance.post(
+        ApiConstants.resetPassword,
+        body: {
+          'identifier': emailOrPhone.trim(),
+          'otp': otp.trim(),
+          'password': newPassword,
+          'password_confirmation': confirmPassword,
+          'scope': 'buyer',
+        },
+      );
+      return BuyerOpResult.ok(
+        message: res['message']?.toString() ??
+            'Password reset successfully. Please sign in.',
+      );
+    } on ApiException catch (e) {
       return BuyerOpResult.fail(e.message);
     } catch (e) {
       return BuyerOpResult.fail(e.toString());

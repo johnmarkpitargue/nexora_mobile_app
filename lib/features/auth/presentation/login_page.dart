@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../app/routes/app_routes.dart';
 
 import '../../../core/models/shop_models.dart';
+import '../../../core/network/api_client.dart';
 import '../../../core/services/buyer_account_service.dart';
 import '../../../core/services/cart_service.dart';
 import '../../../core/services/notification_feed_service.dart';
@@ -27,6 +28,25 @@ class _LoginPageState extends State<LoginPage> {
   bool _isPasswordVisible = false;
   bool _rememberMe = true;
   bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRememberedEmail();
+  }
+
+  Future<void> _loadRememberedEmail() async {
+    final saved = await ApiClient.instance.loadRememberedCredentials();
+    if (!mounted) return;
+    setState(() {
+      _rememberMe = saved.rememberMe;
+      if (saved.email != null &&
+          saved.email!.isNotEmpty &&
+          _emailController.text.isEmpty) {
+        _emailController.text = saved.email!;
+      }
+    });
+  }
 
   @override
   void dispose() {
@@ -60,6 +80,7 @@ class _LoginPageState extends State<LoginPage> {
       final result = await BuyerAccountService.instance.loginRemote(
         emailOrPhone: _emailController.text,
         password: _passwordController.text,
+        rememberMe: _rememberMe,
       );
 
       if (!mounted) return;

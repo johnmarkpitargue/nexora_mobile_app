@@ -74,13 +74,43 @@ class ApiClient {
   bool get isAuthenticated => _cachedToken != null && _cachedToken!.isNotEmpty;
   bool get hasToken => isAuthenticated;
 
-  Future<void> saveToken(String token, [String? role]) async {
+  static const String _rememberedEmailKey = 'nexora_buyer_remembered_email';
+  static const String _rememberMePrefKey = 'nexora_buyer_remember_me';
+
+  Future<void> saveToken(
+    String token, [
+    String? role,
+    bool persist = true,
+  ]) async {
     _cachedToken = token;
     final prefs = await SharedPreferences.getInstance();
+    if (!persist) {
+      await prefs.remove(_tokenKey);
+      await prefs.remove(_userRoleKey);
+      return;
+    }
     await prefs.setString(_tokenKey, token);
     if (role != null) {
       await prefs.setString(_userRoleKey, role);
     }
+  }
+
+  Future<void> saveRememberedIdentifier(String? identifier, bool rememberMe) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_rememberMePrefKey, rememberMe);
+    if (rememberMe && identifier != null && identifier.trim().isNotEmpty) {
+      await prefs.setString(_rememberedEmailKey, identifier.trim());
+    } else if (!rememberMe) {
+      await prefs.remove(_rememberedEmailKey);
+    }
+  }
+
+  Future<({String? email, bool rememberMe})> loadRememberedCredentials() async {
+    final prefs = await SharedPreferences.getInstance();
+    return (
+      email: prefs.getString(_rememberedEmailKey),
+      rememberMe: prefs.getBool(_rememberMePrefKey) ?? true,
+    );
   }
 
   Future<void> clearToken() async {

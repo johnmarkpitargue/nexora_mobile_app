@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../app/routes/app_routes.dart';
 import '../../../core/services/buyer_account_service.dart';
-import '../../../core/services/external_notification_service.dart';
 
 class ForgotPasswordPage extends StatefulWidget {
   final String? initialEmail;
@@ -95,24 +94,16 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
       _errorMessage = null;
     });
 
-    await Future.delayed(const Duration(milliseconds: 600));
-    if (!mounted) return;
-
-    final result = BuyerAccountService.instance.requestPasswordReset(
+    final result = await BuyerAccountService.instance.requestPasswordResetRemote(
       emailOrPhone: _emailController.text,
     );
 
+    if (!mounted) return;
     setState(() {
       _isLoading = false;
     });
 
     if (result.success) {
-      if (result.otp != null) {
-        ExternalNotificationService.show(
-          title: 'Nexora Security Alert',
-          body: 'Your 6-digit password reset code is ${result.otp}',
-        );
-      }
       _startTimer();
       setState(() {
         _currentStep = 1;
@@ -138,14 +129,13 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
       _errorMessage = null;
     });
 
-    await Future.delayed(const Duration(milliseconds: 600));
+    final result = await BuyerAccountService.instance
+        .verifyPasswordResetOtpRemote(
+          emailOrPhone: _emailController.text,
+          inputOtp: code,
+        );
+
     if (!mounted) return;
-
-    final result = BuyerAccountService.instance.verifyPasswordResetOtp(
-      emailOrPhone: _emailController.text,
-      inputOtp: code,
-    );
-
     setState(() {
       _isLoading = false;
     });
@@ -169,24 +159,16 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
       _errorMessage = null;
     });
 
-    await Future.delayed(const Duration(milliseconds: 500));
-    if (!mounted) return;
-
-    final result = BuyerAccountService.instance.requestPasswordReset(
+    final result = await BuyerAccountService.instance.requestPasswordResetRemote(
       emailOrPhone: _emailController.text,
     );
 
+    if (!mounted) return;
     setState(() {
       _isLoading = false;
     });
 
     if (result.success) {
-      if (result.otp != null) {
-        ExternalNotificationService.show(
-          title: 'Nexora Security Alert',
-          body: 'Your new 6-digit password reset code is ${result.otp}',
-        );
-      }
       _startTimer();
       for (final c in _otpControllers) {
         c.clear();
@@ -217,16 +199,15 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
       _errorMessage = null;
     });
 
-    await Future.delayed(const Duration(milliseconds: 700));
+    final result = await BuyerAccountService.instance
+        .resetPasswordWithOtpRemote(
+          emailOrPhone: _emailController.text,
+          otp: _otpValue,
+          newPassword: _newPasswordController.text,
+          confirmPassword: _confirmPasswordController.text,
+        );
+
     if (!mounted) return;
-
-    final result = BuyerAccountService.instance.resetPasswordWithOtp(
-      emailOrPhone: _emailController.text,
-      otp: _otpValue,
-      newPassword: _newPasswordController.text,
-      confirmPassword: _confirmPasswordController.text,
-    );
-
     setState(() {
       _isLoading = false;
     });
