@@ -63,32 +63,41 @@ class ActiveOrderTrackerCard extends StatelessWidget {
                               children: [
                                 Row(
                                   children: [
-                                    const Text(
-                                      'Nexora Express',
-                                      style: TextStyle(
-                                        color: Color(0xFF0066FF),
-                                        fontWeight: FontWeight.w800,
-                                        fontSize: 13,
+                                    Flexible(
+                                      child: Text(
+                                        order.statusText,
+                                        style: const TextStyle(
+                                          color: Color(0xFF0066FF),
+                                          fontWeight: FontWeight.w800,
+                                          fontSize: 13,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
-                                    const SizedBox(width: 6),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 6, vertical: 2),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFFE0F7FA),
-                                        borderRadius: BorderRadius.circular(10),
-                                      ),
-                                      child: const Text(
-                                        'LIVE',
-                                        style: TextStyle(
-                                          fontSize: 9,
-                                          fontWeight: FontWeight.w800,
-                                          color: Color(0xFF00B4D8),
-                                          letterSpacing: 0.5,
+                                    if (order.currentHubName != null) ...[
+                                      const SizedBox(width: 6),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 6,
+                                          vertical: 2,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFE0F2FE),
+                                          borderRadius: BorderRadius.circular(
+                                            10,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          order.currentHubName!,
+                                          style: const TextStyle(
+                                            fontSize: 9.5,
+                                            fontWeight: FontWeight.w800,
+                                            color: Color(0xFF0284C7),
+                                            letterSpacing: 0.2,
+                                          ),
                                         ),
                                       ),
-                                    ),
+                                    ],
                                   ],
                                 ),
                                 const SizedBox(height: 2),
@@ -111,14 +120,20 @@ class ActiveOrderTrackerCard extends StatelessWidget {
                     ),
                     ElevatedButton(
                       onPressed: () {
-                        Navigator.pushNamed(context, AppRoutes.orders);
+                        Navigator.pushNamed(
+                          context,
+                          AppRoutes.shippedOrderDetails,
+                          arguments: order,
+                        );
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF0066FF),
                         foregroundColor: Colors.white,
                         elevation: 0,
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 10),
+                          horizontal: 16,
+                          vertical: 10,
+                        ),
                         minimumSize: Size.zero,
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         shape: RoundedRectangleBorder(
@@ -129,7 +144,7 @@ class ActiveOrderTrackerCard extends StatelessWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                            'Track',
+                            'Details',
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.bold,
@@ -145,31 +160,44 @@ class ActiveOrderTrackerCard extends StatelessWidget {
 
                 const SizedBox(height: 14),
 
-                // Stepper Labels
-                const Row(
+                // Stepper Labels based on actual order status
+                Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'Packed',
+                      'Placed',
                       style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF1E293B),
+                        fontWeight: order.progress < 0.4
+                            ? FontWeight.w800
+                            : FontWeight.w600,
+                        color: order.progress < 0.4
+                            ? const Color(0xFF0066FF)
+                            : const Color(0xFF64748B),
                         fontSize: 11,
                       ),
                     ),
                     Text(
-                      'Out for Delivery',
+                      order.progress >= 0.8 ? 'Out for Delivery' : 'In Transit',
                       style: TextStyle(
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFF0066FF),
+                        fontWeight:
+                            (order.progress >= 0.4 && order.progress < 0.9)
+                            ? FontWeight.w800
+                            : FontWeight.w600,
+                        color: (order.progress >= 0.4 && order.progress < 0.9)
+                            ? const Color(0xFF0066FF)
+                            : const Color(0xFF94A3B8),
                         fontSize: 11,
                       ),
                     ),
                     Text(
                       'Delivered',
                       style: TextStyle(
-                        fontWeight: FontWeight.w500,
-                        color: Color(0xFF94A3B8),
+                        fontWeight: order.progress >= 0.9
+                            ? FontWeight.w800
+                            : FontWeight.w500,
+                        color: order.progress >= 0.9
+                            ? const Color(0xFF0066FF)
+                            : const Color(0xFF94A3B8),
                         fontSize: 11,
                       ),
                     ),
@@ -217,12 +245,18 @@ class ActiveOrderTrackerCard extends StatelessWidget {
                         fontSize: 11,
                       ),
                     ),
-                    Text(
-                      order.etaText,
-                      style: const TextStyle(
-                        color: Color(0xFF00B4D8),
-                        fontWeight: FontWeight.w700,
-                        fontSize: 11,
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        order.etaText,
+                        textAlign: TextAlign.end,
+                        style: const TextStyle(
+                          color: Color(0xFF00B4D8),
+                          fontWeight: FontWeight.w700,
+                          fontSize: 11,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ],

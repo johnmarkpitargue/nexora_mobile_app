@@ -1,20 +1,29 @@
 import 'package:flutter/material.dart';
 import '../../../core/services/ph_location_service.dart';
+import '../../../core/services/psgc_location_service.dart';
 
 class RegionSelectionResult {
   final String region;
+  final String regionCode;
   final String province;
+  final String provinceCode;
   final String city;
+  final String municipalityCode;
   final String barangay;
+  final String barangayCode;
   final String postalCode;
   final double latitude;
   final double longitude;
 
   const RegionSelectionResult({
     required this.region,
+    this.regionCode = '',
     required this.province,
+    this.provinceCode = '',
     required this.city,
+    this.municipalityCode = '',
     required this.barangay,
+    this.barangayCode = '',
     required this.postalCode,
     required this.latitude,
     required this.longitude,
@@ -46,9 +55,18 @@ class _RegionSelectorPageState extends State<RegionSelectorPage> {
   String _searchQuery = '';
 
   String? _selectedRegion;
+  String? _selectedRegionCode;
   String? _selectedProvince;
+  String? _selectedProvinceCode;
   String? _selectedCity;
+  String? _selectedCityCode;
   String? _selectedBarangay;
+  String? _selectedBarangayCode;
+
+  bool _isLoadingLocations = false;
+  List<PsgcLocationItem> _remoteProvinces = [];
+  List<PsgcLocationItem> _remoteCities = [];
+  List<PsgcLocationItem> _remoteBarangays = [];
 
   @override
   void initState() {
@@ -57,6 +75,37 @@ class _RegionSelectorPageState extends State<RegionSelectorPage> {
     _selectedProvince = widget.initialProvince;
     _selectedCity = widget.initialCity;
     _selectedBarangay = widget.initialBarangay;
+    if (_selectedRegion != null) {
+      _selectedRegionCode = PsgcLocationService.resolveRegionCode(_selectedRegion!, _selectedProvince);
+    }
+    if (_selectedProvince != null) {
+      _selectedProvinceCode = PsgcLocationService.resolveProvinceCode(_selectedProvince!);
+    }
+    if (_selectedCity != null) {
+      _selectedCityCode = PsgcLocationService.resolveCityCode(_selectedCity!, _selectedProvinceCode);
+    }
+    if (_selectedBarangay != null && _selectedCityCode != null) {
+      _selectedBarangayCode = PsgcLocationService.resolveBarangayCode(_selectedBarangay!, _selectedCityCode!);
+    }
+    _bootstrapPsgcLocations();
+  }
+
+  Future<void> _bootstrapPsgcLocations() async {
+    setState(() => _isLoadingLocations = true);
+    try {
+      final provinces = await PsgcLocationService.instance.getProvinces();
+      if (!mounted) return;
+      _remoteProvinces = provinces;
+      if (_selectedProvinceCode != null && _selectedProvinceCode!.isNotEmpty) {
+        _remoteCities = await PsgcLocationService.instance.getCities(_selectedProvinceCode!);
+      }
+      if (!mounted) return;
+      if (_selectedCityCode != null && _selectedCityCode!.isNotEmpty) {
+        _remoteBarangays = await PsgcLocationService.instance.getBarangays(_selectedCityCode!);
+      }
+    } finally {
+      if (mounted) setState(() => _isLoadingLocations = false);
+    }
   }
 
   @override
@@ -68,9 +117,13 @@ class _RegionSelectorPageState extends State<RegionSelectorPage> {
   void _resetAll() {
     setState(() {
       _selectedRegion = null;
+      _selectedRegionCode = null;
       _selectedProvince = null;
+      _selectedProvinceCode = null;
       _selectedCity = null;
+      _selectedCityCode = null;
       _selectedBarangay = null;
+      _selectedBarangayCode = null;
       _searchController.clear();
       _searchQuery = '';
     });
@@ -100,18 +153,36 @@ class _RegionSelectorPageState extends State<RegionSelectorPage> {
   List<String> get _currentItems {
     switch (_currentStep) {
       case 0:
-        return PhLocationHierarchy.regions;
+        final apiRegions = _remoteProvinces
+            .map((p) => p.regionName?.trim() ?? '')
+            .where((r) => r.isNotEmpty)
+            .toSet()
+            .toList();
+        return apiRegions.isNotEmpty ? apiRegions : PhLocationHierarchy.regions;
       case 1:
-        return PhLocationHierarchy.getProvinces(_selectedRegion!);
+        final apiProvs = _remoteProvinces
+            .where((p) =>
+                (p.regionName ?? '').toLowerCase() ==
+                (_selectedRegion ?? '').toLowerCase())
+            .map((p) => p.name)
+            .toList();
+        return apiProvs.isNotEmpty
+            ? apiProvs
+            : PhLocationHierarchy.getProvinces(_selectedRegion!);
       case 2:
+        if (_remoteCities.isNotEmpty) {
+          return _remoteCities.map((c) => c.name).toList();
+        }
         return PhLocationHierarchy.getCities(_selectedRegion!, _selectedProvince!);
       case 3:
       default:
-        final list = PhLocationHierarchy.getBarangays(
-          _selectedRegion!,
-          _selectedProvince!,
-          _selectedCity!,
-        );
+        final list = _remoteBarangays.isNotEmpty
+            ? _remoteBarangays.map((b) => b.name).toList()
+            : PhLocationHierarchy.getBarangays(
+                _selectedRegion!,
+                _selectedProvince!,
+                _selectedCity!,
+              );
         return List<String>.from(list)..sort();
     }
   }
@@ -125,30 +196,85 @@ class _RegionSelectorPageState extends State<RegionSelectorPage> {
     return grouped;
   }
 
-  void _onItemSelected(String item) {
-    setState(() {
-      switch (_currentStep) {
-        case 0:
+  Future<void> _onItemSelected(String item) async {
+    switch (_currentStep) {
+      case 0:
+        setState(() {
           _selectedRegion = item;
+          _selectedRegionCode = PsgcLocationService.resolveRegionCode(item);
           _selectedProvince = null;
+          _selectedProvinceCode = null;
           _selectedCity = null;
+          _selectedCityCode = null;
           _selectedBarangay = null;
-          break;
-        case 1:
+          _selectedBarangayCode = null;
+          _remoteCities = [];
+          _remoteBarangays = [];
+        });
+        break;
+      case 1:
+        final matchedProv = _remoteProvinces
+            .where((p) => p.name.toLowerCase() == item.toLowerCase())
+            .firstOrNull;
+        final provCode = matchedProv?.code.isNotEmpty == true
+            ? matchedProv!.code
+            : PsgcLocationService.resolveProvinceCode(item);
+        setState(() {
           _selectedProvince = item;
+          _selectedProvinceCode = provCode;
           _selectedCity = null;
+          _selectedCityCode = null;
           _selectedBarangay = null;
-          break;
-        case 2:
+          _selectedBarangayCode = null;
+          _remoteCities = [];
+          _remoteBarangays = [];
+          _isLoadingLocations = true;
+        });
+        final cities = await PsgcLocationService.instance.getCities(provCode);
+        if (!mounted) return;
+        setState(() {
+          _remoteCities = cities;
+          _isLoadingLocations = false;
+        });
+        break;
+      case 2:
+        final matchedCity = _remoteCities
+            .where((c) => c.name.toLowerCase() == item.toLowerCase())
+            .firstOrNull;
+        final cityCode = matchedCity?.code.isNotEmpty == true
+            ? matchedCity!.code
+            : PsgcLocationService.resolveCityCode(item, _selectedProvinceCode);
+        setState(() {
           _selectedCity = item;
+          _selectedCityCode = cityCode;
           _selectedBarangay = null;
-          break;
-        case 3:
+          _selectedBarangayCode = null;
+          _remoteBarangays = [];
+          _isLoadingLocations = true;
+        });
+        final brgys = await PsgcLocationService.instance.getBarangays(cityCode);
+        if (!mounted) return;
+        setState(() {
+          _remoteBarangays = brgys;
+          _isLoadingLocations = false;
+        });
+        break;
+      case 3:
+        final matchedBrgy = _remoteBarangays
+            .where((b) => b.name.toLowerCase() == item.toLowerCase())
+            .firstOrNull;
+        setState(() {
           _selectedBarangay = item;
-          _finishSelection();
-          break;
-      }
-    });
+          _selectedBarangayCode = matchedBrgy?.code.isNotEmpty == true
+              ? matchedBrgy!.code
+              : PsgcLocationService.resolveBarangayCode(
+                  item,
+                  _selectedCityCode ?? '043426000',
+                );
+        });
+        _finishSelection();
+        break;
+    }
   }
 
   void _finishSelection() {
@@ -161,11 +287,24 @@ class _RegionSelectorPageState extends State<RegionSelectorPage> {
     final postal = PhLocationHierarchy.getDefaultPostalCode(_selectedCity!);
     final coords = PhLocationHierarchy.getCoordinates(_selectedCity!, _selectedBarangay!);
 
+    final regCode = _selectedRegionCode ??
+        PsgcLocationService.resolveRegionCode(_selectedRegion!, _selectedProvince);
+    final provCode = _selectedProvinceCode ??
+        PsgcLocationService.resolveProvinceCode(_selectedProvince!);
+    final cityCode = _selectedCityCode ??
+        PsgcLocationService.resolveCityCode(_selectedCity!, provCode);
+    final brgyCode = _selectedBarangayCode ??
+        PsgcLocationService.resolveBarangayCode(_selectedBarangay!, cityCode);
+
     final result = RegionSelectionResult(
       region: _selectedRegion!,
+      regionCode: regCode,
       province: _selectedProvince!,
+      provinceCode: provCode,
       city: _selectedCity!,
+      municipalityCode: cityCode,
       barangay: _selectedBarangay!,
+      barangayCode: brgyCode,
       postalCode: postal,
       latitude: coords.$1,
       longitude: coords.$2,
@@ -190,11 +329,20 @@ class _RegionSelectorPageState extends State<RegionSelectorPage> {
                 province.toLowerCase().contains(q) ||
                 postal.contains(q)) {
               final coords = PhLocationHierarchy.getCoordinates(city, b);
+              final regCode = PsgcLocationService.resolveRegionCode(region, province);
+              final provCode = PsgcLocationService.resolveProvinceCode(province);
+              final cityCode = PsgcLocationService.resolveCityCode(city, provCode);
+              final brgyCode = PsgcLocationService.resolveBarangayCode(b, cityCode);
+
               results.add(RegionSelectionResult(
                 region: region,
+                regionCode: regCode,
                 province: province,
+                provinceCode: provCode,
                 city: city,
+                municipalityCode: cityCode,
                 barangay: b,
+                barangayCode: brgyCode,
                 postalCode: postal,
                 latitude: coords.$1,
                 longitude: coords.$2,
@@ -210,20 +358,13 @@ class _RegionSelectorPageState extends State<RegionSelectorPage> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bg = isDark ? const Color(0xFF060914) : Colors.white;
-    final textPrimary = isDark ? Colors.white : const Color(0xFF0F172A);
-    final textSecondary = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
-    final searchBg = isDark ? const Color(0xFF131D38) : const Color(0xFFF1F5F9);
-    final dividerColor = isDark ? const Color(0xFF1E293B) : const Color(0xFFF0F0F0);
-
     return Scaffold(
-      backgroundColor: bg,
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: bg,
+        backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: textPrimary, size: 22),
+          icon: const Icon(Icons.arrow_back, color: Color(0xFF0F172A), size: 22),
           onPressed: () => Navigator.pop(context),
         ),
         titleSpacing: 0,
@@ -231,13 +372,13 @@ class _RegionSelectorPageState extends State<RegionSelectorPage> {
           height: 38,
           margin: const EdgeInsets.only(right: 16),
           decoration: BoxDecoration(
-            color: searchBg,
-            borderRadius: BorderRadius.circular(8),
+            color: const Color(0xFFF5F5F5),
+            borderRadius: BorderRadius.circular(6),
           ),
           padding: const EdgeInsets.symmetric(horizontal: 10),
           child: Row(
             children: [
-              Icon(Icons.search, size: 18, color: textSecondary),
+              const Icon(Icons.search, size: 18, color: Color(0xFF999999)),
               const SizedBox(width: 8),
               Expanded(
                 child: TextField(
@@ -245,17 +386,13 @@ class _RegionSelectorPageState extends State<RegionSelectorPage> {
                   onChanged: (val) {
                     setState(() => _searchQuery = val);
                   },
-                  style: TextStyle(fontSize: 13, color: textPrimary),
-                  decoration: InputDecoration(
+                  style: const TextStyle(fontSize: 13, color: Color(0xFF222222)),
+                  decoration: const InputDecoration(
                     hintText: 'Search City, District or Postal Code',
-                    hintStyle: TextStyle(fontSize: 13, color: textSecondary),
-                    filled: false,
-                    fillColor: Colors.transparent,
+                    hintStyle: TextStyle(fontSize: 13, color: Color(0xFF999999)),
                     border: InputBorder.none,
-                    enabledBorder: InputBorder.none,
-                    focusedBorder: InputBorder.none,
                     isDense: true,
-                    contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                    contentPadding: EdgeInsets.symmetric(vertical: 8),
                   ),
                 ),
               ),
@@ -265,7 +402,7 @@ class _RegionSelectorPageState extends State<RegionSelectorPage> {
                     _searchController.clear();
                     setState(() => _searchQuery = '');
                   },
-                  child: Icon(Icons.clear, size: 16, color: textSecondary),
+                  child: const Icon(Icons.clear, size: 16, color: Color(0xFF999999)),
                 ),
             ],
           ),
@@ -277,15 +414,15 @@ class _RegionSelectorPageState extends State<RegionSelectorPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildStepperHeader(),
-                Divider(height: 1, color: dividerColor),
+                const Divider(height: 1, color: Color(0xFFF0F0F0)),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
                   child: Text(
                     _currentStepTitle,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
-                      color: textSecondary,
+                      color: Color(0xFF666666),
                     ),
                   ),
                 ),
@@ -297,21 +434,17 @@ class _RegionSelectorPageState extends State<RegionSelectorPage> {
 
   Widget _buildSearchResults() {
     final results = _getGlobalSearchResults(_searchQuery);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final textPrimary = isDark ? Colors.white : const Color(0xFF0F172A);
-    final textSecondary = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
-    final dividerColor = isDark ? const Color(0xFF1E293B) : const Color(0xFFF0F0F0);
 
     if (results.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.search_off, size: 48, color: textSecondary),
+            Icon(Icons.search_off, size: 48, color: Colors.grey.shade400),
             const SizedBox(height: 12),
             Text(
               'No locations found for "$_searchQuery"',
-              style: TextStyle(fontSize: 14, color: textSecondary),
+              style: const TextStyle(fontSize: 14, color: Color(0xFF666666)),
             ),
           ],
         ),
@@ -320,20 +453,20 @@ class _RegionSelectorPageState extends State<RegionSelectorPage> {
 
     return ListView.separated(
       itemCount: results.length,
-      separatorBuilder: (_, _) => Divider(height: 1, color: dividerColor),
+      separatorBuilder: (_, _) => const Divider(height: 1, color: Color(0xFFF0F0F0)),
       itemBuilder: (context, index) {
         final item = results[index];
         return ListTile(
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
           title: Text(
             item.barangay,
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: textPrimary),
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF222222)),
           ),
           subtitle: Text(
             '${item.city}, ${item.province} • Postal: ${item.postalCode}',
-            style: TextStyle(fontSize: 12, color: textSecondary),
+            style: const TextStyle(fontSize: 12, color: Color(0xFF666666)),
           ),
-          trailing: Icon(Icons.chevron_right, size: 16, color: textSecondary),
+          trailing: const Icon(Icons.chevron_right, size: 16, color: Color(0xFFCCCCCC)),
           onTap: () => Navigator.pop(context, item),
         );
       },
@@ -414,7 +547,7 @@ class _RegionSelectorPageState extends State<RegionSelectorPage> {
               title: _selectedBarangay!,
               isCurrent: true,
               isLastActive: true,
-              onTap: () {},
+              onTap: _finishSelection,
             ),
         ],
       ),
@@ -427,11 +560,6 @@ class _RegionSelectorPageState extends State<RegionSelectorPage> {
     bool isLastActive = false,
     required VoidCallback onTap,
   }) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final textPrimary = isDark ? Colors.white : const Color(0xFF222222);
-    final circleColor = isDark ? const Color(0xFF475569) : const Color(0xFFCBD5E1);
-    final lineColor = isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0);
-
     if (isLastActive) {
       return Padding(
         padding: const EdgeInsets.only(top: 4, bottom: 4),
@@ -442,7 +570,7 @@ class _RegionSelectorPageState extends State<RegionSelectorPage> {
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
-              border: Border.all(color: lineColor),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
               borderRadius: BorderRadius.circular(6),
             ),
             child: Row(
@@ -480,15 +608,15 @@ class _RegionSelectorPageState extends State<RegionSelectorPage> {
                 Container(
                   width: 7,
                   height: 7,
-                  decoration: BoxDecoration(
-                    color: circleColor,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFCBD5E1),
                     shape: BoxShape.circle,
                   ),
                 ),
                 Container(
                   width: 1.5,
                   height: 24,
-                  color: lineColor,
+                  color: const Color(0xFFE2E8F0),
                 ),
               ],
             ),
@@ -501,7 +629,7 @@ class _RegionSelectorPageState extends State<RegionSelectorPage> {
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: isCurrent ? FontWeight.bold : FontWeight.w500,
-                color: isCurrent ? primaryBlue : textPrimary,
+                color: isCurrent ? primaryBlue : const Color(0xFF222222),
               ),
             ),
           ),
@@ -511,13 +639,12 @@ class _RegionSelectorPageState extends State<RegionSelectorPage> {
   }
 
   Widget _buildItemsList() {
+    if (_isLoadingLocations && _currentItems.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
     final items = _currentItems;
     final grouped = _groupAlphabetically(items);
     final sortedKeys = grouped.keys.toList()..sort();
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final textPrimary = isDark ? Colors.white : const Color(0xFF222222);
-    final textLetter = isDark ? const Color(0xFF64748B) : const Color(0xFF999999);
-    final dividerColor = isDark ? const Color(0xFF1E293B) : const Color(0xFFF0F0F0);
 
     return ListView.builder(
       itemCount: sortedKeys.length,
@@ -536,10 +663,10 @@ class _RegionSelectorPageState extends State<RegionSelectorPage> {
                 child: Text(
                   letter,
                   textAlign: TextAlign.center,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    color: textLetter,
+                    color: Color(0xFF999999),
                   ),
                 ),
               ),
@@ -560,8 +687,8 @@ class _RegionSelectorPageState extends State<RegionSelectorPage> {
                       decoration: BoxDecoration(
                         border: isLast && sectionIndex == sortedKeys.length - 1
                             ? null
-                            : Border(
-                                bottom: BorderSide(color: dividerColor, width: 0.8),
+                            : const Border(
+                                bottom: BorderSide(color: Color(0xFFF0F0F0), width: 0.8),
                               ),
                       ),
                       child: Row(
@@ -572,7 +699,7 @@ class _RegionSelectorPageState extends State<RegionSelectorPage> {
                               style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                color: isSelected ? primaryBlue : textPrimary,
+                                color: isSelected ? primaryBlue : const Color(0xFF222222),
                               ),
                             ),
                           ),

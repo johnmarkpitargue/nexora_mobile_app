@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 
 import '../../../app/routes/app_routes.dart';
 import '../../../app/theme/nexora_theme.dart';
+import '../../../core/network/api_client.dart';
 import '../../../core/services/chat_service.dart';
 import '../../../core/services/notification_feed_service.dart';
 import '../../../core/services/order_service.dart';
+import '../../../core/widgets/nexora_widgets.dart';
 
 class NotificationsPage extends StatefulWidget {
   const NotificationsPage({super.key});
@@ -16,8 +18,23 @@ class NotificationsPage extends StatefulWidget {
 class _NotificationsPageState extends State<NotificationsPage> {
   String _filter = 'All';
 
-  void _markAllRead() {
-    NotificationFeedService.instance.markAllAsRead();
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (ApiClient.instance.hasToken) {
+        NotificationFeedService.instance.fetchNotificationsRemote();
+      }
+    });
+  }
+
+  Future<void> _onRefresh() async {
+    await NotificationFeedService.instance.fetchNotificationsRemote();
+  }
+
+  Future<void> _markAllRead() async {
+    await NotificationFeedService.instance.markAllAsRead();
+    if (!mounted) return;
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
@@ -30,6 +47,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final feedService = NotificationFeedService.instance;
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -54,13 +72,12 @@ class _NotificationsPageState extends State<NotificationsPage> {
       ),
       body: AnimatedBuilder(
         animation: Listenable.merge([
-          NotificationFeedService.instance,
+          feedService,
           OrderService.instance,
           ChatService.instance,
         ]),
         builder: (context, _) {
-          final allEntries =
-              NotificationFeedService.instance.getCombinedEntries();
+          final allEntries = feedService.getCombinedEntries();
           final visible = _filter == 'All'
               ? allEntries
               : allEntries.where((entry) => entry.type == _filter).toList();
@@ -81,7 +98,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                       'All',
                       'Orders',
                       'Messages',
-                      'Promos',
+                      'System',
                     ])
                       Padding(
                         padding: const EdgeInsetsDirectional.only(
@@ -98,67 +115,91 @@ class _NotificationsPageState extends State<NotificationsPage> {
               ),
               Divider(height: 1, color: theme.colorScheme.outlineVariant),
               Expanded(
-                child: visible.isEmpty
-                    ? _NotificationEmptyState(filter: _filter)
-                    : ListView.separated(
-                        key: const ValueKey('notifications-list'),
-                        padding: const EdgeInsets.fromLTRB(
-                          NexoraSpacing.md,
-                          NexoraSpacing.sm,
-                          NexoraSpacing.md,
-                          NexoraSpacing.xxl,
-                        ),
-                        itemCount: visible.length,
-                        separatorBuilder: (_, _) => Divider(
-                          indent: 60,
-                          color: theme.colorScheme.outlineVariant,
-                        ),
-                        itemBuilder: (context, index) {
-                          final entry = visible[index];
-                          return Dismissible(
-                            key: ValueKey('notif_${entry.id}'),
-                            direction: DismissDirection.endToStart,
-                            background: Container(
-                              alignment: Alignment.centerRight,
-                              padding: const EdgeInsets.only(right: 20),
-                              decoration: BoxDecoration(
-                                color: Colors.red.withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: const Icon(
-                                Icons.delete_outline_rounded,
-                                color: Colors.red,
-                              ),
-                            ),
-                            onDismissed: (_) {
-                              NotificationFeedService.instance
-                                  .removeNotification(entry.id);
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('Removed "${entry.title}"'),
-                                  duration: const Duration(seconds: 2),
-                                ),
-                              );
-                            },
-                            child: _NotificationTile(
-                              entry: entry,
-                              onTap: () {
-                                NotificationFeedService.instance
-                                    .markAsRead(entry.id);
-                                if (entry.routeArgs != null) {
-                                  Navigator.pushNamed(
-                                    context,
-                                    entry.route,
-                                    arguments: entry.routeArgs,
-                                  );
-                                } else {
-                                  Navigator.pushNamed(context, entry.route);
-                                }
-                              },
-                            ),
-                          );
-                        },
-                      ),
+                child: feedService.isLoading && allEntries.isEmpty
+                    ? const SingleChildScrollView(
+                        child: NexoraLoadingSkeleton(itemCount: 5, itemHeight: 74),
+                      )
+                    : feedService.errorMessage != null && allEntries.isEmpty
+                        ? NexoraErrorState(
+                            message: feedService.errorMessage!,
+                            onRetry: _onRefresh,
+                          )
+                        : RefreshIndicator(
+                            onRefresh: _onRefresh,
+                            child: visible.isEmpty
+                                ? ListView(
+                                    physics:
+                                        const AlwaysScrollableScrollPhysics(),
+                                    children: [
+                                      SizedBox(
+                                        height:
+                                            MediaQuery.of(context).size.height *
+                                                0.55,
+                                        child: _NotificationEmptyState(
+                                          filter: _filter,
+                                        ),
+                                      ),
+                                    ],
+                                  )
+                                : ListView.separated(
+                                    key: const ValueKey('notifications-list'),
+                                    padding: const EdgeInsets.fromLTRB(
+                                      NexoraSpacing.md,
+                                      NexoraSpacing.sm,
+                                      NexoraSpacing.md,
+                                      NexoraSpacing.xxl,
+                                    ),
+                                    itemCount: visible.length,
+                                    separatorBuilder: (_, _) => Divider(
+                                      indent: 60,
+                                      color: theme.colorScheme.outlineVariant,
+                                    ),
+                                    itemBuilder: (context, index) {
+                                      final entry = visible[index];
+                                      return Dismissible(
+                                        key: ValueKey('notif_${entry.id}'),
+                                        direction: DismissDirection.endToStart,
+                                        background: Container(
+                                          alignment: Alignment.centerRight,
+                                          padding:
+                                              const EdgeInsets.only(right: 20),
+                                          decoration: BoxDecoration(
+                                            color: NexoraTheme.error
+                                                .withValues(alpha: 0.15),
+                                            borderRadius:
+                                                BorderRadius.circular(12),
+                                          ),
+                                          child: const Icon(
+                                            Icons.delete_outline_rounded,
+                                            color: NexoraTheme.error,
+                                          ),
+                                        ),
+                                        onDismissed: (_) {
+                                          feedService
+                                              .removeNotification(entry.id);
+                                        },
+                                        child: _NotificationTile(
+                                          entry: entry,
+                                          onTap: () {
+                                            feedService.markAsRead(entry.id);
+                                            if (entry.routeArgs != null) {
+                                              Navigator.pushNamed(
+                                                context,
+                                                entry.route,
+                                                arguments: entry.routeArgs,
+                                              );
+                                            } else {
+                                              Navigator.pushNamed(
+                                                context,
+                                                entry.route,
+                                              );
+                                            }
+                                          },
+                                        ),
+                                      );
+                                    },
+                                  ),
+                          ),
               ),
             ],
           );
@@ -285,7 +326,6 @@ class _NotificationEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     String title;
     String description;
     IconData icon;
@@ -294,67 +334,30 @@ class _NotificationEmptyState extends StatelessWidget {
       case 'Orders':
         title = 'No Order Alerts Yet';
         description =
-            'When your orders are placed, packed, or dispatched for delivery, real-time courier updates will appear here.';
+            'When your orders are placed, packed, or dispatched for delivery, updates will appear here.';
         icon = Icons.local_shipping_outlined;
         break;
       case 'Messages':
         title = 'No Message Alerts';
         description =
-            'Direct chats from sellers and couriers will appear here.';
+            'Direct messages regarding your orders will appear here.';
         icon = Icons.chat_bubble_outline_rounded;
         break;
-      case 'Promos':
-        title = 'No Promo Alerts';
-        description =
-            'Special voucher releases and flash sale alerts will appear here.';
-        icon = Icons.local_offer_outlined;
+      case 'System':
+        title = 'No System Alerts';
+        description = 'Account and platform updates will appear here.';
+        icon = Icons.notifications_outlined;
         break;
       default:
         title = 'You’re all caught up';
-        description =
-            'Order tracking updates, seller chats, and promo alerts will appear here.';
+        description = 'Order updates and account notifications will appear here.';
         icon = Icons.notifications_none_rounded;
     }
 
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(NexoraSpacing.xxl),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 72,
-              height: 72,
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerLow,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                icon,
-                size: 34,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: NexoraSpacing.md),
-            Text(
-              title,
-              style: theme.textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w800,
-                fontSize: 18,
-              ),
-            ),
-            const SizedBox(height: NexoraSpacing.xs),
-            Text(
-              description,
-              textAlign: TextAlign.center,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-                height: 1.4,
-              ),
-            ),
-          ],
-        ),
-      ),
+    return NexoraEmptyState(
+      icon: icon,
+      title: title,
+      message: description,
     );
   }
 }

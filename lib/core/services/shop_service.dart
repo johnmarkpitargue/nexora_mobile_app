@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../models/shop_models.dart';
 import '../../features/home/presentation/widgets/product_card.dart';
 import 'buyer_account_service.dart';
+import '../constants/api_constants.dart';
+import '../network/api_client.dart';
 
 class SearchFilterParams {
   final String query;
@@ -50,81 +52,6 @@ class ShopService extends ChangeNotifier {
   final Map<String, Set<String>> _userClaimedVoucherIds = {};
   final Map<String, int> _helpfulVotes = {};
   final Set<String> _userUpvotedReviews = {};
-
-  String get _currentUserKey {
-    final buyer = BuyerAccountService.instance.currentBuyer;
-    return (buyer != null && buyer.email.isNotEmpty) ? buyer.email.toLowerCase().trim() : 'guest';
-  }
-
-  Set<String> get _currentFollowedShops {
-    return _userFollowedShopIds.putIfAbsent(_currentUserKey, () => <String>{});
-  }
-
-  Set<String> get _currentClaimedVouchers {
-    return _userClaimedVoucherIds.putIfAbsent(_currentUserKey, () => <String>{});
-  }
-
-  int get followedShopCount => _currentFollowedShops.length;
-
-  List<String> get followedShopIds => _currentFollowedShops.toList();
-
-  bool isFollowing(String shopId) => _currentFollowedShops.contains(shopId);
-
-  void toggleFollow(String shopId) {
-    final set = _currentFollowedShops;
-    if (set.contains(shopId)) {
-      set.remove(shopId);
-    } else {
-      set.add(shopId);
-    }
-    notifyListeners();
-  }
-
-  bool isVoucherClaimed(String voucherId) => _currentClaimedVouchers.contains(voucherId);
-
-  void claimVoucher(String voucherId) {
-    _currentClaimedVouchers.add(voucherId);
-    notifyListeners();
-  }
-
-  List<ShopVoucherModel> getClaimedVouchersForShop(String shopId) {
-    final shop = getShopById(shopId);
-    return shop.vouchers.where((v) => isVoucherClaimed(v.id)).toList();
-  }
-
-  List<ShopVoucherModel> getAvailableVouchersForShop(String shopId) {
-    final shop = getShopById(shopId);
-    return shop.vouchers;
-  }
-
-  List<ShopVoucherModel> getAllClaimedVouchers() {
-    final List<ShopVoucherModel> list = [];
-    for (final s in allShops) {
-      for (final v in s.vouchers) {
-        if (isVoucherClaimed(v.id)) {
-          list.add(v);
-        }
-      }
-    }
-    return list;
-  }
-
-  bool hasLikedReview(String reviewId) => _userUpvotedReviews.contains(reviewId);
-
-  int getReviewHelpfulCount(String reviewId, int initialCount) {
-    return (initialCount) + (_helpfulVotes[reviewId] ?? 0);
-  }
-
-  void toggleReviewLike(String reviewId) {
-    if (_userUpvotedReviews.contains(reviewId)) {
-      _userUpvotedReviews.remove(reviewId);
-      _helpfulVotes[reviewId] = (_helpfulVotes[reviewId] ?? 0) - 1;
-    } else {
-      _userUpvotedReviews.add(reviewId);
-      _helpfulVotes[reviewId] = (_helpfulVotes[reviewId] ?? 0) + 1;
-    }
-    notifyListeners();
-  }
 
   // Dynamic Product Ratings & Reviews Repository
   final Map<String, List<ProductReviewModel>> _customProductReviews = {};
@@ -191,7 +118,7 @@ class ShopService extends ChangeNotifier {
 
   double getProductAverageRating(
     String productIdOrTitle, [
-    double defaultRating = 4.9,
+    double defaultRating = 0.0,
   ]) {
     final revs = getReviewsForProduct(productIdOrTitle);
     if (revs.isEmpty) return defaultRating;
@@ -210,7 +137,7 @@ class ShopService extends ChangeNotifier {
   Map<int, double> getProductRatingBreakdown(String productIdOrTitle) {
     final revs = getReviewsForProduct(productIdOrTitle);
     if (revs.isEmpty) {
-      return const {5: 0.85, 4: 0.12, 3: 0.03, 2: 0.0, 1: 0.0};
+      return const {5: 0.0, 4: 0.0, 3: 0.0, 2: 0.0, 1: 0.0};
     }
     final counts = <int, int>{5: 0, 4: 0, 3: 0, 2: 0, 1: 0};
     for (final r in revs) {
@@ -225,6 +152,578 @@ class ShopService extends ChangeNotifier {
       2: (counts[2] ?? 0) / total,
       1: (counts[1] ?? 0) / total,
     };
+  }
+
+  List<ProductModel> _remoteProducts = [];
+  List<ProductModel> _remoteFlashSales = [];
+  List<ProductModel> _remoteRecommended = [];
+  List<ProductModel> _remoteNewArrivals = [];
+  List<ShopModel> _remoteFeaturedStores = [];
+  List<ShopModel> _remoteFollowedStores = [];
+  bool _hasActiveFlashSales = false;
+  bool _isLoadingCatalog = false;
+  bool get isLoadingCatalog => _isLoadingCatalog;
+
+  List<ProductModel> get products => _remoteProducts;
+  List<ProductModel> get flashSales => List.unmodifiable(_remoteFlashSales);
+  List<ProductModel> get recommendedProducts => List.unmodifiable(_remoteRecommended);
+  List<ProductModel> get newArrivals => List.unmodifiable(_remoteNewArrivals);
+  List<ShopModel> get featuredStores => List.unmodifiable(_remoteFeaturedStores);
+  List<ShopModel> get remoteFollowedStores => List.unmodifiable(_remoteFollowedStores);
+  bool get hasActiveFlashSales => _hasActiveFlashSales;
+  List<AppCategoryModel> _remoteCategories = [];
+  List<AppCategoryModel> get categories => _remoteCategories;
+  String? _catalogError;
+  String? get catalogError => _catalogError;
+
+  /// Fetch Buyer Home database feed (`categories`, real `flash_sales`,
+  /// `recommended`, `new_arrivals`, `featured_stores`).
+  Future<void> fetchHomeRemote() async {
+    try {
+      final res = await ApiClient.instance.get(ApiConstants.buyerHome);
+      final data = res['data'];
+      if (data is Map<String, dynamic>) {
+        final rawCats = data['categories'] as List? ?? [];
+        _remoteCategories = rawCats
+            .whereType<Map<String, dynamic>>()
+            .map(AppCategoryModel.fromJson)
+            .toList();
+
+        List<ProductModel> parseProducts(dynamic raw) {
+          if (raw is! List) return const [];
+          return raw
+              .whereType<Map<String, dynamic>>()
+              .map(ProductModel.fromApiJson)
+              .toList();
+        }
+
+        _remoteFlashSales = parseProducts(data['flash_sales']);
+        _hasActiveFlashSales =
+            data['has_active_flash_sales'] == true || _remoteFlashSales.isNotEmpty;
+        _remoteRecommended = parseProducts(data['recommended']);
+        _remoteNewArrivals = parseProducts(data['new_arrivals']);
+
+        final rawStores = data['featured_stores'] as List? ?? [];
+        _remoteFeaturedStores = rawStores.whereType<Map<String, dynamic>>().map((d) {
+          final storeName = d['name']?.toString() ?? 'Seller Store';
+          final count = int.tryParse((d['followers_count'] ?? 0).toString()) ?? 0;
+          return ShopModel(
+            id: d['id'].toString(),
+            name: storeName,
+            initials: storeName.isNotEmpty ? storeName[0].toUpperCase() : 'S',
+            avatarUrl: d['avatar_url']?.toString(),
+            badge: (d['products_count'] ?? 0) > 0 ? 'VERIFIED SELLER' : 'SELLER',
+            isFollowing: d['is_following'] == true,
+            followers: count == 1 ? '1 Follower' : '$count Followers',
+            categoryGroupTitle: d['category']?.toString() ?? 'Retail',
+            products: const [],
+            vouchers: const [],
+            categories: const [],
+            isVacationMode: d['is_vacation_mode'] == true,
+          );
+        }).toList();
+
+        if (_remoteRecommended.isNotEmpty) {
+          _remoteProducts = List.from(_remoteRecommended);
+        } else if (_remoteNewArrivals.isNotEmpty) {
+          _remoteProducts = List.from(_remoteNewArrivals);
+        }
+        _catalogError = null;
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('fetchHomeRemote error: $e');
+      rethrow;
+    }
+  }
+
+  /// Fetch paginated product reviews and exact DB star breakdown from Laravel.
+  Future<Map<String, dynamic>> fetchProductReviewsRemote(
+    String productId, {
+    int page = 1,
+    int? rating,
+  }) async {
+    final query = <String, dynamic>{'page': page};
+    if (rating != null && rating >= 1 && rating <= 5) {
+      query['rating'] = rating;
+    }
+    final res = await ApiClient.instance.get(
+      ApiConstants.productReviews(productId),
+      queryParams: query,
+    );
+    final data = res['data'];
+    if (data is Map<String, dynamic>) {
+      final rawReviews = data['reviews'] as List? ?? [];
+      final parsed = rawReviews.whereType<Map<String, dynamic>>().map((r) {
+        final buyerName = r['buyer_name']?.toString() ?? 'Verified Buyer';
+        return ProductReviewModel(
+          id: r['id'].toString(),
+          userName: buyerName,
+          initials: buyerName.isNotEmpty ? buyerName[0].toUpperCase() : 'B',
+          avatarColor: const Color(0xFF1F3A8A),
+          rating: double.tryParse((r['rating'] ?? 0).toString()) ?? 0.0,
+          date: r['created_at']?.toString() ?? '',
+          variantName: '',
+          comment: r['comment']?.toString() ?? '',
+          reviewImages: (r['photos'] as List?)?.map((e) => e.toString()).toList() ?? const [],
+          helpfulCount: 0,
+          hasLiked: false,
+        );
+      }).toList();
+      _customProductReviews[_normalizeProductKey(productId)] = parsed;
+
+      final rawBreakdown = data['breakdown'] as Map<String, dynamic>? ?? {};
+      final breakdown = <int, double>{5: 0, 4: 0, 3: 0, 2: 0, 1: 0};
+      for (final s in [5, 4, 3, 2, 1]) {
+        final row = rawBreakdown['$s'];
+        if (row is Map<String, dynamic>) {
+          breakdown[s] = double.tryParse((row['ratio'] ?? 0).toString()) ?? 0.0;
+        }
+      }
+
+      notifyListeners();
+      return {
+        'average_rating': double.tryParse((data['average_rating'] ?? 0).toString()) ?? 0.0,
+        'reviews_count': int.tryParse((data['reviews_count'] ?? 0).toString()) ?? 0,
+        'breakdown': breakdown,
+        'reviews': parsed,
+        'pagination': data['pagination'],
+      };
+    }
+    return const {
+      'average_rating': 0.0,
+      'reviews_count': 0,
+      'breakdown': {5: 0.0, 4: 0.0, 3: 0.0, 2: 0.0, 1: 0.0},
+      'reviews': <ProductReviewModel>[],
+    };
+  }
+
+  /// Fetch real followed stores for the authenticated buyer.
+  Future<List<ShopModel>> fetchFollowedStoresRemote() async {
+    if (!ApiClient.instance.hasToken) {
+      _remoteFollowedStores = [];
+      notifyListeners();
+      return const [];
+    }
+    final res = await ApiClient.instance.get(ApiConstants.followedStores);
+    final raw = res['data'];
+    final List list = raw is List
+        ? raw
+        : (raw is Map && raw['data'] is List ? raw['data'] : []);
+    final followed = list.whereType<Map<String, dynamic>>().map((d) {
+      final storeName = d['name']?.toString() ?? 'Seller Store';
+      final count = int.tryParse((d['followers_count'] ?? 0).toString()) ?? 0;
+      return ShopModel(
+        id: d['id'].toString(),
+        name: storeName,
+        initials: storeName.isNotEmpty ? storeName[0].toUpperCase() : 'S',
+        avatarUrl: d['avatar_url']?.toString(),
+        badge: 'FOLLOWING',
+        isFollowing: true,
+        followers: count == 1 ? '1 Follower' : '$count Followers',
+        categoryGroupTitle: d['category']?.toString() ?? 'Retail',
+        products: const [],
+        vouchers: const [],
+        categories: const [],
+        isVacationMode: d['is_vacation_mode'] == true,
+      );
+    }).toList();
+
+    _remoteFollowedStores = followed;
+    _userFollowedShopIds[_currentUserKey] = followed.map((s) => s.id).toSet();
+    notifyListeners();
+    return _remoteFollowedStores;
+  }
+
+  /// Fetch categories list dynamically from Laravel backend
+  Future<List<AppCategoryModel>> fetchCategoriesRemote() async {
+    final res = await ApiClient.instance.get(ApiConstants.categories);
+    final data = res['data'];
+    final List list = data is List ? data : (data is Map && data['data'] is List ? data['data'] : []);
+    _remoteCategories = list.map((item) => AppCategoryModel.fromJson(item as Map<String, dynamic>)).toList();
+    notifyListeners();
+    return _remoteCategories;
+  }
+
+  /// Loads catalog from remote Laravel backend and updates listeners
+  Future<List<ProductModel>> loadCatalogRemote({
+    String? query,
+    String? category,
+    String? sort,
+    double? minPrice,
+    double? maxPrice,
+    String? sellerId,
+  }) async {
+    _isLoadingCatalog = true;
+    notifyListeners();
+    try {
+      final fetched = await fetchCatalogRemote(
+        query: query,
+        category: category,
+        sort: sort,
+        minPrice: minPrice,
+        maxPrice: maxPrice,
+        sellerId: sellerId,
+      );
+      _remoteProducts = fetched;
+      return fetched;
+    } catch (e) {
+      _catalogError = e.toString();
+      _remoteProducts = [];
+      rethrow;
+    } finally {
+      _isLoadingCatalog = false;
+      notifyListeners();
+    }
+  }
+
+  /// Search and filter with remote Laravel catalog, falling back to local
+  Future<SearchResult> searchAndFilterRemote(SearchFilterParams params) async {
+    try {
+      final queryParams = <String, String>{};
+      if (params.query.isNotEmpty) queryParams['q'] = params.query;
+      if (params.category != null &&
+          params.category != 'All' &&
+          params.category != 'Mall') {
+        queryParams['category'] = params.category!;
+      }
+      if (params.minPrice != null) {
+        queryParams['min_price'] = params.minPrice.toString();
+      }
+      if (params.maxPrice != null) {
+        queryParams['max_price'] = params.maxPrice.toString();
+      }
+      if (params.minRating != null && params.minRating! > 0) {
+        queryParams['min_rating'] = params.minRating.toString();
+      }
+      if (params.location != null &&
+          params.location!.trim().isNotEmpty &&
+          params.location != 'All') {
+        queryParams['location'] = params.location!.trim();
+      }
+      if (params.sortBy.isNotEmpty) queryParams['sort'] = params.sortBy;
+
+      final uri = Uri(
+          path: ApiConstants.buyerCatalog,
+          queryParameters: queryParams.isNotEmpty ? queryParams : null);
+      final res = await ApiClient.instance.get(uri.toString());
+      final data = res['data'];
+      final List list = data is List
+          ? data
+          : (data is Map && data['data'] is List ? data['data'] : []);
+      final remoteList = list
+          .map((item) =>
+              ProductModel.fromApiJson(item as Map<String, dynamic>))
+          .toList();
+
+      return SearchResult(products: remoteList);
+    } catch (e) {
+      debugPrint('searchAndFilterRemote error: $e');
+      rethrow;
+    }
+  }
+
+  final Map<String, ShopModel> _remoteShopsCache = {};
+  final Map<String, List<ProductModel>> _remoteShopProducts = {};
+
+  /// Fetch store detail from Laravel backend API
+  Future<ShopModel?> fetchStoreRemote(String sellerId) async {
+    try {
+      final res =
+          await ApiClient.instance.get(ApiConstants.buyerStore(sellerId));
+      if (res['data'] is Map<String, dynamic>) {
+        final data = res['data'] as Map<String, dynamic>;
+        final d = data['store'] is Map<String, dynamic>
+            ? data['store'] as Map<String, dynamic>
+            : data;
+        final storeName = d['name'] as String? ??
+            d['store_name'] as String? ??
+            d['business_name'] as String? ??
+            'Seller Store';
+        final initial = storeName.isNotEmpty ? storeName[0].toUpperCase() : 'S';
+        final rawProducts = data['products'] as List?;
+        final storeProducts = rawProducts != null
+            ? rawProducts
+                .map((p) => ProductModel.fromApiJson(p as Map<String, dynamic>))
+                .toList()
+            : <ProductModel>[];
+
+        final storeCategories = (d['categories'] as List?)
+                ?.map((c) => ShopCategoryModel(
+                      id: c['id'].toString(),
+                      title: c['name'].toString(),
+                      itemCount: 0,
+                      imageUrl: '',
+                    ))
+                .toList() ??
+            [];
+
+        final rawVouchers = data['vouchers'] as List?;
+        final storeVouchers = rawVouchers != null
+            ? rawVouchers.map((v) {
+                final vMap = v as Map<String, dynamic>;
+                return ShopVoucherModel(
+                  id: vMap['id'].toString(),
+                  discountTitle: vMap['title']?.toString() ?? 'Store Voucher',
+                  tag: 'Store Voucher',
+                  minSpend: 'Min. spend ₱${vMap['min_spend'] ?? 0}',
+                  expiry: vMap['expires_at']?.toString() ?? '',
+                  buttonColor: const Color(0xFF0066FF),
+                  discountAmount: (vMap['discount_value'] as num?)?.toDouble() ?? 0.0,
+                );
+              }).toList()
+            : <ShopVoucherModel>[];
+
+        final isVacation = d['is_vacation_mode'] == true;
+        final shop = ShopModel(
+          id: d['id'].toString(),
+          name: storeName,
+          badge: isVacation ? 'ON VACATION' : 'OFFICIAL STORE',
+          followers: '${d['followers_count'] ?? 0}',
+          initials: initial,
+          avatarBg: const Color(0xFF0066FF),
+          avatarUrl: d['avatar_url'] as String?,
+          bannerUrl: d['banner_url'] as String?,
+          isFollowing: d['is_following'] == true,
+          isVacationMode: isVacation,
+          categoryGroupTitle: d['category'] as String? ?? 'STORE MERCHANDISE',
+          categories: storeCategories,
+          vouchers: storeVouchers,
+          products: storeProducts,
+        );
+
+        _remoteShopsCache[sellerId] = shop;
+        _remoteShopProducts[sellerId] = storeProducts;
+        if (d['is_following'] == true) {
+          _currentFollowedShops.add(sellerId);
+        } else {
+          _currentFollowedShops.remove(sellerId);
+        }
+        notifyListeners();
+        return shop;
+      }
+    } catch (e) {
+      debugPrint('fetchStoreRemote error: $e');
+    }
+    return null;
+  }
+
+  String get _currentUserKey {
+    final buyer = BuyerAccountService.instance.currentBuyer;
+    return (buyer != null && buyer.email.isNotEmpty) ? buyer.email.toLowerCase().trim() : 'guest';
+  }
+
+  Set<String> get _currentFollowedShops {
+    return _userFollowedShopIds.putIfAbsent(_currentUserKey, () => <String>{});
+  }
+
+  Set<String> get _currentClaimedVouchers {
+    return _userClaimedVoucherIds.putIfAbsent(_currentUserKey, () => <String>{});
+  }
+
+  int get followedShopCount => _currentFollowedShops.length;
+
+  List<String> get followedShopIds => _currentFollowedShops.toList();
+
+  bool isFollowing(String shopId) => _currentFollowedShops.contains(shopId);
+
+  void toggleFollow(String shopId) {
+    final set = _currentFollowedShops;
+    if (set.contains(shopId)) {
+      set.remove(shopId);
+    } else {
+      set.add(shopId);
+    }
+    notifyListeners();
+  }
+
+  /// Fetch catalog products from Laravel backend API
+  Future<List<ProductModel>> fetchCatalogRemote({
+    String? query,
+    String? category,
+    String? sort,
+    double? minPrice,
+    double? maxPrice,
+    String? sellerId,
+  }) async {
+    try {
+      final queryParams = <String, String>{};
+      if (query != null && query.isNotEmpty) queryParams['q'] = query;
+      if (category != null && category.isNotEmpty && category != 'All' && category != 'Mall') {
+        queryParams['category'] = category;
+      }
+      if (sort != null && sort.isNotEmpty) queryParams['sort'] = sort;
+      if (minPrice != null) queryParams['min_price'] = minPrice.toString();
+      if (maxPrice != null) queryParams['max_price'] = maxPrice.toString();
+      if (sellerId != null && sellerId.isNotEmpty) queryParams['seller_id'] = sellerId;
+
+      final uri = Uri(path: ApiConstants.buyerCatalog, queryParameters: queryParams.isNotEmpty ? queryParams : null);
+      final res = await ApiClient.instance.get(uri.toString());
+      final data = res['data'];
+      final List list = data is List ? data : (data is Map && data['data'] is List ? data['data'] : []);
+      return list.map((item) => ProductModel.fromApiJson(item as Map<String, dynamic>)).toList();
+    } catch (e) {
+      debugPrint('fetchCatalogRemote error: $e');
+      return [];
+    }
+  }
+
+  final Map<String, Future<ProductModel?>> _productRequestsInFlight = {};
+
+  /// Fetch single product detail from Laravel backend API with in-flight deduplication
+  Future<ProductModel?> fetchProductRemote(String id) {
+    if (_productRequestsInFlight.containsKey(id)) {
+      return _productRequestsInFlight[id]!;
+    }
+
+    final future = _fetchProductRemoteInternal(id);
+    _productRequestsInFlight[id] = future;
+    future.whenComplete(() => _productRequestsInFlight.remove(id));
+    return future;
+  }
+
+  Future<ProductModel?> _fetchProductRemoteInternal(String id) async {
+    try {
+      return await fetchProductDetailOrThrow(id);
+    } catch (e) {
+      debugPrint('fetchProductRemote error: $e');
+      return null;
+    }
+  }
+
+  /// Fetch single product detail or throw ApiException for Retry error UI.
+  Future<ProductModel> fetchProductDetailOrThrow(String id) async {
+    final res = await ApiClient.instance.get(ApiConstants.buyerProduct(id));
+    final data = res['data'];
+    if (data is! Map<String, dynamic>) {
+      throw const ApiException(statusCode: 500, message: 'Invalid product response.');
+    }
+    final productJson = data['product'] is Map<String, dynamic>
+        ? data['product'] as Map<String, dynamic>
+        : data;
+    final sellerJson = productJson['seller'];
+    if (sellerJson is Map<String, dynamic> && sellerJson['id'] != null) {
+      final sId = sellerJson['id'].toString();
+      final sName = (sellerJson['store_name'] as String?)?.trim().isNotEmpty == true
+          ? sellerJson['store_name'].toString().trim()
+          : ((sellerJson['business_name'] as String?)?.trim().isNotEmpty == true
+              ? sellerJson['business_name'].toString().trim()
+              : (sellerJson['name'] as String?)?.trim() ?? '');
+      final isVac = sellerJson['is_vacation_mode'] == true;
+      _remoteShopsCache[sId] = ShopModel(
+        id: sId,
+        name: sName,
+        badge: isVac ? 'ON VACATION' : '',
+        rating: (productJson['rating'] as num?)?.toDouble() ?? 0.0,
+        followers: '${sellerJson['followers_count'] ?? 0}',
+        initials: sName.isNotEmpty ? sName[0].toUpperCase() : 'S',
+        avatarUrl: sellerJson['avatar_url'] as String?,
+        isFollowing: sellerJson['is_following'] == true,
+        isVacationMode: isVac,
+        categoryGroupTitle: '',
+        categories: const [],
+        vouchers: const [],
+      );
+      if (sellerJson['is_following'] == true) {
+        _currentFollowedShops.add(sId);
+      } else {
+        _currentFollowedShops.remove(sId);
+      }
+    }
+    return ProductModel.fromApiJson(data);
+  }
+
+  /// Toggle wishlist on Laravel backend API
+  Future<bool> toggleWishlistRemote(String productId) async {
+    if (!ApiClient.instance.hasToken) return false;
+    try {
+      final res = await ApiClient.instance.post(ApiConstants.buyerWishlistToggle(productId));
+      return res['data']?['wishlisted'] == true;
+    } catch (e) {
+      debugPrint('toggleWishlistRemote error: $e');
+      return false;
+    }
+  }
+
+  /// Toggle follow store on Laravel backend API
+  Future<bool> toggleFollowRemote(String sellerId) async {
+    if (!ApiClient.instance.hasToken) {
+      toggleFollow(sellerId);
+      return isFollowing(sellerId);
+    }
+    try {
+      final res = await ApiClient.instance.post(ApiConstants.buyerStoreFollowToggle(sellerId));
+      final following = res['data']?['following'] == true || res['data']?['is_following'] == true;
+      if (following) {
+        _currentFollowedShops.add(sellerId);
+      } else {
+        _currentFollowedShops.remove(sellerId);
+      }
+      notifyListeners();
+      return following;
+    } catch (e) {
+      debugPrint('toggleFollowRemote error: $e');
+      return isFollowing(sellerId);
+    }
+  }
+
+  /// Claim voucher on Laravel backend API
+  Future<bool> claimVoucherRemote(String voucherId) async {
+    claimVoucher(voucherId);
+    if (!ApiClient.instance.hasToken) return true;
+    try {
+      await ApiClient.instance.post(ApiConstants.buyerVoucherClaim(voucherId));
+      return true;
+    } catch (e) {
+      debugPrint('claimVoucherRemote error: $e');
+      return false;
+    }
+  }
+
+  bool isVoucherClaimed(String voucherId) => _currentClaimedVouchers.contains(voucherId);
+
+  void claimVoucher(String voucherId) {
+    _currentClaimedVouchers.add(voucherId);
+    notifyListeners();
+  }
+
+  List<ShopVoucherModel> getClaimedVouchersForShop(String shopId) {
+    final shop = getShopById(shopId);
+    return shop.vouchers.where((v) => isVoucherClaimed(v.id)).toList();
+  }
+
+  List<ShopVoucherModel> getAvailableVouchersForShop(String shopId) {
+    final shop = getShopById(shopId);
+    return shop.vouchers;
+  }
+
+  List<ShopVoucherModel> getAllClaimedVouchers() {
+    final List<ShopVoucherModel> list = [];
+    for (final s in allShops) {
+      for (final v in s.vouchers) {
+        if (isVoucherClaimed(v.id)) {
+          list.add(v);
+        }
+      }
+    }
+    return list;
+  }
+
+  bool hasLikedReview(String reviewId) => _userUpvotedReviews.contains(reviewId);
+
+  int getReviewHelpfulCount(String reviewId, int initialCount) {
+    return (initialCount) + (_helpfulVotes[reviewId] ?? 0);
+  }
+
+  void toggleReviewLike(String reviewId) {
+    if (_userUpvotedReviews.contains(reviewId)) {
+      _userUpvotedReviews.remove(reviewId);
+      _helpfulVotes[reviewId] = (_helpfulVotes[reviewId] ?? 0) - 1;
+    } else {
+      _userUpvotedReviews.add(reviewId);
+      _helpfulVotes[reviewId] = (_helpfulVotes[reviewId] ?? 0) + 1;
+    }
+    notifyListeners();
   }
 
   /// Browse, Search, Typo Suggestion, and Multi-Filter Engine
@@ -359,13 +858,35 @@ class ShopService extends ChangeNotifier {
       ];
 
   ShopModel getShopById(String? shopId) {
-    if (shopId == null || shopId.isEmpty) return nexoraOfficialStore;
+    if (shopId == null || shopId.isEmpty) {
+      return const ShopModel(
+        id: '1',
+        name: 'Nexora Store',
+        followers: '0',
+        initials: 'N',
+        categoryGroupTitle: 'MERCHANDISE',
+        categories: [],
+        vouchers: [],
+      );
+    }
+    if (_remoteShopsCache.containsKey(shopId)) {
+      return _remoteShopsCache[shopId]!;
+    }
     final lower = shopId.toLowerCase();
     if (lower == 'logitech_hub') return apexGamingStore;
     if (lower == 'craft_ph' || lower == 'green_tropics') return nexoraLivingStore;
-    return allShops.firstWhere(
-      (s) => s.id.toLowerCase() == lower,
-      orElse: () => nexoraOfficialStore,
+    final found = allShops.where((s) => s.id.toLowerCase() == lower).firstOrNull;
+    if (found != null) return found;
+
+    return ShopModel(
+      id: shopId,
+      name: 'Seller Store',
+      badge: 'OFFICIAL STORE',
+      followers: '0',
+      initials: 'S',
+      categoryGroupTitle: 'MERCHANDISE',
+      categories: const [],
+      vouchers: const [],
     );
   }
 
@@ -376,11 +897,22 @@ class ShopService extends ChangeNotifier {
   ProductModel? getProductById(String? id) {
     if (id == null || id.isEmpty) return null;
     try {
-      return allAppProducts.firstWhere(
+      return products.firstWhere(
         (p) => p.id.toLowerCase() == id.toLowerCase(),
       );
     } catch (_) {
-      return null;
+      for (final shopProds in _remoteShopProducts.values) {
+        for (final p in shopProds) {
+          if (p.id.toLowerCase() == id.toLowerCase()) return p;
+        }
+      }
+      try {
+        return allAppProducts.firstWhere(
+          (p) => p.id.toLowerCase() == id.toLowerCase(),
+        );
+      } catch (_) {
+        return null;
+      }
     }
   }
 
@@ -757,6 +1289,10 @@ class ShopService extends ChangeNotifier {
   // PRODUCTS REPOSITORY
   // -------------------------------------------------------------
   List<ProductModel> getProductsByShop(String shopId) {
+    if (_remoteShopProducts.containsKey(shopId) &&
+        _remoteShopProducts[shopId]!.isNotEmpty) {
+      return _remoteShopProducts[shopId]!;
+    }
     return allAppProducts.where((p) => p.shopId.toLowerCase() == shopId.toLowerCase()).toList();
   }
 

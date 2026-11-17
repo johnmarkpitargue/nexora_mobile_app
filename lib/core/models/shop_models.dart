@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import '../../features/home/presentation/widgets/product_card.dart';
 
 /// Individual option in a variant group (e.g., "Matte Black", "Chalk White")
 class ProductVariantOption {
@@ -8,8 +9,12 @@ class ProductVariantOption {
   final Color? colorHex;
   final String? subtitle;
   final double priceOffset;
+  final double? price;
   final int stock;
   final String? imageUrl;
+  final String? sku;
+  final String? color;
+  final String? size;
 
   const ProductVariantOption({
     required this.id,
@@ -17,8 +22,12 @@ class ProductVariantOption {
     this.colorHex,
     this.subtitle,
     this.priceOffset = 0.0,
-    this.stock = 50,
+    this.price,
+    this.stock = 0,
     this.imageUrl,
+    this.sku,
+    this.color,
+    this.size,
   });
 }
 
@@ -115,6 +124,11 @@ class ShopModel {
   final List<ShopCategoryModel> categories;
   final List<ShopVoucherModel> vouchers;
   final String guaranteeText;
+  final String? avatarUrl;
+  final String? bannerUrl;
+  final bool isFollowing;
+  final bool isVacationMode;
+  final List<ProductModel> products;
 
   const ShopModel({
     required this.id,
@@ -128,5 +142,37 @@ class ShopModel {
     required this.categories,
     required this.vouchers,
     this.guaranteeText = '100% Authentic Guaranteed • 24-Month Warranty',
+    this.avatarUrl,
+    this.bannerUrl,
+    this.isFollowing = false,
+    this.isVacationMode = false,
+    this.products = const [],
   });
+}
+
+/// Dynamic marketplace category retrieved from Laravel /api/mobile/v1/buyer/categories
+class AppCategoryModel {
+  final int id;
+  final String name;
+  final String slug;
+  final String? icon;
+  final String? description;
+
+  const AppCategoryModel({
+    required this.id,
+    required this.name,
+    required this.slug,
+    this.icon,
+    this.description,
+  });
+
+  factory AppCategoryModel.fromJson(Map<String, dynamic> json) {
+    return AppCategoryModel(
+      id: json['id'] is int ? json['id'] as int : int.tryParse(json['id']?.toString() ?? '') ?? 0,
+      name: json['name'] as String? ?? '',
+      slug: json['slug'] as String? ?? '',
+      icon: json['icon'] as String?,
+      description: json['description'] as String?,
+    );
+  }
 }

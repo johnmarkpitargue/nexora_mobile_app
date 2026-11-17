@@ -1,9 +1,12 @@
 import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'profile_service.dart';
 import 'wishlist_service.dart';
+import '../constants/api_constants.dart';
+import '../network/api_client.dart';
 
 /// Validation rules and constants for Buyer Account Creation based on
 /// Mobile_Blackbox_Test_Cases_Account_Creation-Buyer.xlsx
@@ -102,16 +105,7 @@ class BuyerAccountRecord {
   String firstName;
   String lastName;
   String email;
-  String _mobileNumber;
-  String get mobileNumber {
-    final clean = _mobileNumber.trim();
-    if (clean == '09000000000' || clean == '+63 917 123 4567') return '';
-    return clean;
-  }
-  set mobileNumber(String value) {
-    final clean = value.trim();
-    _mobileNumber = (clean == '09000000000' || clean == '+63 917 123 4567') ? '' : clean;
-  }
+  String mobileNumber;
   DateTime dateOfBirth;
   String accountStatus; // 'Unverified' or 'Active'
   String otpCode;
@@ -132,7 +126,7 @@ class BuyerAccountRecord {
     required this.firstName,
     required this.lastName,
     required this.email,
-    required String mobileNumber,
+    required this.mobileNumber,
     required this.dateOfBirth,
     this.accountStatus = 'Unverified',
     required this.otpCode,
@@ -147,11 +141,14 @@ class BuyerAccountRecord {
     this.resetOtpCode,
     this.resetOtpExpiresAt,
     this.resetOtpAttemptsRemaining = 3,
-  }) : _mobileNumber = (mobileNumber.trim() == '09000000000' || mobileNumber.trim() == '+63 917 123 4567')
-            ? ''
-            : mobileNumber.trim();
+  });
 
-  String get fullName => '$firstName $lastName';
+  String get fullName {
+    final parts = [firstName.trim(), lastName.trim()].where((s) => s.isNotEmpty).toList();
+    if (parts.isNotEmpty) return parts.join(' ');
+    if (email.isNotEmpty && email.contains('@')) return email.split('@').first;
+    return 'Buyer';
+  }
   bool get isVerified => accountStatus == 'Active';
 
   Map<String, dynamic> toJson() => {
@@ -177,17 +174,12 @@ class BuyerAccountRecord {
       };
 
   factory BuyerAccountRecord.fromJson(Map<String, dynamic> json) {
-    final rawPhone = json['mobileNumber'] as String? ?? '';
-    final sanitizedPhone =
-        (rawPhone == '09000000000' || rawPhone == '+63 917 123 4567')
-            ? ''
-            : rawPhone;
     return BuyerAccountRecord(
       id: json['id'] as String? ?? 'BUY-${DateTime.now().millisecondsSinceEpoch}',
-      firstName: json['firstName'] as String? ?? '',
-      lastName: json['lastName'] as String? ?? '',
+      firstName: (json['firstName'] ?? json['first_name'] ?? '').toString().trim(),
+      lastName: (json['lastName'] ?? json['last_name'] ?? '').toString().trim(),
       email: (json['email'] as String? ?? '').toLowerCase(),
-      mobileNumber: sanitizedPhone,
+      mobileNumber: (json['mobileNumber'] ?? json['contact_number'] ?? json['phone'] ?? '').toString().trim(),
       dateOfBirth: DateTime.tryParse(json['dateOfBirth'] as String? ?? '') ?? DateTime(1995, 1, 1),
       accountStatus: json['accountStatus'] as String? ?? 'Active',
       otpCode: json['otpCode'] as String? ?? '123456',
@@ -272,6 +264,62 @@ class BuyerAccountService extends ChangeNotifier {
       } catch (_) {}
     }
     await _loadFromPersistence();
+    await syncRemoteUser();
+  }
+
+  /// Sync currently authenticated user from Laravel Sanctum backend
+  Future<void> syncRemoteUser() async {
+    if (!ApiClient.instance.hasToken) return;
+    try {
+      final res = await ApiClient.instance.get(ApiConstants.me);
+      if (res['data'] is Map<String, dynamic>) {
+        final data = res['data'] as Map<String, dynamic>;
+        final user = data['user'] as Map<String, dynamic>? ?? data;
+        final firstName = user['first_name'] as String? ?? '';
+        final lastName = user['last_name'] as String? ?? '';
+        final fullName = user['full_name'] as String? ?? user['name'] as String? ?? '';
+        final finalFirst = firstName.isNotEmpty
+            ? firstName
+            : (fullName.isNotEmpty ? fullName.split(' ').first : 'User');
+        final finalLast = lastName.isNotEmpty
+            ? lastName
+            : (fullName.split(' ').length > 1 ? fullName.split(' ').sublist(1).join(' ') : '');
+        final email = (user['email'] as String? ?? '').toLowerCase();
+        final phone = user['contact_number'] as String? ?? user['phone'] as String? ?? '';
+        final id = user['id']?.toString() ?? 'BUY-${DateTime.now().millisecondsSinceEpoch}';
+
+        final existing = _buyers[email];
+        final buyer = existing ?? BuyerAccountRecord(
+          id: id,
+          firstName: finalFirst,
+          lastName: finalLast,
+          email: email,
+          mobileNumber: phone,
+          dateOfBirth: DateTime(1995, 1, 1),
+          accountStatus: 'Active',
+          otpCode: '123456',
+          otpCreatedAt: DateTime.now(),
+          otpExpiresAt: DateTime.now().add(const Duration(days: 365)),
+          password: '',
+        );
+        buyer.firstName = finalFirst;
+        buyer.lastName = finalLast;
+        if (phone.isNotEmpty) buyer.mobileNumber = phone;
+        buyer.accountStatus = 'Active';
+        _buyers[email] = buyer;
+        _currentBuyerSession = buyer;
+        ProfileService.instance.updateProfile(
+          name: buyer.fullName,
+          email: email,
+          phone: phone.isNotEmpty ? phone : buyer.mobileNumber,
+          avatarUrl: user['avatar_url'] as String?,
+        );
+        _saveToPersistence();
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('syncRemoteUser error: $e');
+    }
   }
 
   /// Trigger asynchronous save and track the in-flight Future
@@ -304,10 +352,6 @@ class BuyerAccountService extends ChangeNotifier {
       final activeEmail = prefs.getString(_kActiveBuyerStorageKey);
       if (activeEmail != null && _buyers.containsKey(activeEmail.toLowerCase())) {
         _currentBuyerSession = _buyers[activeEmail.toLowerCase()];
-        if (_currentBuyerSession!.mobileNumber == '09000000000' ||
-            _currentBuyerSession!.mobileNumber == '+63 917 123 4567') {
-          _currentBuyerSession!.mobileNumber = '';
-        }
         ProfileService.instance.updateProfile(
           name: _currentBuyerSession!.fullName,
           email: _currentBuyerSession!.email,
@@ -817,7 +861,7 @@ class BuyerAccountService extends ChangeNotifier {
         firstName: firstName,
         lastName: lastName,
         email: cleanEmail,
-        mobileNumber: '',
+        mobileNumber: '09000000000',
         dateOfBirth: DateTime(2000, 1, 1),
         accountStatus: 'Active',
         otpCode: '123456',
@@ -835,6 +879,260 @@ class BuyerAccountService extends ChangeNotifier {
     _currentBuyerSession = buyer;
     _saveToPersistence();
     notifyListeners();
+  }
+
+  /// Buyer Login via Sanctum API
+  Future<BuyerOpResult> loginRemote({
+    required String emailOrPhone,
+    required String password,
+  }) async {
+    try {
+      final response = await ApiClient.instance.post(
+        ApiConstants.buyerLogin,
+        body: {
+          'email': emailOrPhone.trim(),
+          'password': password,
+        },
+      );
+
+      final data = response['data'] as Map<String, dynamic>? ?? {};
+      final token = data['token'] as String?;
+      if (token != null) {
+        await ApiClient.instance.saveToken(token);
+      }
+
+      final userData = data['user'] as Map<String, dynamic>? ?? {};
+      final firstName = userData['first_name'] as String? ?? '';
+      final lastName = userData['last_name'] as String? ?? '';
+      final fullName = userData['full_name'] as String? ?? userData['name'] as String? ?? '';
+      final finalFirst = firstName.isNotEmpty
+          ? firstName
+          : (fullName.isNotEmpty ? fullName.split(' ').first : 'User');
+      final finalLast = lastName.isNotEmpty
+          ? lastName
+          : (fullName.split(' ').length > 1 ? fullName.split(' ').sublist(1).join(' ') : '');
+      final email = (userData['email'] as String? ?? emailOrPhone).toLowerCase().trim();
+      final phone = userData['contact_number'] as String? ?? userData['phone'] as String? ?? '';
+      final id = userData['id']?.toString() ?? 'BUY-${DateTime.now().millisecondsSinceEpoch}';
+
+      final buyer = BuyerAccountRecord(
+        id: id,
+        firstName: finalFirst,
+        lastName: finalLast,
+        email: email,
+        mobileNumber: phone,
+        dateOfBirth: DateTime(1995, 1, 1),
+        accountStatus: 'Active',
+        otpCode: '123456',
+        otpCreatedAt: DateTime.now(),
+        otpExpiresAt: DateTime.now().add(const Duration(days: 365)),
+        password: password,
+      );
+
+      _buyers[email] = buyer;
+      _currentBuyerSession = buyer;
+      ProfileService.instance.updateProfile(
+        name: buyer.fullName,
+        email: email,
+        phone: phone.isNotEmpty ? phone : buyer.mobileNumber,
+      );
+      _saveToPersistence();
+      notifyListeners();
+
+      return BuyerOpResult.ok(
+        message: response['message'] as String? ?? 'Login successful',
+        buyer: buyer,
+      );
+    } on ApiException catch (e) {
+      if (e.statusCode == 403 && e.errors != null && e.errors!['email_unverified'] == true) {
+        final unverifiedBuyer = BuyerAccountRecord(
+          id: 'BUY-TEMP',
+          firstName: 'User',
+          lastName: '',
+          email: emailOrPhone.trim().toLowerCase(),
+          mobileNumber: '',
+          dateOfBirth: DateTime(1995, 1, 1),
+          accountStatus: 'Unverified',
+          otpCode: '123456',
+          otpCreatedAt: DateTime.now(),
+          otpExpiresAt: DateTime.now().add(const Duration(minutes: 10)),
+          password: password,
+        );
+        _currentUnverifiedBuyer = unverifiedBuyer;
+        return BuyerOpResult.fail(
+          e.message,
+          buyer: unverifiedBuyer,
+        );
+      }
+      return BuyerOpResult.fail(e.message);
+    } catch (e) {
+      return BuyerOpResult.fail(e.toString());
+    }
+  }
+
+  /// Buyer Register via Sanctum API
+  Future<BuyerOpResult> registerRemote({
+    required String firstName,
+    required String lastName,
+    required String email,
+    required String mobileNumber,
+    required DateTime? dateOfBirth,
+    required String password,
+    required String confirmPassword,
+    required bool agreeTerms,
+    String? referralCode,
+  }) async {
+    try {
+      final response = await ApiClient.instance.post(
+        ApiConstants.buyerRegister,
+        body: {
+          'first_name': firstName.trim(),
+          'last_name': lastName.trim(),
+          'email': email.trim().toLowerCase(),
+          'phone': BuyerValidationRules.normalizePhone(mobileNumber),
+          'password': password,
+          'password_confirmation': confirmPassword,
+          if (dateOfBirth != null) 'date_of_birth': dateOfBirth.toIso8601String().split('T').first,
+        },
+      );
+
+      final unverifiedBuyer = BuyerAccountRecord(
+        id: 'BUY-${DateTime.now().millisecondsSinceEpoch}',
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        email: email.trim().toLowerCase(),
+        mobileNumber: BuyerValidationRules.normalizePhone(mobileNumber),
+        dateOfBirth: dateOfBirth ?? DateTime(1995, 1, 1),
+        accountStatus: 'Unverified',
+        otpCode: '123456',
+        otpCreatedAt: DateTime.now(),
+        otpExpiresAt: DateTime.now().add(const Duration(minutes: 5)),
+        password: password,
+        referralCode: referralCode,
+      );
+
+      _buyers[unverifiedBuyer.email] = unverifiedBuyer;
+      _currentUnverifiedBuyer = unverifiedBuyer;
+      _saveToPersistence();
+      notifyListeners();
+
+      return BuyerOpResult.ok(
+        message: response['message'] as String? ?? 'Registration successful. Please verify your email.',
+        buyer: unverifiedBuyer,
+      );
+    } on ApiException catch (e) {
+      final fieldErrors = <String, String>{};
+      if (e.errors != null) {
+        e.errors!.forEach((key, val) {
+          if (val is List && val.isNotEmpty) {
+            fieldErrors[key] = val.first.toString();
+          } else if (val is String) {
+            fieldErrors[key] = val;
+          }
+        });
+      }
+      return BuyerOpResult.fail(
+        e.message,
+        fieldErrors: fieldErrors.isNotEmpty ? fieldErrors : null,
+      );
+    } catch (e) {
+      return BuyerOpResult.fail(e.toString());
+    }
+  }
+
+  /// Verify OTP via Sanctum API
+  Future<BuyerOpResult> verifyOtpRemote({
+    required String email,
+    required String inputOtp,
+  }) async {
+    try {
+      final response = await ApiClient.instance.post(
+        ApiConstants.verifyEmailOtp,
+        body: {
+          'email': email.trim().toLowerCase(),
+          'otp': inputOtp.trim(),
+        },
+      );
+
+      final data = response['data'] as Map<String, dynamic>? ?? {};
+      final token = data['token'] as String?;
+      if (token != null) {
+        await ApiClient.instance.saveToken(token);
+      }
+
+      final userData = data['user'] as Map<String, dynamic>? ?? {};
+      final name = userData['name'] as String? ?? '';
+      final userEmail = (userData['email'] as String? ?? email).toLowerCase().trim();
+      final phone = userData['phone'] as String? ?? '';
+      final id = userData['id']?.toString() ?? 'BUY-${DateTime.now().millisecondsSinceEpoch}';
+
+      final buyer = _buyers[userEmail] ?? BuyerAccountRecord(
+        id: id,
+        firstName: name.split(' ').first,
+        lastName: name.split(' ').length > 1 ? name.split(' ').sublist(1).join(' ') : '',
+        email: userEmail,
+        mobileNumber: phone,
+        dateOfBirth: DateTime(1995, 1, 1),
+        accountStatus: 'Active',
+        otpCode: inputOtp,
+        otpCreatedAt: DateTime.now(),
+        otpExpiresAt: DateTime.now().add(const Duration(days: 365)),
+        password: '',
+      );
+
+      buyer.accountStatus = 'Active';
+      _buyers[userEmail] = buyer;
+      _currentBuyerSession = buyer;
+      _currentUnverifiedBuyer = null;
+
+      ProfileService.instance.updateProfile(
+        name: name.isNotEmpty ? name : buyer.fullName,
+        email: userEmail,
+        phone: phone.isNotEmpty ? phone : buyer.mobileNumber,
+      );
+
+      _saveToPersistence();
+      notifyListeners();
+
+      return BuyerOpResult.ok(
+        message: response['message'] as String? ?? 'Email verified successfully',
+        buyer: buyer,
+      );
+    } on ApiException catch (e) {
+      return BuyerOpResult.fail(e.message);
+    } catch (e) {
+      return BuyerOpResult.fail(e.toString());
+    }
+  }
+
+  /// Resend OTP via Sanctum API
+  Future<BuyerOpResult> resendOtpRemote({required String email}) async {
+    try {
+      final response = await ApiClient.instance.post(
+        ApiConstants.resendEmailOtp,
+        body: {
+          'email': email.trim().toLowerCase(),
+        },
+      );
+      return BuyerOpResult.ok(
+        message: response['message'] as String? ?? 'Verification code sent',
+      );
+    } on ApiException catch (e) {
+      return BuyerOpResult.fail(e.message);
+    } catch (e) {
+      return BuyerOpResult.fail(e.toString());
+    }
+  }
+
+  /// Logout via Sanctum API
+  Future<void> logoutRemote() async {
+    try {
+      if (ApiClient.instance.hasToken) {
+        await ApiClient.instance.post(ApiConstants.logout);
+      }
+    } catch (_) {}
+    await ApiClient.instance.clearToken();
+    logout();
   }
 
   /// Find a registered BuyerAccountRecord by Email or Mobile Number
@@ -1146,6 +1444,171 @@ class BuyerAccountService extends ChangeNotifier {
   String? get pendingNewEmail => _pendingNewEmail;
   String? get pendingNewPhone => _pendingNewPhone;
 
+  /// Update profile (and optional avatar image) remotely on Laravel backend
+  Future<BuyerOpResult> updateProfileRemote({
+    required String firstName,
+    required String lastName,
+    String? phone,
+    String? sex,
+    String? birthday,
+    Uint8List? avatarBytes,
+    String? avatarFilename,
+  }) async {
+    try {
+      dynamic res;
+      if (avatarBytes != null && avatarBytes.isNotEmpty) {
+        final safeName = (avatarFilename != null && avatarFilename.isNotEmpty)
+            ? avatarFilename
+            : 'avatar.jpg';
+        res = await ApiClient.instance.multipart(
+          'POST',
+          ApiConstants.updateProfile,
+          fields: {
+            '_method': 'PUT',
+            'first_name': firstName.trim(),
+            'last_name': lastName.trim(),
+            if (phone != null && phone.isNotEmpty) 'contact_number': phone.trim(),
+            if (sex != null && sex.isNotEmpty) 'sex': sex,
+            if (birthday != null && birthday.isNotEmpty) 'birthday': birthday,
+          },
+          files: [
+            http.MultipartFile.fromBytes(
+              'avatar',
+              avatarBytes,
+              filename: safeName,
+            ),
+          ],
+        );
+      } else {
+        res = await ApiClient.instance.put(
+          ApiConstants.updateProfile,
+          body: {
+            'first_name': firstName.trim(),
+            'last_name': lastName.trim(),
+            if (phone != null && phone.isNotEmpty) 'contact_number': phone.trim(),
+            if (sex != null && sex.isNotEmpty) 'sex': sex,
+            if (birthday != null && birthday.isNotEmpty) 'birthday': birthday,
+          },
+        );
+      }
+      await syncRemoteUser();
+      final msg = res is ApiResponse
+          ? (res.message.isNotEmpty
+              ? res.message
+              : 'Profile updated successfully')
+          : ((res is Map ? res['message'] as String? : null) ??
+              'Profile updated successfully');
+      return BuyerOpResult.ok(message: msg);
+    } on ApiException catch (e) {
+      return BuyerOpResult.fail(
+        e.message,
+        fieldErrors: e.errors?.map((k, v) => MapEntry(k, v.toString())),
+      );
+    } catch (e) {
+      return BuyerOpResult.fail('Failed to update profile: $e');
+    }
+  }
+
+  /// Request Email Change OTP from Laravel backend
+  Future<BuyerOpResult> requestChangeEmailRemote({required String newEmail}) async {
+    final clean = newEmail.trim().toLowerCase();
+    if (!BuyerValidationRules.emailRegex.hasMatch(clean)) {
+      return BuyerOpResult.fail('Please enter a valid email address.');
+    }
+    if (!ApiClient.instance.hasToken) {
+      return requestChangeEmail(newEmail: clean);
+    }
+    try {
+      final res = await ApiClient.instance.post(
+        ApiConstants.requestEmailOtp,
+        body: {'new_email': clean},
+      );
+      return BuyerOpResult.ok(
+        message: res['message'] as String? ?? 'Verification OTP sent to $clean.',
+      );
+    } on ApiException catch (e) {
+      return BuyerOpResult.fail(e.message);
+    } catch (_) {
+      return BuyerOpResult.fail('Unable to send email OTP right now.');
+    }
+  }
+
+  /// Verify Email Change OTP with Laravel backend
+  Future<BuyerOpResult> verifyChangeEmailOtpRemote({required String otp}) async {
+    final cleanOtp = otp.trim();
+    if (cleanOtp.length != 6) {
+      return BuyerOpResult.fail('Please enter the 6-digit verification code.');
+    }
+    if (!ApiClient.instance.hasToken) {
+      return verifyChangeEmailOtp(otp: cleanOtp);
+    }
+    try {
+      final res = await ApiClient.instance.post(
+        ApiConstants.verifyEmailChangeOtp,
+        body: {'otp': cleanOtp},
+      );
+      await syncRemoteUser();
+      return BuyerOpResult.ok(
+        message: res['message'] as String? ?? 'Email updated successfully.',
+      );
+    } on ApiException catch (e) {
+      return BuyerOpResult.fail(e.message);
+    } catch (_) {
+      return BuyerOpResult.fail('Unable to verify OTP right now.');
+    }
+  }
+
+  /// Request Phone Change OTP from Laravel backend
+  Future<BuyerOpResult> requestChangePhoneRemote({required String newPhone}) async {
+    final normalized = BuyerValidationRules.normalizePhone(newPhone.trim());
+    if (!BuyerValidationRules.phoneRegex.hasMatch(normalized)) {
+      return BuyerOpResult.fail(
+        'Mobile number must be 11 digits starting with 09.',
+      );
+    }
+    if (!ApiClient.instance.hasToken) {
+      return requestChangePhone(newPhone: normalized);
+    }
+    try {
+      final res = await ApiClient.instance.post(
+        ApiConstants.requestPhoneOtp,
+        body: {'new_phone': normalized},
+      );
+      return BuyerOpResult.ok(
+        message: res['message'] as String? ?? 'Verification OTP sent to $normalized.',
+      );
+    } on ApiException catch (e) {
+      return BuyerOpResult.fail(e.message);
+    } catch (_) {
+      return BuyerOpResult.fail('Unable to send mobile OTP right now.');
+    }
+  }
+
+  /// Verify Phone Change OTP with Laravel backend
+  Future<BuyerOpResult> verifyChangePhoneOtpRemote({required String otp}) async {
+    final cleanOtp = otp.trim();
+    if (cleanOtp.length != 6) {
+      return BuyerOpResult.fail('Please enter the 6-digit verification code.');
+    }
+    if (!ApiClient.instance.hasToken) {
+      return verifyChangePhoneOtp(otp: cleanOtp);
+    }
+    try {
+      final res = await ApiClient.instance.post(
+        ApiConstants.verifyPhoneChangeOtp,
+        body: {'otp': cleanOtp},
+      );
+      await syncRemoteUser();
+      return BuyerOpResult.ok(
+        message: res['message'] as String? ?? 'Mobile number updated successfully.',
+      );
+    } on ApiException catch (e) {
+      return BuyerOpResult.fail(e.message);
+    } catch (_) {
+      return BuyerOpResult.fail('Unable to verify OTP right now.');
+    }
+  }
+
   /// Edit Profile validation and save (BUY-ACCT-001, BUY-ACCT-002, BUY-ACCT-010)
   BuyerOpResult editProfile({
     required String firstName,
@@ -1193,6 +1656,36 @@ class BuyerAccountService extends ChangeNotifier {
     }
 
     return BuyerOpResult.ok(message: 'Profile updated successfully!');
+  }
+
+  /// Change Password on Laravel backend API
+  Future<BuyerOpResult> updatePasswordRemote({
+    required String currentPassword,
+    required String newPassword,
+    required String confirmPassword,
+  }) async {
+    if (ApiClient.instance.hasToken) {
+      try {
+        final res = await ApiClient.instance.put(
+          ApiConstants.updatePassword,
+          body: {
+            'current_password': currentPassword,
+            'password': newPassword,
+            'password_confirmation': confirmPassword,
+          },
+        );
+        return BuyerOpResult.ok(message: res['message'] as String? ?? 'Password updated successfully');
+      } on ApiException catch (e) {
+        return BuyerOpResult.fail(e.message);
+      } catch (e) {
+        return BuyerOpResult.fail(e.toString());
+      }
+    }
+    return changePassword(
+      currentPassword: currentPassword,
+      newPassword: newPassword,
+      confirmPassword: confirmPassword,
+    );
   }
 
   /// Change Password (BUY-ACCT-003, BUY-ACCT-004, BUY-ACCT-005, BUY-ACCT-011)
@@ -1366,7 +1859,6 @@ class BuyerAccountService extends ChangeNotifier {
     final changedPhone = _pendingNewPhone!;
     _pendingNewPhone = null;
     _pendingPhoneOtp = null;
-    ProfileService.instance.updateProfile(phone: changedPhone);
     _saveToPersistence();
     notifyListeners();
 

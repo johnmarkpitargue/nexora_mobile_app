@@ -6,8 +6,8 @@ import '../../../app/theme/nexora_theme.dart';
 import '../../../core/services/address_service.dart';
 import '../../../core/services/buyer_account_service.dart';
 import '../../../core/services/laguna_places_service.dart';
-import '../../../core/services/order_service.dart';
 import '../../../core/services/ph_location_service.dart';
+import '../../../core/services/psgc_location_service.dart';
 import 'region_selector_page.dart';
 
 class NewAddressPage extends StatefulWidget {
@@ -30,11 +30,16 @@ class _NewAddressPageState extends State<NewAddressPage> {
   late final TextEditingController _phoneController;
   late final TextEditingController _postalController;
   late final TextEditingController _streetController;
+  late final TextEditingController _houseNumberController;
 
   String? _selectedRegion;
+  String? _selectedRegionCode;
   String? _selectedProvince;
+  String? _selectedProvinceCode;
   String? _selectedCity;
+  String? _selectedMunicipalityCode;
   String? _selectedBarangay;
+  String? _selectedBarangayCode;
 
   bool _isDefault = false;
   String _selectedLabel = 'Home'; // 'Work' or 'Home'
@@ -52,12 +57,17 @@ class _NewAddressPageState extends State<NewAddressPage> {
     _phoneController = TextEditingController(text: item?.phone ?? '');
     _postalController = TextEditingController(text: item?.postalCode ?? '');
     _streetController = TextEditingController(text: item?.streetBuilding ?? '');
+    _houseNumberController = TextEditingController(text: item?.houseNumber ?? '');
 
     if (item != null) {
       _selectedRegion = item.region.isNotEmpty ? item.region : null;
+      _selectedRegionCode = item.regionCode.isNotEmpty ? item.regionCode : null;
       _selectedProvince = item.province.isNotEmpty ? item.province : null;
+      _selectedProvinceCode = item.provinceCode.isNotEmpty ? item.provinceCode : null;
       _selectedCity = item.city.isNotEmpty ? item.city : null;
+      _selectedMunicipalityCode = item.municipalityCode.isNotEmpty ? item.municipalityCode : null;
       _selectedBarangay = item.barangay.isNotEmpty ? item.barangay : null;
+      _selectedBarangayCode = item.barangayCode.isNotEmpty ? item.barangayCode : null;
       _latitude = item.latitude;
       _longitude = item.longitude;
       _pinpointPlaceName = '${item.barangay}, ${item.city}, ${item.province}';
@@ -66,9 +76,13 @@ class _NewAddressPageState extends State<NewAddressPage> {
     } else {
       // Clean blank state for adding a NEW address
       _selectedRegion = null;
+      _selectedRegionCode = null;
       _selectedProvince = null;
+      _selectedProvinceCode = null;
       _selectedCity = null;
+      _selectedMunicipalityCode = null;
       _selectedBarangay = null;
+      _selectedBarangayCode = null;
       _latitude = null;
       _longitude = null;
       _pinpointPlaceName = null;
@@ -83,6 +97,7 @@ class _NewAddressPageState extends State<NewAddressPage> {
     _phoneController.dispose();
     _postalController.dispose();
     _streetController.dispose();
+    _houseNumberController.dispose();
     super.dispose();
   }
 
@@ -106,9 +121,13 @@ class _NewAddressPageState extends State<NewAddressPage> {
     if (result != null) {
       setState(() {
         _selectedRegion = result.region;
+        _selectedRegionCode = result.regionCode;
         _selectedProvince = result.province;
+        _selectedProvinceCode = result.provinceCode;
         _selectedCity = result.city;
+        _selectedMunicipalityCode = result.municipalityCode;
         _selectedBarangay = result.barangay;
+        _selectedBarangayCode = result.barangayCode;
         _postalController.text = result.postalCode;
         _latitude = result.latitude;
         _longitude = result.longitude;
@@ -258,10 +277,7 @@ class _NewAddressPageState extends State<NewAddressPage> {
                               hintText: 'Search place, landmark, or street...',
                               hintStyle: TextStyle(
                                   fontSize: 12.5, color: Color(0xFF94A3B8)),
-                              filled: false,
                               border: InputBorder.none,
-                              enabledBorder: InputBorder.none,
-                              focusedBorder: InputBorder.none,
                               isDense: true,
                               contentPadding:
                                   EdgeInsets.symmetric(vertical: 10),
@@ -722,7 +738,7 @@ class _NewAddressPageState extends State<NewAddressPage> {
     );
   }
 
-  void _handleSubmit() {
+  Future<void> _handleSubmit() async {
     setState(() => _validationError = null);
     final name = _nameController.text.trim();
     final phone = _phoneController.text.trim();
@@ -755,7 +771,6 @@ class _NewAddressPageState extends State<NewAddressPage> {
     }
 
     final regionCity = '$_selectedRegion, ${_selectedProvince ?? ''}, $_selectedCity, $_selectedBarangay';
-    final fullAddrStr = '$street, ${_selectedBarangay ?? ''}, ${_selectedCity ?? ''}, ${_selectedProvince ?? ''} $postal';
 
     double lat;
     double lng;
@@ -772,36 +787,47 @@ class _NewAddressPageState extends State<NewAddressPage> {
       lng = resolved.longitude;
     }
 
+    if (widget.editAddress == null && !AddressService.instance.canAddAddress) {
+      setState(() => _validationError =
+          'Maximum 10 addresses reached. Please edit or delete an existing address.');
+      return;
+    }
+
+    final regCode = _selectedRegionCode ??
+        PsgcLocationService.resolveRegionCode(_selectedRegion!, _selectedProvince);
+    final provCode = _selectedProvinceCode ??
+        PsgcLocationService.resolveProvinceCode(_selectedProvince ?? '');
+    final cityCode = _selectedMunicipalityCode ??
+        PsgcLocationService.resolveCityCode(_selectedCity!, provCode);
+    final brgyCode = _selectedBarangayCode ??
+        PsgcLocationService.resolveBarangayCode(_selectedBarangay!, cityCode);
+    final houseNum = _houseNumberController.text.trim();
+
     if (widget.editAddress != null) {
       final updated = widget.editAddress!.copyWith(
         fullName: name,
         phone: phone,
         region: _selectedRegion!,
+        regionCode: regCode,
         province: _selectedProvince ?? '',
+        provinceCode: provCode,
         city: _selectedCity!,
+        municipalityCode: cityCode,
         barangay: _selectedBarangay!,
+        barangayCode: brgyCode,
         regionCity: regionCity,
         postalCode: postal,
         streetBuilding: street,
+        houseNumber: houseNum,
         label: _selectedLabel,
         isDefault: _isDefault,
         latitude: lat,
         longitude: lng,
       );
-      final res = AddressService.instance.updateAddress(updated);
+      final res = await AddressService.instance.updateAddressRemote(updated);
       if (!res.success) {
         setState(() => _validationError = res.message);
         return;
-      }
-
-      // Sync updated pin to active orders
-      for (final order in OrderService.instance.activeOrders) {
-        OrderService.instance.updateOrderDeliveryPin(
-          orderId: order.orderId,
-          lat: lat,
-          lng: lng,
-          address: fullAddrStr,
-        );
       }
 
       _showToast('Address updated successfully');
@@ -811,38 +837,33 @@ class _NewAddressPageState extends State<NewAddressPage> {
         fullName: name,
         phone: phone,
         region: _selectedRegion!,
+        regionCode: regCode,
         province: _selectedProvince ?? '',
+        provinceCode: provCode,
         city: _selectedCity!,
+        municipalityCode: cityCode,
         barangay: _selectedBarangay!,
+        barangayCode: brgyCode,
         regionCity: regionCity,
         postalCode: postal,
         streetBuilding: street,
+        houseNumber: houseNum,
         label: _selectedLabel,
         isDefault: _isDefault,
         latitude: lat,
         longitude: lng,
       );
 
-      final res = AddressService.instance.addAddress(newAddr);
+      final res = await AddressService.instance.addAddressRemote(newAddr);
       if (!res.success) {
         setState(() => _validationError = res.message);
         return;
       }
 
-      if (_isDefault) {
-        for (final order in OrderService.instance.activeOrders) {
-          OrderService.instance.updateOrderDeliveryPin(
-            orderId: order.orderId,
-            lat: lat,
-            lng: lng,
-            address: fullAddrStr,
-          );
-        }
-      }
-
       _showToast('New address saved successfully');
     }
 
+    if (!mounted) return;
     Navigator.pop(context);
   }
 
@@ -881,11 +902,12 @@ class _NewAddressPageState extends State<NewAddressPage> {
     );
   }
 
-  void _handleDelete() {
+  Future<void> _handleDelete() async {
     if (widget.editAddress == null) return;
 
-    final res = AddressService.instance.deleteAddress(widget.editAddress!.id);
+    final res = await AddressService.instance.deleteAddressRemote(widget.editAddress!.id);
     if (!res.success) {
+      if (!mounted) return;
       setState(() => _validationError = res.message);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -896,6 +918,7 @@ class _NewAddressPageState extends State<NewAddressPage> {
       return;
     }
 
+    if (!mounted) return;
     _showToast('Address deleted successfully');
     Navigator.pop(context);
   }
@@ -920,7 +943,7 @@ class _NewAddressPageState extends State<NewAddressPage> {
     final cardBorder = isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0);
     final textPrimary = isDark ? Colors.white : const Color(0xFF0F172A);
     final textSecondary = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
-    final inputFill = isDark ? const Color(0xFF11192B) : Colors.white;
+    final inputFill = isDark ? const Color(0xFF11192B) : const Color(0xFFF8FAFC);
     final inputBorderColor = isDark ? const Color(0xFF28344A) : const Color(0xFFE2E8F0);
     final bannerBg = isDark ? const Color(0xFF0C2140) : const Color(0xFFEFF6FF);
     final bannerBorder = isDark ? const Color(0xFF1E3A8A) : const Color(0xFFDBEAFE);
@@ -985,7 +1008,7 @@ class _NewAddressPageState extends State<NewAddressPage> {
                 margin: const EdgeInsets.fromLTRB(16, 4, 16, 8),
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF450A0A) : const Color(0xFFFFEBEB),
+                  color: const Color(0xFFFFEBEB),
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(color: Colors.redAccent.shade100),
                 ),
@@ -1118,17 +1141,14 @@ class _NewAddressPageState extends State<NewAddressPage> {
                                 Expanded(
                                   child: Text(
                                     _hasSelectedLocation
-                                        ? '${_selectedRegion!}, ${_selectedProvince ?? ''}, ${_selectedCity!}, ${_selectedBarangay!}'
+                                        ? '${_selectedRegion!}\n${_selectedProvince ?? ''}\n${_selectedCity!}\n${_selectedBarangay!}'
                                         : 'Select Region, Province, City, Barangay',
                                     style: TextStyle(
-                                      fontSize: 13.5,
-                                      color: _hasSelectedLocation
-                                          ? textPrimary
-                                          : (isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8)),
+                                      fontSize: 14,
+                                      color: _hasSelectedLocation ? textPrimary : (isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8)),
                                       fontWeight: _hasSelectedLocation ? FontWeight.w600 : FontWeight.normal,
+                                      height: _hasSelectedLocation ? 1.35 : 1.2,
                                     ),
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
                                 Icon(Icons.chevron_right, size: 20, color: textSecondary),
@@ -1198,7 +1218,7 @@ class _NewAddressPageState extends State<NewAddressPage> {
                             ),
                           ),
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 14),
                       ],
                     ),
                   ),
@@ -1272,6 +1292,7 @@ class _NewAddressPageState extends State<NewAddressPage> {
                 ],
               ),
             ),
+            const SizedBox(height: 80),
           ],
         ),
       ),
@@ -1375,33 +1396,28 @@ class _NewAddressPageState extends State<NewAddressPage> {
 
   /// Builds the embedded map preview inside the Address Card, actively centered on pinned coordinates
   Widget _buildEmbeddedMapPreview() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final mapCardBg = isDark ? const Color(0xFF11192B) : const Color(0xFFF8FAFC);
-    final mapTitleColor = isDark ? Colors.white : textDark;
-    final mapSubtitleColor = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
-
     // If no coordinates yet (e.g. adding a new address), display an inviting pinpoint trigger card
     if (_latitude == null || _longitude == null) {
       return Container(
         padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: mapCardBg,
-          borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
+        decoration: const BoxDecoration(
+          color: Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.vertical(bottom: Radius.circular(16)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
+            const Row(
               children: [
-                const Icon(Icons.pin_drop_rounded, color: primaryBlue, size: 18),
-                const SizedBox(width: 6),
+                Icon(Icons.pin_drop_rounded, color: primaryBlue, size: 18),
+                SizedBox(width: 6),
                 Expanded(
                   child: Text(
                     'Delivery Pinpoint on Map',
                     style: TextStyle(
                       fontSize: 13.5,
                       fontWeight: FontWeight.bold,
-                      color: mapTitleColor,
+                      color: textDark,
                     ),
                   ),
                 ),
@@ -1463,9 +1479,9 @@ class _NewAddressPageState extends State<NewAddressPage> {
     final double fracY = globalTileY - centerTileY;
 
     return Container(
-      decoration: BoxDecoration(
-        color: mapCardBg,
-        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
+      decoration: const BoxDecoration(
+        color: Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(16)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1476,17 +1492,17 @@ class _NewAddressPageState extends State<NewAddressPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
+                const Row(
                   children: [
-                    const Icon(Icons.pin_drop_rounded, color: primaryBlue, size: 18),
-                    const SizedBox(width: 6),
+                    Icon(Icons.pin_drop_rounded, color: primaryBlue, size: 18),
+                    SizedBox(width: 6),
                     Expanded(
                       child: Text(
                         'Delivery Pinpoint on Map',
                         style: TextStyle(
                           fontSize: 13.5,
                           fontWeight: FontWeight.bold,
-                          color: mapTitleColor,
+                          color: textDark,
                         ),
                       ),
                     ),
@@ -1495,14 +1511,14 @@ class _NewAddressPageState extends State<NewAddressPage> {
                 const SizedBox(height: 6),
                 Row(
                   children: [
-                    Icon(Icons.my_location_rounded, size: 13, color: mapSubtitleColor),
+                    const Icon(Icons.my_location_rounded, size: 13, color: Color(0xFF64748B)),
                     const SizedBox(width: 5),
                     Expanded(
                       child: Text(
                         'Coordinates: ${lat.toStringAsFixed(4)}° N, ${lng.toStringAsFixed(4)}° E',
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 11,
-                          color: mapSubtitleColor,
+                          color: Color(0xFF64748B),
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -1716,10 +1732,6 @@ class _NewAddressPageState extends State<NewAddressPage> {
   /// Builds the 'Work' or 'Home' label button with selected checkmark (Nexora Blue)
   Widget _buildLabelButton(String label) {
     final isSelected = _selectedLabel == label;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final unselectedBg = isDark ? const Color(0xFF172136) : const Color(0xFFF1F5F9);
-    final unselectedText = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
-    final selectedBg = isDark ? const Color(0xFF102A52) : const Color(0xFFEFF6FF);
 
     if (isSelected) {
       return GestureDetector(
@@ -1727,7 +1739,7 @@ class _NewAddressPageState extends State<NewAddressPage> {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
           decoration: BoxDecoration(
-            color: selectedBg,
+            color: const Color(0xFFEFF6FF),
             borderRadius: BorderRadius.circular(8),
             border: Border.all(color: primaryBlue, width: 1.3),
           ),
@@ -1755,15 +1767,15 @@ class _NewAddressPageState extends State<NewAddressPage> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
         decoration: BoxDecoration(
-          color: unselectedBg,
+          color: const Color(0xFFF1F5F9),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Text(
           label,
-          style: TextStyle(
+          style: const TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w600,
-            color: unselectedText,
+            color: Color(0xFF64748B),
           ),
         ),
       ),

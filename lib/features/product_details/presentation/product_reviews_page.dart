@@ -1,10 +1,7 @@
-import 'dart:typed_data';
+﻿import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:nexora_flutter_app/app/theme/nexora_theme.dart';
 import 'package:nexora_flutter_app/core/models/shop_models.dart';
-import 'package:nexora_flutter_app/core/services/buyer_account_service.dart';
-import 'package:nexora_flutter_app/core/services/profile_service.dart';
 import 'package:nexora_flutter_app/core/services/shop_service.dart';
 import 'package:nexora_flutter_app/core/widgets/nexora_widgets.dart';
 import 'package:nexora_flutter_app/features/home/presentation/widgets/product_card.dart';
@@ -25,27 +22,66 @@ class ProductReviewsPage extends StatefulWidget {
 
 class _ProductReviewsPageState extends State<ProductReviewsPage> {
   String _selectedFilter = 'All';
+  bool _isLoading = false;
+  String? _errorMessage;
+  Map<String, dynamic>? _remoteReviewsPayload;
 
   String get _productKey =>
       widget.product.id.isNotEmpty ? widget.product.id : widget.product.title;
 
   @override
+  void initState() {
+    super.initState();
+    _loadReviews();
+  }
+
+  Future<void> _loadReviews() async {
+    final pid = int.tryParse(_productKey);
+    if (pid == null || pid <= 0) return;
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+    try {
+      final data = await ShopService.instance.fetchProductReviewsRemote(pid.toString());
+      if (!mounted) return;
+      setState(() {
+        _remoteReviewsPayload = data;
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Unable to load product reviews right now.';
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
 
     return AnimatedBuilder(
       animation: ShopService.instance,
       builder: (context, _) {
-        final allReviews = ShopService.instance.getReviewsForProduct(
-          _productKey,
-          widget.product.reviews,
-        );
-        final averageRating = ShopService.instance.getProductAverageRating(
-          _productKey,
-          widget.product.rating,
-        );
-        final breakdown = ShopService.instance.getProductRatingBreakdown(_productKey);
+        final remoteList =
+            _remoteReviewsPayload?['reviews'] as List<ProductReviewModel>?;
+        final allReviews = remoteList ??
+            ShopService.instance.getReviewsForProduct(
+              _productKey,
+              widget.product.reviews,
+            );
+        final averageRating =
+            (_remoteReviewsPayload?['average_rating'] as num?)?.toDouble() ??
+                ShopService.instance.getProductAverageRating(
+                  _productKey,
+                  widget.product.rating,
+                );
+        final rawBreakdown = _remoteReviewsPayload?['breakdown'];
+        final breakdown = rawBreakdown is Map<int, double>
+            ? rawBreakdown
+            : ShopService.instance.getProductRatingBreakdown(_productKey);
 
         List<ProductReviewModel> filtered = allReviews;
         if (_selectedFilter == 'With Photos') {
@@ -79,30 +115,17 @@ class _ProductReviewsPageState extends State<ProductReviewsPage> {
 
         return Scaffold(
           backgroundColor: theme.scaffoldBackgroundColor,
-          appBar: NexoraAppBar(
+          appBar: const NexoraAppBar(
             titleText: 'Ratings & Reviews',
             showBottomDivider: true,
-            actions: [
-              IconButton(
-                tooltip: 'Write a review',
-                icon: const Icon(Icons.rate_review_outlined),
-                onPressed: () => _openWriteReviewSheet(context),
+          ),
+          body: RefreshIndicator(
+            onRefresh: _loadReviews,
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(
+                parent: BouncingScrollPhysics(),
               ),
-            ],
-          ),
-          floatingActionButton: FloatingActionButton.extended(
-            onPressed: () => _openWriteReviewSheet(context),
-            backgroundColor: const Color(0xFF0066FF),
-            foregroundColor: Colors.white,
-            icon: const Icon(Icons.rate_review_rounded, size: 20),
-            label: const Text(
-              'Write a Review',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ),
-          body: SingleChildScrollView(
-            physics: const BouncingScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 90),
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 36),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -127,26 +150,26 @@ class _ProductReviewsPageState extends State<ProductReviewsPage> {
                       ),
                       const SizedBox(width: 8),
                       _buildFilterChip(
-                        '📷 With Photos ($withPhotosCount)',
+                        'ðŸ“· With Photos ($withPhotosCount)',
                         isSelected: _selectedFilter == 'With Photos',
                         onTap: () => setState(() => _selectedFilter = 'With Photos'),
                       ),
                       const SizedBox(width: 8),
                       _buildFilterChip(
-                        '5 ★ ($fiveStarCount)',
+                        '5 â˜… ($fiveStarCount)',
                         isSelected: _selectedFilter == '5 Star',
                         onTap: () => setState(() => _selectedFilter = '5 Star'),
                       ),
                       const SizedBox(width: 8),
                       _buildFilterChip(
-                        '4 ★ ($fourStarCount)',
+                        '4 â˜… ($fourStarCount)',
                         isSelected: _selectedFilter == '4 Star',
                         onTap: () => setState(() => _selectedFilter = '4 Star'),
                       ),
                       if (threeStarCount > 0) ...[
                         const SizedBox(width: 8),
                         _buildFilterChip(
-                          '3 ★ ($threeStarCount)',
+                          '3 â˜… ($threeStarCount)',
                           isSelected: _selectedFilter == '3 Star',
                           onTap: () => setState(() => _selectedFilter = '3 Star'),
                         ),
@@ -154,7 +177,7 @@ class _ProductReviewsPageState extends State<ProductReviewsPage> {
                       if (lowStarCount > 0) ...[
                         const SizedBox(width: 8),
                         _buildFilterChip(
-                          '1-2 ★ ($lowStarCount)',
+                          '1-2 â˜… ($lowStarCount)',
                           isSelected: _selectedFilter == '1 Star',
                           onTap: () => setState(() => _selectedFilter = '1 Star'),
                         ),
@@ -190,61 +213,30 @@ class _ProductReviewsPageState extends State<ProductReviewsPage> {
                 const SizedBox(height: 12),
 
                 // Reviews list
-                if (filtered.isEmpty)
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
-                    decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFF1E293B) : Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
-                      ),
-                    ),
-                    child: Column(
-                      children: [
-                        Icon(
-                          Icons.rate_review_outlined,
-                          size: 48,
-                          color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8),
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          'No reviews found for this filter.',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                            color: theme.colorScheme.onSurface,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Be the first to share your thoughts on this product!',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        ElevatedButton.icon(
-                          onPressed: () => _openWriteReviewSheet(context),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF0066FF),
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          icon: const Icon(Icons.rate_review, size: 16),
-                          label: const Text('Write a Review'),
-                        ),
-                      ],
-                    ),
+                if (_isLoading && allReviews.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 16),
+                    child: NexoraLoadingSkeleton(itemCount: 3, itemHeight: 110),
+                  )
+                else if (_errorMessage != null && allReviews.isEmpty)
+                  NexoraErrorState(
+                    message: _errorMessage!,
+                    onRetry: _loadReviews,
+                  )
+                else if (filtered.isEmpty)
+                  NexoraEmptyState(
+                    icon: Icons.rate_review_outlined,
+                    title: allReviews.isEmpty
+                        ? 'No reviews yet'
+                        : 'No reviews match this filter',
+                    message: allReviews.isEmpty
+                        ? 'Verified buyer reviews appear after completed orders are rated.'
+                        : 'Try selecting All to view all product reviews.',
                   )
                 else
                   ...filtered.map((rev) => _buildReviewItem(context, rev)),
               ],
+            ),
             ),
           ),
         );
@@ -324,7 +316,7 @@ class _ProductReviewsPageState extends State<ProductReviewsPage> {
                     ),
                     const SizedBox(width: 6),
                     Text(
-                      '•  $totalReviews verified review${totalReviews == 1 ? '' : 's'}',
+                      'â€¢  $totalReviews verified review${totalReviews == 1 ? '' : 's'}',
                       style: TextStyle(
                         fontSize: 11.5,
                         color: theme.colorScheme.onSurfaceVariant,
@@ -753,612 +745,6 @@ class _ProductReviewsPageState extends State<ProductReviewsPage> {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  void _openWriteReviewSheet(BuildContext context) {
-    showWriteProductReviewModal(
-      context,
-      product: widget.product,
-      initialVariant: widget.initialVariant,
-      productKey: _productKey,
-    );
-  }
-}
-
-void showWriteProductReviewModal(
-  BuildContext context, {
-  required ProductModel product,
-  String? initialVariant,
-  required String productKey,
-}) {
-  showModalBottomSheet(
-    context: context,
-    isScrollControlled: true,
-    backgroundColor: Colors.transparent,
-    builder: (sheetContext) => WriteReviewBottomSheet(
-      product: product,
-      initialVariant: initialVariant,
-      productKey: productKey,
-    ),
-  );
-}
-
-class WriteReviewBottomSheet extends StatefulWidget {
-  final ProductModel product;
-  final String? initialVariant;
-  final String productKey;
-
-  const WriteReviewBottomSheet({
-    super.key,
-    required this.product,
-    this.initialVariant,
-    required this.productKey,
-  });
-
-  @override
-  State<WriteReviewBottomSheet> createState() => _WriteReviewBottomSheetState();
-}
-
-class _WriteReviewBottomSheetState extends State<WriteReviewBottomSheet> {
-  int _rating = 5;
-  late final TextEditingController _commentCtrl;
-  String _selectedVariant = '';
-  final List<Uint8List> _attachedImageBytes = [];
-  bool _isPicking = false;
-  String? _error;
-
-  final List<String> _quickChips = [
-    'Superb Quality',
-    'Fast Delivery',
-    'Worth the Price',
-    'Legit & Authentic',
-    'Very Responsive Seller',
-    'Well Packaged',
-  ];
-
-  @override
-  void initState() {
-    super.initState();
-    _commentCtrl = TextEditingController();
-    if (widget.initialVariant != null && widget.initialVariant!.isNotEmpty) {
-      _selectedVariant = widget.initialVariant!;
-    } else if (widget.product.variantGroups != null &&
-        widget.product.variantGroups!.isNotEmpty &&
-        widget.product.variantGroups!.first.options.isNotEmpty) {
-      _selectedVariant = widget.product.variantGroups!.first.options.first.name;
-    } else {
-      _selectedVariant = 'Standard Edition';
-    }
-  }
-
-  @override
-  void dispose() {
-    _commentCtrl.dispose();
-    super.dispose();
-  }
-
-  String _getRatingLabel(int r) {
-    switch (r) {
-      case 1:
-        return '1 Star - Terrible';
-      case 2:
-        return '2 Stars - Poor';
-      case 3:
-        return '3 Stars - Fair';
-      case 4:
-        return '4 Stars - Good';
-      case 5:
-        return '5 Stars - Amazing!';
-      default:
-        return '$r Stars';
-    }
-  }
-
-  Future<void> _pickImage(ImageSource source) async {
-    if (_attachedImageBytes.length >= 5) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Maximum 5 photos allowed per review')),
-      );
-      return;
-    }
-    try {
-      setState(() => _isPicking = true);
-      final picker = ImagePicker();
-      final picked = await picker.pickImage(
-        source: source,
-        maxWidth: 1200,
-        maxHeight: 1200,
-        imageQuality: 85,
-      );
-      if (picked != null) {
-        final bytes = await picked.readAsBytes();
-        setState(() {
-          _attachedImageBytes.add(bytes);
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not attach image: $e')),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isPicking = false);
-    }
-  }
-
-  void _submitReview() {
-    setState(() => _error = null);
-    final comment = _commentCtrl.text.trim();
-    if (comment.isEmpty) {
-      setState(() => _error = 'Please write a brief comment describing your experience.');
-      return;
-    }
-
-    final buyer = BuyerAccountService.instance.currentBuyer;
-    final profile = ProfileService.instance;
-    final userName = (buyer != null && buyer.fullName.trim().isNotEmpty)
-        ? buyer.fullName.trim()
-        : (profile.name.trim().isNotEmpty ? profile.name.trim() : 'Alex Rivera');
-
-    final initials = userName.split(' ').map((p) => p.isNotEmpty ? p[0] : '').take(2).join().toUpperCase();
-
-    ShopService.instance.addProductReview(
-      productIdOrTitle: widget.productKey,
-      userName: userName,
-      initials: initials.isNotEmpty ? initials : 'NB',
-      avatarColor: const Color(0xFF0066FF),
-      rating: _rating.toDouble(),
-      comment: comment,
-      variantName: _selectedVariant,
-      reviewImageBytes: List.from(_attachedImageBytes),
-    );
-
-    Navigator.pop(context);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Row(
-          children: [
-            Icon(Icons.check_circle_rounded, color: Colors.white),
-            SizedBox(width: 8),
-            Text('Thank you! Your rating and review have been posted.'),
-          ],
-        ),
-        backgroundColor: Color(0xFF10B981),
-        duration: Duration(seconds: 3),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final media = MediaQuery.of(context);
-
-    return Container(
-      constraints: BoxConstraints(maxHeight: media.size.height * 0.9),
-      padding: EdgeInsets.fromLTRB(
-        20,
-        14,
-        20,
-        media.viewInsets.bottom + 20,
-      ),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF0F172A) : Colors.white,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Drag handle
-            Center(
-              child: Container(
-                width: 38,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Rate & Review Product',
-                  style: TextStyle(
-                    fontFamily: NexoraTheme.fontFamily,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                    color: theme.colorScheme.onSurface,
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.close_rounded),
-                  onPressed: () => Navigator.pop(context),
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Text(
-              widget.product.title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 12.5,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // Rating Stars Picker
-            Center(
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: List.generate(5, (idx) {
-                      final starNum = idx + 1;
-                      final isSelected = starNum <= _rating;
-                      return GestureDetector(
-                        onTap: () => setState(() => _rating = starNum),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                          child: Icon(
-                            Icons.star_rounded,
-                            size: 38,
-                            color: isSelected
-                                ? const Color(0xFFF59E0B)
-                                : (isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
-                          ),
-                        ),
-                      );
-                    }),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    _getRatingLabel(_rating),
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFFF59E0B),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // Variation selector if product has variant options
-            if (widget.product.variantGroups != null &&
-                widget.product.variantGroups!.isNotEmpty) ...[
-              Text(
-                'Purchased Variation',
-                style: TextStyle(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 13,
-                  color: theme.colorScheme.onSurface,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Wrap(
-                spacing: 8,
-                runSpacing: 6,
-                children: widget.product.variantGroups!.first.options.map((opt) {
-                  final isSel = _selectedVariant == opt.name;
-                  return ChoiceChip(
-                    label: Text(opt.name),
-                    selected: isSel,
-                    onSelected: (val) {
-                      if (val) setState(() => _selectedVariant = opt.name);
-                    },
-                    selectedColor: const Color(0xFF0066FF).withValues(alpha: 0.15),
-                    labelStyle: TextStyle(
-                      fontSize: 12,
-                      fontWeight: isSel ? FontWeight.w700 : FontWeight.w500,
-                      color: isSel ? const Color(0xFF0066FF) : theme.colorScheme.onSurface,
-                    ),
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: 14),
-            ],
-
-            // Comment text area
-            Text(
-              'Your Review',
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-                fontSize: 13,
-                color: theme.colorScheme.onSurface,
-              ),
-            ),
-            const SizedBox(height: 6),
-            TextField(
-              controller: _commentCtrl,
-              maxLines: 4,
-              decoration: InputDecoration(
-                hintText:
-                    'What did you like or dislike about this product? How is the build quality and performance?',
-                hintStyle: TextStyle(
-                  fontSize: 12.5,
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-                filled: true,
-                fillColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide(
-                    color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
-                  ),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide(
-                    color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
-                  ),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: const BorderSide(color: Color(0xFF0066FF), width: 1.5),
-                ),
-              ),
-            ),
-            const SizedBox(height: 10),
-
-            // Quick Chips
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              physics: const BouncingScrollPhysics(),
-              child: Row(
-                children: _quickChips.map((chip) {
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 6),
-                    child: ActionChip(
-                      label: Text(
-                        '+ $chip',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: theme.colorScheme.primary,
-                        ),
-                      ),
-                      backgroundColor: isDark
-                          ? const Color(0xFF1E293B)
-                          : const Color(0xFFEEF2FF),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        side: BorderSide(
-                          color: isDark
-                              ? const Color(0xFF334155)
-                              : const Color(0xFFC7D2FE),
-                        ),
-                      ),
-                      onPressed: () {
-                        final current = _commentCtrl.text.trim();
-                        if (current.isEmpty) {
-                          _commentCtrl.text = chip;
-                        } else {
-                          _commentCtrl.text = '$current. $chip';
-                        }
-                        _commentCtrl.selection = TextSelection.fromPosition(
-                          TextPosition(offset: _commentCtrl.text.length),
-                        );
-                      },
-                    ),
-                  );
-                }).toList(),
-              ),
-            ),
-            const SizedBox(height: 14),
-
-            // Photo Upload
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Add Photos (${_attachedImageBytes.length}/5)',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 13,
-                    color: theme.colorScheme.onSurface,
-                  ),
-                ),
-                Text(
-                  'Optional',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              physics: const BouncingScrollPhysics(),
-              child: Row(
-                children: [
-                  // Add button
-                  if (_attachedImageBytes.length < 5)
-                    GestureDetector(
-                      onTap: _isPicking
-                          ? null
-                          : () => _showPickerModal(context),
-                      child: Container(
-                        width: 70,
-                        height: 70,
-                        margin: const EdgeInsets.only(right: 10),
-                        decoration: BoxDecoration(
-                          color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: const Color(0xFF0066FF),
-                            style: BorderStyle.solid,
-                          ),
-                        ),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.camera_alt_rounded,
-                              size: 22,
-                              color: theme.colorScheme.primary,
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Add Photo',
-                              style: TextStyle(
-                                fontSize: 9.5,
-                                fontWeight: FontWeight.bold,
-                                color: theme.colorScheme.primary,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  // Image previews
-                  ...List.generate(_attachedImageBytes.length, (idx) {
-                    final bytes = _attachedImageBytes[idx];
-                    return Stack(
-                      children: [
-                        Container(
-                          width: 70,
-                          height: 70,
-                          margin: const EdgeInsets.only(right: 10),
-                          clipBehavior: Clip.antiAlias,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
-                            ),
-                          ),
-                          child: Image.memory(bytes, fit: BoxFit.cover),
-                        ),
-                        Positioned(
-                          top: 2,
-                          right: 12,
-                          child: GestureDetector(
-                            onTap: () => setState(() => _attachedImageBytes.removeAt(idx)),
-                            child: Container(
-                              padding: const EdgeInsets.all(2),
-                              decoration: const BoxDecoration(
-                                color: Colors.black87,
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(Icons.close, size: 14, color: Colors.white),
-                            ),
-                          ),
-                        ),
-                      ],
-                    );
-                  }),
-                ],
-              ),
-            ),
-            const SizedBox(height: 14),
-
-            if (_error != null) ...[
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFEBEB),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Colors.redAccent.shade100),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.error_outline, size: 16, color: Colors.redAccent),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        _error!,
-                        style: const TextStyle(
-                          color: Colors.redAccent,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 14),
-            ],
-
-            // Submit Button
-            Container(
-              width: double.infinity,
-              height: 48,
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF00D2FF), Color(0xFF0066FF)],
-                ),
-                borderRadius: BorderRadius.circular(24),
-              ),
-              child: ElevatedButton(
-                onPressed: _submitReview,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.transparent,
-                  shadowColor: Colors.transparent,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(24),
-                  ),
-                ),
-                child: const Text(
-                  'Submit Rating & Review',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showPickerModal(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => Material(
-        color: Theme.of(ctx).colorScheme.surfaceContainerLowest,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        clipBehavior: Clip.antiAlias,
-        child: SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.camera_alt_rounded, color: Color(0xFF0066FF)),
-                title: const Text('Take a Photo'),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _pickImage(ImageSource.camera);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.photo_library_rounded, color: Color(0xFF0066FF)),
-                title: const Text('Choose from Gallery'),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _pickImage(ImageSource.gallery);
-                },
-              ),
-            ],
-          ),
         ),
       ),
     );

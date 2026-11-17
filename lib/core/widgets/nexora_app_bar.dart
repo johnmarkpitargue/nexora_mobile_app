@@ -144,15 +144,17 @@ class NexoraAppBar extends StatelessWidget implements PreferredSizeWidget {
 
     if (!automaticallyImplyLeading) return null;
 
-    final modalRoute = ModalRoute.of(context);
-    final canPop = Navigator.canPop(context) || (modalRoute?.canPop ?? false);
+    if (onBackPressed == null) {
+      final modalRoute = ModalRoute.of(context);
+      final canPop = Navigator.canPop(context) || (modalRoute?.canPop ?? false);
 
-    // If on the root route and cannot pop, omit the back button
-    final isHomeRoot = modalRoute?.settings.name == AppRoutes.home ||
-        modalRoute?.settings.name == AppRoutes.splash ||
-        (modalRoute?.isFirst ?? false);
-    if (!canPop && isHomeRoot) return null;
-    if (!canPop && fallbackRoute.isEmpty) return null;
+      // If on the root route and cannot pop, omit the back button
+      final isHomeRoot = modalRoute?.settings.name == AppRoutes.home ||
+          modalRoute?.settings.name == AppRoutes.splash ||
+          (modalRoute?.isFirst ?? false);
+      if (!canPop && isHomeRoot) return null;
+      if (!canPop && fallbackRoute.isEmpty) return null;
+    }
 
     return Semantics(
       button: true,
@@ -249,15 +251,17 @@ class NexoraAppBar extends StatelessWidget implements PreferredSizeWidget {
         ...?actions,
         const SizedBox(width: NexoraSpacing.xs),
       ],
-      bottom: bottom,
-      shape: showBottomDivider
-          ? Border(
-              bottom: BorderSide(
-                color: theme.colorScheme.outlineVariant,
-                width: 1.0,
-              ),
-            )
-          : null,
+      bottom: bottom ??
+          (showBottomDivider
+              ? PreferredSize(
+                  preferredSize: const Size.fromHeight(1.0),
+                  child: Divider(
+                    height: 1.0,
+                    thickness: 1.0,
+                    color: theme.colorScheme.outlineVariant,
+                  ),
+                )
+              : null),
     );
 
     return bar;

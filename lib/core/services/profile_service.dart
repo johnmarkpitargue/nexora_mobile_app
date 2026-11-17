@@ -6,32 +6,21 @@ class ProfileService extends ChangeNotifier {
   static final ProfileService instance = ProfileService._internal();
   ProfileService._internal();
 
-  String _name = 'Alex Rivera';
+  String _name = '';
   String _username = '';
-  String _email = 'alex.rivera@nexora.io';
+  String _email = '';
   String _phone = '';
   String _address = '';
   String _avatarUrl = '';
   Uint8List? _avatarBytes;
-  double _walletBalance = 1850.50;
-  final int _voucherCount = 1;
+  double _walletBalance = 0.0;
+  final int _voucherCount = 0;
 
   // Getters
   String get name => _name;
-  String get username {
-    if (_username.isNotEmpty && _username != '@alexrivera') return _username;
-    if (_email.isNotEmpty && _email != 'alex.rivera@nexora.io') {
-      final prefix = _email.split('@').first.trim();
-      return '@$prefix';
-    }
-    return _username.isNotEmpty ? _username : '@username';
-  }
+  String get username => _username;
   String get email => _email;
-  String get phone {
-    final clean = _phone.trim();
-    if (clean == '09000000000' || clean == '+63 917 123 4567') return '';
-    return clean;
-  }
+  String get phone => _phone;
   String get address => _address;
   String get avatarUrl => _avatarUrl;
   Uint8List? get avatarBytes => _avatarBytes;
@@ -53,10 +42,7 @@ class ProfileService extends ChangeNotifier {
     if (name != null) _name = name.trim();
     if (username != null) _username = username.trim();
     if (email != null) _email = email.trim();
-    if (phone != null) {
-      final clean = phone.trim();
-      _phone = (clean == '09000000000' || clean == '+63 917 123 4567') ? '' : clean;
-    }
+    if (phone != null) _phone = phone.trim();
     if (address != null) _address = address.trim();
     if (avatarUrl != null) {
       _avatarUrl = avatarUrl;

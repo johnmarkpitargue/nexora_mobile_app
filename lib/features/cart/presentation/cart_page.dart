@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
-
-import '../../../app/theme/nexora_theme.dart';
 import '../../../app/routes/app_routes.dart';
+import '../../../core/network/api_client.dart';
 import '../../../core/services/buyer_account_service.dart';
 import '../../../core/services/cart_service.dart';
+import '../../../core/services/chat_service.dart';
 import '../../../core/utils/guest_auth_guard.dart';
-import '../../../core/widgets/nexora_widgets.dart';
-import '../../checkout/presentation/widgets/checkout_components.dart';
+import '../../chat/presentation/chat_detail_page.dart';
 
 class CartPage extends StatefulWidget {
   const CartPage({super.key});
@@ -16,71 +15,115 @@ class CartPage extends StatefulWidget {
 }
 
 class _CartPageState extends State<CartPage> {
-  static const bool _useLegacyCart = bool.fromEnvironment('NEXORA_LEGACY_CART');
-
   bool _isEditMode = false;
+  bool _isMutating = false;
   final CartService _cartService = CartService.instance;
 
-  // Dynamic Real-time Calculations
+  @override
+  void initState() {
+    super.initState();
+    _cartService.loadCartRemote();
+  }
+
   int get _checkedCount => _cartService.selectedCount;
   int get _checkedItemsCount => _cartService.selectedItemsCount;
-
   bool get _isAllChecked => _cartService.isAllSelected;
-
   double get _subtotal => _cartService.subtotal;
   double get _originalSubtotal => _cartService.originalSubtotal;
 
-  double get _voucherDiscount => _checkedCount > 0 ? 150.0 : 0.0;
-
   double get _totalSaved {
     if (_checkedCount == 0) return 0.0;
-    return (_originalSubtotal - _subtotal) + _voucherDiscount;
+    final diff = _originalSubtotal - _subtotal;
+    return diff > 0 ? diff : 0.0;
   }
 
-  double get _finalTotal {
-    if (_checkedCount == 0) return 0.0;
-    final total = _subtotal - _voucherDiscount;
-    return total < 0 ? 0.0 : total;
-  }
-
-  void _toggleSelectAll(bool? val) {
-    _cartService.toggleSelectAll(val ?? false);
-  }
-
-  void _toggleStore(String storeName, bool checked) {
-    _cartService.toggleStoreChecked(storeName, checked);
-  }
-
-  bool _isStoreAllChecked(String storeName) {
-    final storeItems = _cartService.items.where(
-      (i) => i.storeName == storeName,
-    );
-    return storeItems.isNotEmpty && storeItems.every((i) => i.isChecked);
-  }
-
-  void _incrementQty(CartItemModel item) {
-    _cartService.updateQuantity(item.id, item.quantity + 1);
-  }
-
-  void _decrementQty(CartItemModel item) {
-    if (item.quantity > 1) {
-      _cartService.updateQuantity(item.id, item.quantity - 1);
-    } else {
-      _deleteItem(item);
-    }
-  }
-
-  void _deleteItem(CartItemModel item) {
-    _cartService.removeItem(item.id);
+  void _showErrorSnackBar(Object error) {
+    if (!mounted) return;
+    final msg = error is ApiException
+        ? error.message
+        : error.toString().replaceFirst('Exception: ', '');
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Removed "${item.title}" from cart.'),
-        duration: const Duration(seconds: 2),
+        content: Text(msg),
+        backgroundColor: const Color(0xFFDC2626),
+        duration: const Duration(seconds: 3),
       ),
     );
   }
 
-  void _deleteSelectedItems() {
+  Future<void> _runCartMutation(Future<void> Function() action, {String? successMessage}) async {
+    if (_isMutating) return;
+    setState(() => _isMutating = true);
+    try {
+      await action();
+      if (successMessage != null && mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(successMessage),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      _showErrorSnackBar(e);
+    } finally {
+      if (mounted) {
+        setState(() => _isMutating = false);
+      }
+    }
+  }
+
+  Future<void> _toggleSelectAll(bool? val) async {
+    await _runCartMutation(
+      () => _cartService.selectAllRemote(val ?? false),
+    );
+  }
+
+  Future<void> _toggleStore(List<CartItemModel> storeItems, bool checked) async {
+    final sellerId = storeItems.isNotEmpty ? storeItems.first.sellerId : null;
+    if (sellerId != null) {
+      await _runCartMutation(
+        () => _cartService.toggleStoreCheckedRemote(sellerId, checked),
+      );
+    } else {
+      for (final item in storeItems) {
+        await _runCartMutation(
+          () => _cartService.toggleItemCheckedRemote(item.id, checked),
+        );
+      }
+    }
+  }
+
+  bool _isStoreAllChecked(List<CartItemModel> storeItems) {
+    return storeItems.isNotEmpty && storeItems.every((i) => i.isChecked);
+  }
+
+  Future<void> _incrementQty(CartItemModel item) async {
+    await _runCartMutation(
+      () => _cartService.updateQuantityRemote(item.id, item.quantity + 1),
+    );
+  }
+
+  Future<void> _decrementQty(CartItemModel item) async {
+    if (item.quantity > 1) {
+      await _runCartMutation(
+        () => _cartService.updateQuantityRemote(item.id, item.quantity - 1),
+      );
+    } else {
+      await _deleteItem(item);
+    }
+  }
+
+  Future<void> _deleteItem(CartItemModel item) async {
+    await _runCartMutation(
+      () => _cartService.removeItemRemote(item.id),
+      successMessage: 'Removed "${item.title}" from cart.',
+    );
+  }
+
+  Future<void> _deleteSelectedItems() async {
     if (_checkedItemsCount == 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -92,17 +135,13 @@ class _CartPageState extends State<CartPage> {
     }
 
     final count = _checkedItemsCount;
-    _cartService.removeSelectedItems();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Successfully deleted $count item(s) from cart.'),
-        backgroundColor: const Color(0xFFDC2626),
-        duration: const Duration(seconds: 2),
-      ),
+    await _runCartMutation(
+      () => _cartService.removeSelectedItemsRemote(),
+      successMessage: 'Deleted $count item(s) from cart.',
     );
   }
 
-  void _moveToMyLikes() {
+  Future<void> _moveToMyLikes() async {
     if (_checkedItemsCount == 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -113,548 +152,86 @@ class _CartPageState extends State<CartPage> {
       return;
     }
 
-    final count = _checkedItemsCount;
-    _cartService.moveSelectedToLikes();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Moved $count item(s) to My Likes! ❤️'),
-        backgroundColor: const Color(0xFF0066FF),
-        duration: const Duration(seconds: 2),
-      ),
+    await _runCartMutation(() async {
+      final moved = await _cartService.moveSelectedToLikesRemote();
+      if (mounted && moved > 0) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Moved $moved item(s) to My Likes.'),
+            backgroundColor: const Color(0xFF0066FF),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    });
+  }
+
+  Future<void> _openSellerChat(int? sellerId, String storeName) async {
+    if (sellerId == null) {
+      Navigator.pushNamed(context, AppRoutes.chat);
+      return;
+    }
+    final loggedIn = await GuestAuthGuard.requireLogin(
+      context,
+      title: 'Sign In to Message Seller',
+      message: 'Please sign in to chat with $storeName.',
     );
+    if (!loggedIn || !mounted) return;
+    try {
+      final conv = await ChatService.instance.startConversationRemote(sellerId);
+      if (conv == null) {
+        throw const ApiException(
+          statusCode: 500,
+          message: 'Could not open chat with this seller.',
+        );
+      }
+      if (!mounted) return;
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ChatDetailPage(
+            conversationId: conv.id,
+            title: conv.title,
+            subtitle: conv.subtitle,
+            avatarIcon: conv.avatarIcon,
+            avatarBgColor: conv.avatarBg,
+            initialMessages: conv.messages.map((m) => m.toMap()).toList(),
+          ),
+        ),
+      );
+    } catch (e) {
+      _showErrorSnackBar(e);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_useLegacyCart) return _buildLegacyCart(context);
-    return _buildRefinedCart(context);
-  }
-
-  Widget _buildRefinedCart(BuildContext context) {
     final theme = Theme.of(context);
-    return ListenableBuilder(
-      listenable: _cartService,
-      builder: (context, _) {
-        final groupedItems = <String, List<CartItemModel>>{};
-        for (final item in _cartService.items) {
-          groupedItems.putIfAbsent(item.storeName, () => []).add(item);
-        }
+    final isDark = theme.brightness == Brightness.dark;
 
-        return Scaffold(
-          appBar: NexoraAppBar(
-            titleText: _cartService.items.isEmpty
-                ? 'Shopping Cart'
-                : 'Shopping Cart (${_cartService.itemCount})',
-            actions: [
-              if (_cartService.items.isNotEmpty)
-                TextButton(
-                  key: const ValueKey('cart-edit-action'),
-                  onPressed: () => setState(() => _isEditMode = !_isEditMode),
-                  child: Text(_isEditMode ? 'Done' : 'Edit'),
-                ),
-            ],
-          ),
-          body: _cartService.items.isEmpty
-              ? _buildRefinedEmptyCart(theme)
-              : CustomScrollView(
-                  key: const ValueKey('cart-scroll-view'),
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  slivers: [
-                    SliverPadding(
-                      padding: const EdgeInsets.fromLTRB(
-                        NexoraSpacing.md,
-                        NexoraSpacing.xs,
-                        NexoraSpacing.md,
-                        120.0,
-                      ),
-                      sliver: SliverList.list(
-                        children: [
-                          _buildRefinedDeliveryNotice(theme),
-                          const SizedBox(height: NexoraSpacing.md),
-                          ...groupedItems.entries.expand(
-                            (entry) => [
-                              _buildRefinedStoreGroup(
-                                theme,
-                                entry.key,
-                                entry.value,
-                              ),
-                              const SizedBox(height: NexoraSpacing.md),
-                            ],
-                          ),
-                          if (!_isEditMode) _buildRefinedVoucher(theme),
-                          const SizedBox(height: NexoraSpacing.xl),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-          bottomNavigationBar: _cartService.items.isEmpty
-              ? null
-              : _buildRefinedBottomDock(theme),
-        );
-      },
-    );
-  }
-
-  Widget _buildRefinedEmptyCart(ThemeData theme) {
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(NexoraSpacing.xl),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 420),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                width: 72,
-                height: 72,
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.primaryContainer,
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.shopping_bag_outlined,
-                  size: 34,
-                  color: theme.colorScheme.primary,
-                ),
-              ),
-              const SizedBox(height: NexoraSpacing.lg),
-              Text(
-                'Your Shopping Cart is Empty',
-                textAlign: TextAlign.center,
-                style: theme.textTheme.headlineSmall,
-              ),
-              const SizedBox(height: NexoraSpacing.xs),
-              Text(
-                'Save products here to compare options and check out when you are ready.',
-                textAlign: TextAlign.center,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                  height: 1.45,
-                ),
-              ),
-              const SizedBox(height: NexoraSpacing.xl),
-              FilledButton.icon(
-                onPressed: () =>
-                    Navigator.pushReplacementNamed(context, AppRoutes.home),
-                icon: const Icon(Icons.storefront_outlined),
-                label: const Text('Start Shopping'),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildRefinedDeliveryNotice(ThemeData theme) {
-    return NexoraCard(
-      variant: NexoraCardVariant.primaryTint,
-      child: Row(
-        children: [
-          Icon(
-            Icons.local_shipping_outlined,
-            color: theme.colorScheme.primary,
-          ),
-          const SizedBox(width: NexoraSpacing.sm),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Free shipping voucher applied',
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    color: theme.colorScheme.onPrimaryContainer,
-                  ),
-                ),
-                const SizedBox(height: NexoraSpacing.xxs),
-                Text(
-                  'Eligible delivery discounts are confirmed at checkout.',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onPrimaryContainer,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRefinedStoreGroup(
-    ThemeData theme,
-    String storeName,
-    List<CartItemModel> items,
-  ) {
-    final badge = items.first.storeBadge;
-    return CheckoutSection(
-      title: storeName,
-      subtitle: badge.isEmpty ? null : badge,
-      icon: Icons.storefront_outlined,
-      trailing: Checkbox(
-        semanticLabel: 'Select all items from $storeName',
-        value: _isStoreAllChecked(storeName),
-        onChanged: (value) => _toggleStore(storeName, value ?? false),
-      ),
-      child: Column(
-        children: [
-          for (var index = 0; index < items.length; index++) ...[
-            if (index > 0) const Divider(height: NexoraSpacing.xl),
-            _buildRefinedCartItem(theme, items[index]),
-          ],
-          if (items.any((item) => item.shopVoucherText != null)) ...[
-            const Divider(height: NexoraSpacing.xl),
-            Row(
-              children: [
-                Icon(
-                  Icons.sell_outlined,
-                  size: 18,
-                  color: theme.colorScheme.primary,
-                ),
-                const SizedBox(width: NexoraSpacing.xs),
-                Expanded(
-                  child: Text(
-                    items
-                        .firstWhere((item) => item.shopVoucherText != null)
-                        .shopVoucherText!,
-                    style: theme.textTheme.labelMedium,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRefinedCartItem(ThemeData theme, CartItemModel item) {
-    return Semantics(
-      container: true,
-      label:
-          '${item.title}, ${item.variant}, ₱${item.price.toStringAsFixed(2)}, quantity ${item.quantity}',
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final textScale = MediaQuery.textScalerOf(context).scale(1);
-          final stacked = constraints.maxWidth < 330 || textScale > 1.45;
-          final details = Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                item.title,
-                maxLines: stacked ? 3 : 2,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodyMedium,
-              ),
-              const SizedBox(height: NexoraSpacing.xs),
-              Text(
-                item.variant,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodySmall,
-              ),
-              const SizedBox(height: NexoraSpacing.sm),
-              Wrap(
-                spacing: NexoraSpacing.xs,
-                runSpacing: NexoraSpacing.xs,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  Text(
-                    '₱${item.price.toStringAsFixed(2)}',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      color: NexoraTheme.priceColor(context),
-                      fontFeatures: const [FontFeature.tabularFigures()],
-                    ),
-                  ),
-                  if (item.originalPrice != null)
-                    Text(
-                      '₱${item.originalPrice!.toStringAsFixed(2)}',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        decoration: TextDecoration.lineThrough,
-                      ),
-                    ),
-                  if (item.discountTag != null)
-                    Chip(
-                      visualDensity: VisualDensity.compact,
-                      label: Text(item.discountTag!),
-                    ),
-                ],
-              ),
-              const SizedBox(height: NexoraSpacing.sm),
-              Wrap(
-                spacing: NexoraSpacing.xs,
-                runSpacing: NexoraSpacing.xs,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  _buildRefinedQuantityControl(theme, item),
-                  IconButton(
-                    tooltip: 'Remove ${item.title}',
-                    onPressed: () => _deleteItem(item),
-                    icon: const Icon(Icons.delete_outline_rounded),
-                    color: theme.colorScheme.error,
-                  ),
-                ],
-              ),
-            ],
-          );
-
-          final selection = Checkbox(
-            semanticLabel: 'Select ${item.title}',
-            value: item.isChecked,
-            onChanged: (value) =>
-                _cartService.toggleItemChecked(item.id, value ?? false),
-          );
-          final image = ClipRRect(
-            borderRadius: BorderRadius.circular(NexoraRadius.control),
-            child: SizedBox(
-              width: stacked ? 96 : 84,
-              height: stacked ? 96 : 84,
-              child: Image.network(
-                item.imageUrl,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => ColoredBox(
-                  color: theme.colorScheme.surfaceContainer,
-                  child: Icon(
-                    Icons.image_outlined,
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ),
-            ),
-          );
-
-          if (stacked) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(children: [selection, image]),
-                const SizedBox(height: NexoraSpacing.sm),
-                details,
-              ],
-            );
-          }
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              selection,
-              const SizedBox(width: NexoraSpacing.xs),
-              image,
-              const SizedBox(width: NexoraSpacing.sm),
-              Expanded(child: details),
-            ],
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildRefinedQuantityControl(ThemeData theme, CartItemModel item) {
-    return Semantics(
-      label: 'Quantity ${item.quantity}',
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surfaceContainer,
-          borderRadius: BorderRadius.circular(NexoraRadius.control),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(
-              tooltip: item.quantity == 1 ? 'Remove item' : 'Decrease quantity',
-              onPressed: () => _decrementQty(item),
-              icon: const Icon(Icons.remove_rounded, size: 18),
-            ),
-            Text('${item.quantity}', style: theme.textTheme.labelLarge),
-            IconButton(
-              tooltip: 'Increase quantity',
-              onPressed: () => _incrementQty(item),
-              icon: const Icon(Icons.add_rounded, size: 18),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildRefinedVoucher(ThemeData theme) {
-    return CheckoutSection(
-      title: 'Nexora Platform Voucher',
-      subtitle: _checkedCount == 0
-          ? 'Select an item to apply your voucher.'
-          : '₱150 discount applied to selected items.',
-      icon: Icons.confirmation_number_outlined,
-      child: CheckoutPriceRow(
-        label: 'Voucher savings',
-        value: _checkedCount == 0 ? '₱0.00' : '-₱150.00',
-        valueColor: theme.colorScheme.primary,
-      ),
-    );
-  }
-
-  Widget _buildRefinedBottomDock(ThemeData theme) {
-    return Material(
-      color: theme.colorScheme.surfaceContainerLowest,
-      elevation: 8,
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(
-            NexoraSpacing.md,
-            NexoraSpacing.sm,
-            NexoraSpacing.md,
-            NexoraSpacing.sm,
-          ),
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final textScale = MediaQuery.textScalerOf(context).scale(1);
-              final stacked = constraints.maxWidth < 350 || textScale > 1.35;
-              final selectAll = Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Checkbox(
-                    semanticLabel: 'Select all cart items',
-                    value: _isAllChecked,
-                    onChanged: _toggleSelectAll,
-                  ),
-                  Flexible(
-                    child: Text(
-                      _isEditMode ? 'Select all' : 'All ($_checkedCount)',
-                      style: theme.textTheme.labelMedium,
-                    ),
-                  ),
-                ],
-              );
-
-              final totalSummary = Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: stacked
-                    ? CrossAxisAlignment.start
-                    : CrossAxisAlignment.end,
-                children: [
-                  Text('Total', style: theme.textTheme.bodySmall),
-                  Text(
-                    '₱${_finalTotal.toStringAsFixed(2)}',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      color: NexoraTheme.priceColor(context),
-                      fontWeight: FontWeight.w900,
-                      fontFeatures: const [FontFeature.tabularFigures()],
-                    ),
-                  ),
-                  if (_totalSaved > 0)
-                    Text(
-                      'Saved ₱${_totalSaved.toStringAsFixed(2)}',
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: theme.brightness == Brightness.dark
-                            ? const Color(0xFF38BDF8)
-                            : theme.colorScheme.primary,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                ],
-              );
-              final checkoutButton = FilledButton(
-                key: const ValueKey('cart-checkout-action'),
-                onPressed: _checkedCount == 0 ? null : _openCheckout,
-                child: Text('Check Out ($_checkedCount)'),
-              );
-              final action = _isEditMode
-                  ? Wrap(
-                      spacing: NexoraSpacing.xs,
-                      runSpacing: NexoraSpacing.xs,
-                      alignment: WrapAlignment.end,
-                      children: [
-                        OutlinedButton(
-                          onPressed: _checkedItemsCount == 0
-                              ? null
-                              : _moveToMyLikes,
-                          child: const Text('Move to My Likes'),
-                        ),
-                        OutlinedButton(
-                          onPressed: _checkedItemsCount == 0
-                              ? null
-                              : _deleteSelectedItems,
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: theme.colorScheme.error,
-                          ),
-                          child: Text(
-                            _checkedItemsCount == 0
-                                ? 'Delete'
-                                : 'Delete ($_checkedItemsCount)',
-                          ),
-                        ),
-                      ],
-                    )
-                  : stacked
-                  ? Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        totalSummary,
-                        const SizedBox(height: NexoraSpacing.xs),
-                        checkoutButton,
-                      ],
-                    )
-                  : Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Flexible(child: totalSummary),
-                        const SizedBox(width: NexoraSpacing.sm),
-                        checkoutButton,
-                      ],
-                    );
-
-              if (stacked) {
-                return Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    selectAll,
-                    const SizedBox(height: NexoraSpacing.xs),
-                    action,
-                  ],
-                );
-              }
-              return Row(
-                children: [
-                  Expanded(child: selectAll),
-                  Flexible(flex: 2, child: action),
-                ],
-              );
-            },
-          ),
-        ),
-      ),
-    );
-  }
-
-  Future<void> _openCheckout() async {
-    if (!BuyerAccountService.instance.isLoggedIn) {
-      final loggedIn = await GuestAuthGuard.requireLogin(
-        context,
-        title: 'Sign In to Proceed to Checkout',
-        message: 'Please sign in or create an account to finalize your order, apply vouchers, and track delivery.',
-      );
-      if (!loggedIn || !mounted) return;
-    }
-    Navigator.pushNamed(context, AppRoutes.checkout);
-  }
-
-  Widget _buildLegacyCart(BuildContext context) {
     return ListenableBuilder(
       listenable: _cartService,
       builder: (context, _) {
         final Map<String, List<CartItemModel>> groupedItems = {};
-        for (var item in _cartService.items) {
-          groupedItems.putIfAbsent(item.storeName, () => []).add(item);
+        for (final item in _cartService.items) {
+          final groupKey = item.sellerId != null
+              ? 'seller_${item.sellerId}'
+              : 'name_${item.storeName}';
+          groupedItems.putIfAbsent(groupKey, () => []).add(item);
         }
 
+        final hasSession =
+            ApiClient.instance.hasToken && BuyerAccountService.instance.isLoggedIn;
+
         return Scaffold(
-          backgroundColor: const Color(0xFFF6F8FC),
+          backgroundColor: theme.scaffoldBackgroundColor,
           appBar: AppBar(
-            backgroundColor: const Color(0xFFF6F8FC),
+            backgroundColor: theme.colorScheme.surfaceContainerLowest,
+            foregroundColor: theme.colorScheme.onSurface,
             elevation: 0,
             leading: IconButton(
-              icon: const Icon(Icons.arrow_back, color: Color(0xFF0F172A)),
+              icon: Icon(Icons.arrow_back, color: theme.colorScheme.onSurface),
               onPressed: () {
                 if (Navigator.canPop(context)) {
                   Navigator.pop(context);
@@ -663,42 +240,45 @@ class _CartPageState extends State<CartPage> {
                 }
               },
             ),
-            title: const Text(
+            title: Text(
               'Shopping Cart',
               style: TextStyle(
-                color: Color(0xFF0F172A),
+                color: theme.colorScheme.onSurface,
                 fontWeight: FontWeight.w800,
                 fontSize: 18,
               ),
             ),
             centerTitle: false,
             actions: [
-              TextButton(
-                onPressed: () {
-                  setState(() {
-                    _isEditMode = !_isEditMode;
-                  });
-                },
-                child: Text(
-                  _isEditMode ? 'Done' : 'Edit',
-                  style: const TextStyle(
-                    color: Color(0xFF0066FF),
-                    fontWeight: FontWeight.w700,
-                    fontSize: 14.5,
+              if (_cartService.items.isNotEmpty)
+                TextButton(
+                  onPressed: () {
+                    setState(() {
+                      _isEditMode = !_isEditMode;
+                    });
+                  },
+                  child: Text(
+                    _isEditMode ? 'Done' : 'Edit',
+                    style: TextStyle(
+                      color: theme.colorScheme.primary,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14.5,
+                    ),
                   ),
                 ),
-              ),
               IconButton(
                 icon: Container(
                   width: 32,
                   height: 32,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFF050B28),
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? theme.colorScheme.surfaceContainer
+                        : const Color(0xFF050B28),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.chat_bubble_outline_rounded,
-                    color: Colors.white,
+                    color: isDark ? theme.colorScheme.onSurface : Colors.white,
                     size: 16,
                   ),
                 ),
@@ -711,99 +291,57 @@ class _CartPageState extends State<CartPage> {
           ),
           body: Stack(
             children: [
-              SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Top Free Shipping Banner matching reference image
-                    _buildFreeShippingPromoBanner(),
-
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 12,
-                      ),
-                      child: Column(
-                        children: [
-                          if (_cartService.items.isEmpty)
-                            Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 60),
-                              child: Column(
-                                children: [
-                                  const Icon(
-                                    Icons.shopping_bag_outlined,
-                                    size: 64,
-                                    color: Color(0xFFCBD5E1),
-                                  ),
-                                  const SizedBox(height: 12),
-                                  const Text(
-                                    'Your Shopping Cart is Empty',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                      color: Color(0xFF0F172A),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 6),
-                                  const Text(
-                                    'Explore products and add them to your cart!',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Color(0xFF64748B),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 16),
-                                  ElevatedButton(
-                                    onPressed: () {
-                                      Navigator.pushReplacementNamed(
-                                        context,
-                                        AppRoutes.home,
-                                      );
-                                    },
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: const Color(0xFF0066FF),
-                                      foregroundColor: Colors.white,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(20),
-                                      ),
-                                    ),
-                                    child: const Text('Start Shopping'),
-                                  ),
-                                ],
-                              ),
-                            )
-                          else
-                            ...groupedItems.entries.map((entry) {
-                              return _buildStoreGroupCard(
-                                entry.key,
-                                entry.value,
-                              );
-                            }),
-
-                          const SizedBox(height: 10),
-
-                          // Platform Voucher Card
-                          _buildVoucherCard(),
-
-                          const SizedBox(height: 24),
-
-                          // You May Also Like Section
-                          _buildYouMayAlsoLikeSection(),
-
-                          const SizedBox(height: 120),
-                        ],
+              RefreshIndicator(
+                onRefresh: () async {
+                  await _cartService.loadCartRemote(throwOnError: true);
+                },
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(
+                    parent: BouncingScrollPhysics(),
+                  ),
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 820),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 12,
+                        ),
+                        child: Column(
+                          children: [
+                            if (!hasSession)
+                              _buildSignInPrompt(context)
+                            else if (_cartService.cartError != null)
+                              _buildErrorBanner(_cartService.cartError!)
+                            else if (_cartService.isLoadingCart &&
+                                _cartService.items.isEmpty)
+                              const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 80),
+                                child: Center(child: CircularProgressIndicator()),
+                              )
+                            else if (_cartService.items.isEmpty)
+                              _buildEmptyCartView(context)
+                            else
+                              ...groupedItems.values
+                                  .map((storeItems) => _buildStoreGroupCard(storeItems, theme, isDark)),
+                            const SizedBox(height: 120),
+                          ],
+                        ),
                       ),
                     ),
-                  ],
+                  ),
                 ),
               ),
-
-              // Bottom Fixed Action Dock with Real-time Checkout & Edit Mode
-              Align(
-                alignment: Alignment.bottomCenter,
-                child: _buildBottomDock(),
-              ),
+              if (hasSession && _cartService.items.isNotEmpty)
+                Align(
+                  alignment: Alignment.bottomCenter,
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 820),
+                      child: _buildBottomDock(theme, isDark),
+                    ),
+                  ),
+                ),
             ],
           ),
         );
@@ -811,78 +349,81 @@ class _CartPageState extends State<CartPage> {
     );
   }
 
-  Widget _buildFreeShippingPromoBanner() {
-    return Container(
-      width: double.infinity,
-      color: const Color(0xFFEEF2FF),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+  Widget _buildSignInPrompt(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 60),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              const Icon(
-                Icons.local_shipping_outlined,
-                size: 18,
-                color: Color(0xFF0066FF),
-              ),
-              const SizedBox(width: 8),
-              RichText(
-                text: const TextSpan(
-                  style: TextStyle(fontSize: 12, color: Color(0xFF1E293B)),
-                  children: [
-                    TextSpan(text: 'Add '),
-                    TextSpan(
-                      text: '₱150.00',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF0066FF),
-                      ),
-                    ),
-                    TextSpan(text: ' more to enjoy '),
-                    TextSpan(
-                      text: 'Free\nShipping!',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF0066FF),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const Spacer(),
-              GestureDetector(
-                onTap: () {
-                  Navigator.pushReplacementNamed(context, AppRoutes.home);
-                },
-                child: const Row(
-                  children: [
-                    Text(
-                      'Shop More',
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF0066FF),
-                      ),
-                    ),
-                    Icon(
-                      Icons.chevron_right,
-                      size: 16,
-                      color: Color(0xFF0066FF),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+          const Icon(
+            Icons.lock_outline_rounded,
+            size: 56,
+            color: Color(0xFF94A3B8),
           ),
-          const SizedBox(height: 8),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(3),
-            child: const LinearProgressIndicator(
-              value: 0.75,
-              minHeight: 4,
-              backgroundColor: Color(0xFFCBD5E1),
-              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF00D2FF)),
+          const SizedBox(height: 12),
+          const Text(
+            'Sign in to view your cart',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF0F172A),
+            ),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Your cart stays synced with your Nexora account across devices.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 12.5, color: Color(0xFF64748B)),
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: () async {
+              final ok = await GuestAuthGuard.requireLogin(context);
+              if (ok && mounted) {
+                await _cartService.loadCartRemote();
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF0066FF),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+            ),
+            child: const Text('Sign In'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorBanner(String error) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFEF2F2),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFFECACA)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.error_outline_rounded, color: Color(0xFFDC2626)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              error,
+              style: const TextStyle(
+                color: Color(0xFF991B1B),
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () => _cartService.loadCartRemote(),
+            child: const Text(
+              'Retry',
+              style: TextStyle(fontWeight: FontWeight.w800),
             ),
           ),
         ],
@@ -890,23 +431,65 @@ class _CartPageState extends State<CartPage> {
     );
   }
 
-  Widget _buildStoreGroupCard(String storeName, List<CartItemModel> items) {
-    final isStoreChecked = _isStoreAllChecked(storeName);
+  Widget _buildEmptyCartView(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 60),
+      child: Column(
+        children: [
+          const Icon(
+            Icons.shopping_bag_outlined,
+            size: 64,
+            color: Color(0xFFCBD5E1),
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            'Your Shopping Cart is Empty',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF0F172A),
+            ),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Explore products and add them to your cart!',
+            style: TextStyle(
+              fontSize: 12,
+              color: Color(0xFF64748B),
+            ),
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pushReplacementNamed(context, AppRoutes.home);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF0066FF),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+            ),
+            child: const Text('Start Shopping'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStoreGroupCard(List<CartItemModel> items, ThemeData theme, bool isDark) {
+    final isStoreChecked = _isStoreAllChecked(items);
     final firstItem = items.first;
+    final storeName =
+        firstItem.storeName.isNotEmpty ? firstItem.storeName : 'Seller Store';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
-          ),
-        ],
+        color: theme.colorScheme.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -916,17 +499,15 @@ class _CartPageState extends State<CartPage> {
             children: [
               _buildCircularCheckbox(
                 isChecked: isStoreChecked,
-                onTap: () => _toggleStore(storeName, !isStoreChecked),
+                onTap: () => _toggleStore(items, !isStoreChecked),
               ),
               const SizedBox(width: 8),
               if (firstItem.storeBadge.isNotEmpty) ...[
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 6,
-                    vertical: 2,
-                  ),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF0066FF),
+                    color: theme.colorScheme.primary,
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
@@ -942,126 +523,85 @@ class _CartPageState extends State<CartPage> {
               ],
               Expanded(
                 child: GestureDetector(
-                  onTap: () {
-                    final lower = storeName.toLowerCase();
-                    final shopId = lower.contains('soundmax')
-                        ? 'soundmax_audio'
-                        : lower.contains('mikana')
-                        ? 'mikana_official'
-                        : lower.contains('logitech')
-                        ? 'logitech_hub'
-                        : lower.contains('aura')
-                        ? 'aura_studios'
-                        : 'nexora_official';
-                    Navigator.pushNamed(
-                      context,
-                      AppRoutes.shop,
-                      arguments: shopId,
-                    );
-                  },
+                  onTap: firstItem.sellerId != null
+                      ? () {
+                          Navigator.pushNamed(
+                            context,
+                            AppRoutes.shop,
+                            arguments: firstItem.sellerId.toString(),
+                          );
+                        }
+                      : null,
                   child: Row(
                     children: [
                       Expanded(
                         child: Text(
                           storeName,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontWeight: FontWeight.w800,
                             fontSize: 13.5,
-                            color: Color(0xFF0F172A),
+                            color: theme.colorScheme.onSurface,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      const SizedBox(width: 4),
-                      const Icon(
-                        Icons.chevron_right,
-                        size: 16,
-                        color: Color(0xFF94A3B8),
-                      ),
+                      if (firstItem.sellerId != null) ...[
+                        const SizedBox(width: 4),
+                        Icon(
+                          Icons.chevron_right,
+                          size: 16,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ],
                     ],
                   ),
                 ),
               ),
               const SizedBox(width: 8),
               GestureDetector(
-                onTap: () {
-                  Navigator.pushNamed(context, AppRoutes.chat);
-                },
+                onTap: () => _openSellerChat(firstItem.sellerId, storeName),
                 child: Container(
                   width: 26,
                   height: 26,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFEEF2FF),
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? theme.colorScheme.surfaceContainer
+                        : const Color(0xFFEEF2FF),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.chat_bubble_outline,
                     size: 13,
-                    color: Color(0xFF0066FF),
+                    color: theme.colorScheme.primary,
                   ),
                 ),
               ),
             ],
           ),
 
-          // Optional Store Shipping Tag
-          if (firstItem.freeShippingBadge != null) ...[
+          if (firstItem.isVacationMode) ...[
             const SizedBox(height: 8),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
-                color: const Color(0xFFE0F7FA),
+                color: isDark ? const Color(0xFF78350F).withValues(alpha: 0.2) : const Color(0xFFFFFBEB),
                 borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: isDark ? const Color(0xFF78350F) : const Color(0xFFFDE68A)),
               ),
               child: Row(
-                mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(
-                    Icons.local_shipping_outlined,
-                    size: 13,
-                    color: Color(0xFF00B4D8),
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    firstItem.freeShippingBadge!,
-                    style: const TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF00B4D8),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-
-          // Optional Store Promo Banner
-          if (firstItem.storePromoBanner != null) ...[
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: const Color(0xFFEEF2FF),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text(
-                    'PROMO ',
-                    style: TextStyle(
-                      fontSize: 9,
-                      fontWeight: FontWeight.w900,
-                      color: Color(0xFF0066FF),
-                    ),
-                  ),
-                  Text(
-                    firstItem.storePromoBanner!,
-                    style: const TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF334155),
+                  Icon(Icons.beach_access_rounded,
+                      size: 14, color: isDark ? const Color(0xFFFBBF24) : const Color(0xFFD97706)),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'This seller is on vacation mode and cannot accept orders right now.',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: isDark ? const Color(0xFFFDE68A) : const Color(0xFF92400E),
+                      ),
                     ),
                   ),
                 ],
@@ -1072,79 +612,13 @@ class _CartPageState extends State<CartPage> {
           const SizedBox(height: 12),
 
           // Items in this store
-          ...items.map((item) => _buildCartItemTile(item)),
-
-          // Optional Store Voucher row
-          if (items.any((i) => i.shopVoucherText != null)) ...[
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 8),
-              child: Divider(height: 1, color: Color(0xFFF1F5F9)),
-            ),
-            Row(
-              children: [
-                const Icon(
-                  Icons.local_offer_outlined,
-                  size: 15,
-                  color: Color(0xFF0066FF),
-                ),
-                const SizedBox(width: 6),
-                RichText(
-                  text: TextSpan(
-                    style: const TextStyle(
-                      fontSize: 11.5,
-                      color: Color(0xFF334155),
-                    ),
-                    children: [
-                      const TextSpan(text: 'Shop Voucher: '),
-                      TextSpan(
-                        text: items
-                            .firstWhere((i) => i.shopVoucherText != null)
-                            .shopVoucherText!,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF0066FF),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const Spacer(),
-                GestureDetector(
-                  onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('🎉 ₱100 Shop Coupon Claimed!'),
-                        backgroundColor: Color(0xFF0066FF),
-                      ),
-                    );
-                  },
-                  child: const Row(
-                    children: [
-                      Text(
-                        'Claim',
-                        style: TextStyle(
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF0066FF),
-                        ),
-                      ),
-                      Icon(
-                        Icons.chevron_right,
-                        size: 15,
-                        color: Color(0xFF0066FF),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ],
+          ...items.map((item) => _buildCartItemTile(item, theme, isDark)),
         ],
       ),
     );
   }
 
-  Widget _buildCartItemTile(CartItemModel item) {
+  Widget _buildCartItemTile(CartItemModel item, ThemeData theme, bool isDark) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
@@ -1155,8 +629,12 @@ class _CartPageState extends State<CartPage> {
             padding: const EdgeInsets.only(top: 24),
             child: _buildCircularCheckbox(
               isChecked: item.isChecked,
-              onTap: () =>
-                  _cartService.toggleItemChecked(item.id, !item.isChecked),
+              onTap: () => _runCartMutation(
+                () => _cartService.toggleItemCheckedRemote(
+                  item.id,
+                  !item.isChecked,
+                ),
+              ),
             ),
           ),
           const SizedBox(width: 10),
@@ -1167,42 +645,28 @@ class _CartPageState extends State<CartPage> {
             height: 76,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
-              color: const Color(0xFFF1F5F9),
+              color: isDark
+                  ? theme.colorScheme.surfaceContainer
+                  : const Color(0xFFF1F5F9),
             ),
             clipBehavior: Clip.antiAlias,
-            child: Stack(
-              children: [
-                Positioned.fill(
-                  child: Image.network(
+            child: item.imageUrl.isNotEmpty
+                ? Image.network(
                     item.imageUrl,
                     fit: BoxFit.cover,
                     errorBuilder: (context, error, stackTrace) => Container(
-                      color: const Color(0xFFE2E8F0),
-                      child: const Icon(Icons.image, color: Colors.grey),
+                      color: isDark
+                          ? theme.colorScheme.surfaceContainer
+                          : const Color(0xFFE2E8F0),
+                      child: Icon(Icons.image, color: theme.colorScheme.onSurfaceVariant),
                     ),
+                  )
+                : Container(
+                    color: isDark
+                        ? theme.colorScheme.surfaceContainer
+                        : const Color(0xFFE2E8F0),
+                    child: Icon(Icons.image, color: theme.colorScheme.onSurfaceVariant),
                   ),
-                ),
-                if (item.topPickBadge != null)
-                  Positioned(
-                    bottom: 0,
-                    left: 0,
-                    right: 0,
-                    child: Container(
-                      color: const Color(0xFF004080).withValues(alpha: 0.9),
-                      padding: const EdgeInsets.symmetric(vertical: 2),
-                      child: Text(
-                        item.topPickBadge!,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 8,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
           ),
           const SizedBox(width: 10),
 
@@ -1211,107 +675,106 @@ class _CartPageState extends State<CartPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  item.title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF0F172A),
-                    height: 1.25,
-                  ),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        item.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w700,
+                          color: theme.colorScheme.onSurface,
+                          height: 1.25,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    GestureDetector(
+                      onTap: () => _deleteItem(item),
+                      child: Padding(
+                        padding: const EdgeInsets.all(2),
+                        child: Icon(
+                          Icons.delete_outline_rounded,
+                          size: 17,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 4),
 
-                // Variant Dropdown Pill
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 3,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF1F5F9),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Flexible(
-                        child: Text(
-                          item.variant,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 10.5,
-                            color: Color(0xFF64748B),
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
+                if (item.variant.isNotEmpty && item.variant != 'Standard') ...[
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? theme.colorScheme.surfaceContainer
+                          : const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      item.variant,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        color: theme.colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
                       ),
-                      const SizedBox(width: 4),
-                      const Icon(
-                        Icons.keyboard_arrow_down,
-                        size: 13,
-                        color: Color(0xFF64748B),
-                      ),
-                    ],
+                    ),
                   ),
-                ),
-                const SizedBox(height: 6),
+                  const SizedBox(height: 6),
+                ],
 
                 // Price Row & Quantity Stepper
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.baseline,
-                      textBaseline: TextBaseline.alphabetic,
-                      children: [
-                        Text(
-                          '₱${(item.price).toStringAsFixed(2)}',
-                          style: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w900,
-                            color: Color(0xFF0F172A),
+                    Flexible(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '₱${item.price.toStringAsFixed(2)}',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w900,
+                              color: theme.colorScheme.onSurface,
+                            ),
                           ),
-                        ),
-                        if (item.discountTag != null) ...[
-                          const SizedBox(width: 4),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 4,
-                              vertical: 1,
-                            ),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFEEF2FF),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              item.discountTag!,
-                              style: const TextStyle(
-                                color: Color(0xFF0066FF),
-                                fontSize: 9,
-                                fontWeight: FontWeight.bold,
+                          if (item.originalPrice != null)
+                            Text(
+                              '₱${item.originalPrice!.toStringAsFixed(2)}',
+                              style: TextStyle(
+                                fontSize: 10.5,
+                                color: theme.colorScheme.onSurfaceVariant,
+                                decoration: TextDecoration.lineThrough,
                               ),
                             ),
-                          ),
                         ],
-                      ],
+                      ),
                     ),
 
                     // Quantity Stepper Control
                     Container(
                       height: 30,
                       decoration: BoxDecoration(
-                        color: const Color(0xFFEEF2FF),
+                        color: isDark
+                            ? theme.colorScheme.surfaceContainer
+                            : const Color(0xFFEEF2FF),
                         borderRadius: BorderRadius.circular(15),
                       ),
                       child: Row(
                         children: [
                           IconButton(
-                            icon: const Icon(Icons.remove, size: 14),
-                            onPressed: () => _decrementQty(item),
+                            icon: Icon(Icons.remove, size: 14, color: theme.colorScheme.onSurface),
+                            onPressed:
+                                _isMutating ? null : () => _decrementQty(item),
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(
                               minWidth: 28,
@@ -1322,16 +785,17 @@ class _CartPageState extends State<CartPage> {
                             padding: const EdgeInsets.symmetric(horizontal: 4),
                             child: Text(
                               '${item.quantity}',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontWeight: FontWeight.w900,
                                 fontSize: 12.5,
-                                color: Color(0xFF0F172A),
+                                color: theme.colorScheme.onSurface,
                               ),
                             ),
                           ),
                           IconButton(
-                            icon: const Icon(Icons.add, size: 14),
-                            onPressed: () => _incrementQty(item),
+                            icon: Icon(Icons.add, size: 14, color: theme.colorScheme.onSurface),
+                            onPressed:
+                                _isMutating ? null : () => _incrementQty(item),
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(
                               minWidth: 28,
@@ -1344,42 +808,19 @@ class _CartPageState extends State<CartPage> {
                   ],
                 ),
 
-                if (item.originalPrice != null) ...[
-                  const SizedBox(height: 1),
+                if (item.stock != null && item.stock! <= 5) ...[
+                  const SizedBox(height: 4),
                   Text(
-                    '₱${item.originalPrice!.toStringAsFixed(2)}',
-                    style: TextStyle(
+                    item.stock! <= 0
+                        ? 'Out of stock'
+                        : 'Only ${item.stock} left',
+                    style: const TextStyle(
                       fontSize: 10.5,
-                      color: Colors.grey.shade400,
-                      decoration: TextDecoration.lineThrough,
+                      color: Color(0xFFDC2626),
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                 ],
-
-                if (item.subBadge != null) ...[
-                  const SizedBox(height: 6),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        item.subBadge!,
-                        style: const TextStyle(
-                          fontSize: 10,
-                          color: Color(0xFF64748B),
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      GestureDetector(
-                        onTap: () => _deleteItem(item),
-                        child: const Icon(
-                          Icons.delete_outline_rounded,
-                          size: 16,
-                          color: Color(0xFF94A3B8),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
               ],
             ),
           ),
@@ -1388,456 +829,173 @@ class _CartPageState extends State<CartPage> {
     );
   }
 
-  Widget _buildVoucherCard() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 32,
-            height: 32,
-            decoration: const BoxDecoration(
-              color: Color(0xFFEEF2FF),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.confirmation_number_outlined,
-              color: Color(0xFF0066FF),
-              size: 16,
-            ),
-          ),
-          const SizedBox(width: 10),
-          const Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Nexora Platform Voucher',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 13,
-                    color: Color(0xFF0F172A),
-                  ),
-                ),
-                Text(
-                  '₱150 OFF Applied (9.9 Mega Fest)',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Color(0xFF0066FF),
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          GestureDetector(
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Select Platform Voucher Code')),
-              );
-            },
-            child: const Row(
-              children: [
-                Text(
-                  'Select Code',
-                  style: TextStyle(
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF0066FF),
-                  ),
-                ),
-                Icon(Icons.chevron_right, size: 16, color: Color(0xFF0066FF)),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildYouMayAlsoLikeSection() {
-    final recs = [
-      {
-        'title': 'Nexora Ergonomic Precision Mouse',
-        'price': '₱890.00',
-        'rating': '4.9 (1.2k)',
-        'tag': 'HOT',
-        'imageUrl': 'https://images.unsplash.com/photo-1615663245857-ac93bb7c39e7?auto=format&fit=crop&w=300&q=80',
-      },
-      {
-        'title': 'HyperVolt 65W GaN Dual USB-C',
-        'price': '₱650.00',
-        'rating': '4.8 (840)',
-        'tag': '',
-        'imageUrl': 'https://images.unsplash.com/photo-1583863788434-e58a36330cf0?auto=format&fit=crop&w=300&q=80',
-      },
-    ];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'You May Also Like',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w900,
-                color: Color(0xFF0F172A),
-              ),
-            ),
-            Text(
-              'Personalized',
-              style: TextStyle(
-                fontSize: 11.5,
-                color: Color(0xFF64748B),
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: recs.map((item) {
-            return Expanded(
-              child: Container(
-                margin: const EdgeInsets.only(right: 8),
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      height: 110,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
-                        color: const Color(0xFFF1F5F9),
-                      ),
-                      clipBehavior: Clip.antiAlias,
-                      child: Image.network(
-                        item['imageUrl']!,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) => Container(
-                          color: const Color(0xFFE2E8F0),
-                          child: const Icon(Icons.image, color: Colors.grey),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      item['title']!,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF0F172A),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.star,
-                          size: 12,
-                          color: Color(0xFFF59E0B),
-                        ),
-                        const SizedBox(width: 3),
-                        Text(
-                          item['rating']!,
-                          style: const TextStyle(
-                            fontSize: 10,
-                            color: Color(0xFF64748B),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          item['price']!,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w900,
-                            color: Color(0xFF0F172A),
-                          ),
-                        ),
-                        Container(
-                          width: 26,
-                          height: 26,
-                          decoration: const BoxDecoration(
-                            color: Color(0xFFEEF2FF),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.add,
-                            size: 16,
-                            color: Color(0xFF0066FF),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }).toList(),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildBottomDock() {
+  Widget _buildBottomDock(ThemeData theme, bool isDark) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.colorScheme.surfaceContainerLowest,
+        border: Border(top: BorderSide(color: theme.colorScheme.outlineVariant)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
             blurRadius: 16,
             offset: const Offset(0, -4),
           ),
         ],
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Normal Mode Shipping Voucher Bar (Hidden in Edit Mode)
-          if (!_isEditMode)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-              color: const Color(0xFFEEF2FF),
-              child: const Row(
-                children: [
-                  Icon(
-                    Icons.card_giftcard_outlined,
-                    size: 14,
-                    color: Color(0xFF0066FF),
-                  ),
-                  SizedBox(width: 6),
-                  Text(
-                    'Free Shipping Voucher applied',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Color(0xFF1E293B),
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  Spacer(),
-                  Text(
-                    '-₱60.00',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF0066FF),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-          // Main Checkout / Edit Dock Row
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            child: Row(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        child: Row(
+          children: [
+            Row(
               children: [
-                // All Select Checkbox
-                Row(
-                  children: [
-                    _buildCircularCheckbox(
-                      isChecked: _isAllChecked,
-                      onTap: () => _toggleSelectAll(!_isAllChecked),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      _isEditMode ? 'All' : 'All\n($_checkedCount items)',
-                      style: const TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF0F172A),
-                        height: 1.1,
-                      ),
-                    ),
-                  ],
+                _buildCircularCheckbox(
+                  isChecked: _isAllChecked,
+                  onTap: () => _toggleSelectAll(!_isAllChecked),
                 ),
-                const Spacer(),
-
-                // EDIT MODE BUTTONS
-                if (_isEditMode) ...[
-                  OutlinedButton(
-                    onPressed: _moveToMyLikes,
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFF334155),
-                      side: const BorderSide(color: Color(0xFFCBD5E1)),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 10,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                    ),
-                    child: const Text(
-                      'Move to My Likes',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+                const SizedBox(width: 8),
+                Text(
+                  _isEditMode ? 'All' : 'All\n($_checkedCount items)',
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.bold,
+                    color: theme.colorScheme.onSurface,
+                    height: 1.1,
                   ),
-                  const SizedBox(width: 8),
-                  OutlinedButton(
-                    onPressed: _deleteSelectedItems,
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFFDC2626),
-                      side: const BorderSide(color: Color(0xFFDC2626)),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 10,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                    ),
-                    child: Text(
-                      _checkedItemsCount > 0
-                          ? 'Delete ($_checkedItemsCount)'
-                          : 'Delete',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ]
-                // NORMAL MODE BUTTON (Totals & Checkout)
-                else ...[
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Row(
-                        children: [
-                          const Text(
-                            'Total: ',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Color(0xFF64748B),
-                            ),
-                          ),
-                          Text(
-                            '₱${_finalTotal.toStringAsFixed(2)}',
-                            style: const TextStyle(
-                              fontSize: 17,
-                              fontWeight: FontWeight.w900,
-                              color: Color(0xFF0F172A),
-                            ),
-                          ),
-                        ],
-                      ),
-                      if (_totalSaved > 0)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFE0F7FA),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            'Saved ₱${_totalSaved.toStringAsFixed(2)}',
-                            style: const TextStyle(
-                              fontSize: 9.5,
-                              fontWeight: FontWeight.w900,
-                              color: Color(0xFF00B4D8),
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(width: 12),
-
-                  // Gradient Check Out Button
-                  Container(
-                    height: 44,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF00D2FF), Color(0xFF0066FF)],
-                        begin: Alignment.centerLeft,
-                        end: Alignment.centerRight,
-                      ),
-                      borderRadius: BorderRadius.circular(22),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFF0066FF)
-                              .withValues(alpha: 0.35),
-                          blurRadius: 8,
-                          offset: const Offset(0, 3),
-                        ),
-                      ],
-                    ),
-                    child: ElevatedButton(
-                      onPressed: _checkedCount == 0
-                          ? null
-                          : () async {
-                              // Require login if in guest mode before proceeding to checkout
-                              if (!BuyerAccountService.instance.isLoggedIn) {
-                                final loggedIn =
-                                    await GuestAuthGuard.requireLogin(
-                                      context,
-                                      title: 'Sign In to Proceed to Checkout',
-                                      message: 'Please sign in or create an account to finalize your order, apply vouchers, and track delivery.',
-                                    );
-                                if (!loggedIn || !mounted) return;
-                              }
-                              Navigator.pushNamed(context, AppRoutes.checkout);
-                            },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.transparent,
-                        shadowColor: Colors.transparent,
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(22),
-                        ),
-                      ),
-                      child: Text(
-                        'Check Out ($_checkedCount)',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w900,
-                          fontSize: 13.5,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               ],
             ),
-          ),
-        ],
+            const Spacer(),
+            if (_isEditMode) ...[
+              OutlinedButton(
+                onPressed: _isMutating ? null : _moveToMyLikes,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: theme.colorScheme.onSurface,
+                  side: BorderSide(color: theme.colorScheme.outlineVariant),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                ),
+                child: const Text(
+                  'Move to My Likes',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                ),
+              ),
+              const SizedBox(width: 8),
+              OutlinedButton(
+                onPressed: _isMutating ? null : _deleteSelectedItems,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFFDC2626),
+                  side: const BorderSide(color: Color(0xFFDC2626)),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                ),
+                child: Text(
+                  _checkedItemsCount > 0
+                      ? 'Delete ($_checkedItemsCount)'
+                      : 'Delete',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ] else ...[
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        'Total: ',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      Text(
+                        '₱${_subtotal.toStringAsFixed(2)}',
+                        style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w900,
+                          color: theme.colorScheme.onSurface,
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (_totalSaved > 0)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isDark ? theme.colorScheme.surfaceContainerHigh : const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        'Saved ₱${_totalSaved.toStringAsFixed(2)}',
+                        style: TextStyle(
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w700,
+                          color: isDark ? const Color(0xFF7BDFF1) : const Color(0xFF0284C7),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(width: 12),
+              SizedBox(
+                height: 44,
+                child: ElevatedButton(
+                  onPressed: (_checkedCount == 0 || _isMutating)
+                      ? null
+                      : () async {
+                          final navigator = Navigator.of(context);
+                          if (!BuyerAccountService.instance.isLoggedIn ||
+                              !ApiClient.instance.hasToken) {
+                            final loggedIn = await GuestAuthGuard.requireLogin(
+                              context,
+                              title: 'Sign In to Proceed to Checkout',
+                              message:
+                                  'Please sign in or create an account to finalize your order, apply vouchers, and track delivery.',
+                            );
+                            if (!loggedIn || !mounted) return;
+                          }
+                          _cartService.clearDirectBuy();
+                          navigator.pushNamed(AppRoutes.checkout);
+                        },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: theme.colorScheme.primary,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(22),
+                    ),
+                  ),
+                  child: Text(
+                    'Check Out ($_checkedCount)',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 13.5,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
 
-  // Circular Checkbox matching exact reference image design
   Widget _buildCircularCheckbox({
     required bool isChecked,
     required VoidCallback onTap,
@@ -1856,7 +1014,11 @@ class _CartPageState extends State<CartPage> {
               : Border.all(color: const Color(0xFFCBD5E1), width: 1.5),
         ),
         child: isChecked
-            ? const Icon(Icons.check, size: 14, color: Colors.white)
+            ? const Icon(
+                Icons.check,
+                size: 14,
+                color: Colors.white,
+              )
             : null,
       ),
     );

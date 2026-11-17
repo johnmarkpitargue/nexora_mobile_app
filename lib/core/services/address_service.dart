@@ -1,18 +1,25 @@
 import 'package:flutter/material.dart';
 import 'buyer_account_service.dart';
 import 'profile_service.dart';
+import '../constants/api_constants.dart';
+import '../network/api_client.dart';
 
 class AddressModel {
   final String id;
   final String fullName;
   final String phone;
   final String region;
+  final String regionCode;
   final String province;
+  final String provinceCode;
   final String city;
+  final String municipalityCode;
   final String barangay;
+  final String barangayCode;
   final String regionCity;
   final String postalCode;
   final String streetBuilding;
+  final String houseNumber;
   final String label; // 'Home' or 'Work'
   final bool isDefault;
   final double? latitude;
@@ -23,12 +30,17 @@ class AddressModel {
     required this.fullName,
     required this.phone,
     this.region = '',
+    this.regionCode = '',
     this.province = '',
+    this.provinceCode = '',
     this.city = '',
+    this.municipalityCode = '',
     this.barangay = '',
+    this.barangayCode = '',
     required this.regionCity,
     required this.postalCode,
     required this.streetBuilding,
+    this.houseNumber = '',
     required this.label,
     this.isDefault = false,
     this.latitude,
@@ -39,6 +51,7 @@ class AddressModel {
 
   String get fullAddress {
     final locationParts = [
+      if (houseNumber.isNotEmpty) houseNumber,
       streetBuilding,
       barangay,
       city,
@@ -53,12 +66,17 @@ class AddressModel {
     String? fullName,
     String? phone,
     String? region,
+    String? regionCode,
     String? province,
+    String? provinceCode,
     String? city,
+    String? municipalityCode,
     String? barangay,
+    String? barangayCode,
     String? regionCity,
     String? postalCode,
     String? streetBuilding,
+    String? houseNumber,
     String? label,
     bool? isDefault,
     double? latitude,
@@ -69,16 +87,80 @@ class AddressModel {
       fullName: fullName ?? this.fullName,
       phone: phone ?? this.phone,
       region: region ?? this.region,
+      regionCode: regionCode ?? this.regionCode,
       province: province ?? this.province,
+      provinceCode: provinceCode ?? this.provinceCode,
       city: city ?? this.city,
+      municipalityCode: municipalityCode ?? this.municipalityCode,
       barangay: barangay ?? this.barangay,
+      barangayCode: barangayCode ?? this.barangayCode,
       regionCity: regionCity ?? this.regionCity,
       postalCode: postalCode ?? this.postalCode,
       streetBuilding: streetBuilding ?? this.streetBuilding,
+      houseNumber: houseNumber ?? this.houseNumber,
       label: label ?? this.label,
       isDefault: isDefault ?? this.isDefault,
       latitude: latitude ?? this.latitude,
       longitude: longitude ?? this.longitude,
+    );
+  }
+
+  Map<String, dynamic> toApiJson() => {
+    'label': label.isNotEmpty ? label : 'Home',
+    'recipient_name': fullName,
+    'recipient_phone': phone,
+    'phone': phone,
+    if (regionCode.isNotEmpty) 'region_code': regionCode,
+    if (region.isNotEmpty) 'region_name': region,
+    'province_code': provinceCode,
+    'province_name': province,
+    'municipality_code': municipalityCode,
+    'municipality_name': city,
+    'barangay_code': barangayCode,
+    'barangay_name': barangay,
+    if (houseNumber.isNotEmpty) 'house_number': houseNumber,
+    'street': streetBuilding.isNotEmpty ? streetBuilding : fullAddress,
+    if (postalCode.isNotEmpty) 'postal_code': postalCode,
+    'is_default': isDefault,
+    if (latitude != null) 'latitude': latitude,
+    if (longitude != null) 'longitude': longitude,
+  };
+
+  factory AddressModel.fromApiJson(Map<String, dynamic> json) {
+    final recipientName = json['recipient_name'] as String? ?? json['fullName'] as String? ?? '';
+    final phone = json['recipient_phone'] as String? ?? json['phone'] as String? ?? '';
+    final region = json['region_name'] as String? ?? json['region'] as String? ?? '';
+    final regionCode = json['region_code'] as String? ?? '';
+    final province = json['province_name'] as String? ?? json['province'] as String? ?? '';
+    final provinceCode = json['province_code'] as String? ?? '';
+    final city = json['municipality_name'] as String? ?? json['city'] as String? ?? '';
+    final municipalityCode = json['municipality_code'] as String? ?? '';
+    final barangay = json['barangay_name'] as String? ?? json['barangay'] as String? ?? '';
+    final barangayCode = json['barangay_code'] as String? ?? '';
+    final houseNumber = json['house_number'] as String? ?? '';
+    final fullAddr = json['full_address'] as String? ??
+        [region, province, city, barangay].where((s) => s.isNotEmpty).join(', ');
+
+    return AddressModel(
+      id: json['id'].toString(),
+      fullName: recipientName,
+      phone: phone,
+      region: region,
+      regionCode: regionCode,
+      province: province,
+      provinceCode: provinceCode,
+      city: city,
+      municipalityCode: municipalityCode,
+      barangay: barangay,
+      barangayCode: barangayCode,
+      regionCity: fullAddr,
+      postalCode: json['postal_code'] as String? ?? json['postalCode'] as String? ?? '',
+      streetBuilding: json['street'] as String? ?? json['streetBuilding'] as String? ?? '',
+      houseNumber: houseNumber,
+      label: json['label'] as String? ?? 'Home',
+      isDefault: json['is_default'] == true || json['is_default'] == 1 || json['isDefault'] == true,
+      latitude: (json['latitude'] as num?)?.toDouble(),
+      longitude: (json['longitude'] as num?)?.toDouble(),
     );
   }
 }
@@ -93,6 +175,7 @@ class AddressService extends ChangeNotifier {
 
   void _onBuyerChanged() {
     _syncDefaultWithProfile();
+    loadAddressesFromApi();
     notifyListeners();
   }
 
@@ -201,48 +284,7 @@ class AddressService extends ChangeNotifier {
     );
   }
 
-  static List<AddressModel> _createDemoAddresses() {
-    return [
-      AddressModel(
-        id: 'addr_1',
-        fullName: 'John Mark Pitargue',
-        phone: '(+63) 9759632035',
-        region: 'South Luzon',
-        province: 'Laguna',
-        city: 'Liliw',
-        barangay: 'Tuy-Baanan',
-        streetBuilding: '192',
-        regionCity: 'South Luzon, Laguna, Liliw, Tuy-Baanan',
-        postalCode: '4004',
-        label: 'Home',
-        isDefault: true,
-        latitude: 14.1332,
-        longitude: 121.4367,
-      ),
-      AddressModel(
-        id: 'addr_2',
-        fullName: 'Ma. Sofia Ballescas',
-        phone: '09496923307',
-        region: 'National Capital Region (NCR)',
-        city: 'Quezon City',
-        barangay: 'Holy Spirit',
-        streetBuilding: '355 Sta Catalina, Holy Spirit',
-        regionCity: 'Quezon City, Metro Manila',
-        postalCode: '1127',
-        label: 'Work',
-        isDefault: false,
-        latitude: 14.6836,
-        longitude: 121.0772,
-      ),
-    ];
-  }
-
   List<AddressModel> _createInitialAddressesForUser(String key) {
-    // Only pre-seeded demo accounts have pre-filled addresses.
-    // Real newcomers, newly registered accounts, and new guest sessions start with 0 addresses!
-    if (key == 'alex.rivera@nexora.io' || key == 'juanmiguel.delacruz@example.com') {
-      return _createDemoAddresses();
-    }
     return [];
   }
 
@@ -331,6 +373,92 @@ class AddressService extends ChangeNotifier {
     return BuyerOpResult.ok(message: 'Address deleted successfully.');
   }
 
+  /// Fetch buyer addresses from backend API
+  Future<void> loadAddressesFromApi() async {
+    if (!ApiClient.instance.hasToken) return;
+    try {
+      final res = await ApiClient.instance.get(ApiConstants.buyerAddresses);
+      if (res['data'] is List) {
+        final list = (res['data'] as List)
+            .map((x) => AddressModel.fromApiJson(x as Map<String, dynamic>))
+            .toList();
+        _userAddresses[_currentUserKey] = list;
+        _syncDefaultWithProfile();
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('loadAddressesFromApi error: $e');
+    }
+  }
+
+  /// Add address via backend API
+  Future<BuyerOpResult> addAddressRemote(AddressModel newAddress) async {
+    if (ApiClient.instance.hasToken) {
+      try {
+        final res = await ApiClient.instance.post(
+          ApiConstants.buyerAddresses,
+          body: newAddress.toApiJson(),
+        );
+        await loadAddressesFromApi();
+        return BuyerOpResult.ok(message: res['message'] as String? ?? 'Address saved successfully');
+      } on ApiException catch (e) {
+        return BuyerOpResult.fail(e.message);
+      } catch (e) {
+        return BuyerOpResult.fail(e.toString());
+      }
+    }
+    return addAddress(newAddress);
+  }
+
+  /// Update address via backend API
+  Future<BuyerOpResult> updateAddressRemote(AddressModel updatedAddress) async {
+    if (ApiClient.instance.hasToken) {
+      try {
+        final res = await ApiClient.instance.put(
+          ApiConstants.buyerAddressDetail(updatedAddress.id),
+          body: updatedAddress.toApiJson(),
+        );
+        await loadAddressesFromApi();
+        return BuyerOpResult.ok(message: res['message'] as String? ?? 'Address updated successfully');
+      } on ApiException catch (e) {
+        return BuyerOpResult.fail(e.message);
+      } catch (e) {
+        return BuyerOpResult.fail(e.toString());
+      }
+    }
+    return updateAddress(updatedAddress);
+  }
+
+  /// Delete address via backend API
+  Future<BuyerOpResult> deleteAddressRemote(String id) async {
+    if (ApiClient.instance.hasToken) {
+      try {
+        final res = await ApiClient.instance.delete(ApiConstants.buyerAddressDetail(id));
+        await loadAddressesFromApi();
+        return BuyerOpResult.ok(message: res['message'] as String? ?? 'Address deleted successfully');
+      } on ApiException catch (e) {
+        return BuyerOpResult.fail(e.message);
+      } catch (e) {
+        return BuyerOpResult.fail(e.toString());
+      }
+    }
+    return deleteAddress(id);
+  }
+
+  /// Set default address via backend API
+  Future<void> setDefaultAddressRemote(String id) async {
+    if (ApiClient.instance.hasToken) {
+      try {
+        await ApiClient.instance.patch(ApiConstants.buyerAddressDefault(id));
+        await loadAddressesFromApi();
+        return;
+      } catch (e) {
+        debugPrint('setDefaultAddressRemote error: $e');
+      }
+    }
+    setDefaultAddress(id);
+  }
+
   void _syncDefaultWithProfile() {
     final def = defaultAddress;
     if (def != null) {
@@ -352,7 +480,7 @@ class AddressService extends ChangeNotifier {
   /// Reset address state for clean tests
   void resetState() {
     _userAddresses.clear();
-    _userAddresses[_currentUserKey] = _createDemoAddresses();
+    _userAddresses[_currentUserKey] = [];
     _syncDefaultWithProfile();
     notifyListeners();
   }

@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../../../app/routes/app_routes.dart';
 import '../../../app/theme/nexora_theme.dart';
 import '../../../core/services/order_service.dart';
 import '../../../core/services/order_chat_service.dart';
@@ -42,15 +41,11 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
   bool _isOpeningMap = false;
 
   late AnimationController _mapAnimationController;
-  final bool _isSatelliteMode = false;
   double? _liveRiderLat;
   double? _liveRiderLng;
   double? _liveRiderSpeed;
   double? _liveRiderHeading;
   double? _liveRiderAccuracy;
-  Offset _mapPanOffset = Offset.zero;
-  final int _tileZoom = 15;
-  bool? _userAdjustedZoom;
 
   String get _cleanId {
     final raw = widget.orderId ?? widget.orderItem?.orderId ?? '';
@@ -60,7 +55,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
     if (active.isNotEmpty) {
       return active.first.orderId.replaceAll('#', '').trim();
     }
-    return 'NX-8942-ORD';
+    return '';
   }
 
   OrderItemModel? get _localOrder {
@@ -76,23 +71,6 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
       }
     }
     return null;
-  }
-
-  double _calculateDistanceKm(
-    double lat1,
-    double lon1,
-    double lat2,
-    double lon2,
-  ) {
-    const p = 0.017453292519943295; // pi / 180
-    final a =
-        0.5 -
-        math.cos((lat2 - lat1) * p) / 2 +
-        math.cos(lat1 * p) *
-            math.cos(lat2 * p) *
-            (1 - math.cos((lon2 - lon1) * p)) /
-            2;
-    return 12742 * math.asin(math.sqrt(a.clamp(0.0, 1.0)));
   }
 
   void _syncCachedRiderGps() {
@@ -115,7 +93,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
     _mapAnimationController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 4),
-    );
+    )..repeat();
     OrderService.instance.addListener(_onOrderServiceChanged);
     _initStream();
     OrderService.instance.requestRiderLocation(_cleanId);
@@ -124,14 +102,11 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
     OrderChatService.instance.subscribeToOrder(_cleanId);
     OrderChatService.instance.onNewMessageReceived = (msg) {
       if (!mounted) return;
-      final rawSender = (msg['senderName'] as String?)?.isNotEmpty == true
+      final riderName = (msg['senderName'] as String?)?.isNotEmpty == true
           ? msg['senderName'] as String
           : (_localOrder?.courierName.isNotEmpty == true
                 ? _localOrder!.courierName
-                : 'Pedro Jose Garcia');
-      final riderName = rawSender.contains('Mark')
-          ? 'Pedro Jose Garcia'
-          : rawSender;
+                : 'Assigned Courier');
       final targetOrderId = (msg['orderId'] as String?)?.isNotEmpty == true
           ? msg['orderId'] as String
           : _cleanId;
@@ -148,19 +123,6 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
         },
       );
     };
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final reduceMotion =
-        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
-    if (reduceMotion) {
-      _mapAnimationController.stop();
-      _mapAnimationController.value = 0;
-    } else if (!_mapAnimationController.isAnimating) {
-      _mapAnimationController.repeat();
-    }
   }
 
   void _onOrderServiceChanged() {
@@ -564,9 +526,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
     final s = o.statusText.toLowerCase();
     final eta = o.etaText.toLowerCase();
     if (s.contains('pay') || s.contains('unpaid')) return 'pending';
-    if (s.contains('complete') ||
-        s.contains('delivered') ||
-        o.progress >= 1.0) {
+    if (s.contains('complete') || s.contains('delivered') || o.progress >= 1.0) {
       return 'delivered';
     }
     if (s.contains('cancel')) return 'cancelled';
@@ -588,58 +548,67 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
 
   @override
   Widget build(BuildContext context) {
-    const brandBlue = NexoraTheme.primary;
-    final compactHeader =
-        MediaQuery.sizeOf(context).width < 360 ||
-        MediaQuery.textScalerOf(context).scale(1) > 1.3;
+    const brandBlue = Color(0xFF0066FF);
+    const bgLight = Color(0xFFF8FAFC);
 
     return Scaffold(
-      backgroundColor: NexoraTheme.surface,
-      appBar: NexoraAppBar(
-        titleText: 'Track Order',
-        fallbackRoute: AppRoutes.orders,
-        showBottomDivider: true,
+      backgroundColor: bgLight,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0.5,
+        title: const Text(
+          'Track Your Order',
+          style: TextStyle(
+            color: Color(0xFF0F172A),
+            fontWeight: FontWeight.w700,
+            fontSize: 18,
+          ),
+        ),
+        centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(
+            Icons.arrow_back_ios_new_rounded,
+            color: Color(0xFF0F172A),
+            size: 20,
+          ),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
         actions: [
-          if (compactHeader)
-            const Padding(
-              padding: EdgeInsetsDirectional.only(end: NexoraSpacing.md),
-              child: Tooltip(
-                message: 'Live tracking active',
-                child: Icon(Icons.sensors_rounded, color: Color(0xFF059669)),
-              ),
-            )
-          else
-            Container(
-              margin: const EdgeInsetsDirectional.only(end: NexoraSpacing.md),
-              padding: const EdgeInsets.symmetric(
-                horizontal: NexoraSpacing.sm,
-                vertical: NexoraSpacing.xxs,
-              ),
-              decoration: BoxDecoration(
-                color: const Color(0xFFDCFCE7),
-                borderRadius: BorderRadius.circular(NexoraRadius.full),
-              ),
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.sensors_rounded,
-                    size: 16,
-                    color: Color(0xFF059669),
-                  ),
-                  SizedBox(width: NexoraSpacing.xs),
-                  Text(
-                    'Live tracking',
-                    style: TextStyle(
-                      fontFamily: NexoraTheme.fontFamily,
-                      color: Color(0xFF166534),
-                      fontWeight: FontWeight.w700,
-                      fontSize: 11,
-                    ),
-                  ),
-                ],
+          Container(
+            margin: const EdgeInsets.only(right: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: const Color(0xFF10B981).withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: const Color(0xFF10B981).withValues(alpha: 0.3),
               ),
             ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 7,
+                  height: 7,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF10B981),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 5),
+                const Text(
+                  'LIVE TRACKING',
+                  style: TextStyle(
+                    color: Color(0xFF059669),
+                    fontWeight: FontWeight.w800,
+                    fontSize: 10.5,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
       body: _orderStream != null
@@ -695,13 +664,12 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
                       order['customer_id']?.toString() ??
                       _localOrder?.recipientName ??
                       'Customer';
-                  final recipientPhone =
-                      _localOrder?.recipientPhone ?? '(+63) 975 963 2035';
+                  final recipientPhone = _localOrder?.recipientPhone ?? '';
                   final totalAmount = _localOrder != null
                       ? '₱${_localOrder!.totalPrice.toStringAsFixed(2)}'
                       : (order['total_amount'] != null
                             ? '₱${order['total_amount']}'
-                            : '₱337.00');
+                            : null);
 
                   return _buildTrackingContent(
                     status: rawStatus,
@@ -876,36 +844,12 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
         (_broadcastCourierNameOverride != null &&
             _broadcastCourierNameOverride!.isNotEmpty)
         ? _broadcastCourierNameOverride!
-        : (localOrder?.courierName.isNotEmpty == true
-              ? localOrder!.courierName
-              : 'Pedro Jose Garcia');
+        : (localOrder?.courierName ?? '');
     final riderRating = OrderService.instance.getLiveCourierRating(
       riderName,
-      fallback: localOrder?.courierRating ?? 4.96,
+      fallback: localOrder?.courierRating ?? 0.0,
     );
-    final riderAvatar = localOrder?.courierAvatarUrl.isNotEmpty == true
-        ? localOrder!.courierAvatarUrl
-        : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80';
-    final media = MediaQuery.of(context);
-    final useCompactLayout =
-        media.size.width < 360 || media.textScaler.scale(1) > 1.3;
-
-    if (useCompactLayout) {
-      return _buildCompactTrackingContent(
-        status: status,
-        address: address,
-        lat: lat,
-        lng: lng,
-        recipientName: recipientName,
-        recipientPhone: recipientPhone,
-        orderNumber: orderNumber,
-        totalAmount: totalAmount,
-        isLiveRiderConnected: isLiveRiderConnected,
-        localOrder: localOrder,
-        riderName: riderName,
-        riderRating: riderRating,
-      );
-    }
+    final riderAvatar = localOrder?.courierAvatarUrl ?? '';
 
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
@@ -917,27 +861,36 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
           _buildOrderHeaderCard(orderNumber, totalAmount, isLiveRiderConnected),
           const SizedBox(height: 14),
 
-          // 2. In-App Live GPS Interactive Map
-          _buildInAppLiveGpsMapCard(
-            status: status,
-            lat: lat,
-            lng: lng,
-            address: address,
-            riderName: riderName,
-          ),
-          const SizedBox(height: 14),
+          // 2. Real Milestone Tracking Timeline (when backend tracking_summary exists)
+          if (localOrder?.trackingSummary != null) ...[
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surfaceContainerLowest,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: Theme.of(context).colorScheme.outlineVariant,
+                ),
+              ),
+              child: TrackingTimeline(
+                trackingSummary: localOrder!.trackingSummary!,
+              ),
+            ),
+            const SizedBox(height: 14),
+          ],
 
-          // 3. Interactive 4-Step Stepper
+          // Interactive Stepper
           _buildStatusTrackerCard(status),
           const SizedBox(height: 14),
 
-          // 3. Connected Rider & Courier Card
+          // 3. Connected Rider & Courier Card (only shows honest state)
           _buildRiderInfoCard(
             riderName: riderName,
             riderRating: riderRating,
             riderAvatar: riderAvatar,
             orderNumber: orderNumber,
             status: status,
+            localOrder: localOrder,
           ),
           const SizedBox(height: 14),
 
@@ -962,629 +915,26 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
     );
   }
 
-  Widget _buildCompactTrackingContent({
-    required String status,
-    required String address,
-    required double lat,
-    required double lng,
-    required String recipientName,
-    required String recipientPhone,
-    required String orderNumber,
-    required String? totalAmount,
-    required bool isLiveRiderConnected,
-    required OrderItemModel? localOrder,
-    required String riderName,
-    required double riderRating,
-  }) {
-    final statusMeta = _getStatusConfig(status);
-    final completedSteps = (statusMeta.stepIndex + 1).clamp(1, 4);
-    const steps = <(String, String)>[
-      ('Order placed', 'Your order is confirmed'),
-      ('Preparing', 'The merchant is packing your items'),
-      ('Out for delivery', 'Your courier is heading to you'),
-      ('Delivered', 'Package received'),
-    ];
-
-    Widget card({required Widget child}) => Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(NexoraSpacing.md),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(NexoraRadius.large),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      child: child,
-    );
-
-    return SingleChildScrollView(
-      key: const ValueKey('compact-order-tracking-scroll'),
-      physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.all(NexoraSpacing.md),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Semantics(
-            label: '${statusMeta.title}. ${statusMeta.description}',
-            child: Container(
-              padding: const EdgeInsets.all(NexoraSpacing.lg),
-              decoration: BoxDecoration(
-                color: NexoraTheme.darkNavy,
-                borderRadius: BorderRadius.circular(NexoraRadius.sheet),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: NexoraSpacing.sm,
-                      vertical: NexoraSpacing.xxs,
-                    ),
-                    decoration: BoxDecoration(
-                      color: statusMeta.color.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(NexoraRadius.full),
-                    ),
-                    child: Text(
-                      statusMeta.title,
-                      style: TextStyle(
-                        color: statusMeta.color,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: NexoraSpacing.md),
-                  Text(
-                    statusMeta.description,
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w800,
-                      height: 1.2,
-                    ),
-                  ),
-                  const SizedBox(height: NexoraSpacing.md),
-                  Text(
-                    'Order #$orderNumber',
-                    style: const TextStyle(color: Color(0xFFCBD5E1)),
-                  ),
-                  if (totalAmount != null) ...[
-                    const SizedBox(height: NexoraSpacing.xs),
-                    Text(
-                      totalAmount,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: NexoraSpacing.md),
-          card(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  isLiveRiderConnected ? 'Live route' : 'Delivery route',
-                  style: Theme.of(context).textTheme.titleMedium
-                      ?.copyWith(fontWeight: FontWeight.w800),
-                ),
-                const SizedBox(height: NexoraSpacing.sm),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Icon(
-                      Icons.location_on_rounded,
-                      color: NexoraTheme.primary,
-                    ),
-                    const SizedBox(width: NexoraSpacing.sm),
-                    Expanded(
-                      child: Text(address, style: const TextStyle(height: 1.4)),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: NexoraSpacing.md),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton.icon(
-                    onPressed: _isOpeningMap
-                        ? null
-                        : () => _verifyDeliveryPin(
-                            lat: lat,
-                            lng: lng,
-                            addressLabel: address,
-                          ),
-                    icon: const Icon(Icons.map_outlined),
-                    label: const Text('Open map'),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: NexoraSpacing.md),
-          card(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Delivery progress',
-                  style: Theme.of(context).textTheme.titleMedium
-                      ?.copyWith(fontWeight: FontWeight.w800),
-                ),
-                const SizedBox(height: NexoraSpacing.md),
-                Semantics(
-                  label: '$completedSteps of 4 delivery steps complete',
-                  child: LinearProgressIndicator(
-                    value: completedSteps / 4,
-                    minHeight: 8,
-                    borderRadius: BorderRadius.circular(NexoraRadius.full),
-                    backgroundColor: const Color(0xFFE2E8F0),
-                    color: statusMeta.color,
-                  ),
-                ),
-                const SizedBox(height: NexoraSpacing.md),
-                for (var index = 0; index < steps.length; index++) ...[
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(
-                        index < completedSteps
-                            ? Icons.check_circle_rounded
-                            : Icons.radio_button_unchecked_rounded,
-                        color: index < completedSteps
-                            ? statusMeta.color
-                            : const Color(0xFF94A3B8),
-                      ),
-                      const SizedBox(width: NexoraSpacing.sm),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              steps[index].$1,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                            Text(
-                              steps[index].$2,
-                              style: const TextStyle(
-                                color: Color(0xFF64748B),
-                                height: 1.35,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (index != steps.length - 1)
-                    const SizedBox(height: NexoraSpacing.md),
-                ],
-              ],
-            ),
-          ),
-          const SizedBox(height: NexoraSpacing.md),
-          card(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Icon(
-                  Icons.two_wheeler_rounded,
-                  color: NexoraTheme.primary,
-                  size: 30,
-                ),
-                const SizedBox(height: NexoraSpacing.sm),
-                Text(
-                  riderName,
-                  style: Theme.of(context).textTheme.titleMedium
-                      ?.copyWith(fontWeight: FontWeight.w800),
-                ),
-                Text(
-                  'Assigned courier • ${riderRating.toStringAsFixed(2)} rating',
-                  style: const TextStyle(color: Color(0xFF64748B)),
-                ),
-                const SizedBox(height: NexoraSpacing.md),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: () => _openChatWithRider(riderName, orderNumber),
-                    icon: const Icon(Icons.chat_bubble_outline_rounded),
-                    label: const Text('Message rider'),
-                  ),
-                ),
-                const SizedBox(height: NexoraSpacing.sm),
-                SizedBox(
-                  width: double.infinity,
-                  child: TextButton.icon(
-                    onPressed: () =>
-                        _showCallRiderDialog(riderName, '(+63) 975 963 2035'),
-                    icon: const Icon(Icons.call_outlined),
-                    label: const Text('Call rider'),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: NexoraSpacing.md),
-          card(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Delivery details',
-                  style: Theme.of(context).textTheme.titleMedium
-                      ?.copyWith(fontWeight: FontWeight.w800),
-                ),
-                const SizedBox(height: NexoraSpacing.md),
-                Text(
-                  recipientName,
-                  style: const TextStyle(fontWeight: FontWeight.w800),
-                ),
-                Text(
-                  recipientPhone,
-                  style: const TextStyle(color: Color(0xFF64748B)),
-                ),
-                const SizedBox(height: NexoraSpacing.sm),
-                Text(address, style: const TextStyle(height: 1.4)),
-                const SizedBox(height: NexoraSpacing.sm),
-                Text(
-                  '${lat.toStringAsFixed(4)}, ${lng.toStringAsFixed(4)}',
-                  style: const TextStyle(
-                    color: NexoraTheme.primary,
-                    fontFamily: 'monospace',
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (localOrder != null && localOrder.items.isNotEmpty) ...[
-            const SizedBox(height: NexoraSpacing.md),
-            card(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Items in this parcel',
-                    style: Theme.of(context).textTheme.titleMedium
-                        ?.copyWith(fontWeight: FontWeight.w800),
-                  ),
-                  const SizedBox(height: NexoraSpacing.md),
-                  for (final item in localOrder.items) ...[
-                    Text(
-                      item.title,
-                      style: const TextStyle(fontWeight: FontWeight.w800),
-                    ),
-                    Text(
-                      item.variant,
-                      style: const TextStyle(color: Color(0xFF64748B)),
-                    ),
-                    Text(
-                      '₱${item.price.toStringAsFixed(2)}',
-                      style: const TextStyle(fontWeight: FontWeight.w800),
-                    ),
-                    if (item != localOrder.items.last)
-                      const Padding(
-                        padding: EdgeInsets.symmetric(
-                          vertical: NexoraSpacing.sm,
-                        ),
-                        child: Divider(),
-                      ),
-                  ],
-                ],
-              ),
-            ),
-          ],
-          const SizedBox(height: NexoraSpacing.xl),
-        ],
-      ),
-    );
-  }
-
-  /// In-App Live GPS Real-World Interactive Map Card (OpenStreetMap / Carto)
-  Widget _buildInAppLiveGpsMapCard({
-    required String status,
-    required double lat,
-    required double lng,
-    required String address,
-    required String riderName,
-  }) {
-    final isOutForDelivery =
-        status == 'to_deliver' ||
-        status == 'in_transit' ||
-        status == 'out_for_delivery' ||
-        status == 'picked_up';
-    final isDelivered = status == 'delivered' || status == 'completed';
-
-    // 1. Resolve real Rider phone GPS coordinates (no fake Calamba sine-wave simulation)
-    final bool hasRealPhoneGps = _liveRiderLat != null && _liveRiderLng != null;
-    double currentRiderLat;
-    double currentRiderLng;
-
-    if (hasRealPhoneGps) {
-      currentRiderLat = _liveRiderLat!;
-      currentRiderLng = _liveRiderLng!;
-    } else if (isDelivered) {
-      currentRiderLat = lat;
-      currentRiderLng = lng;
-    } else {
-      // Before Rider's phone GPS connects, position dispatch pin near buyer's area
-      currentRiderLat = lat + 0.0032;
-      currentRiderLng = lng - 0.0028;
-    }
-
-    // 2. Real geographical distance (Haversine formula) & dynamic ETA
-    final distKm = _calculateDistanceKm(
-      currentRiderLat,
-      currentRiderLng,
-      lat,
-      lng,
-    );
-    final effectiveSpeedKmh =
-        (_liveRiderSpeed != null && _liveRiderSpeed! > 5.0)
-        ? _liveRiderSpeed!
-        : 24.0;
-    final etaMinutes = (distKm / effectiveSpeedKmh * 60.0).round().clamp(1, 60);
-
-    // 3. Auto-fit zoom level to show both Rider's real phone GPS and Buyer's destination
-    int autoZoom = 15;
-    if (distKm > 25) {
-      autoZoom = 10;
-    } else if (distKm > 12) {
-      autoZoom = 11;
-    } else if (distKm > 6) {
-      autoZoom = 12;
-    } else if (distKm > 3) {
-      autoZoom = 13;
-    } else if (distKm > 1.2) {
-      autoZoom = 14;
-    } else if (distKm > 0.4) {
-      autoZoom = 15;
-    } else {
-      autoZoom = 16;
-    }
-    final int z = (_userAdjustedZoom == true) ? _tileZoom : autoZoom;
-    final double centerLat = (currentRiderLat + lat) / 2.0;
-    final double centerLng = (currentRiderLng + lng) / 2.0;
-
-    return Container(
-      decoration: BoxDecoration(
-        color: _isSatelliteMode ? const Color(0xFF0F172A) : Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: _isSatelliteMode
-              ? const Color(0xFF1E293B)
-              : const Color(0xFFE2E8F0),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // 1. Header Bar: Real GPS Tag + Live Distance & ETA
-          Padding(
-            padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 8,
-                      height: 8,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFF10B981),
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      'REAL-TIME GPS MAP',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0.8,
-                        color: _isSatelliteMode
-                            ? const Color(0xFF38BDF8)
-                            : const Color(0xFF0284C7),
-                      ),
-                    ),
-                  ],
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 3,
-                  ),
-                  decoration: BoxDecoration(
-                    color: _isSatelliteMode
-                        ? const Color(0xFF1E293B)
-                        : const Color(0xFFF1F5F9),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    isDelivered
-                        ? 'Delivered'
-                        : (isOutForDelivery
-                              ? '${distKm.toStringAsFixed(1)} km • ETA $etaMinutes min'
-                              : 'In Hub Dispatch'),
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: _isSatelliteMode
-                          ? Colors.white70
-                          : const Color(0xFF334155),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // 2. Interactive Real Geographic Tile Map Viewport
-          SizedBox(
-            height: 250,
-            child: ClipRect(
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final mapWidth = constraints.maxWidth;
-                  final mapHeight = constraints.maxHeight;
-
-                  // Web Mercator tile projection
-                  final double globalTileX =
-                      (centerLng + 180.0) / 360.0 * (1 << z);
-                  final double latRad = centerLat * math.pi / 180.0;
-                  final double globalTileY =
-                      (1.0 -
-                          (math.log(
-                                math.tan(latRad) + (1.0 / math.cos(latRad)),
-                              ) /
-                              math.pi)) /
-                      2.0 *
-                      (1 << z);
-
-                  final int centerTileX = globalTileX.floor();
-                  final int centerTileY = globalTileY.floor();
-
-                  final double fracX = globalTileX - centerTileX;
-                  final double fracY = globalTileY - centerTileY;
-
-                  final double originPixelX =
-                      (mapWidth / 2) - (fracX * 256.0) + _mapPanOffset.dx;
-                  final double originPixelY =
-                      (mapHeight / 2) - (fracY * 256.0) + _mapPanOffset.dy;
-
-                  // Render tile grid
-                  final tileWidgets = <Widget>[];
-                  for (int dx = -2; dx <= 2; dx++) {
-                    for (int dy = -2; dy <= 2; dy++) {
-                      final double tileLeft = originPixelX + (dx * 256.0);
-                      final double tileTop = originPixelY + (dy * 256.0);
-
-                      if (tileLeft + 256 < 0 ||
-                          tileLeft > mapWidth ||
-                          tileTop + 256 < 0 ||
-                          tileTop > mapHeight) {
-                        continue;
-                      }
-
-                      final int tileX = centerTileX + dx;
-                      final int tileY = centerTileY + dy;
-                      // OpenStreetMap Standard Tiles (crisp, updated road network & POIs, zero watermark) / Esri Satellite
-                      final String tileUrl = _isSatelliteMode
-                          ? 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/$z/$tileY/$tileX'
-                          : 'https://tile.openstreetmap.org/$z/$tileX/$tileY.png';
-
-                      tileWidgets.add(
-                        Positioned(
-                          left: tileLeft,
-                          top: tileTop,
-                          width: 256,
-                          height: 256,
-                          child: Image.network(
-                            tileUrl,
-                            headers: kIsWeb
-                                ? null
-                                : const {
-                                    'User-Agent': 'NexoraBuyerApp/1.0 (com.example.nexora_flutter_app)',
-                                  },
-                            fit: BoxFit.cover,
-                            gaplessPlayback: true,
-                            errorBuilder: (context, error, stackTrace) =>
-                                Container(
-                                  color: _isSatelliteMode
-                                      ? const Color(0xFF0F172A)
-                                      : const Color(0xFFF1F5F9),
-                                  child: Center(
-                                    child: Icon(
-                                      Icons.map_outlined,
-                                      size: 24,
-                                      color: _isSatelliteMode
-                                          ? Colors.white12
-                                          : Colors.black12,
-                                    ),
-                                  ),
-                                ),
-                          ),
-                        ),
-                      );
-                    }
-                  }
-
-                  return GestureDetector(
-                    onPanUpdate: (details) {
-                      setState(() {
-                        _mapPanOffset += details.delta;
-                      });
-                    },
-                    child: Stack(
-                      children: [
-                        // Background base color
-                        Container(
-                          color: _isSatelliteMode
-                              ? const Color(0xFF0F172A)
-                              : const Color(0xFFF1F5F9),
-                        ),
-
-                        // Real map tiles
-                        ...tileWidgets,
-
-                        // Real Coordinate Route & Marker Overlay
-                        Positioned.fill(
-                          child: AnimatedBuilder(
-                            animation: _mapAnimationController,
-                            builder: (context, child) {
-                              return CustomPaint(
-                                painter: _RealTileOverlayPainter(
-                                  animationProgress:
-                                      _mapAnimationController.value,
-                                  isSatelliteMode: _isSatelliteMode,
-                                  status: status,
-                                  z: z,
-                                  globalTileX: globalTileX,
-                                  globalTileY: globalTileY,
-                                  panOffset: _mapPanOffset,
-                                  destLat: lat,
-                                  destLng: lng,
-                                  riderLat: currentRiderLat,
-                                  riderLng: currentRiderLng,
-                                  riderName: riderName,
-                                  destinationAddress: address,
-                                  riderSpeed: _liveRiderSpeed,
-                                  riderHeading: _liveRiderHeading,
-                                  riderAccuracy: _liveRiderAccuracy,
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   /// Order identifier & overview header
   Widget _buildOrderHeaderCard(
     String orderNumber,
     String? totalAmount,
     bool isLive,
   ) {
-    return NexoraCard(
-      padding: const EdgeInsets.all(NexoraSpacing.md),
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
       child: Column(
         children: [
           Row(
@@ -1596,8 +946,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
                   const Text(
                     'ORDER REFERENCE',
                     style: TextStyle(
-                      fontFamily: NexoraTheme.fontFamily,
-                      color: NexoraTheme.onSurfaceVariant,
+                      color: Color(0xFF94A3B8),
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
                       letterSpacing: 0.6,
@@ -1607,9 +956,8 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
                   Text(
                     '#$orderNumber',
                     style: const TextStyle(
-                      fontFamily: NexoraTheme.fontFamily,
-                      color: NexoraTheme.onSurface,
-                      fontSize: 15.5,
+                      color: Color(0xFF0F172A),
+                      fontSize: 15,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
@@ -1622,8 +970,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
                     const Text(
                       'TOTAL PAID',
                       style: TextStyle(
-                        fontFamily: NexoraTheme.fontFamily,
-                        color: NexoraTheme.onSurfaceVariant,
+                        color: Color(0xFF94A3B8),
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 0.6,
@@ -1633,9 +980,8 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
                     Text(
                       totalAmount,
                       style: const TextStyle(
-                        fontFamily: NexoraTheme.fontFamily,
-                        color: NexoraTheme.primary,
-                        fontSize: 16.5,
+                        color: Color(0xFF0066FF),
+                        fontSize: 16,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
@@ -1647,7 +993,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
-              color: isLive ? NexoraTheme.secondaryContainer : NexoraTheme.surfaceContainerLow,
+              color: isLive ? const Color(0xFFE0F7FA) : const Color(0xFFF1F5F9),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Row(
@@ -1655,7 +1001,9 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
                 Icon(
                   isLive ? Icons.wifi_tethering_rounded : Icons.sync_rounded,
                   size: 15,
-                  color: isLive ? NexoraTheme.secondary : NexoraTheme.onSurfaceVariant,
+                  color: isLive
+                      ? const Color(0xFF00B4D8)
+                      : const Color(0xFF64748B),
                 ),
                 const SizedBox(width: 6),
                 Expanded(
@@ -1664,10 +1012,11 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
                         ? 'Realtime sync active: Connected to Rider App'
                         : 'Order synchronized with local logistics dispatch',
                     style: TextStyle(
-                      fontFamily: NexoraTheme.fontFamily,
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
-                      color: isLive ? NexoraTheme.onSecondaryContainer : NexoraTheme.onSurfaceVariant,
+                      color: isLive
+                          ? const Color(0xFF0891B2)
+                          : const Color(0xFF475569),
                     ),
                   ),
                 ),
@@ -1683,8 +1032,20 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
   Widget _buildStatusTrackerCard(String status) {
     final statusConfig = _getStatusConfig(status);
 
-    return NexoraCard(
-      padding: const EdgeInsets.all(NexoraSpacing.md),
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1858,14 +1219,17 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
     );
   }
 
-  /// Connected Rider Card
+  /// Connected Rider Card (renders honest unassigned state when no rider assigned)
   Widget _buildRiderInfoCard({
     required String riderName,
     required double riderRating,
     required String riderAvatar,
     required String orderNumber,
     required String status,
+    OrderItemModel? localOrder,
   }) {
+    final cs = Theme.of(context).colorScheme;
+    final hasCourier = riderName.trim().isNotEmpty;
     final isOutForDelivery =
         status == 'to_deliver' ||
         status == 'in_transit' ||
@@ -1873,8 +1237,67 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
         status == 'picked_up' ||
         status == 'at_store';
 
-    return NexoraCard(
-      padding: const EdgeInsets.all(NexoraSpacing.md),
+    if (!hasCourier) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: cs.surfaceContainerLowest,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: cs.outlineVariant),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: cs.primary.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(Icons.two_wheeler_rounded, color: cs.primary, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Courier Assignment',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: cs.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Awaiting delivery rider assignment from Nexora Logistics.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: cs.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final vehicleDetails = [
+      localOrder?.courierVehicle,
+      localOrder?.courierPlateNumber,
+    ].whereType<String>().where((s) => s.trim().isNotEmpty).join(' • ');
+    final phone = localOrder?.courierPhone ?? '';
+    final hubInfo = localOrder?.currentHubName;
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: cs.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: cs.outlineVariant),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1883,95 +1306,78 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: NexoraTheme.primary.withValues(alpha: 0.1),
+                  color: cs.primary.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.two_wheeler_rounded,
-                  color: NexoraTheme.primary,
+                  color: cs.primary,
                   size: 20,
                 ),
               ),
               const SizedBox(width: 10),
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       'Assigned Courier & Rider',
                       style: TextStyle(
-                        fontFamily: NexoraTheme.fontFamily,
                         fontSize: 15,
                         fontWeight: FontWeight.w700,
-                        color: NexoraTheme.onSurface,
+                        color: cs.onSurface,
                       ),
                     ),
                     Text(
-                      'Nexora Express • SPX Logistics Partner',
+                      'Nexora Express Logistics',
                       style: TextStyle(
-                        fontFamily: NexoraTheme.fontFamily,
                         fontSize: 11.5,
-                        color: NexoraTheme.onSurfaceVariant,
+                        color: cs.onSurfaceVariant,
                       ),
                     ),
                   ],
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFECFDF5),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: const Color(0xFFA7F3D0)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(
-                      Icons.star_rounded,
-                      color: Color(0xFFF59E0B),
-                      size: 14,
-                    ),
-                    const SizedBox(width: 2),
-                    Text(
-                      riderRating.toStringAsFixed(2),
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 11.5,
-                        color: Color(0xFF065F46),
+              if (riderRating > 0)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: NexoraTheme.success.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.star_rounded,
+                        color: NexoraTheme.warning,
+                        size: 14,
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 2),
+                      Text(
+                        riderRating.toStringAsFixed(2),
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 11.5,
+                          color: NexoraTheme.success,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
             ],
           ),
           const SizedBox(height: 16),
-
-          // Rider Profile Row
           Row(
             children: [
-              Stack(
-                children: [
-                  CircleAvatar(
-                    radius: 26,
-                    backgroundColor: const Color(0xFFE2E8F0),
-                    backgroundImage: NetworkImage(riderAvatar),
-                  ),
-                  Positioned(
-                    bottom: 0,
-                    right: 0,
-                    child: Container(
-                      width: 13,
-                      height: 13,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF10B981),
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 2),
-                      ),
-                    ),
-                  ),
-                ],
+              CircleAvatar(
+                radius: 26,
+                backgroundColor: cs.surfaceContainerHigh,
+                backgroundImage:
+                    riderAvatar.isNotEmpty ? NetworkImage(riderAvatar) : null,
+                child: riderAvatar.isEmpty
+                    ? Icon(Icons.person, color: cs.onSurfaceVariant)
+                    : null,
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -1980,36 +1386,34 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
                   children: [
                     Text(
                       riderName,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontWeight: FontWeight.w800,
                         fontSize: 15,
-                        color: Color(0xFF0F172A),
+                        color: cs.onSurface,
                       ),
                     ),
-                    const SizedBox(height: 2),
-                    const Text(
-                      'Honda Click 150i • Plate: ND-8821',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Color(0xFF64748B),
-                        fontWeight: FontWeight.w500,
+                    if (vehicleDetails.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        vehicleDetails,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: cs.onSurfaceVariant,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
-                    ),
+                    ],
                     const SizedBox(height: 2),
                     Text(
                       isOutForDelivery
-                          ? (_liveRiderSpeed != null && _liveRiderSpeed! > 1.5
-                                ? '🛵 En route • ${_liveRiderSpeed!.round()} km/h live speed'
-                                : (_liveRiderSpeed != null
-                                      ? '🛵 En route • Stopped (0 km/h)'
-                                      : '🛵 Heading to your drop-off point'))
-                          : '📍 Assigned at Laguna Hub #402',
+                          ? 'Out for delivery'
+                          : (hubInfo != null && hubInfo.isNotEmpty
+                              ? 'At $hubInfo'
+                              : 'Assigned for dispatch'),
                       style: TextStyle(
                         fontSize: 11.5,
                         fontWeight: FontWeight.w600,
-                        color: isOutForDelivery
-                            ? const Color(0xFF8B5CF6)
-                            : const Color(0xFF0284C7),
+                        color: cs.primary,
                       ),
                     ),
                   ],
@@ -2017,80 +1421,23 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
               ),
             ],
           ),
-          const SizedBox(height: 14),
-
-          // Action Buttons: Call & Chat
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () =>
-                      _showCallRiderDialog(riderName, '(+63) 975 963 2035'),
-                  icon: const Icon(Icons.phone_rounded, size: 16),
-                  label: const Text(
-                    'Call Rider',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF0F172A),
-                    side: const BorderSide(color: Color(0xFFCBD5E1)),
-                    padding: const EdgeInsets.symmetric(vertical: 11),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
+          if (phone.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => _showCallRiderDialog(riderName, phone),
+                    icon: const Icon(Icons.phone_rounded, size: 16),
+                    label: const Text(
+                      'Call Rider',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: AnimatedBuilder(
-                  animation: OrderChatService.instance,
-                  builder: (context, _) {
-                    final unread = OrderChatService.instance.getUnreadCount(
-                      _cleanId,
-                    );
-                    return ElevatedButton.icon(
-                      onPressed: () =>
-                          _openChatWithRider(riderName, orderNumber),
-                      icon: Badge(
-                        isLabelVisible: unread > 0,
-                        label: Text(
-                          '$unread',
-                          style: const TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        backgroundColor: const Color(0xFFEF4444),
-                        child: const Icon(
-                          Icons.chat_bubble_outline_rounded,
-                          size: 16,
-                        ),
-                      ),
-                      label: Text(
-                        unread > 0 ? 'Chat Courier ($unread)' : 'Chat Courier',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                        ),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: unread > 0
-                            ? const Color(0xFF0052CC)
-                            : const Color(0xFF0066FF),
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        padding: const EdgeInsets.symmetric(vertical: 11),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
+              ],
+            ),
+          ],
           const SizedBox(height: 10),
           Container(
             width: double.infinity,
@@ -2165,8 +1512,20 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
     required String recipientPhone,
     String? orderNumber,
   }) {
-    return NexoraCard(
-      padding: const EdgeInsets.all(NexoraSpacing.md),
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -2175,12 +1534,12 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: NexoraTheme.secondary.withValues(alpha: 0.12),
+                  color: const Color(0xFF00C1D4).withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: const Icon(
                   Icons.location_on_rounded,
-                  color: NexoraTheme.secondary,
+                  color: Color(0xFF00B4D8),
                   size: 20,
                 ),
               ),
@@ -2192,10 +1551,9 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
                     Text(
                       'Delivery Address',
                       style: TextStyle(
-                        fontFamily: NexoraTheme.fontFamily,
                         fontSize: 15,
                         fontWeight: FontWeight.w700,
-                        color: NexoraTheme.onSurface,
+                        color: Color(0xFF0F172A),
                       ),
                     ),
                     Text(
@@ -2928,8 +2286,20 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
 
   /// Package Items Card
   Widget _buildItemsPreviewCard(OrderItemModel localOrder) {
-    return NexoraCard(
-      padding: const EdgeInsets.all(NexoraSpacing.md),
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -2939,8 +2309,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
               const Text(
                 'ITEMS IN THIS PARCEL',
                 style: TextStyle(
-                  fontFamily: NexoraTheme.fontFamily,
-                  color: NexoraTheme.onSurfaceVariant,
+                  color: Color(0xFF94A3B8),
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 0.6,
@@ -2949,8 +2318,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen>
               Text(
                 '${localOrder.items.length} ${localOrder.items.length == 1 ? 'item' : 'items'}',
                 style: const TextStyle(
-                  fontFamily: NexoraTheme.fontFamily,
-                  color: NexoraTheme.onSurfaceVariant,
+                  color: Color(0xFF64748B),
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
                 ),
@@ -3108,245 +2476,4 @@ class _StatusMeta {
     required this.icon,
     required this.stepIndex,
   });
-}
-
-/// Custom overlay painter for the real-world geographic tile map.
-/// Projects real GPS coordinates (latitude, longitude) directly onto the Carto / OpenStreetMap tile layer.
-class _RealTileOverlayPainter extends CustomPainter {
-  final double animationProgress;
-  final bool isSatelliteMode;
-  final String status;
-  final int z;
-  final double globalTileX;
-  final double globalTileY;
-  final Offset panOffset;
-  final double destLat;
-  final double destLng;
-  final double riderLat;
-  final double riderLng;
-  final String riderName;
-  final String destinationAddress;
-  final double? riderSpeed;
-  final double? riderHeading;
-  final double? riderAccuracy;
-
-  _RealTileOverlayPainter({
-    required this.animationProgress,
-    required this.isSatelliteMode,
-    required this.status,
-    required this.z,
-    required this.globalTileX,
-    required this.globalTileY,
-    required this.panOffset,
-    required this.destLat,
-    required this.destLng,
-    required this.riderLat,
-    required this.riderLng,
-    required this.riderName,
-    required this.destinationAddress,
-    this.riderSpeed,
-    this.riderHeading,
-    this.riderAccuracy,
-  });
-
-  Offset toScreen(Size size, double lat, double lng) {
-    final double gx = (lng + 180.0) / 360.0 * (1 << z);
-    final double r = lat * math.pi / 180.0;
-    final double gy =
-        (1.0 - (math.log(math.tan(r) + (1.0 / math.cos(r))) / math.pi)) /
-        2.0 *
-        (1 << z);
-
-    final double px =
-        (size.width / 2) + ((gx - globalTileX) * 256.0) + panOffset.dx;
-    final double py =
-        (size.height / 2) + ((gy - globalTileY) * 256.0) + panOffset.dy;
-    return Offset(px, py);
-  }
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final destPos = toScreen(size, destLat, destLng);
-    final riderPos = toScreen(size, riderLat, riderLng);
-    final isDelivered = status == 'delivered' || status == 'completed';
-
-    // 1. Draw Connecting Route Line between Rider and Customer Pin
-    if (!isDelivered) {
-      final routePath = Path();
-      routePath.moveTo(riderPos.dx, riderPos.dy);
-      final midX = (riderPos.dx + destPos.dx) / 2 + 10;
-      final midY = (riderPos.dy + destPos.dy) / 2 - 10;
-      routePath.quadraticBezierTo(midX, midY, destPos.dx, destPos.dy);
-
-      // Route Outer Glow
-      final glowPaint = Paint()
-        ..color = const Color(0xFF0066FF).withValues(alpha: 0.28)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 9
-        ..strokeCap = StrokeCap.round;
-      canvas.drawPath(routePath, glowPaint);
-
-      // Route Solid Line
-      final linePaint = Paint()
-        ..color = const Color(0xFF0066FF)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 4
-        ..strokeCap = StrokeCap.round;
-      canvas.drawPath(routePath, linePaint);
-
-      // Moving animated pulses along the route
-      final pathMetrics = routePath.computeMetrics().toList();
-      if (pathMetrics.isNotEmpty) {
-        final metric = pathMetrics.first;
-        final totalLen = metric.length;
-        if (totalLen > 10) {
-          final pulseOffset = (animationProgress * 30) % 30;
-          final pulsePaint = Paint()
-            ..color = const Color(0xFF38BDF8)
-            ..style = PaintingStyle.fill;
-
-          for (double d = pulseOffset; d < totalLen; d += 28) {
-            final tangent = metric.getTangentForOffset(d);
-            if (tangent != null) {
-              canvas.drawCircle(tangent.position, 2.5, pulsePaint);
-            }
-          }
-        }
-      }
-    }
-
-    // 2. Draw Customer Destination Pin
-    _drawDestinationPin(canvas, destPos);
-
-    // 3. Draw Rider Marker
-    if (!isDelivered) {
-      _drawRiderMarker(canvas, riderPos);
-    }
-  }
-
-  void _drawDestinationPin(Canvas canvas, Offset pos) {
-    if (status == 'delivered' || status == 'completed') {
-      final pulseRadius = 14 + (animationProgress * 16);
-      final pulsePaint = Paint()
-        ..color = const Color(0xFF10B981)
-            .withValues(alpha: (1.0 - animationProgress) * 0.45)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.5;
-      canvas.drawCircle(pos, pulseRadius, pulsePaint);
-    }
-
-    // Shadow
-    canvas.drawCircle(
-      Offset(pos.dx, pos.dy + 2),
-      13,
-      Paint()..color = Colors.black.withValues(alpha: 0.25),
-    );
-    // Green pin base
-    canvas.drawCircle(pos, 11, Paint()..color = const Color(0xFF10B981));
-    // White inner ring
-    canvas.drawCircle(pos, 4.5, Paint()..color = Colors.white);
-
-    // Label pill above
-    final tp = TextPainter(
-      text: const TextSpan(
-        text: 'Your Pin',
-        style: TextStyle(
-          color: Color(0xFF0F172A),
-          fontSize: 9.5,
-          fontWeight: FontWeight.w800,
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-    )..layout();
-
-    final pillRRect = RRect.fromRectAndRadius(
-      Rect.fromCenter(
-        center: Offset(pos.dx, pos.dy - 17),
-        width: tp.width + 10,
-        height: 16,
-      ),
-      const Radius.circular(4),
-    );
-    canvas.drawRRect(
-      pillRRect,
-      Paint()..color = Colors.white.withValues(alpha: 0.95),
-    );
-    tp.paint(canvas, Offset(pos.dx - (tp.width / 2), pos.dy - 23));
-  }
-
-  void _drawRiderMarker(Canvas canvas, Offset pos) {
-    final pulse1 = animationProgress;
-    final pulse2 = (animationProgress + 0.5) % 1.0;
-
-    // Radar ripples expanding outward
-    final ripplePaint1 = Paint()
-      ..color = const Color(0xFF0066FF).withValues(alpha: (1.0 - pulse1) * 0.45)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
-    canvas.drawCircle(pos, 14 + (pulse1 * 24), ripplePaint1);
-
-    final ripplePaint2 = Paint()
-      ..color = const Color(0xFF0066FF).withValues(alpha: (1.0 - pulse2) * 0.45)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5;
-    canvas.drawCircle(pos, 14 + (pulse2 * 24), ripplePaint2);
-
-    // Glow halo
-    canvas.drawCircle(
-      pos,
-      15,
-      Paint()
-        ..color = const Color(0xFF0066FF).withValues(alpha: 0.28)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
-    );
-
-    // Blue circle marker
-    final riderBadgePaint = Paint()..color = const Color(0xFF0066FF);
-    canvas.drawCircle(pos, 13, riderBadgePaint);
-
-    final riderBorderPaint = Paint()
-      ..color = Colors.white
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.5;
-    canvas.drawCircle(pos, 13, riderBorderPaint);
-
-    // Vehicle heading pointer arrow
-    if (riderHeading != null && riderHeading! > 0) {
-      final rad = (riderHeading! - 90) * math.pi / 180.0;
-      final tipX = pos.dx + math.cos(rad) * 18;
-      final tipY = pos.dy + math.sin(rad) * 18;
-      final leftX = pos.dx + math.cos(rad + 2.5) * 10;
-      final leftY = pos.dy + math.sin(rad + 2.5) * 10;
-      final rightX = pos.dx + math.cos(rad - 2.5) * 10;
-      final rightY = pos.dy + math.sin(rad - 2.5) * 10;
-
-      final arrowPath = Path()
-        ..moveTo(tipX, tipY)
-        ..lineTo(leftX, leftY)
-        ..lineTo(pos.dx, pos.dy)
-        ..lineTo(rightX, rightY)
-        ..close();
-
-      canvas.drawPath(arrowPath, Paint()..color = const Color(0xFF00C4FF));
-    }
-
-    // Inner white dot
-    canvas.drawCircle(pos, 4, Paint()..color = Colors.white);
-  }
-
-  @override
-  bool shouldRepaint(covariant _RealTileOverlayPainter oldDelegate) {
-    return oldDelegate.animationProgress != animationProgress ||
-        oldDelegate.isSatelliteMode != isSatelliteMode ||
-        oldDelegate.status != status ||
-        oldDelegate.z != z ||
-        oldDelegate.panOffset != panOffset ||
-        oldDelegate.riderLat != riderLat ||
-        oldDelegate.riderLng != riderLng ||
-        oldDelegate.destLat != destLat ||
-        oldDelegate.destLng != destLng ||
-        oldDelegate.riderSpeed != riderSpeed ||
-        oldDelegate.riderHeading != riderHeading ||
-        oldDelegate.riderAccuracy != riderAccuracy;
-  }
 }

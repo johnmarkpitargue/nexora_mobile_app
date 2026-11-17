@@ -1,5 +1,6 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-
+import '../../features/home/presentation/widgets/product_card.dart';
 import '../../features/splash/presentation/splash_page.dart';
 import '../../features/auth/presentation/landing_page.dart';
 import '../../features/auth/presentation/login_page.dart';
@@ -7,7 +8,6 @@ import '../../features/auth/presentation/register_page.dart';
 import '../../features/auth/presentation/email_verification_page.dart';
 import '../../features/auth/presentation/forgot_password_page.dart';
 import '../../features/home/presentation/homepage.dart';
-import '../../features/home/presentation/widgets/product_card.dart';
 import '../../features/orders/presentation/orders_page.dart';
 import '../../features/chat/presentation/chat_page.dart';
 import '../../features/profile/presentation/profile_page.dart';
@@ -67,126 +67,124 @@ class AppRoutes {
   static const String followedStores = '/followed-stores';
 
   static Map<String, WidgetBuilder> get routes => {
-    search: (context) {
-      final args = ModalRoute.of(context)?.settings.arguments;
-      if (args is String) {
-        return SearchBrowsePage(initialQuery: args);
-      } else if (args is Map) {
-        return SearchBrowsePage(
-          initialQuery: args['query']?.toString() ?? '',
-          initialCategory: args['category']?.toString(),
-        );
-      }
-      return const SearchBrowsePage();
-    },
-    categoryProducts: (context) {
-      final args = ModalRoute.of(context)?.settings.arguments;
-      if (args is Map) {
-        final cat = args['category']?.toString() ??
-            args['categoryName']?.toString() ??
-            args['query']?.toString() ??
-            'All';
-        final title = args['title']?.toString() ??
-            args['categoryTitle']?.toString() ??
-            args['label']?.toString();
-        return CategoryProductsPage(
-          category: cat,
-          categoryTitle: title,
-        );
-      } else if (args is String) {
-        return CategoryProductsPage(category: args);
-      }
-      return const CategoryProductsPage(category: 'All');
-    },
-    splash: (context) => const SplashPage(),
-    '/splash': (context) => const SplashPage(),
-    landing: (context) => const LandingPage(),
-    login: (context) => const LoginPage(),
-    register: (context) => const RegisterPage(),
-    emailVerification: (context) {
-      final args = ModalRoute.of(context)?.settings.arguments;
-      if (args is String) {
-        return EmailVerificationPage(email: args);
-      } else if (args is Map<String, dynamic>) {
-        return EmailVerificationPage(
-          email: args['email'] as String?,
-          isLoginMode: args['isLoginMode'] as bool? ?? false,
-        );
-      }
-      return const EmailVerificationPage();
-    },
-    forgotPassword: (context) {
-      final args = ModalRoute.of(context)?.settings.arguments;
-      final email = args is String ? args : null;
-      return ForgotPasswordPage(initialEmail: email);
-    },
-    home: (context) => const NexoraHomePage(),
-    orders: (context) => const OrdersPage(),
-    chat: (context) => const ChatPage(),
-    profile: (context) => const ProfilePage(),
-    checkout: (context) => const CheckoutPage(),
-    productDetails: (context) => const ProductDetailsPage(),
-    cart: (context) => const CartPage(),
-    shop: (context) {
-      final args = ModalRoute.of(context)?.settings.arguments;
-      if (args is ShopModel) {
-        return ShopPage(initialShop: args);
-      } else if (args is String) {
-        return ShopPage(shopId: args);
-      }
-      return const ShopPage();
-    },
-    customerMockOrder: (context) => const CustomerMockOrderScreen(),
-    orderDetails: (context) {
-      final args = ModalRoute.of(context)?.settings.arguments;
-      if (args is OrderItemModel) {
-        return OrderDetailsPage(order: args);
-      }
-      return const OrderDetailsPage();
-    },
-    shippedOrderDetails: (context) {
-      final args = ModalRoute.of(context)?.settings.arguments;
-      if (args is OrderItemModel) {
-        return ShippedOrderDetailsPage(order: args);
-      }
-      return const ShippedOrderDetailsPage();
-    },
-    orderTracking: (context) {
-      final args = ModalRoute.of(context)?.settings.arguments;
-      if (args is OrderItemModel) {
-        return OrderTrackingScreen(orderId: args.orderId, orderItem: args);
-      } else if (args is String) {
-        return OrderTrackingScreen(orderId: args);
-      }
-      return const OrderTrackingScreen();
-    },
-    productReviews: (context) {
-      final args = ModalRoute.of(context)?.settings.arguments;
-      if (args is ProductModel) {
-        return ProductReviewsPage(product: args);
-      } else if (args is Map) {
-        return ProductReviewsPage(
-          product: args['product'] as ProductModel,
-          initialVariant: args['variant'] as String?,
-        );
-      }
-      return const Scaffold(body: Center(child: Text('Product not found')));
-    },
-    rateProduct: (context) {
-      final args = ModalRoute.of(context)?.settings.arguments;
-      if (args is OrderItemModel) {
-        return RateProductPage(orderItem: args);
-      }
-      return const RateProductPage();
-    },
-    myAddresses: (context) => const MyAddressesPage(),
-    newAddress: (context) => const NewAddressPage(),
-    wishlist: (context) => const WishlistPage(),
-    paymentMethods: (context) => const PaymentMethodsPage(),
-    notificationPreferences: (context) => const NotificationPreferencesPage(),
-    notifications: (context) => const NotificationsPage(),
-    followedStores: (context) => const FollowedStoresPage(),
-  };
+        search: (context) {
+          final args = ModalRoute.of(context)?.settings.arguments;
+          if (args is String) {
+            return SearchBrowsePage(initialQuery: args);
+          } else if (args is Map<String, dynamic>) {
+            return SearchBrowsePage(
+              initialQuery: args['query'] as String? ?? '',
+              initialCategory: args['category'] as String?,
+            );
+          }
+          return const SearchBrowsePage();
+        },
+        splash: (context) => const SplashPage(),
+        '/splash': (context) => const SplashPage(),
+        landing: (context) => const LandingPage(),
+        login: (context) => const LoginPage(),
+        register: (context) => const RegisterPage(),
+        emailVerification: (context) {
+          final args = ModalRoute.of(context)?.settings.arguments;
+          if (args is String) {
+            return EmailVerificationPage(email: args);
+          } else if (args is Map<String, dynamic>) {
+            return EmailVerificationPage(
+              email: args['email'] as String?,
+              isLoginMode: args['isLoginMode'] as bool? ?? false,
+            );
+          }
+          return const EmailVerificationPage();
+        },
+        forgotPassword: (context) {
+          final args = ModalRoute.of(context)?.settings.arguments;
+          final email = args is String ? args : null;
+          return ForgotPasswordPage(initialEmail: email);
+        },
+        home: (context) => const NexoraHomePage(),
+        orders: (context) => const OrdersPage(),
+        chat: (context) => const ChatPage(),
+        profile: (context) => const ProfilePage(),
+        checkout: (context) => const CheckoutPage(),
+        productDetails: (context) => const ProductDetailsPage(),
+        cart: (context) => const CartPage(),
+        shop: (context) {
+          final args = ModalRoute.of(context)?.settings.arguments;
+          if (args is ShopModel) {
+            return ShopPage(initialShop: args);
+          } else if (args is String) {
+            return ShopPage(shopId: args);
+          }
+          return const ShopPage();
+        },
+        if (!kReleaseMode) customerMockOrder: (context) => const CustomerMockOrderScreen(),
+        orderDetails: (context) {
+          final args = ModalRoute.of(context)?.settings.arguments;
+          if (args is OrderItemModel) {
+            return OrderDetailsPage(order: args);
+          }
+          return const OrderDetailsPage();
+        },
+        shippedOrderDetails: (context) {
+          final args = ModalRoute.of(context)?.settings.arguments;
+          if (args is OrderItemModel) {
+            return ShippedOrderDetailsPage(order: args);
+          }
+          return const ShippedOrderDetailsPage();
+        },
+        orderTracking: (context) {
+          final args = ModalRoute.of(context)?.settings.arguments;
+          if (args is OrderItemModel) {
+            return OrderTrackingScreen(orderId: args.orderId, orderItem: args);
+          } else if (args is String) {
+            return OrderTrackingScreen(orderId: args);
+          }
+          return const OrderTrackingScreen();
+        },
+        rateProduct: (context) {
+          final args = ModalRoute.of(context)?.settings.arguments;
+          if (args is OrderItemModel) {
+            return RateProductPage(orderItem: args);
+          }
+          return const RateProductPage();
+        },
+        myAddresses: (context) => const MyAddressesPage(),
+        newAddress: (context) => const NewAddressPage(),
+        wishlist: (context) => const WishlistPage(),
+        categoryProducts: (context) {
+          final args = ModalRoute.of(context)?.settings.arguments;
+          if (args is Map) {
+            final cat = args['category']?.toString() ??
+                args['categoryName']?.toString() ??
+                args['query']?.toString() ??
+                'All';
+            final title = args['title']?.toString() ??
+                args['categoryTitle']?.toString() ??
+                args['label']?.toString();
+            return CategoryProductsPage(
+              category: cat,
+              categoryTitle: title,
+            );
+          } else if (args is String) {
+            return CategoryProductsPage(category: args);
+          }
+          return const CategoryProductsPage(category: 'All');
+        },
+        productReviews: (context) {
+          final args = ModalRoute.of(context)?.settings.arguments;
+          if (args is ProductModel) {
+            return ProductReviewsPage(product: args);
+          }
+          return Scaffold(
+            appBar: AppBar(title: const Text('Reviews')),
+            body: const Center(child: Text('Product not found')),
+          );
+        },
+        notifications: (context) => const NotificationsPage(),
+        paymentMethods: (context) => const PaymentMethodsPage(),
+        notificationPreferences: (context) => const NotificationPreferencesPage(),
+        followedStores: (context) => const FollowedStoresPage(),
+      };
 
   static Route<dynamic>? onGenerateRoute(RouteSettings settings) {
     final name = settings.name;
@@ -205,28 +203,10 @@ class AppRoutes {
             ),
           );
         }
-        if (pathSegments.length >= 2 && pathSegments[0] == 'categories') {
-          final category = Uri.decodeComponent(pathSegments[1]);
-          return MaterialPageRoute(
-            builder: (context) => CategoryProductsPage(category: category),
-            settings: RouteSettings(
-              name: AppRoutes.categoryProducts,
-              arguments: {'category': category, 'title': category},
-            ),
-          );
-        }
-        if (pathSegments.length >= 2 && pathSegments[0] == 'shops') {
-          final shopId = pathSegments[1];
-          return MaterialPageRoute(
-            builder: (context) => ShopPage(shopId: shopId),
-            settings: RouteSettings(
-              name: AppRoutes.shop,
-              arguments: shopId,
-            ),
-          );
-        }
       }
     }
     return null;
   }
 }
+
+

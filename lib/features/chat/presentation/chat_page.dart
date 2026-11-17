@@ -30,7 +30,7 @@ class _ChatPageState extends State<ChatPage> {
   @override
   void initState() {
     super.initState();
-    ChatService.instance.purgeMockConversations();
+    ChatService.instance.fetchConversationsRemote();
     ChatService.instance.addListener(_onChatServiceChanged);
     OrderChatService.instance.addListener(_onChatServiceChanged);
     OrderService.instance.addListener(_onChatServiceChanged);
@@ -487,8 +487,8 @@ class _ChatPageState extends State<ChatPage> {
     final order = OrderService.instance.activeOrders.first;
     final orderId = order.orderId.replaceAll('#', '').trim();
     final courierName = order.courierName.isNotEmpty
-        ? order.courierName.replaceAll('Mark Ronald', 'Pedro Jose Garcia')
-        : 'Pedro Jose Garcia';
+        ? order.courierName
+        : 'Assigned Courier';
     final messages = OrderChatService.instance.getMessages(orderId);
     final lastMessage = messages.isNotEmpty ? messages.last : null;
     final preview =
@@ -949,12 +949,11 @@ class _ChatPageState extends State<ChatPage> {
     final activeOrders = OrderService.instance.activeOrders;
     final activeOrder = activeOrders.isNotEmpty ? activeOrders.first : null;
     final orderId =
-        activeOrder?.orderId.replaceAll('#', '').trim() ?? 'NX-8942-ORD';
+        activeOrder?.orderId.replaceAll('#', '').trim() ?? '';
     final courierName =
-        (activeOrder?.courierName.isNotEmpty == true &&
-            !activeOrder!.courierName.contains('Mark'))
-        ? activeOrder.courierName
-        : 'Pedro Jose Garcia';
+        activeOrder?.courierName.isNotEmpty == true
+        ? activeOrder!.courierName
+        : 'Assigned Courier';
     final messages = OrderChatService.instance.getMessages(orderId);
     final lastMsg = messages.isNotEmpty ? messages.last : null;
     final previewText = lastMsg != null
@@ -1200,20 +1199,21 @@ class _ChatPageState extends State<ChatPage> {
                 // Footer Actions Row (Phone button, Location pin button, Carrier name, Chevron)
                 Row(
                   children: [
-                    _buildSmallIconButton(
-                      icon: Icons.phone_outlined,
-                      onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                              'Calling Pedro Jose Garcia (+63 917 123 4567)...',
+                    if (activeOrder?.courierPhone?.isNotEmpty == true) ...[
+                      _buildSmallIconButton(
+                        icon: Icons.phone_outlined,
+                        onPressed: () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                'Courier contact: ${activeOrder!.courierPhone}',
+                              ),
                             ),
-                            backgroundColor: Color(0xFF0284C7),
-                          ),
-                        );
-                      },
-                    ),
-                    const SizedBox(width: 8),
+                          );
+                        },
+                      ),
+                      const SizedBox(width: 8),
+                    ],
                     _buildSmallIconButton(
                       icon: Icons.location_on_outlined,
                       onPressed: () {
@@ -1788,14 +1788,9 @@ class _ChatPageState extends State<ChatPage> {
             Icon(Icons.map_rounded, size: 60, color: Color(0xFF0284C7)),
             SizedBox(height: 12),
             Text(
-              'Pedro Jose Garcia (Courier) is 1.2 km away.',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-            ),
-            SizedBox(height: 4),
-            Text(
-              'Destination: Front Desk / Receptionist Desk, Tower A',
+              'Track live delivery status on your order screen.',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 12, color: Colors.grey),
+              style: TextStyle(fontSize: 13),
             ),
           ],
         ),

@@ -14,7 +14,8 @@ class LandingPage extends StatefulWidget {
 }
 
 class _LandingPageState extends State<LandingPage> {
-  final PageController _pageController = PageController(viewportFraction: 0.92);
+  PageController? _pageController;
+  bool _lastIsWide = false;
   Timer? _autoSlideTimer;
   int _activeIndex = 0;
   bool? _animationsDisabled;
@@ -24,24 +25,39 @@ class _LandingPageState extends State<LandingPage> {
       title: 'Studio Pro headphones',
       detail: 'Immersive sound with all-day comfort.',
       price: '\u20B12,450',
-      imageUrl: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=1000&q=88',
+      imageUrl:
+          'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=1000&q=88',
       fallbackIcon: Icons.headphones_rounded,
     ),
     _HeroProduct(
       title: 'CyberPulse watch',
       detail: 'A clear view of every move.',
       price: '\u20B11,890',
-      imageUrl: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=1000&q=88',
+      imageUrl:
+          'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=1000&q=88',
       fallbackIcon: Icons.watch_rounded,
     ),
     _HeroProduct(
       title: 'Street Runner V2',
       detail: 'Lightweight cushioning for everyday miles.',
       price: '\u20B13,200',
-      imageUrl: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=1000&q=88',
+      imageUrl:
+          'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=1000&q=88',
       fallbackIcon: Icons.directions_run_rounded,
     ),
   ];
+
+  PageController _getController(bool isWide) {
+    if (_pageController == null || _lastIsWide != isWide) {
+      _lastIsWide = isWide;
+      _pageController?.dispose();
+      _pageController = PageController(
+        initialPage: _activeIndex,
+        viewportFraction: isWide ? 1.0 : 0.92,
+      );
+    }
+    return _pageController!;
+  }
 
   @override
   void didChangeDependencies() {
@@ -53,9 +69,11 @@ class _LandingPageState extends State<LandingPage> {
     _autoSlideTimer?.cancel();
     if (!disabled) {
       _autoSlideTimer = Timer.periodic(const Duration(seconds: 6), (_) {
-        if (!mounted || !_pageController.hasClients) return;
+        if (!mounted || _pageController == null || !_pageController!.hasClients) {
+          return;
+        }
         final next = (_activeIndex + 1) % _products.length;
-        _pageController.animateToPage(
+        _pageController!.animateToPage(
           next,
           duration: NexoraMotion.emphasized,
           curve: NexoraMotion.emphasizedCurve,
@@ -67,7 +85,7 @@ class _LandingPageState extends State<LandingPage> {
   @override
   void dispose() {
     _autoSlideTimer?.cancel();
-    _pageController.dispose();
+    _pageController?.dispose();
     super.dispose();
   }
 
@@ -97,152 +115,42 @@ class _LandingPageState extends State<LandingPage> {
             body: SafeArea(
               child: LayoutBuilder(
                 builder: (context, constraints) {
+                  final isWide = constraints.maxWidth >= 720;
                   final textScale = MediaQuery.textScalerOf(context).scale(1);
                   final accessibilityGrowth =
                       ((textScale - 1).clamp(0.0, 1.0) * 150);
-                  final storyHeight =
-                      ((constraints.maxHeight * 0.40).clamp(330.0, 390.0) +
-                              accessibilityGrowth)
-                          .clamp(330.0, 540.0);
+
+                  final verticalPad = isWide ? NexoraSpacing.xl : NexoraSpacing.md;
+                  final horizontalPad = isWide ? NexoraSpacing.xxl : NexoraSpacing.lg;
 
                   return SingleChildScrollView(
                     key: const ValueKey('landing-scroll'),
-                    padding: const EdgeInsets.fromLTRB(
-                      NexoraSpacing.lg,
-                      NexoraSpacing.md,
-                      NexoraSpacing.lg,
-                      NexoraSpacing.xl,
+                    padding: EdgeInsets.fromLTRB(
+                      horizontalPad,
+                      verticalPad,
+                      horizontalPad,
+                      isWide ? NexoraSpacing.xl : NexoraSpacing.xl,
                     ),
                     child: Center(
                       child: ConstrainedBox(
                         constraints: BoxConstraints(
-                          maxWidth: 520,
-                          minHeight:
-                              (constraints.maxHeight -
-                                      NexoraSpacing.md -
-                                      NexoraSpacing.xl)
-                                  .clamp(0, double.infinity),
+                          maxWidth: isWide ? 1040 : 520,
+                          minHeight: (constraints.maxHeight - verticalPad * 2)
+                              .clamp(0, double.infinity),
                         ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            _LandingHeader(onSignIn: _openSignIn),
-                            const SizedBox(height: NexoraSpacing.xxl),
-                            Text(
-                              'Good finds, without the noise.',
-                              style: theme.textTheme.displaySmall?.copyWith(
-                                color: const Color(0xFF0F172A),
-                                fontWeight: FontWeight.w900,
-                                height: 1.05,
-                                letterSpacing: -1.2,
+                        child: isWide
+                            ? _buildWideHeroLayout(
+                                context,
+                                theme,
+                                constraints,
+                                accessibilityGrowth,
+                              )
+                            : _buildCompactHeroLayout(
+                                context,
+                                theme,
+                                constraints,
+                                accessibilityGrowth,
                               ),
-                            ),
-                            const SizedBox(height: NexoraSpacing.sm),
-                            ConstrainedBox(
-                              constraints: const BoxConstraints(maxWidth: 430),
-                              child: Text(
-                                'Curated everyday essentials, clear prices, and a checkout that stays out of your way.',
-                                style: theme.textTheme.bodyLarge?.copyWith(
-                                  color: const Color(0xFF475569),
-                                  height: 1.5,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: NexoraSpacing.xl),
-                            SizedBox(
-                              height: storyHeight,
-                              child: PageView.builder(
-                                key: const ValueKey('landing-product-stories'),
-                                controller: _pageController,
-                                padEnds: false,
-                                itemCount: _products.length,
-                                onPageChanged: (index) =>
-                                    setState(() => _activeIndex = index),
-                                itemBuilder: (context, index) {
-                                  return Padding(
-                                    padding: EdgeInsetsDirectional.only(
-                                      end: index == _products.length - 1
-                                          ? 0
-                                          : NexoraSpacing.sm,
-                                    ),
-                                    child: _ProductStoryCard(
-                                      product: _products[index],
-                                      position: index + 1,
-                                      count: _products.length,
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
-                            const SizedBox(height: NexoraSpacing.sm),
-                            _StoryIndicator(
-                              activeIndex: _activeIndex,
-                              count: _products.length,
-                            ),
-                            const SizedBox(height: NexoraSpacing.xl),
-                            FilledButton.icon(
-                              key: const ValueKey('landing-explore-action'),
-                              onPressed: _exploreAsGuest,
-                              style: FilledButton.styleFrom(
-                                backgroundColor: NexoraTheme.primary,
-                                foregroundColor: Colors.white,
-                                minimumSize: const Size.fromHeight(52),
-                                elevation: 2,
-                                shadowColor:
-                                    NexoraTheme.primary.withValues(alpha: 0.3),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(
-                                    NexoraRadius.control,
-                                  ),
-                                ),
-                              ),
-                              iconAlignment: IconAlignment.end,
-                              icon: const Icon(
-                                Icons.arrow_forward_rounded,
-                                size: 19,
-                              ),
-                              label: const Text(
-                                'Explore the shop',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 15,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: NexoraSpacing.xs),
-                            OutlinedButton.icon(
-                              key: const ValueKey('landing-register-action'),
-                              onPressed: _openRegistration,
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: const Color(0xFF0F172A),
-                                side: const BorderSide(
-                                  color: Color(0xFFCBD5E1),
-                                  width: 1.2,
-                                ),
-                                minimumSize: const Size.fromHeight(50),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(
-                                    NexoraRadius.control,
-                                  ),
-                                ),
-                              ),
-                              iconAlignment: IconAlignment.end,
-                              icon: const Icon(
-                                Icons.arrow_outward_rounded,
-                                size: 18,
-                              ),
-                              label: const Text(
-                                'Create an account',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: NexoraSpacing.lg),
-                            const _TrustRow(),
-                          ],
-                        ),
                       ),
                     ),
                   );
@@ -252,6 +160,285 @@ class _LandingPageState extends State<LandingPage> {
           );
         },
       ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Tablet / iPad / Desktop Adaptive Two-Column Hero
+  // ---------------------------------------------------------------------------
+  Widget _buildWideHeroLayout(
+    BuildContext context,
+    ThemeData theme,
+    BoxConstraints constraints,
+    double accessibilityGrowth,
+  ) {
+    final controller = _getController(true);
+    final storyHeight = ((constraints.maxHeight * 0.52).clamp(420.0, 520.0) +
+            accessibilityGrowth)
+        .clamp(420.0, 600.0);
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        // Left Column: Brand Navigation, Headline, Copy, Action Buttons, Trust Row
+        Expanded(
+          flex: 5,
+          child: Padding(
+            padding: const EdgeInsets.only(right: NexoraSpacing.xxl),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _LandingHeader(onSignIn: _openSignIn),
+                const SizedBox(height: NexoraSpacing.xxl),
+                Text(
+                  'Good finds, without the noise.',
+                  style: theme.textTheme.displaySmall?.copyWith(
+                    color: const Color(0xFF0F172A),
+                    fontWeight: FontWeight.w900,
+                    fontSize: 38,
+                    height: 1.08,
+                    letterSpacing: -1.2,
+                  ),
+                ),
+                const SizedBox(height: NexoraSpacing.md),
+                Text(
+                  'Curated everyday essentials, clear prices, and a checkout that stays out of your way.',
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    color: const Color(0xFF475569),
+                    fontSize: 16,
+                    height: 1.5,
+                  ),
+                ),
+                const SizedBox(height: NexoraSpacing.xl),
+                FilledButton.icon(
+                  key: const ValueKey('landing-explore-action'),
+                  onPressed: _exploreAsGuest,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: NexoraTheme.primary,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size.fromHeight(54),
+                    elevation: 2,
+                    shadowColor: NexoraTheme.primary.withValues(alpha: 0.3),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(NexoraRadius.control),
+                    ),
+                  ),
+                  iconAlignment: IconAlignment.end,
+                  icon: const Icon(Icons.arrow_forward_rounded, size: 20),
+                  label: const Text(
+                    'Explore the shop',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 15.5,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: NexoraSpacing.sm),
+                OutlinedButton.icon(
+                  key: const ValueKey('landing-register-action'),
+                  onPressed: _openRegistration,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF0F172A),
+                    side: const BorderSide(
+                      color: Color(0xFFCBD5E1),
+                      width: 1.2,
+                    ),
+                    minimumSize: const Size.fromHeight(52),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(NexoraRadius.control),
+                    ),
+                  ),
+                  iconAlignment: IconAlignment.end,
+                  icon: const Icon(Icons.arrow_outward_rounded, size: 19),
+                  label: const Text(
+                    'Create an account',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14.5,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: NexoraSpacing.xl),
+                const _TrustRow(),
+              ],
+            ),
+          ),
+        ),
+
+        // Right Column: Showcase Card Carousel & Dots (Cleanly Contained)
+        Expanded(
+          flex: 5,
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 480),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  SizedBox(
+                    height: storyHeight,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(NexoraRadius.large),
+                      child: PageView.builder(
+                        key: const ValueKey('landing-product-stories'),
+                        controller: controller,
+                        clipBehavior: Clip.antiAlias,
+                        itemCount: _products.length,
+                        onPageChanged: (index) =>
+                            setState(() => _activeIndex = index),
+                        itemBuilder: (context, index) {
+                          return _ProductStoryCard(
+                            product: _products[index],
+                            position: index + 1,
+                            count: _products.length,
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: NexoraSpacing.md),
+                  _StoryIndicator(
+                    activeIndex: _activeIndex,
+                    count: _products.length,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Phone / Compact Vertical Flow
+  // ---------------------------------------------------------------------------
+  Widget _buildCompactHeroLayout(
+    BuildContext context,
+    ThemeData theme,
+    BoxConstraints constraints,
+    double accessibilityGrowth,
+  ) {
+    final controller = _getController(false);
+    final storyHeight = ((constraints.maxHeight * 0.40).clamp(330.0, 390.0) +
+            accessibilityGrowth)
+        .clamp(330.0, 540.0);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        _LandingHeader(onSignIn: _openSignIn),
+        const SizedBox(height: NexoraSpacing.xxl),
+        Text(
+          'Good finds, without the noise.',
+          style: theme.textTheme.displaySmall?.copyWith(
+            color: const Color(0xFF0F172A),
+            fontWeight: FontWeight.w900,
+            height: 1.05,
+            letterSpacing: -1.2,
+          ),
+        ),
+        const SizedBox(height: NexoraSpacing.sm),
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 430),
+          child: Text(
+            'Curated everyday essentials, clear prices, and a checkout that stays out of your way.',
+            style: theme.textTheme.bodyLarge?.copyWith(
+              color: const Color(0xFF475569),
+              height: 1.5,
+            ),
+          ),
+        ),
+        const SizedBox(height: NexoraSpacing.xl),
+        SizedBox(
+          height: storyHeight,
+          child: PageView.builder(
+            key: const ValueKey('landing-product-stories'),
+            controller: controller,
+            padEnds: true,
+            clipBehavior: Clip.antiAlias,
+            itemCount: _products.length,
+            onPageChanged: (index) => setState(() => _activeIndex = index),
+            itemBuilder: (context, index) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                child: _ProductStoryCard(
+                  product: _products[index],
+                  position: index + 1,
+                  count: _products.length,
+                ),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: NexoraSpacing.sm),
+        _StoryIndicator(
+          activeIndex: _activeIndex,
+          count: _products.length,
+        ),
+        const SizedBox(height: NexoraSpacing.xl),
+        FilledButton.icon(
+          key: const ValueKey('landing-explore-action'),
+          onPressed: _exploreAsGuest,
+          style: FilledButton.styleFrom(
+            backgroundColor: NexoraTheme.primary,
+            foregroundColor: Colors.white,
+            minimumSize: const Size.fromHeight(52),
+            elevation: 2,
+            shadowColor: NexoraTheme.primary.withValues(alpha: 0.3),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(
+                NexoraRadius.control,
+              ),
+            ),
+          ),
+          iconAlignment: IconAlignment.end,
+          icon: const Icon(
+            Icons.arrow_forward_rounded,
+            size: 19,
+          ),
+          label: const Text(
+            'Explore the shop',
+            style: TextStyle(
+              fontWeight: FontWeight.w800,
+              fontSize: 15,
+            ),
+          ),
+        ),
+        const SizedBox(height: NexoraSpacing.xs),
+        OutlinedButton.icon(
+          key: const ValueKey('landing-register-action'),
+          onPressed: _openRegistration,
+          style: OutlinedButton.styleFrom(
+            foregroundColor: const Color(0xFF0F172A),
+            side: const BorderSide(
+              color: Color(0xFFCBD5E1),
+              width: 1.2,
+            ),
+            minimumSize: const Size.fromHeight(50),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(
+                NexoraRadius.control,
+              ),
+            ),
+          ),
+          iconAlignment: IconAlignment.end,
+          icon: const Icon(
+            Icons.arrow_outward_rounded,
+            size: 18,
+          ),
+          label: const Text(
+            'Create an account',
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 14,
+            ),
+          ),
+        ),
+        const SizedBox(height: NexoraSpacing.lg),
+        const _TrustRow(),
+      ],
     );
   }
 }

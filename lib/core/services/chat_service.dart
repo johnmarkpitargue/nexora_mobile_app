@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../constants/api_constants.dart';
+import '../network/api_client.dart';
 
 class ChatMessageModel {
   final String sender; // 'user' or 'other'
@@ -10,6 +12,15 @@ class ChatMessageModel {
     required this.text,
     required this.time,
   });
+
+  factory ChatMessageModel.fromApiJson(Map<String, dynamic> json) {
+    final isMine = json['is_me'] == true || json['is_mine'] == true || json['sender_type'] == 'buyer';
+    return ChatMessageModel(
+      sender: isMine ? 'user' : 'other',
+      text: json['body'] as String? ?? json['message'] as String? ?? '',
+      time: json['time_ago'] as String? ?? (json['created_at'] != null ? json['created_at'].toString().split(' ').last : 'Now'),
+    );
+  }
 
   Map<String, dynamic> toMap() {
     return {
@@ -83,6 +94,28 @@ class ChatConversationModel {
       'initialMessages': messages.map((m) => m.toMap()).toList(),
     };
   }
+
+  factory ChatConversationModel.fromApiJson(Map<String, dynamic> json) {
+    final other = json['other_participant'] as Map<String, dynamic>? ?? json['seller'] as Map<String, dynamic>? ?? {};
+    final storeName = other['name'] as String? ?? other['store_name'] as String? ?? json['subject'] as String? ?? 'Seller';
+    final avatarUrl = other['avatar_url'] as String?;
+    final lastMsg = json['last_message'] as Map<String, dynamic>?;
+    final lastMsgText = lastMsg?['body'] as String? ?? lastMsg?['message'] as String? ?? 'No messages yet';
+    final timeStr = lastMsg?['created_at'] as String? ?? (lastMsg?['time_ago'] as String? ?? 'Now');
+
+    return ChatConversationModel(
+      id: json['id'].toString(),
+      category: 'Sellers',
+      title: storeName,
+      subtitle: lastMsgText,
+      brandTag: 'BRAND',
+      time: timeStr,
+      avatarUrl: avatarUrl,
+      avatarIcon: Icons.storefront_rounded,
+      avatarBg: const Color(0xFF0066FF),
+      messages: [],
+    );
+  }
 }
 
 class ChatService extends ChangeNotifier {
@@ -90,6 +123,93 @@ class ChatService extends ChangeNotifier {
 
   ChatService._internal() {
     _initConversations();
+  }
+
+  void purgeMockConversations() {
+    _conversations.clear();
+    notifyListeners();
+  }
+
+  /// Fetch buyer chat conversations from Laravel backend API
+  Future<List<ChatConversationModel>> fetchConversationsRemote() async {
+    if (!ApiClient.instance.hasToken) return conversations;
+    try {
+      final res = await ApiClient.instance.get(ApiConstants.buyerChat);
+      final data = res['data'];
+      final List list = data is List ? data : (data is Map && data['data'] is List ? data['data'] : []);
+      final parsed = list.map((c) => ChatConversationModel.fromApiJson(c as Map<String, dynamic>)).toList();
+      _conversations.clear();
+      _conversations.addAll(parsed);
+      notifyListeners();
+      return conversations;
+    } catch (e) {
+      debugPrint('fetchConversationsRemote error: $e');
+      return conversations;
+    }
+  }
+
+  /// Fetch messages for conversation from Laravel backend API
+  Future<List<ChatMessageModel>> fetchMessagesRemote(String conversationId) async {
+    final existing = getConversationById(conversationId)?.messages ?? [];
+    if (!ApiClient.instance.hasToken) return existing;
+    try {
+      final res = await ApiClient.instance.get(ApiConstants.buyerChatConversation(conversationId));
+      if (res['data'] is Map<String, dynamic>) {
+        final messages = res['data']['messages'];
+        if (messages is List) {
+          final list = messages.map((m) => ChatMessageModel.fromApiJson(m as Map<String, dynamic>)).toList();
+          final conv = getConversationById(conversationId);
+          if (conv != null) {
+            conv.messages.clear();
+            conv.messages.addAll(list);
+            notifyListeners();
+          }
+          return list;
+        }
+      }
+    } catch (e) {
+      debugPrint('fetchMessagesRemote error: $e');
+    }
+    return getConversationById(conversationId)?.messages ?? [];
+  }
+
+  /// Start a chat with a seller on Laravel backend API
+  Future<ChatConversationModel?> startConversationRemote(int sellerId) async {
+    if (!ApiClient.instance.hasToken) return null;
+    try {
+      final res = await ApiClient.instance.post(
+        ApiConstants.buyerChatStart,
+        body: {'seller_id': sellerId},
+      );
+      if (res['data'] is Map<String, dynamic>) {
+        final conv = ChatConversationModel.fromApiJson(res['data'] as Map<String, dynamic>);
+        _conversations.removeWhere((c) => c.id == conv.id);
+        _conversations.insert(0, conv);
+        notifyListeners();
+        return conv;
+      }
+    } catch (e) {
+      debugPrint('startConversationRemote error: $e');
+    }
+    return null;
+  }
+
+  /// Send message in conversation via Laravel backend API
+  Future<ChatMessageModel?> sendMessageRemote(String conversationId, String text) async {
+    sendUserMessage(conversationId, text);
+    if (!ApiClient.instance.hasToken) return null;
+    try {
+      final res = await ApiClient.instance.post(
+        ApiConstants.buyerChatMessage(conversationId),
+        body: {'body': text, 'message': text},
+      );
+      if (res['data'] is Map<String, dynamic>) {
+        return ChatMessageModel.fromApiJson(res['data'] as Map<String, dynamic>);
+      }
+    } catch (e) {
+      debugPrint('sendMessageRemote error: $e');
+    }
+    return null;
   }
 
   final List<ChatConversationModel> _conversations = [];
@@ -107,31 +227,8 @@ class ChatService extends ChangeNotifier {
       _conversations.where((c) => !c.isDeleted && !c.isHidden).fold(0, (sum, c) => sum + c.unread);
 
   void _initConversations() {
-    // Initialized empty so it is clean and ready for live web / API integration
-    _conversations.clear();
-  }
-
-  /// Removes any legacy mock conversations from memory (useful across hot reloads)
-  void purgeMockConversations() {
-    _conversations.removeWhere((c) =>
-        c.id == 'nexora_store' ||
-        c.id == 'aura_studios' ||
-        c.id == 'ai_support' ||
-        c.id == 'logitech_store');
-    notifyListeners();
-  }
-
-  /// Hook for web/backend integration: set conversations fetched from the web server/API.
-  void setConversations(List<ChatConversationModel> conversations) {
-    _conversations.clear();
-    _conversations.addAll(conversations);
-    notifyListeners();
-  }
-
-  /// Clears all conversations for account sign-out or session resets.
-  void clearConversations() {
-    _conversations.clear();
-    notifyListeners();
+    // Production conversations load exclusively from Laravel GET /api/mobile/v1/buyer/chat
+    // and live Supabase courier dispatch channels; never pre-seed fake chats.
   }
 
   ChatConversationModel? getConversationById(String id) {

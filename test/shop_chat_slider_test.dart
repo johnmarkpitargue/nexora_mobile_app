@@ -2,6 +2,9 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:nexora_flutter_app/core/network/api_client.dart';
+import 'package:nexora_flutter_app/core/services/buyer_account_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:nexora_flutter_app/core/models/shop_models.dart';
 import 'package:nexora_flutter_app/core/services/chat_service.dart';
 import 'package:nexora_flutter_app/features/chat/presentation/chat_detail_page.dart';
@@ -64,6 +67,19 @@ class _MockHttpClientResponse extends StreamView<List<int>> with Fake implements
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   HttpOverrides.global = _TestHttpOverrides();
+
+  setUp(() async {
+    SharedPreferences.setMockInitialValues({});
+    BuyerAccountService.instance.resetState();
+    BuyerAccountService.instance.seedLoggedInBuyer(
+      firstName: 'Juan',
+      lastName: 'Dela Cruz',
+      email: 'chat.buyer@nexora.com',
+      mobileNumber: '09171234567',
+      password: 'Password@123',
+    );
+    await ApiClient.instance.saveToken('test-chat-token');
+  });
 
   group('ChatService Shop Messaging & Slider State Tests', () {
     test('getOrCreateShopConversation creates a new conversation with store context', () {

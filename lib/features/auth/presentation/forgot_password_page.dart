@@ -1,13 +1,9 @@
 import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-
 import '../../../app/routes/app_routes.dart';
-import '../../../app/theme/nexora_theme.dart';
 import '../../../core/services/buyer_account_service.dart';
 import '../../../core/services/external_notification_service.dart';
-import 'widgets/auth_components.dart';
 
 class ForgotPasswordPage extends StatefulWidget {
   final String? initialEmail;
@@ -23,12 +19,12 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
 
   // Controllers
   final TextEditingController _emailController = TextEditingController();
-  final List<TextEditingController> _otpControllers = List.generate(
-    6,
-    (_) => TextEditingController(),
-  );
-  final List<FocusNode> _otpFocusNodes = List.generate(6, (_) => FocusNode());
-  final TextEditingController _newPasswordController = TextEditingController();
+  final List<TextEditingController> _otpControllers =
+      List.generate(6, (_) => TextEditingController());
+  final List<FocusNode> _otpFocusNodes =
+      List.generate(6, (_) => FocusNode());
+  final TextEditingController _newPasswordController =
+      TextEditingController();
   final TextEditingController _confirmPasswordController =
       TextEditingController();
 
@@ -246,340 +242,8 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
     }
   }
 
-  Widget _buildRecoveryPage(BuildContext context) {
-    const titles = [
-      'Reset your password',
-      'Check your messages',
-      'Choose a new password',
-      'Password updated',
-    ];
-    const subtitles = [
-      'Enter the email or mobile number linked to your Nexora account.',
-      'Enter the 6-digit recovery code we sent you.',
-      'Use a strong password you haven’t used for this account before.',
-      'Your account is secure and ready for you.',
-    ];
-    return AuthPageScaffold(
-      title: titles[_currentStep],
-      subtitle: subtitles[_currentStep],
-      onBack: _handleRecoveryBack,
-      content: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (_currentStep < 3) ...[
-            AuthStepProgress(current: _currentStep + 1, total: 3),
-            const SizedBox(height: NexoraSpacing.lg),
-          ],
-          AnimatedSwitcher(
-            duration: NexoraMotion.resolve(context, NexoraMotion.layout),
-            switchInCurve: NexoraMotion.emphasizedCurve,
-            switchOutCurve: NexoraMotion.standardCurve,
-            transitionBuilder: (child, animation) => FadeTransition(
-              opacity: animation,
-              child: SizeTransition(sizeFactor: animation, child: child),
-            ),
-            child: KeyedSubtree(
-              key: ValueKey(_currentStep),
-              child: switch (_currentStep) {
-                0 => _buildNewRequestStep(),
-                1 => _buildNewOtpStep(),
-                2 => _buildNewPasswordStep(),
-                _ => _buildNewSuccessStep(),
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _handleRecoveryBack() {
-    if (_currentStep == 0 || _currentStep == 3) {
-      Navigator.maybePop(context);
-      return;
-    }
-    setState(() {
-      _currentStep--;
-      _errorMessage = null;
-    });
-  }
-
-  Widget _buildNewRequestStep() {
-    return AuthSection(
-      child: Form(
-        key: _requestFormKey,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            TextFormField(
-              controller: _emailController,
-              keyboardType: TextInputType.emailAddress,
-              textInputAction: TextInputAction.done,
-              autofillHints: const [
-                AutofillHints.username,
-                AutofillHints.email,
-              ],
-              onFieldSubmitted: (_) => _handleRequestOtp(),
-              decoration: const InputDecoration(
-                labelText: 'Email or Mobile',
-                hintText: 'name@example.com',
-                prefixIcon: Icon(Icons.email_outlined),
-              ),
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return 'Please enter your email or mobile number';
-                }
-                return null;
-              },
-            ),
-            if (_errorMessage != null) ...[
-              const SizedBox(height: NexoraSpacing.sm),
-              AuthNotice(message: _errorMessage!, isError: true),
-            ],
-            const SizedBox(height: NexoraSpacing.lg),
-            AuthPrimaryButton(
-              label: 'Send verification code',
-              loading: _isLoading,
-              onPressed: _handleRequestOtp,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildNewOtpStep() {
-    return AuthSection(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            _emailController.text.trim(),
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyMedium
-                ?.copyWith(fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: NexoraSpacing.md),
-          AuthOtpFields(
-            controllers: _otpControllers,
-            focusNodes: _otpFocusNodes,
-            onChanged: _onRecoveryOtpChanged,
-          ),
-          const SizedBox(height: NexoraSpacing.xs),
-          Align(
-            alignment: AlignmentDirectional.centerEnd,
-            child: TextButton.icon(
-              onPressed: _pasteRecoveryCode,
-              icon: const Icon(Icons.content_paste_rounded, size: 18),
-              label: const Text('Paste code'),
-            ),
-          ),
-          if (_errorMessage != null) ...[
-            const SizedBox(height: NexoraSpacing.xs),
-            AuthNotice(message: _errorMessage!, isError: true),
-          ],
-          const SizedBox(height: NexoraSpacing.md),
-          Semantics(
-            liveRegion: true,
-            child: Text(
-              _secondsRemaining > 0
-                  ? 'Code expires in $_formattedTime'
-                  : 'Code expired. Request a new one.',
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: _secondsRemaining < 60
-                    ? Theme.of(context).colorScheme.error
-                    : Theme.of(context).colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-          const SizedBox(height: NexoraSpacing.lg),
-          AuthPrimaryButton(
-            label: 'Verify code',
-            loading: _isLoading,
-            onPressed: _secondsRemaining > 0 ? _handleVerifyOtp : null,
-          ),
-          const SizedBox(height: NexoraSpacing.xs),
-          TextButton(
-            onPressed: _resendCooldown == 0 && !_isLoading
-                ? _handleResendOtp
-                : null,
-            child: Text(
-              _resendCooldown > 0
-                  ? 'Resend in ${_resendCooldown}s'
-                  : 'Resend code',
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildNewPasswordStep() {
-    return AuthSection(
-      child: Form(
-        key: _passwordFormKey,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            TextFormField(
-              controller: _newPasswordController,
-              obscureText: !_isPasswordVisible,
-              autocorrect: false,
-              enableSuggestions: false,
-              autofillHints: const [AutofillHints.newPassword],
-              decoration: InputDecoration(
-                labelText: 'New Password',
-                hintText: 'At least 8 characters',
-                prefixIcon: const Icon(Icons.lock_outline_rounded),
-                suffixIcon: IconButton(
-                  tooltip: _isPasswordVisible
-                      ? 'Hide password'
-                      : 'Show password',
-                  onPressed: () =>
-                      setState(() => _isPasswordVisible = !_isPasswordVisible),
-                  icon: Icon(
-                    _isPasswordVisible
-                        ? Icons.visibility_outlined
-                        : Icons.visibility_off_outlined,
-                  ),
-                ),
-              ),
-              validator: _validateNewPassword,
-            ),
-            const SizedBox(height: NexoraSpacing.md),
-            TextFormField(
-              controller: _confirmPasswordController,
-              obscureText: !_isConfirmVisible,
-              autocorrect: false,
-              enableSuggestions: false,
-              textInputAction: TextInputAction.done,
-              autofillHints: const [AutofillHints.newPassword],
-              onFieldSubmitted: (_) => _handleResetPassword(),
-              decoration: InputDecoration(
-                labelText: 'Confirm New Password',
-                hintText: 'Repeat your new password',
-                prefixIcon: const Icon(Icons.lock_reset_rounded),
-                suffixIcon: IconButton(
-                  tooltip: _isConfirmVisible
-                      ? 'Hide password'
-                      : 'Show password',
-                  onPressed: () =>
-                      setState(() => _isConfirmVisible = !_isConfirmVisible),
-                  icon: Icon(
-                    _isConfirmVisible
-                        ? Icons.visibility_outlined
-                        : Icons.visibility_off_outlined,
-                  ),
-                ),
-              ),
-              validator: (value) {
-                if (value != _newPasswordController.text) {
-                  return 'Passwords do not match';
-                }
-                return null;
-              },
-            ),
-            if (_errorMessage != null) ...[
-              const SizedBox(height: NexoraSpacing.sm),
-              AuthNotice(message: _errorMessage!, isError: true),
-            ],
-            const SizedBox(height: NexoraSpacing.lg),
-            AuthPrimaryButton(
-              label: 'Update password',
-              loading: _isLoading,
-              onPressed: _handleResetPassword,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildNewSuccessStep() {
-    return AuthSection(
-      child: Column(
-        children: [
-          Container(
-            width: 64,
-            height: 64,
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primaryContainer,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              Icons.check_rounded,
-              size: 34,
-              color: Theme.of(context).colorScheme.primary,
-            ),
-          ),
-          const SizedBox(height: NexoraSpacing.md),
-          Text(
-            'You can now sign in with your new password.',
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyLarge,
-          ),
-          const SizedBox(height: NexoraSpacing.lg),
-          AuthPrimaryButton(
-            label: 'Return to Sign In',
-            onPressed: () => Navigator.pushNamedAndRemoveUntil(
-              context,
-              AppRoutes.login,
-              (route) => false,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _onRecoveryOtpChanged(int index, String value) {
-    if (value.isNotEmpty && index < _otpControllers.length - 1) {
-      _otpFocusNodes[index + 1].requestFocus();
-    } else if (value.isNotEmpty) {
-      _otpFocusNodes[index].unfocus();
-    } else if (index > 0) {
-      _otpFocusNodes[index - 1].requestFocus();
-    }
-    if (_errorMessage != null) setState(() => _errorMessage = null);
-  }
-
-  Future<void> _pasteRecoveryCode() async {
-    final data = await Clipboard.getData(Clipboard.kTextPlain);
-    final digits = data?.text?.replaceAll(RegExp(r'\D'), '') ?? '';
-    if (digits.length < 6) return;
-    for (var index = 0; index < 6; index++) {
-      _otpControllers[index].text = digits[index];
-    }
-    _otpFocusNodes.last.unfocus();
-    setState(() => _errorMessage = null);
-  }
-
-  String? _validateNewPassword(String? value) {
-    final password = value ?? '';
-    if (password.isEmpty) return 'Password is required';
-    if (password.length < 8) return 'Must be at least 8 characters';
-    if (!RegExp(r'[A-Z]').hasMatch(password)) {
-      return 'Must contain uppercase letter';
-    }
-    if (!RegExp(r'[a-z]').hasMatch(password)) {
-      return 'Must contain lowercase letter';
-    }
-    if (!RegExp(r'[0-9]').hasMatch(password)) {
-      return 'Must contain at least one number';
-    }
-    if (!RegExp(r'[!@#\$%^&*(),.?":{}|<>\-_]').hasMatch(password)) {
-      return 'Must contain at least one special character';
-    }
-    return null;
-  }
-
   @override
   Widget build(BuildContext context) {
-    if (!const bool.fromEnvironment('NEXORA_LEGACY_AUTH')) {
-      return _buildRecoveryPage(context);
-    }
     return Scaffold(
       backgroundColor: const Color(0xFFF6F8FC),
       appBar: AppBar(
@@ -637,8 +301,8 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                 color: isCompleted
                     ? const Color(0xFF10B981)
                     : isActive
-                    ? const Color(0xFF0066FF)
-                    : const Color(0xFFE2E8F0),
+                        ? const Color(0xFF0066FF)
+                        : const Color(0xFFE2E8F0),
               ),
               child: Center(
                 child: isCompleted
@@ -646,9 +310,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                     : Text(
                         '${index + 1}',
                         style: TextStyle(
-                          color: isActive
-                              ? Colors.white
-                              : const Color(0xFF94A3B8),
+                          color: isActive ? Colors.white : const Color(0xFF94A3B8),
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
                         ),
@@ -706,12 +368,33 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Enter your registered email or mobile number to receive a 6-digit verification code.',
+            'Enter your registered email to reset your password, or visit the Nexora web portal (/forgot-password) for online account recovery.',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 13.5,
               color: Color(0xFF64748B),
               height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 14),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFEFF6FF),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFBFDBFE)),
+            ),
+            child: const Row(
+              children: [
+                Icon(Icons.info_outline_rounded, size: 18, color: Color(0xFF1F3A8A)),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'If you cannot sign in on mobile, please complete password reset on the Nexora Market web portal or contact support.',
+                    style: TextStyle(fontSize: 12, color: Color(0xFF1E3A8A)),
+                  ),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 24),
@@ -743,7 +426,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                 TextFormField(
                   controller: _emailController,
                   decoration: _buildInputDecoration(
-                    hint: 'e.g. alex.rivera@nexora.io',
+                    hint: 'e.g. name@example.com',
                     prefixIcon: Icons.email_outlined,
                   ),
                   validator: (val) {
@@ -832,7 +515,9 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                         fontWeight: FontWeight.w900,
                         color: Color(0xFF0F172A),
                       ),
-                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                      ],
                       decoration: InputDecoration(
                         counterText: '',
                         filled: true,
@@ -885,11 +570,8 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                 children: [
                   Row(
                     children: [
-                      const Icon(
-                        Icons.timer_outlined,
-                        size: 16,
-                        color: Color(0xFF64748B),
-                      ),
+                      const Icon(Icons.timer_outlined,
+                          size: 16, color: Color(0xFF64748B)),
                       const SizedBox(width: 4),
                       Text(
                         _formattedTime,

@@ -1,8 +1,6 @@
 import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-
 import 'order_tracking_screen.dart';
 
 /// Screen in the Customer App to place a test/mock order into Supabase.
@@ -14,8 +12,7 @@ class CustomerMockOrderScreen extends StatefulWidget {
   const CustomerMockOrderScreen({super.key});
 
   @override
-  State<CustomerMockOrderScreen> createState() =>
-      _CustomerMockOrderScreenState();
+  State<CustomerMockOrderScreen> createState() => _CustomerMockOrderScreenState();
 }
 
 class _CustomerMockOrderScreenState extends State<CustomerMockOrderScreen> {
@@ -36,19 +33,15 @@ class _CustomerMockOrderScreenState extends State<CustomerMockOrderScreen> {
       final String orderNumber = 'NX-${1000 + Random().nextInt(9000)}';
 
       // Insert row into the Supabase 'orders' table
-      final newOrder = await supabase
-          .from('orders')
-          .insert({
-            'order_id': orderNumber,
-            'customer_id': 'cust_student_01',
-            'item_details': '$_itemTitle (Qty: 1) - $_itemPrice',
-            'delivery_address': _deliveryAddress,
-            'delivery_lat': _deliveryLat,
-            'delivery_lng': _deliveryLng,
-            'status': 'pending',
-          })
-          .select()
-          .single();
+      final newOrder = await supabase.from('orders').insert({
+        'order_id': orderNumber,
+        'customer_id': 'cust_student_01',
+        'item_details': '$_itemTitle (Qty: 1) - $_itemPrice',
+        'delivery_address': _deliveryAddress,
+        'delivery_lat': _deliveryLat,
+        'delivery_lng': _deliveryLng,
+        'status': 'pending',
+      }).select().single();
 
       if (!mounted) return;
 
@@ -117,10 +110,7 @@ class _CustomerMockOrderScreenState extends State<CustomerMockOrderScreen> {
                   children: [
                     _buildSummaryRow('Order Code', orderNumber),
                     const Divider(height: 16),
-                    _buildSummaryRow(
-                      'Coordinates',
-                      '$_deliveryLat, $_deliveryLng',
-                    ),
+                    _buildSummaryRow('Coordinates', '$_deliveryLat, $_deliveryLng'),
                     const Divider(height: 16),
                     _buildSummaryRow('Status', 'PENDING', isHighlight: true),
                   ],
@@ -136,8 +126,7 @@ class _CustomerMockOrderScreenState extends State<CustomerMockOrderScreen> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) =>
-                            OrderTrackingScreen(orderId: insertedId),
+                        builder: (_) => OrderTrackingScreen(orderId: insertedId),
                       ),
                     );
                   },
@@ -174,26 +163,17 @@ class _CustomerMockOrderScreenState extends State<CustomerMockOrderScreen> {
     }
   }
 
-  Widget _buildSummaryRow(
-    String label,
-    String value, {
-    bool isHighlight = false,
-  }) {
+  Widget _buildSummaryRow(String label, String value, {bool isHighlight = false}) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(
-          label,
-          style: const TextStyle(fontSize: 13, color: Color(0xFF64748B)),
-        ),
+        Text(label, style: const TextStyle(fontSize: 13, color: Color(0xFF64748B))),
         Text(
           value,
           style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.bold,
-            color: isHighlight
-                ? const Color(0xFFF59E0B)
-                : const Color(0xFF0F172A),
+            color: isHighlight ? const Color(0xFFF59E0B) : const Color(0xFF0F172A),
           ),
         ),
       ],
@@ -219,11 +199,7 @@ class _CustomerMockOrderScreenState extends State<CustomerMockOrderScreen> {
         elevation: 0.5,
         centerTitle: true,
         leading: IconButton(
-          icon: const Icon(
-            Icons.arrow_back_ios_new_rounded,
-            color: Color(0xFF0F172A),
-            size: 20,
-          ),
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Color(0xFF0F172A), size: 20),
           onPressed: () => Navigator.maybePop(context),
         ),
       ),
@@ -251,11 +227,7 @@ class _CustomerMockOrderScreenState extends State<CustomerMockOrderScreen> {
                         color: brandBlue.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: const Icon(
-                        Icons.headphones_rounded,
-                        color: brandBlue,
-                        size: 30,
-                      ),
+                      child: const Icon(Icons.headphones_rounded, color: brandBlue, size: 30),
                     ),
                     const SizedBox(width: 14),
                     Expanded(
@@ -302,11 +274,7 @@ class _CustomerMockOrderScreenState extends State<CustomerMockOrderScreen> {
                   children: [
                     const Row(
                       children: [
-                        Icon(
-                          Icons.location_on_rounded,
-                          color: brandBlue,
-                          size: 20,
-                        ),
+                        Icon(Icons.location_on_rounded, color: brandBlue, size: 20),
                         SizedBox(width: 8),
                         Text(
                           'Delivery Destination',
@@ -329,10 +297,7 @@ class _CustomerMockOrderScreenState extends State<CustomerMockOrderScreen> {
                     ),
                     const SizedBox(height: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
-                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                       decoration: BoxDecoration(
                         color: const Color(0xFFF1F5F9),
                         borderRadius: BorderRadius.circular(8),
@@ -340,11 +305,7 @@ class _CustomerMockOrderScreenState extends State<CustomerMockOrderScreen> {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(
-                            Icons.gps_fixed_rounded,
-                            size: 14,
-                            color: Color(0xFF64748B),
-                          ),
+                          const Icon(Icons.gps_fixed_rounded, size: 14, color: Color(0xFF64748B)),
                           const SizedBox(width: 6),
                           Text(
                             'Lat: $_deliveryLat, Lng: $_deliveryLng',
