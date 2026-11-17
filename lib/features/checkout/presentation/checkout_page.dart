@@ -109,9 +109,14 @@ class _CheckoutPageState extends State<CheckoutPage> {
       final sId = int.tryParse(_selectedShippingVoucher?.id ?? '');
       final stId = int.tryParse(_selectedStoreVoucher?.id ?? '');
 
+      final addressId = int.tryParse(
+        AddressService.instance.defaultAddress?.id ?? '',
+      );
+
       if (!_isDirectBuy && _serverCartItemIds.isNotEmpty) {
         final preview = await _orderService.fetchCheckoutSummaryRemote(
           cartItemIds: _serverCartItemIds,
+          addressId: addressId,
           platformVoucherId: pId,
           shippingVoucherId: sId,
           storeVoucherId: stId,
@@ -779,6 +784,19 @@ class _CheckoutPageState extends State<CheckoutPage> {
       return;
     }
 
+    if (_serverSummary != null && !_serverSummary!.allServiceable) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _serverSummary!.serviceabilityError ??
+                'Your delivery address is outside our courier servicing areas.',
+          ),
+          backgroundColor: NexoraTheme.error,
+        ),
+      );
+      return;
+    }
+
     setState(() => _isPlacingOrder = true);
 
     _currentAttemptIdempotencyKey ??=
@@ -1116,14 +1134,17 @@ class _CheckoutPageState extends State<CheckoutPage> {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () {
+          onTap: () async {
             if (AddressService.instance.addresses.isEmpty) {
-              Navigator.push(
+              await Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const NewAddressPage()),
               );
             } else {
-              Navigator.pushNamed(context, AppRoutes.myAddresses);
+              await Navigator.pushNamed(context, AppRoutes.myAddresses);
+            }
+            if (mounted) {
+              await _loadCheckoutPreview();
             }
           },
           child: Column(

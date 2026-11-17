@@ -24,6 +24,8 @@ class CheckoutSummaryPreview {
   final double totalDiscount;
   final List<String> voucherErrors;
   final double estimatedTotal;
+  final bool allServiceable;
+  final String? serviceabilityError;
 
   const CheckoutSummaryPreview({
     required this.stores,
@@ -36,6 +38,8 @@ class CheckoutSummaryPreview {
     required this.totalDiscount,
     required this.voucherErrors,
     required this.estimatedTotal,
+    this.allServiceable = true,
+    this.serviceabilityError,
   });
 
   factory CheckoutSummaryPreview.fromJson(Map<String, dynamic> json) {
@@ -77,6 +81,10 @@ class CheckoutSummaryPreview {
       totalDiscount: toDouble(json['total_discount']),
       voucherErrors: rawErrors,
       estimatedTotal: toDouble(json['estimated_total']),
+      allServiceable: json['all_serviceable'] is bool
+          ? json['all_serviceable'] as bool
+          : true,
+      serviceabilityError: json['serviceability_error']?.toString(),
     );
   }
 }
@@ -1433,6 +1441,7 @@ class OrderService extends ChangeNotifier {
   /// available DB vouchers, and voucher discount breakdown from Laravel.
   Future<CheckoutSummaryPreview> fetchCheckoutSummaryRemote({
     List<int>? cartItemIds,
+    int? addressId,
     int? platformVoucherId,
     int? shippingVoucherId,
     int? storeVoucherId,
@@ -1449,6 +1458,8 @@ class OrderService extends ChangeNotifier {
       queryParams: <String, dynamic>{
         if (cartItemIds != null && cartItemIds.isNotEmpty)
           'cart_item_ids': cartItemIds.join(','),
+        if (addressId != null && addressId > 0)
+          'address_id': addressId.toString(),
         if (platformVoucherId != null && platformVoucherId > 0)
           'platform_voucher_id': platformVoucherId.toString(),
         if (shippingVoucherId != null && shippingVoucherId > 0)
