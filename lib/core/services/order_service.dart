@@ -1442,6 +1442,8 @@ class OrderService extends ChangeNotifier {
   Future<CheckoutSummaryPreview> fetchCheckoutSummaryRemote({
     List<int>? cartItemIds,
     int? addressId,
+    int? directProductId,
+    int? directQuantity,
     int? platformVoucherId,
     int? shippingVoucherId,
     int? storeVoucherId,
@@ -1460,6 +1462,10 @@ class OrderService extends ChangeNotifier {
           'cart_item_ids': cartItemIds.join(','),
         if (addressId != null && addressId > 0)
           'address_id': addressId.toString(),
+        if (directProductId != null && directProductId > 0)
+          'direct_product_id': directProductId.toString(),
+        if (directQuantity != null && directQuantity > 0)
+          'direct_quantity': directQuantity.toString(),
         if (platformVoucherId != null && platformVoucherId > 0)
           'platform_voucher_id': platformVoucherId.toString(),
         if (shippingVoucherId != null && shippingVoucherId > 0)

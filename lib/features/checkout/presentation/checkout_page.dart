@@ -113,10 +113,21 @@ class _CheckoutPageState extends State<CheckoutPage> {
         AddressService.instance.defaultAddress?.id ?? '',
       );
 
-      if (!_isDirectBuy && _serverCartItemIds.isNotEmpty) {
+      final directProdId = _isDirectBuy && _checkoutItems.isNotEmpty
+          ? (int.tryParse(_checkoutItems.first.productId ?? '') ??
+              int.tryParse(_checkoutItems.first.id))
+          : null;
+      final directQty = _isDirectBuy && _checkoutItems.isNotEmpty
+          ? _checkoutItems.first.quantity
+          : 1;
+
+      if ((!_isDirectBuy && _serverCartItemIds.isNotEmpty) ||
+          (directProdId != null && directProdId > 0)) {
         final preview = await _orderService.fetchCheckoutSummaryRemote(
-          cartItemIds: _serverCartItemIds,
+          cartItemIds: _isDirectBuy ? null : _serverCartItemIds,
           addressId: addressId,
+          directProductId: directProdId,
+          directQuantity: directQty,
           platformVoucherId: pId,
           shippingVoucherId: sId,
           storeVoucherId: stId,
@@ -128,7 +139,6 @@ class _CheckoutPageState extends State<CheckoutPage> {
           _isLoadingSummary = false;
         });
       } else {
-        // Direct Buy item isn't in DB cart until order placement; fetch real DB vouchers
         final vouchers = await _voucherService.fetchVouchersRemote();
         if (!mounted) return;
         setState(() {
@@ -229,6 +239,42 @@ class _CheckoutPageState extends State<CheckoutPage> {
     return '₱${v.discountAmount.toStringAsFixed(0)} OFF';
   }
 
+  String _buildRouteSummaryText() {
+    if (_serverSummary == null || _serverSummary!.stores.isEmpty) {
+      return 'Standard Door-to-Door';
+    }
+    final routes = _serverSummary!.stores
+        .map((s) => (s['route_type'] ?? 'same_city').toString().replaceAll('_', ' '))
+        .toSet()
+        .map((r) => r.split(' ').map((w) => w.isEmpty ? w : '${w[0].toUpperCase()}${w.substring(1)}').join(' '))
+        .toList();
+    return 'Standard (${routes.join(', ')})';
+  }
+
+  String _buildShippingBreakdownText() {
+    if (_serverSummary == null || _serverSummary!.stores.isEmpty) {
+      return 'Fetching active policy calculation...';
+    }
+    final first = _serverSummary!.stores.first;
+    final billedKg = first['billed_weight'] ?? 1;
+    final b = first['shipping_breakdown'];
+    if (b is Map) {
+      final mode = (b['pricing_mode'] ?? 'weight_tiered').toString();
+      if (mode == 'smart_cost_margin') {
+        final estCost = (b['total_estimated_cost'] ?? 0).toString();
+        final margin = (b['target_profit_margin_pct'] ?? 20).toString();
+        final pickup = (b['estimated_pickup_cost'] ?? 0).toString();
+        final delivery = (b['estimated_delivery_cost'] ?? 0).toString();
+        final transfer = (b['estimated_transfer_cost'] ?? 0).toString();
+        final hub = (b['estimated_hub_cost'] ?? 0).toString();
+        return '${billedKg}kg billed · Cost ₱$estCost (Pickup ₱$pickup + Del ₱$delivery + Transfer ₱$transfer + Hub ₱$hub) ÷ (1 − $margin% margin)';
+      }
+      final addlWeightFee = (b['additional_weight_fee'] ?? 0).toString();
+      return '${billedKg}kg billed · Active policy tariff + ₱$addlWeightFee add\'l weight';
+    }
+    return '${billedKg}kg billed · Computed by active shipping policy';
+  }
+
   Future<void> _openShippingOptionModal() async {
     await showModalBottomSheet<ShippingOptionResult>(
       context: context,
@@ -237,11 +283,12 @@ class _CheckoutPageState extends State<CheckoutPage> {
       builder: (_) => ShippingOptionModal(
         initialSelection: ShippingOptionResult(
           methodType: 'door_to_door',
-          optionName: 'Standard Door-to-Door',
+          optionName: _buildRouteSummaryText(),
           estimatedDate: _serverSummary != null
-              ? 'Weight-based rate'
-              : 'Calculated by parcel weight at confirmation',
+              ? _buildRouteSummaryText()
+              : 'Calculating...',
           shippingFee: _shippingSubtotal,
+          breakdownSummary: _buildShippingBreakdownText(),
         ),
       ),
     );
@@ -1501,7 +1548,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
     final hasServerFee = _serverSummary != null;
     final feeText = hasServerFee
         ? _formatPeso(_shippingSubtotal)
-        : 'Weight-based';
+        : 'Calculating...';
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 10),
@@ -1562,7 +1609,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Standard Door-to-Door',
+                          _buildRouteSummaryText(),
                           style: TextStyle(
                             fontWeight: FontWeight.w800,
                             fontSize: 12.5,
@@ -1570,9 +1617,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                           ),
                         ),
                         Text(
-                          hasServerFee
-                              ? 'Calculated from parcel weight per store'
-                              : 'Weight-based shipping calculated at confirmation',
+                          _buildShippingBreakdownText(),
                           style: TextStyle(
                             fontSize: 11,
                             color: cs.onSurfaceVariant,
@@ -1797,7 +1842,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
             'Shipping Fee',
             _serverSummary != null
                 ? _formatPeso(_shippingSubtotal)
-                : 'Weight-based',
+                : 'Calculating...',
           ),
           if (_itemDiscount > 0) ...[
             const SizedBox(height: 6),

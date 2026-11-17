@@ -7,6 +7,8 @@ class ShippingOptionResult {
   final String estimatedDate; // 'Calculated by parcel weight'
   final double shippingFee;
   final String? pickupLocation;
+  final String? routeLabel;
+  final String? breakdownSummary;
 
   const ShippingOptionResult({
     required this.methodType,
@@ -14,6 +16,8 @@ class ShippingOptionResult {
     required this.estimatedDate,
     required this.shippingFee,
     this.pickupLocation,
+    this.routeLabel,
+    this.breakdownSummary,
   });
 }
 
@@ -28,10 +32,10 @@ class ShippingOptionModal extends StatelessWidget {
     final cs = theme.colorScheme;
     final hasKnownFee = initialSelection.shippingFee > 0;
     final feeLabel = hasKnownFee
-        ? '₱${initialSelection.shippingFee.toStringAsFixed(0)}'
+        ? '₱${initialSelection.shippingFee.toStringAsFixed(2)}'
         : (initialSelection.estimatedDate.isNotEmpty
             ? initialSelection.estimatedDate
-            : 'Weight-based rate');
+            : 'Calculating...');
 
     return Container(
       constraints: BoxConstraints(
@@ -138,7 +142,8 @@ class ShippingOptionModal extends StatelessWidget {
                               ),
                               const SizedBox(height: 3),
                               Text(
-                                'Dispatched via Nexora hub-to-hub and rider network. Fee is calculated from billed parcel weight per store.',
+                                initialSelection.breakdownSummary ??
+                                    'Dispatched via Nexora hub-to-hub and rider network using active shipping policy rates.',
                                 style: TextStyle(
                                   fontSize: 11.5,
                                   color: cs.onSurfaceVariant,
@@ -212,8 +217,8 @@ class ShippingOptionModal extends StatelessWidget {
                       ),
                       Text(
                         hasKnownFee
-                            ? '₱${initialSelection.shippingFee.toStringAsFixed(0)}'
-                            : 'Weight-based',
+                            ? '₱${initialSelection.shippingFee.toStringAsFixed(2)}'
+                            : 'Calculating...',
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w900,

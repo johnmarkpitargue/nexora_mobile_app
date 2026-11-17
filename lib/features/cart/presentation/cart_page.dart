@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+
 import '../../../app/routes/app_routes.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/services/address_service.dart';
 import '../../../core/services/buyer_account_service.dart';
 import '../../../core/services/cart_service.dart';
 import '../../../core/services/chat_service.dart';
+import '../../../core/services/order_service.dart';
 import '../../../core/utils/guest_auth_guard.dart';
 import '../../chat/presentation/chat_detail_page.dart';
 
@@ -18,11 +21,42 @@ class _CartPageState extends State<CartPage> {
   bool _isEditMode = false;
   bool _isMutating = false;
   final CartService _cartService = CartService.instance;
+  CheckoutSummaryPreview? _shippingPreview;
 
   @override
   void initState() {
     super.initState();
-    _cartService.loadCartRemote();
+    _loadCartAndQuote();
+  }
+
+  Future<void> _loadCartAndQuote() async {
+    await _cartService.loadCartRemote();
+    await _refreshShippingPreview();
+  }
+
+  Future<void> _refreshShippingPreview() async {
+    if (!ApiClient.instance.hasToken) return;
+    final checkedIds = _cartService.items
+        .where((i) => i.isChecked)
+        .map((i) => int.tryParse(i.id) ?? 0)
+        .where((id) => id > 0)
+        .toList();
+    if (checkedIds.isEmpty) {
+      if (mounted) setState(() => _shippingPreview = null);
+      return;
+    }
+    try {
+      final addressId = int.tryParse(
+        AddressService.instance.defaultAddress?.id ?? '',
+      );
+      final preview = await OrderService.instance.fetchCheckoutSummaryRemote(
+        cartItemIds: checkedIds,
+        addressId: addressId,
+      );
+      if (mounted) {
+        setState(() => _shippingPreview = preview);
+      }
+    } catch (_) {}
   }
 
   int get _checkedCount => _cartService.selectedCount;
@@ -52,11 +86,15 @@ class _CartPageState extends State<CartPage> {
     );
   }
 
-  Future<void> _runCartMutation(Future<void> Function() action, {String? successMessage}) async {
+  Future<void> _runCartMutation(
+    Future<void> Function() action, {
+    String? successMessage,
+  }) async {
     if (_isMutating) return;
     setState(() => _isMutating = true);
     try {
       await action();
+      await _refreshShippingPreview();
       if (successMessage != null && mounted) {
         ScaffoldMessenger.of(context).hideCurrentSnackBar();
         ScaffoldMessenger.of(context).showSnackBar(
@@ -76,12 +114,13 @@ class _CartPageState extends State<CartPage> {
   }
 
   Future<void> _toggleSelectAll(bool? val) async {
-    await _runCartMutation(
-      () => _cartService.selectAllRemote(val ?? false),
-    );
+    await _runCartMutation(() => _cartService.selectAllRemote(val ?? false));
   }
 
-  Future<void> _toggleStore(List<CartItemModel> storeItems, bool checked) async {
+  Future<void> _toggleStore(
+    List<CartItemModel> storeItems,
+    bool checked,
+  ) async {
     final sellerId = storeItems.isNotEmpty ? storeItems.first.sellerId : null;
     if (sellerId != null) {
       await _runCartMutation(
@@ -222,7 +261,8 @@ class _CartPageState extends State<CartPage> {
         }
 
         final hasSession =
-            ApiClient.instance.hasToken && BuyerAccountService.instance.isLoggedIn;
+            ApiClient.instance.hasToken &&
+            BuyerAccountService.instance.isLoggedIn;
 
         return Scaffold(
           backgroundColor: theme.scaffoldBackgroundColor,
@@ -297,13 +337,20 @@ class _CartPageState extends State<CartPage> {
                                 _cartService.items.isEmpty)
                               const Padding(
                                 padding: EdgeInsets.symmetric(vertical: 80),
-                                child: Center(child: CircularProgressIndicator()),
+                                child: Center(
+                                  child: CircularProgressIndicator(),
+                                ),
                               )
                             else if (_cartService.items.isEmpty)
                               _buildEmptyCartView(context)
                             else
-                              ...groupedItems.values
-                                  .map((storeItems) => _buildStoreGroupCard(storeItems, theme, isDark)),
+                              ...groupedItems.values.map(
+                                (storeItems) => _buildStoreGroupCard(
+                                  storeItems,
+                                  theme,
+                                  isDark,
+                                ),
+                              ),
                             const SizedBox(height: 120),
                           ],
                         ),
@@ -431,10 +478,7 @@ class _CartPageState extends State<CartPage> {
           const SizedBox(height: 6),
           const Text(
             'Explore products and add them to your cart!',
-            style: TextStyle(
-              fontSize: 12,
-              color: Color(0xFF64748B),
-            ),
+            style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
           ),
           const SizedBox(height: 16),
           ElevatedButton(
@@ -455,11 +499,16 @@ class _CartPageState extends State<CartPage> {
     );
   }
 
-  Widget _buildStoreGroupCard(List<CartItemModel> items, ThemeData theme, bool isDark) {
+  Widget _buildStoreGroupCard(
+    List<CartItemModel> items,
+    ThemeData theme,
+    bool isDark,
+  ) {
     final isStoreChecked = _isStoreAllChecked(items);
     final firstItem = items.first;
-    final storeName =
-        firstItem.storeName.isNotEmpty ? firstItem.storeName : 'Seller Store';
+    final storeName = firstItem.storeName.isNotEmpty
+        ? firstItem.storeName
+        : 'Seller Store';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
@@ -482,8 +531,10 @@ class _CartPageState extends State<CartPage> {
               const SizedBox(width: 8),
               if (firstItem.storeBadge.isNotEmpty) ...[
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: theme.colorScheme.primary,
                     borderRadius: BorderRadius.circular(4),
@@ -563,14 +614,25 @@ class _CartPageState extends State<CartPage> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF78350F).withValues(alpha: 0.2) : const Color(0xFFFFFBEB),
+                color: isDark
+                    ? const Color(0xFF78350F).withValues(alpha: 0.2)
+                    : const Color(0xFFFFFBEB),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: isDark ? const Color(0xFF78350F) : const Color(0xFFFDE68A)),
+                border: Border.all(
+                  color: isDark
+                      ? const Color(0xFF78350F)
+                      : const Color(0xFFFDE68A),
+                ),
               ),
               child: Row(
                 children: [
-                  Icon(Icons.beach_access_rounded,
-                      size: 14, color: isDark ? const Color(0xFFFBBF24) : const Color(0xFFD97706)),
+                  Icon(
+                    Icons.beach_access_rounded,
+                    size: 14,
+                    color: isDark
+                        ? const Color(0xFFFBBF24)
+                        : const Color(0xFFD97706),
+                  ),
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
@@ -578,7 +640,9 @@ class _CartPageState extends State<CartPage> {
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
-                        color: isDark ? const Color(0xFFFDE68A) : const Color(0xFF92400E),
+                        color: isDark
+                            ? const Color(0xFFFDE68A)
+                            : const Color(0xFF92400E),
                       ),
                     ),
                   ),
@@ -636,14 +700,20 @@ class _CartPageState extends State<CartPage> {
                       color: isDark
                           ? theme.colorScheme.surfaceContainer
                           : const Color(0xFFE2E8F0),
-                      child: Icon(Icons.image, color: theme.colorScheme.onSurfaceVariant),
+                      child: Icon(
+                        Icons.image,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   )
                 : Container(
                     color: isDark
                         ? theme.colorScheme.surfaceContainer
                         : const Color(0xFFE2E8F0),
-                    child: Icon(Icons.image, color: theme.colorScheme.onSurfaceVariant),
+                    child: Icon(
+                      Icons.image,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
                   ),
           ),
           const SizedBox(width: 10),
@@ -687,8 +757,10 @@ class _CartPageState extends State<CartPage> {
 
                 if (item.variant.isNotEmpty && item.variant != 'Standard') ...[
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
                       color: isDark
                           ? theme.colorScheme.surfaceContainer
@@ -750,9 +822,14 @@ class _CartPageState extends State<CartPage> {
                       child: Row(
                         children: [
                           IconButton(
-                            icon: Icon(Icons.remove, size: 14, color: theme.colorScheme.onSurface),
-                            onPressed:
-                                _isMutating ? null : () => _decrementQty(item),
+                            icon: Icon(
+                              Icons.remove,
+                              size: 14,
+                              color: theme.colorScheme.onSurface,
+                            ),
+                            onPressed: _isMutating
+                                ? null
+                                : () => _decrementQty(item),
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(
                               minWidth: 28,
@@ -771,9 +848,14 @@ class _CartPageState extends State<CartPage> {
                             ),
                           ),
                           IconButton(
-                            icon: Icon(Icons.add, size: 14, color: theme.colorScheme.onSurface),
-                            onPressed:
-                                _isMutating ? null : () => _incrementQty(item),
+                            icon: Icon(
+                              Icons.add,
+                              size: 14,
+                              color: theme.colorScheme.onSurface,
+                            ),
+                            onPressed: _isMutating
+                                ? null
+                                : () => _incrementQty(item),
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(
                               minWidth: 28,
@@ -811,7 +893,9 @@ class _CartPageState extends State<CartPage> {
     return Container(
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerLowest,
-        border: Border(top: BorderSide(color: theme.colorScheme.outlineVariant)),
+        border: Border(
+          top: BorderSide(color: theme.colorScheme.outlineVariant),
+        ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
@@ -849,8 +933,10 @@ class _CartPageState extends State<CartPage> {
                 style: OutlinedButton.styleFrom(
                   foregroundColor: theme.colorScheme.onSurface,
                   side: BorderSide(color: theme.colorScheme.outlineVariant),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 10,
+                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(20),
                   ),
@@ -866,8 +952,10 @@ class _CartPageState extends State<CartPage> {
                 style: OutlinedButton.styleFrom(
                   foregroundColor: const Color(0xFFDC2626),
                   side: const BorderSide(color: Color(0xFFDC2626)),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 10,
+                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(20),
                   ),
@@ -897,7 +985,7 @@ class _CartPageState extends State<CartPage> {
                         ),
                       ),
                       Text(
-                        '₱${_subtotal.toStringAsFixed(2)}',
+                        '₱${(_subtotal + (_shippingPreview?.totalShipping ?? 0.0)).toStringAsFixed(2)}',
                         style: TextStyle(
                           fontSize: 17,
                           fontWeight: FontWeight.w900,
@@ -906,6 +994,15 @@ class _CartPageState extends State<CartPage> {
                       ),
                     ],
                   ),
+                  if (_shippingPreview != null && _checkedCount > 0)
+                    Text(
+                      'Incl. Est. Shipping ₱${_shippingPreview!.totalShipping.toStringAsFixed(2)}',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        color: theme.colorScheme.primary,
+                      ),
+                    ),
                   if (_totalSaved > 0)
                     Container(
                       padding: const EdgeInsets.symmetric(
@@ -913,7 +1010,9 @@ class _CartPageState extends State<CartPage> {
                         vertical: 2,
                       ),
                       decoration: BoxDecoration(
-                        color: isDark ? theme.colorScheme.surfaceContainerHigh : const Color(0xFFF1F5F9),
+                        color: isDark
+                            ? theme.colorScheme.surfaceContainerHigh
+                            : const Color(0xFFF1F5F9),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
@@ -921,7 +1020,9 @@ class _CartPageState extends State<CartPage> {
                         style: TextStyle(
                           fontSize: 9.5,
                           fontWeight: FontWeight.w700,
-                          color: isDark ? const Color(0xFF7BDFF1) : const Color(0xFF0284C7),
+                          color: isDark
+                              ? const Color(0xFF7BDFF1)
+                              : const Color(0xFF0284C7),
                         ),
                       ),
                     ),
@@ -940,8 +1041,7 @@ class _CartPageState extends State<CartPage> {
                             final loggedIn = await GuestAuthGuard.requireLogin(
                               context,
                               title: 'Sign In to Proceed to Checkout',
-                              message:
-                                  'Please sign in or create an account to finalize your order, apply vouchers, and track delivery.',
+                              message: 'Please sign in or create an account to finalize your order, apply vouchers, and track delivery.',
                             );
                             if (!loggedIn || !mounted) return;
                           }
@@ -992,11 +1092,7 @@ class _CartPageState extends State<CartPage> {
               : Border.all(color: const Color(0xFFCBD5E1), width: 1.5),
         ),
         child: isChecked
-            ? const Icon(
-                Icons.check,
-                size: 14,
-                color: Colors.white,
-              )
+            ? const Icon(Icons.check, size: 14, color: Colors.white)
             : null,
       ),
     );
